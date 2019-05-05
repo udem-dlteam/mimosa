@@ -1,0 +1,1692 @@
+// file: "main.cpp"
+
+// Copyright (c) 2001 by Marc Feeley and Université de Montréal, All
+// Rights Reserved.
+//
+// Revision History
+// 23 Nov 01  initial version (Marc Feeley)
+
+//-----------------------------------------------------------------------------
+
+#if 0
+
+#include "general.h"
+#include "term.h"
+#include "apic.h"
+#include "time.h"
+#include "asm.h"
+#include "intr.h"
+#include "thread.h"
+#include "fs.h"
+
+#if 0
+extern "C"
+{
+#include "etherboot.h"
+#include "nic.h"
+};
+#endif
+
+//-----------------------------------------------------------------------------
+
+void walk (native_char path[NAME_MAX+1], uint32* nb_files)
+{
+  DIR* dir;
+
+  dir = opendir (path);
+
+  if (dir != NULL)
+    {
+      uint32 len = 0;
+
+      while (path[len] != '\0')
+        len++;
+
+      path[len++] = '/';
+
+      for (;;)
+        {
+          uint32 i;
+          struct dirent* de;
+
+          de = readdir (dir);
+
+          if (de == NULL)
+            break;
+
+          if (!(de->d_name[0] == '.'
+                && (de->d_name[1] == '\0'
+                    || (de->d_name[1] == '.'
+                        && de->d_name[2] == '\0'))))
+            {
+              struct stat s;
+              error_code err;
+
+              i = 0;
+              while (de->d_name[i] != '\0')
+                path[len+i] = de->d_name[i++];
+              path[len+i] = '\0';
+
+              ////////cout << path << "\n";
+
+              if (!ERROR(err = stat (path, &s)))
+                {
+                  if (S_ISDIR(s.st_mode))
+                    walk (path, nb_files);
+                  else
+                    (*nb_files)++;
+                }
+            }
+        }
+
+      path[--len] = '\0';
+
+      closedir (dir); // ignore error
+    }
+}
+
+uint32 count_files (native_string path)
+{
+  native_char path2[NAME_MAX+1];
+  native_string p1 = path;
+  native_string p2 = path2;
+  uint32 nb_files = 0;
+
+  while (*p1 != '\0')
+    *p2++ = *p1++;
+  *p2++ = '\0';
+
+  walk (path2, &nb_files);
+
+  return nb_files;
+}
+
+void process ()
+{
+#if 1
+  native_string path = "/X0004";
+#else
+  native_string path = "/WINNT/SYSTEM32";
+#endif
+  uint32 nb_files = count_files (path);
+#if 1
+  if (nb_files != 208)
+    cout << "*** ERREUR: nb_files = " << nb_files << " (devrait etre 208)\n";
+#else
+  if (nb_files != 5656)
+    cout << "*** ERREUR: nb_files = " << nb_files << " (devrait etre 5656)\n";
+#endif
+}
+
+void test (uint32 n)
+{
+  thread* t[100];
+  uint32 i;
+  struct timeval start;
+  struct timeval end;
+  uint32 usecs;
+
+  cout << n << " threads:\n";
+
+  gettimeofday (&start, NULL);
+
+  for (i=0; i<n; i++)
+    t[i] = new thread (process);
+
+  for (i=0; i<n; i++)
+    t[i]->start ();
+
+  for (i=0; i<n; i++)
+    t[i]->join ();
+
+  gettimeofday (&end, NULL);
+
+  usecs = end.tv_usec - start.tv_usec
+          + (end.tv_sec - start.tv_sec) * 1000000;
+
+  cout << "    temps = " << usecs/1000 << " msecs\n";
+}
+
+int main ()
+{
+#if 0
+  uint32 i;
+
+  for (i=1; i<=5; i++)
+    test (i);
+#endif
+
+  for (;;);
+  return 0;
+}
+
+#if 0
+
+#if 0
+void show_packet()
+{
+  int q, len;
+
+  len = (int)nic.packetlen;
+  if (len >25) len = 25; 
+  //if (nic.packet[0] != (char)0xff){
+    for (q=0; q<len; q++)
+      printf ("%hhx ", nic.packet[q]); 
+    printf("\n");
+  //}
+}   
+
+static unsigned short ipchksum(unsigned short *ip, int len)
+{
+  unsigned long sum = 0;
+  len >>= 1;
+  while (len--)
+    {
+      sum += *(ip++);
+      if (sum > 0xFFFF)
+        sum -= 0xFFFF;
+    }
+  return((~sum) & 0x0000FFFF);
+}
+
+#define IPADDR(a,b,c,d) ((a)<<24)+((b)<<16)+((c)<<8)+(d)
+
+struct node
+  {
+    char* name;
+    arptable_t arp;
+  };
+
+#define NB_NODES 6
+#define BROADCAST (NB_NODES-1)
+
+struct node nodes[NB_NODES] =
+{
+  {
+    "dino00",
+    {
+      { IPADDR(132,204,25,170) },
+      { 0x00, 0xD0, 0xB7, 0x68, 0xDC, 0x16 }
+    }
+  },
+  {
+    "dino01",
+    {
+      { IPADDR(132,204,25,171) },
+      { 0x00, 0x90, 0x27, 0x44, 0x13, 0x49 }
+    }
+  },
+  {
+    "dino02",
+    {
+      { IPADDR(132,204,25,172) },
+      { 0x00, 0xD0, 0xB7, 0x68, 0xE1, 0x8B }
+    }
+  },
+  {
+    "dino03",
+    {
+      { IPADDR(132,204,25,173) },
+      { 0x00, 0x90, 0x27, 0x5A, 0xE4, 0xAC }
+    }
+  },
+  {
+    "dino04",
+    {
+      { IPADDR(132,204,25,174) },
+      { 0x00, 0x90, 0x27, 0x5A, 0xE4, 0xAF }
+    }
+  },
+  {
+    "broadcast",
+    {
+      { IPADDR(132,204,27,255) },
+      { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF }
+    }
+  }
+};
+
+bool equal_node_addr (uint8 node1[ETH_ALEN], uint8 node2[ETH_ALEN])
+{
+  for (int i=0; i<ETH_ALEN; i++)
+    if (node1[i] != node2[i])
+      return 0;
+  return 1;
+}
+
+int find_node_id_from_node_addr (uint8 addr[ETH_ALEN])
+{
+  for (int node_id=0; node_id<NB_NODES; node_id++)
+    if (equal_node_addr (addr, nodes[node_id].arp.node))
+      return node_id;
+  return -1;
+}
+
+int find_node_id_from_in_addr (in_addr addr)
+{
+  for (int node_id=0; node_id<NB_NODES; node_id++)
+    if (addr.s_addr == nodes[node_id].arp.ipaddr.s_addr)
+      return node_id;
+  return -1;
+}
+
+void udp_transmit
+  (int src_id,
+   int dst_id,
+   uint16 src_sock,
+   uint16 dst_sock,
+   int len,
+   void* buf)
+{
+  struct iphdr *ip;
+  struct udphdr *udp;
+
+  ip = (struct iphdr *)buf;
+  udp = (struct udphdr *)((char *)buf + sizeof(struct iphdr));
+  ip->verhdrlen = 0x45;
+  ip->service = 0;
+  ip->len = htons(len);
+  ip->ident = 0;
+  ip->frags = 0;
+  ip->ttl = 60;
+  ip->protocol = IP_UDP;
+  ip->chksum = 0;
+  ip->src.s_addr = nodes[src_id].arp.ipaddr.s_addr;
+  ip->dest.s_addr = nodes[dst_id].arp.ipaddr.s_addr;
+  ip->chksum = ipchksum((unsigned short *)buf, sizeof(struct iphdr));
+  udp->src = htons(src_sock);
+  udp->dest = htons(dst_sock);
+  udp->len = htons(len - sizeof(struct iphdr));
+  udp->chksum = 0;
+  eth_transmit((const char*)nodes[dst_id].arp.node, IP, len, buf);
+}
+
+struct ethhdr
+  {
+    uint8 dst_addr[ETH_ALEN];
+    uint8 src_addr[ETH_ALEN];
+    uint16 type;
+  };
+
+struct udp_packet_type1
+  {
+    struct iphdr iphdr;
+    struct udphdr udphdr;
+    int a;
+    int b;
+  };
+
+struct udp_packet_type2
+  {
+    struct iphdr iphdr;
+    struct udphdr udphdr;
+    int c;
+    int d;
+  };
+
+//#define DEBUG 1
+
+void exec_node (int node_id)
+{
+  term window (0, 420, 80, 3, &font::mono_6x9, L"window");
+
+  cout << "This is " << nodes[node_id].name << "\n";
+
+#if 0
+  if (node_id == 2 || node_id == 3)
+    {
+      int my_slice = node_id % 2;
+
+      cout << "I am a server (my_slice=" << my_slice << ")\n";
+
+      int packets_received = 0;
+      int packets_sent = 0;
+      int data = 0;
+
+      for (;;)
+        {
+          if (eth_poll())
+            {
+              struct udp_packet_type1* r =
+                (struct udp_packet_type1*)(nic.packet+sizeof(struct ethhdr));
+
+#if DEBUG
+              packets_received++;
+              window << "\rpackets received=" << packets_received
+                     << " sent=" << packets_sent;
+#endif
+
+              if (nic.packetlen >= sizeof (struct ethhdr) + sizeof (*r)
+                  && ((struct ethhdr*)nic.packet)->type == htons (IP)
+                  && r->iphdr.protocol == IP_UDP)
+                {
+                  int src_node_id = find_node_id_from_in_addr (r->iphdr.src);
+                  int dest_node_id = find_node_id_from_in_addr (r->iphdr.dest);
+
+#if DEBUG
+                  cout << "src_node_id=" << src_node_id << "\n";
+                  cout << "dest_node_id=" << dest_node_id << "\n";
+#endif
+
+                  if (r->a == 5678)
+                    {
+                      if (r->b % 2 == my_slice) // request managed by me?
+                        {
+                          data++;/////
+
+                          struct udp_packet_type2 s;
+
+                          s.c = 1234;
+                          s.d = data;
+
+                          udp_transmit
+                            (node_id,
+                             src_node_id,
+                             65,
+                             9877,
+                             sizeof (s),
+                             &s);
+
+#if DEBUG
+                          packets_sent++;
+                          window << "\rpackets received=" << packets_received
+                                 << " sent=" << packets_sent;
+#endif
+                        }
+                    }
+                }
+            }
+        }
+    }
+  else
+    {
+      cout << "I am a client\n";
+
+      struct timeval now, last;
+
+      gettimeofday (&now, NULL);
+      last = now;
+
+      int packets_received = 0;
+      int packets_sent = 0;
+      int counter = 0;
+      int received = 0;
+      int last_data = 0;
+      int x = 0;
+
+      for (;;)
+        {
+          if (eth_poll())
+            {
+              struct udp_packet_type2* r =
+                (struct udp_packet_type2*)(nic.packet+sizeof(struct ethhdr));
+
+#if DEBUG
+              packets_received++;
+              window << "\rpackets received=" << packets_received
+                     << " sent=" << packets_sent;
+#endif
+
+              if (nic.packetlen >= sizeof (struct ethhdr) + sizeof (*r)
+                  && ((struct ethhdr*)nic.packet)->type == htons (IP)
+                  && r->iphdr.protocol == IP_UDP)
+                {
+                  int src_node_id = find_node_id_from_in_addr (r->iphdr.src);
+                  int dest_node_id = find_node_id_from_in_addr (r->iphdr.dest);
+
+#if DEBUG
+                  cout << "src_node_id=" << src_node_id << "\n";
+                  cout << "dest_node_id=" << dest_node_id << "\n";
+#endif
+
+                  if (r->c == 1234)
+                    {
+                      last_data = r->d;
+                      received++;
+                    }
+                }
+            }
+
+          struct udp_packet_type1 s;
+
+          s.a = 5678;
+          s.b = 1014 + x;
+
+          udp_transmit
+            (node_id,
+             BROADCAST,
+             65,
+             9877,
+             sizeof (s),
+             &s);
+
+#if DEBUG
+          packets_sent++;
+          window << "\rpackets received=" << packets_received
+                 << " sent=" << packets_sent;
+#endif
+
+          counter++;
+          if (counter % 100000 == 0)
+            {
+              gettimeofday (&now, NULL);
+
+              uint32 x = now.tv_usec - last.tv_usec
+                         + (now.tv_sec - last.tv_sec) * 1000000;
+
+              last = now;
+
+              cout << "packets received / second = " << (uint64)received * 1000000 / x << " last_data=" << last_data << " received=" << received << "\n";
+
+              received = 0;
+            }
+
+          x = 1-x;
+        }
+    }
+#endif
+  for (;;) ;//////////
+}
+
+/**********************************************************************/
+
+#include "general.h"
+#include "rtlib.h"
+#include "term.h"
+
+struct arptable_t arptable[MAX_ARP];
+
+struct rom_info rom = { 0, 0};
+
+extern "C" int console_getc ()
+{
+  return 0;
+}
+
+extern "C" void console_putc (int c)
+{
+  native_char str[2];
+  str[0] = c;
+  str[1] = '\0';
+  cout << str;
+}
+
+extern "C" int console_ischar ()
+{
+  return 0;
+}
+
+#endif
+
+
+
+mutex m;
+
+volatile int32 counter = 0;
+
+void goa ()
+{
+  //  cout << thread::self () << "\n";
+  //  cout << thread::self ()->_stack << "\n";
+  int x;
+  cout << &x << "\n";
+
+  //  enable_interrupts ();
+
+  for (;;)
+    {
+#if 0
+      disable_interrupts ();//m.lock ();
+      //      cout << "a";
+      enable_interrupts ();//m.unlock ();
+      for (int i=0; i<50; i++) ;
+#endif
+      disable_interrupts ();//m.lock ();
+      cout << "a";
+      int32 c = counter;
+      for (int i=0; i<10; i++) ;
+      counter = c;
+      enable_interrupts ();//m.unlock ();
+      //      thread::yield ();
+    }
+}
+
+
+void gob ()
+{
+  term window (0, 420, 80, 3, &font::mono_6x9, L"window");
+
+  //  enable_interrupts ();
+
+  //  window << thread::self () << "\n";
+  //  window << thread::self ()->_stack << "\n";
+  int x;
+  window << &x << "\n";
+
+  for (int j=0; 1; j++)
+    {
+#if 0
+      disable_interrupts (); //m.lock ();
+      window << "b";
+      enable_interrupts (); //m.unlock ();
+      for (int i=0; i<50; i++) ;
+#endif
+      disable_interrupts ();//m.lock ();
+      cout << "b";
+      int32 c = counter;
+      if (j % 10000 == 0) window << j << " " << c << "\n";
+      for (int i=0; i<10; i++) ;
+      counter = c+1;
+      enable_interrupts ();//m.lock ();
+      //      thread::yield ();
+    }
+}
+
+volatile extern int csw;
+
+thread* thread1;
+thread* thread2;
+
+void goc ()
+{
+  //APIC_INITIAL_TIMER_COUNT = 1000000;
+
+  for (int j=1;;j++)
+    {
+      struct timeval b_tv, c_tv;
+      gettimeofday (&b_tv, NULL);
+      int x = csw;
+      //for (int i=0; i<1000000; i++) { disable_interrupts (); for (int j=0; j<1; j++) ; enable_interrupts (); }
+      for (int i=0; i<1000000; i++);
+      //        thread::yield ();
+      x -= csw;
+      gettimeofday (&c_tv, NULL);
+      uint32 c = c_tv.tv_usec - b_tv.tv_usec
+                 + (c_tv.tv_sec - b_tv.tv_sec) * 1000000;
+      cout << "usecs = " << c << " csw=" << -x << " csw/sec=" << (CAST(uint64,-x)*1000000)/c << " nsecs/csw=" << c*1000/CAST(uint64,-x) << " pit counts=" << time_to_pit_counts (thread::self ()->_quantum) << "\n";
+      if (j%5==0)
+        {
+          thread1->_quantum.n = thread1->_quantum.n * 2 / 3;
+          thread2->_quantum.n = thread2->_quantum.n * 2 / 3;
+        }
+      //cout << CAST(void*,APIC_CURRENT_TIMER_COUNT) << "\n";
+      //thread::yield ();
+    }
+}
+
+void god ()
+{
+  for (;;)
+    {
+      //      thread::yield ();
+    }
+}
+
+#pragma pack(1)
+struct VbeInfoBlock
+  {
+    uint32 VbeSignature;     // VBE Signature
+    uint16 VbeVersion;       // VBE Version
+    uint32 OemStringPtr;     // VbeFarPtr to OEM String
+    uint32 Capabilities;     // Capabilities of graphics controller
+    uint32 VideoModePtr;     // VbeFarPtr to VideoModeList
+    uint16 TotalMemory;      // Number of 64kb memory blocks   
+    // Added for VBE 2.0+
+    uint16 OemSoftwareRev;   // VBE implementation Software revision
+    uint32 OemVendorNamePtr; // VbeFarPtr to Vendor Name String
+    uint32 OemProductNamePtr;// VbeFarPtr to Product Name String
+    uint32 OemProductRevPtr; // VbeFarPtr to Product Revision String
+    uint8  Reserved[222];    // Reserved for VBE implementation scratch area
+    uint8  OemData[256];     // Data Area for OEM Strings
+  };
+#pragma pack()
+
+#pragma pack(1)
+struct ModeInfoBlock
+  {
+    // Mandatory information for all VBE revisions
+
+    uint16 ModeAttributes;       // mode attributes
+    uint8  WinAAttributes;       // window A attributes
+    uint8  WinBAttributes;       // window B attributes
+    uint16 WinGranularity;       // window granularity
+    uint16 WinSize;              // window size
+    uint16 WinASegment;          // window A start segment
+    uint16 WinBSegment;          // window B start segment
+    uint32 WinFuncPtr;           // real mode pointer to window function
+    uint16 BytesPerScanLine;     // bytes per scan line
+
+    // Mandatory information for VBE 1.2 and above
+
+    uint16 XResolution;          // horizontal resolution in pixels or chars
+    uint16 YResolution;          // vertical resolution in pixels or chars
+    uint8  XCharSize;            // character cell width in pixels
+    uint8  YCharSize;            // character cell height in pixels
+    uint8  NumberOfPlanes;       // number of memory planes
+    uint8  BitsPerPixel;         // bits per pixel
+    uint8  NumberOfBanks;        // number of banks
+    uint8  MemoryModel;          // memory model type
+    uint8  BankSize;             // bank size in KB
+    uint8  NumberOfImagePages;   // number of images
+    uint8  Reserved0;            // reserved for page function
+
+    // Direct Color fields (required for direct/6 and YUV/7 memory models)
+
+    uint8  RedMaskSize;          // size of direct color red mask in bits
+    uint8  RedFieldPosition;     // bit position of lsb of red mask
+    uint8  GreenMaskSize;        // size of direct color green mask in bits
+    uint8  GreenFieldPosition;   // bit position of lsb of green mask
+    uint8  BlueMaskSize;         // size of direct color blue mask in bits
+    uint8  BlueFieldPosition;    // bit position of lsb of blue mask
+    uint8  RsvdMaskSize;         // size of direct color reserved mask in bits
+    uint8  RsvdFieldPosition;    // bit position of lsb of reserved mask
+    uint8  DirectColorModeInfo;  // direct color mode attributes
+
+    // Mandatory information for VBE 2.0 and above
+
+    uint32 PhysBasePtr;          // physical address for flat memory frame buffer
+    uint32 Reserved1;            // Reserved - always set to 0
+    uint16 Reserved2;            // Reserved - always set to 0
+
+    // Mandatory information for VBE 3.0 and above
+
+    uint16 LinBytesPerScanLine;  // bytes per scan line for linear modes
+    uint8  BnkNumberOfImagePages;// number of images for banked modes
+    uint8  LinNumberOfImagePages;// number of images for linear modes
+    uint8  LinRedMaskSize;       // size of direct color red mask (linear modes)
+    uint8  LinRedFieldPosition;  // bit position of lsb of red mask (linear modes)
+    uint8  LinGreenMaskSize;     // size of direct color green mask  (linear modes)
+    uint8  LinGreenFieldPosition;// size of direct color blue mask  (linear modes)
+    uint8  LinBlueFieldPosition; // bit position of lsb of blue mask (linear modes)
+    uint8  LinRsvdMaskSize;      // size of direct color reserved mask (linear modes)
+    uint8  LinRsvdFieldPosition; // bit position of lsb of reserved mask (linear modes)
+    uint32 MaxPixelClock;        // maximum pixel clock (in Hz) for graphics mode
+    uint8  Reserved3[191];       // VBE 3.0 spec says: 189
+  };
+#pragma pack()
+
+struct VbeInfoBlock* vi = CAST(struct VbeInfoBlock*,0x2000);
+struct ModeInfoBlock* mi = CAST(struct ModeInfoBlock*,0x2000);
+extern uint32 modes[];
+
+
+int main ()
+{
+#if 0
+  ENABLE_IRQ(8);
+  ENABLE_IRQ(9);
+  ENABLE_IRQ(10);
+  ENABLE_IRQ(11);
+  ENABLE_IRQ(12);
+  ENABLE_IRQ(13);
+  ENABLE_IRQ(14);
+  ENABLE_IRQ(15);
+
+#endif
+
+#if 0
+ECh: Identify Drive 
+   This command enables the host to receive paramater information from the drive. When the host issues this
+   command, the drive sets BUSY, stores the required parameter information in the sector buffer, sets DRQ and
+   generates an interrupt. The host then reads the information from the sector buffer. The table below defines the words
+   stored in the buffer. All reserved fields should be zeros.
+
+
+   +-------+-----------------------------------------------------------------+
+   |  Word | Description                                                     |
+   +-------+-----------------------------------------------------------------+
+   |  00h  | Bit mapped general configuration information. True when bit set |
+   |       | Bit 15: Reserved for non magnetic drives.                       |
+   |       | Bit 14: Format speed tolerance gap not required.                |
+   |       | Bit 13: Track offset option not available.                      |
+   |       | Bit 12: Data strobe offset option not available.                |
+   |       | Bit 11: Rotational speed tolerance is < 0.5%                    |
+   |       | Bit 10: Disk transfer rate not > 10 MB/s                        |
+   |       | Bit 09: Disk transfer rate > 5 MB/s and < 10 MB/s               |
+   |       | Bit 08: Disk transfer rate > 5 MB/s                             |
+   |       | Bit 07: Removable cartridge drive.                              |
+   |       | Bit 06: Fixed drive.                                            |
+   |       | Bit 05: Spindle motor control option not implemented.           |
+   |       | Bit 04: Head switch time > 15 microseconds.                     |
+   |       | Bit 03: Not MFM encoded.                                        |
+   |       | Bit 02: Not soft sectored.                                      |
+   |       | Bit 01: Hard Sectored.                                          |
+   |       | Bit 00: Reserved.                                               |
+   |       |                                                                 |
+   |  01h  | Number of logical cylinders in the default translation mode.    |
+   |       |                                                                 |
+   |  02h  | Reserved.                                                       |
+   |       |                                                                 |
+   |  03h  | Number of logical heads in the default translation mode.        |
+   |       |                                                                 |
+   |  04h  | Number of unformatted bytes per logical track.                  |
+   |       |                                                                 |
+   |  05h  | Number of unformatted bytes per sector.                         |
+   |       |                                                                 |
+   |  06h  | Number of logical sectors per track.                            |
+   |       |                                                                 |
+   |  07h  | Bits 15...08: Inter Sector Gap after Index & before splice.     |
+   |       | Bits 07...00: Inter Sector Gap bytes.                           |
+   |       |                                                                 |
+   |  08h  | Bits 15...08: Reserved.                                         |
+   |       | Bits 07...00: Bytes in Phase Lock Oscillator field.             |
+   |       |                                                                 |
+   |  09h  | Number of vendor unique status words.                           |
+   |       |                                                                 |
+   |  0Ah  | Serial number, 20 ASCII chars, right aligned & padded with 20h. |
+   |       |                                                                 |
+   |  14h  | Controller type:                                                |
+   |       | 0000h: Not specified.                                           |
+   |       | 0001h: Single ported, single sector buffer capable of data      |
+   |       |        transfers only to or from the host or the disk at one    |
+   |       |        time.                                                    |
+   |       | 0002h: Dual ported, multiple sector buffer capable of           |
+   |       |        simultaneous data transfers to and from the host, or     |
+   |       |        from the host and the disk.                              |
+   |       | 0003h: Dual ported, multiple sector buffer capable of           |
+   |       |        simultaneous data transfers with read caching.           |
+   |       | 0004h-FFFFh: Reserved.                                          |
+   |       |                                                                 |
+   |  15h  | Buffer size in 512 byte increments.                             |
+   |       |                                                                 |
+   |  16h  | Number of ECC bytes passed to host on R/W long operations.      |
+   |       |                                                                 |
+   |  17h  | Firmware revision, 8 ASCII chars, left aligned & space padded.  |
+   |       |                                                                 |
+   |  1Bh  | Model Number, 40 ASCII chars, left aligned & space padded.      |
+   |       |                                                                 |
+   |  2Fh  | READ/WRITE multiples implemented.                               |
+   |       |                                                                 |
+   |  30h  | Supports double word I/O transfer.                              |
+   |       |                                                                 |
+   |  31h  | Reserved.                                                       |
+   |       |                                                                 |
+   |  32h  | Reserved.                                                       |
+   |       |                                                                 |
+   |  33h  | Minimum PIO data transfer cycle time in nsec.                   |
+   |       |                                                                 |
+   |  34h  | Minimum DMA data transfer cycle time in nsec.                   |
+   |       |                                                                 |
+   |  35h  | All words past this point are reserved.                         |
+   +-------+-----------------------------------------------------------------+
+#endif
+
+
+
+
+
+
+
+
+
+
+
+#if 0
+  if (!eth_probe ())
+    {
+      cout << "No adapter found\n";
+      return 1;
+    }
+
+  int node_id = find_node_id_from_node_addr (nic.node_addr);
+
+  if (node_id >= 0)
+    {
+      exec_node (node_id);
+      return 0;
+    }
+
+  cout << "Unknown node!\n";
+
+
+
+  uint32 dummy, features;
+
+  cpuid (1, dummy, dummy, dummy, features);
+
+  if (features & HAS_MSR)
+    {
+      uint64 x;
+
+      x = rdmsr (IA32_APIC_BASE_MSR);
+      cout << "IA32_APIC_BASE = " << (void*)(x>>32) << " " << (void*)x << "\n";
+
+      wrmsr (IA32_APIC_BASE_MSR, IA32_APIC_BASE | APIC_ENABLE | 0x100);
+
+      x = rdmsr (IA32_APIC_BASE_MSR);
+      cout << "IA32_APIC_BASE = " << (void*)(x>>32) << " " << (void*)x << "\n";
+    }
+
+  //  if (features & HAS_APIC)
+    {
+      unsigned long value;
+
+#define APIC_TPRI_MASK 0xff
+#define APIC_LDR_MASK (0xff << 24)
+#define SET_APIC_DFR(n) (((n) << 28) | 0xfffffff)
+
+      value = *CAST(uint32*,IA32_APIC_BASE + SVR);
+      value |= (1<<8);  /* Enable APIC (bit==1) */
+      value &= ~(1<<9); /* Enable focus processor (bit==0) */
+      value |= 0xff;    /* Set spurious IRQ vector to 0xff */
+      *CAST(uint32*,IA32_APIC_BASE + SVR) = value;
+
+      /* Set Task Priority to 'accept all' */
+      value = *CAST(uint32*,IA32_APIC_BASE + TPR);
+      value &= ~APIC_TPRI_MASK;
+      *CAST(uint32*,IA32_APIC_BASE + TPR) = value;
+
+      /* Clear the logical destination ID, just to be safe.
+       * also, put the APIC into flat delivery mode.  */
+      value = *CAST(uint32*,IA32_APIC_BASE + LDR);
+      value &= ~APIC_LDR_MASK;
+      *CAST(uint32*,IA32_APIC_BASE + LDR) = value;
+
+      value = *CAST(uint32*,IA32_APIC_BASE + DFR);
+      value |= SET_APIC_DFR (0xf);
+      *CAST(uint32*,IA32_APIC_BASE + DFR) = value;
+
+      *CAST(uint32*,IA32_APIC_BASE + TIMER_DIVIDE_CONFIG_REG) = 0x0b;
+      *CAST(uint32*,IA32_APIC_BASE + INITIAL_TIMER_COUNT_REG) = 0xffffffff;
+
+      cout << CAST(void*,*CAST(uint32*,IA32_APIC_BASE + CURRENT_TIMER_COUNT_REG)) << "\n";
+
+      *CAST(uint32*,IA32_APIC_BASE + LVT_TIMER_REG) = ONE_SHOT | NOT_MASKED | 0xb4;
+      *CAST(uint32*,IA32_APIC_BASE + INITIAL_TIMER_COUNT_REG) = 800000000;
+
+      cout << CAST(void*,*CAST(uint32*,IA32_APIC_BASE + CURRENT_TIMER_COUNT_REG)) << "\n";
+
+      *CAST(uint32*,IA32_APIC_BASE + LVT_LINT0_REG) = (0*EXT_INT) | POLARITY1 | NOT_MASKED | (1<<14);
+      *CAST(uint32*,IA32_APIC_BASE + LVT_LINT1_REG) = (0*EXT_INT) | POLARITY1 | NOT_MASKED | (1<<14);
+      //*CAST(uint32*,IA32_APIC_BASE + LVT_LINT1_REG) = EXT_INT | POLARITY1 | NOT_MASKED;
+
+      cout << CAST(void*,*CAST(uint32*,IA32_APIC_BASE + LVT_TIMER_REG)) << "\n";
+      *CAST(uint32*,IA32_APIC_BASE + LVT_TIMER_REG) = 0xb4;
+
+      ENABLE_IRQ(4);
+
+      *CAST(uint32*,IA32_APIC_BASE + EOI) = 0;
+    }
+
+  for (;;) ;
+#endif
+
+#if 0
+
+5223   tmp_value = apic_read(APIC_LVTT);
+5224   lvtt1_value = APIC_LVT_TIMER_PERIODIC |
+5225                 LOCAL_TIMER_VECTOR;
+5226   apic_write(APIC_LVTT , lvtt1_value);
+5227 
+5228   /* Divide PICLK by 16 */
+5229   tmp_value = apic_read(APIC_TDCR);
+5230   apic_write(APIC_TDCR , (tmp_value & ~APIC_TDR_DIV_1 )
+5231          | APIC_TDR_DIV_16);
+5232 
+5233   tmp_value = apic_read(APIC_TMICT);
+5234   apic_write(APIC_TMICT, clocks/APIC_DIVISOR);
+
+      uint64 x = rdmsr (IA32_APIC_BASE_MSR);
+
+      cout << "IA32_APIC_BASE = " << (void*)(x>>32) << " " << (void*)x << "\n";
+
+  *CAST(uint32*,IA32_APIC_BASE + DEST_FORMAT_REG) = 0xffffffff;
+  *CAST(uint32*,IA32_APIC_BASE + LOGICAL_DEST_REG) = 1 << (0+24);
+  *CAST(uint32*,IA32_APIC_BASE + TASK_PRIO_REG) = 0;
+  *CAST(uint32*,IA32_APIC_BASE + SVR) = 0;
+
+  //  wrmsr (IA32_APIC_BASE_MSR, IA32_APIC_BASE | APIC_ENABLE | 0x100);
+
+  x = rdmsr (IA32_APIC_BASE_MSR);
+
+  cout << "IA32_APIC_BASE = " << (void*)(x>>32) << " " << (void*)x << "\n";
+
+  cout << CAST(void*,*CAST(uint32*,IA32_APIC_BASE + LVT_LINT0_REG)) << "\n";
+  cout << CAST(void*,*CAST(uint32*,IA32_APIC_BASE + LVT_LINT1_REG)) << "\n";
+  cout << CAST(void*,*CAST(uint32*,IA32_APIC_BASE + LVT_TIMER_REG)) << "\n";
+  cout << CAST(void*,*CAST(uint32*,IA32_APIC_BASE + CURRENT_TIMER_COUNT_REG)) << "\n";
+
+  for (;;)
+    {
+      cout << CAST(void*,*CAST(uint32*,IA32_APIC_BASE + TMR + 0x00)) << " ";
+      cout << CAST(void*,*CAST(uint32*,IA32_APIC_BASE + IRR + 0x00)) << " ";
+      cout << CAST(void*,*CAST(uint32*,IA32_APIC_BASE + ISR + 0x00)) << " ";
+      cout << CAST(void*,*CAST(uint32*,IA32_APIC_BASE + LVT_TIMER_REG)) << " ";
+      cout << CAST(void*,*CAST(uint32*,IA32_APIC_BASE + CURRENT_TIMER_COUNT_REG)) << "\n";
+      for (int i=0; i<500000; i++);
+    }
+#endif
+
+#if 0
+  struct udp_packet_type2 p;
+  cout << sizeof (struct ethhdr) << "\n";
+  cout << sizeof (struct udp_packet_type1) << "\n";
+  cout << sizeof (struct udp_packet_type2) << "\n";
+  cout << ((char*)&p.iphdr)-((char*)&p) << "\n";
+  cout << ((char*)&p.udphdr)-((char*)&p) << "\n";
+  cout << ((char*)&p.c)-((char*)&p) << "\n";
+  for (;;) ;
+
+  struct timeval start_tv;
+
+  gettimeofday (&start_tv, NULL);
+
+  for (int i = 0; i<800; i++) cout << L"a";
+
+  struct timeval a_tv;
+
+  gettimeofday (&a_tv, NULL);
+
+  for (int i = 0; i<80; i++) cout << L"bbbbbbbbbb";
+
+  struct timeval b_tv;
+
+  gettimeofday (&b_tv, NULL);
+
+  for (int i = 0; i<80; i++) cout << "cccccccccc";
+
+  struct timeval c_tv;
+
+  gettimeofday (&c_tv, NULL);
+
+  uint32 a = a_tv.tv_usec - start_tv.tv_usec
+             + (a_tv.tv_sec - start_tv.tv_sec) * 1000000;
+  uint32 b = b_tv.tv_usec - a_tv.tv_usec
+             + (b_tv.tv_sec - a_tv.tv_sec) * 1000000;
+  uint32 c = c_tv.tv_usec - b_tv.tv_usec
+             + (c_tv.tv_sec - b_tv.tv_sec) * 1000000;
+
+  cout << "boucle 1: " << 800 * 1000000 / a << " caractères / seconde\n";
+  cout << "boucle 2: " << 800 * 1000000 / b << " caractères / seconde\n";
+  cout << "boucle 3: " << 800 * 1000000 / c << " caractères / seconde\n";
+
+  thread1* t1 = new (thread_allocator::pool) thread1;
+  thread2* t2 = new (thread_allocator::pool) thread2;
+
+  t1->start ();
+  t2->start ();
+
+  struct timeval x_tv;
+
+  gettimeofday (&x_tv, NULL);
+
+  uint64 i;
+
+  for (i = 0; i<30000; i++)
+    thread::yield ();
+
+  struct timeval y_tv;
+
+  gettimeofday (&y_tv, NULL);
+
+  uint32 y = y_tv.tv_usec - x_tv.tv_usec
+             + (y_tv.tv_sec - x_tv.tv_sec) * 1000000;
+
+  cout << "context switch / sec = " << i * 3 * 1000000 / y << "\n";
+
+#endif
+
+#if 0
+  wrmsr (MSR_CES_REG,
+         CES_CONFIG(CES_SETTING(CES_ES_DATA_READ,
+                                CES_CC_COUNT,
+                                CES_PC_INCREMENT),
+                    CES_SETTING(CES_ES_DATA_WRITE,
+                                CES_CC_COUNT,
+                                CES_PC_INCREMENT)));
+
+  wrmsr (MSR_CTR0_REG, 0);
+  wrmsr (MSR_CTR1_REG, 0);
+
+  int64 c1, c2;
+
+  c1 = rdpmc (0);
+  c2 = rdpmc (1);
+
+  cout << c1 << " " << c2 << "\n";
+
+  c1 = rdpmc (0);
+  c2 = rdpmc (1);
+
+  cout << c1 << " " << c2 << "\n";
+#endif
+
+  thread1 = thread::self ();
+  thread2 = new thread (god);
+#if 0
+  thread* t3 = new thread (goa);
+  thread* t4 = new thread (goa);
+  thread* t5 = new thread (goa);
+#endif
+
+  thread2->start ();
+#if 0
+  t3->start ();
+  t4->start ();
+  t5->start ();
+#endif
+
+  goc ();
+
+
+#if 0
+  cout << "ModeAttributes             = " << mi->ModeAttributes << "\n";
+  cout << "WinAAttributes             = " << mi->WinAAttributes << "\n";
+  cout << "WinBAttributes             = " << mi->WinBAttributes << "\n";
+  cout << "WinGranularity             = " << mi->WinGranularity << "\n";
+  cout << "WinSize                    = " << mi->WinSize << "\n";
+  cout << "WinASegment                = " << mi->WinASegment << "\n";
+  cout << "WinBSegment                = " << mi->WinBSegment << "\n";
+  cout << "WinFuncPtr                 = " << mi->WinFuncPtr << "\n";
+  cout << "BytesPerScanLine           = " << mi->BytesPerScanLine << "\n";
+  cout << "XResolution                = " << mi->XResolution << "\n";
+  cout << "YResolution                = " << mi->YResolution << "\n";
+  cout << "XCharSize                  = " << mi->XCharSize << "\n";
+  cout << "YCharSize                  = " << mi->YCharSize << "\n";
+  cout << "NumberOfPlanes             = " << mi->NumberOfPlanes << "\n";
+  cout << "BitsPerPixel               = " << mi->BitsPerPixel << "\n";
+  cout << "NumberOfBanks              = " << mi->NumberOfBanks << "\n";
+  cout << "MemoryModel                = " << mi->MemoryModel << "\n";
+  cout << "BankSize                   = " << mi->BankSize << "\n";
+  cout << "NumberOfImagePages         = " << mi->NumberOfImagePages << "\n";
+  cout << "RedMaskSize                = " << mi->RedMaskSize << "\n";
+  cout << "RedFieldPosition           = " << mi->RedFieldPosition << "\n";
+  cout << "GreenMaskSize              = " << mi->GreenMaskSize << "\n";
+  cout << "GreenFieldPosition         = " << mi->GreenFieldPosition << "\n";
+  cout << "BlueMaskSize               = " << mi->BlueMaskSize << "\n";
+  cout << "BlueFieldPosition          = " << mi->BlueFieldPosition << "\n";
+  cout << "RsvdMaskSize               = " << mi->RsvdMaskSize << "\n";
+  cout << "RsvdFieldPosition          = " << mi->RsvdFieldPosition << "\n";
+  cout << "DirectColorModeInfo        = " << mi->DirectColorModeInfo << "\n";
+  cout << "PhysBasePtr                = " << mi->PhysBasePtr << "\n";
+  cout << "LinBytesPerScanLine        = " << mi->LinBytesPerScanLine << "\n";
+  cout << "BnkNumberOfImagePages      = " << mi->BnkNumberOfImagePages << "\n";
+  cout << "LinNumberOfImagePages      = " << mi->LinNumberOfImagePages << "\n";
+  cout << "LinRedMaskSize             = " << mi->LinRedMaskSize << "\n";
+  cout << "LinRedFieldPosition        = " << mi->LinRedFieldPosition << "\n";
+  cout << "LinGreenMaskSize           = " << mi->LinGreenMaskSize << "\n";
+  cout << "LinGreenFieldPosition      = " << mi->LinGreenFieldPosition << "\n";
+  cout << "LinBlueFieldPosition       = " << mi->LinBlueFieldPosition << "\n";
+  cout << "LinRsvdMaskSize            = " << mi->LinRsvdMaskSize << "\n";
+  cout << "LinRsvdFieldPosition       = " << mi->LinRsvdFieldPosition << "\n";
+  cout << "MaxPixelClock              = " << mi->MaxPixelClock << "\n";
+
+#endif
+
+#if 0
+  cout << "VbeSignature      = " << vi->VbeSignature << "\n";
+  cout << "VbeVersion        = " << vi->VbeVersion << "\n";
+  cout << "OemStringPtr      = " << vi->OemStringPtr << "\n";
+  cout << "Capabilities      = " << vi->Capabilities << "\n";
+  cout << "VideoModePtr      = " << vi->VideoModePtr << "\n";
+  cout << "TotalMemory       = " << vi->TotalMemory << "\n";
+  cout << "OemSoftwareRev    = " << vi->OemSoftwareRev << "\n";
+  cout << "OemVendorNamePtr  = " << vi->OemVendorNamePtr << "\n";
+  cout << "OemProductNamePtr = " << vi->OemProductNamePtr << "\n";
+  cout << "OemProductRevPtr  = " << vi->OemProductRevPtr << "\n";
+
+  uint32 x = vi->VideoModePtr;
+  uint16* vmp = CAST(uint16*,(x>>16)+(x&0xffff));
+
+  int j = 1;
+  while (*vmp != 0xffff)
+    cout << "(" << j++ << ":" << *vmp++ << ") ";
+#endif
+
+#if 0
+  uint32* p = CAST(uint32*,mi->PhysBasePtr);
+
+  for (int y = mi->YResolution-1; y >= 0; y--)
+    for (int x = mi->XResolution-1; x >= 0; x--)
+      p[y*mi->XResolution + x] = ((x & 0xff) << 8) + (y & 0xff);
+#endif
+
+  int q = 0;
+
+  while (modes[q*2] != 0)
+    {
+      cout << (modes[q*2]>>16) << "x"
+           << (modes[q*2]&0xffff) << " "
+           << (modes[q*2+1]&0xffff) << " bits  mode="
+           << (modes[q*2+1]>>16) << "\n";
+      q++;
+    }
+
+  return 0;
+}
+#endif
+
+//-----------------------------------------------------------------------------
+#else
+
+// file: "main.cpp"
+
+// Copyright (c) 2001 by Marc Feeley and Université de Montréal, All
+// Rights Reserved.
+//
+// Revision History
+// 23 Oct 01  initial version (Marc Feeley)
+
+//-----------------------------------------------------------------------------
+
+#include "general.h"
+#include "term.h"
+#include "fifo.h"
+#include "thread.h"
+#include "time.h"
+#include "ps2.h"
+
+//-----------------------------------------------------------------------------
+
+// Pseudo-random number generator.
+
+int seed = 1;
+
+int random (int n)
+{
+  seed = (seed * 3581 + 12751) % 131072;
+  return seed % n;
+  //return 4;
+}
+
+//-----------------------------------------------------------------------------
+
+#define TILE_SIZE 10
+#define TOP_GAP 5
+#define BOARD_BORDER 20
+#define BOARD_WIDTH 19
+#define BOARD_HEIGHT 28
+#define PYRAMID TRUE
+
+#define LEFT_CMD  0
+#define RIGHT_CMD 1
+#define DROP_CMD  2
+#define LOSE_CMD  3
+#define WIN_CMD   4
+
+#define PLAYER0_LEFT_EVENT     0
+#define PLAYER1_LEFT_EVENT     1
+#define PLAYER0_DROP_EVENT     2
+#define PLAYER1_DROP_EVENT     3
+#define PLAYER0_RIGHT_EVENT    4
+#define PLAYER1_RIGHT_EVENT    5
+#define PLAYER0_FINISHED_EVENT 6
+#define PLAYER1_FINISHED_EVENT 7
+#define WIN_LOSE_ACK_EVENT     8
+
+class player : public thread
+  {
+  public:
+
+    player (int id,
+            int x,
+            int y,
+            pattern* color,
+            fifo* player_commands,
+            fifo* referee_events);
+    virtual char* name ();
+
+  protected:
+
+    void run ();
+
+  private:
+
+    void draw_tile (int col, int row);
+    void erase_tile (int col, int row);
+    void draw_score ();
+    bool move_to (int col, int row);
+
+    int _id;
+    int _x;
+    int _y;
+    pattern* _color;
+    fifo* _player_commands;
+    fifo* _referee_events;
+    bool _board[BOARD_WIDTH][BOARD_HEIGHT];
+    int _score;
+    int _col;
+    int _row;
+  };
+
+char* player::name () { return "p"; }
+
+player::player (int id,
+                int x,
+                int y,
+                pattern* color,
+                fifo* player_commands,
+                fifo* referee_events)
+{
+  _id = id;
+  _x = x;
+  _y = y;
+  _color = color;
+  _player_commands = player_commands;
+  _referee_events = referee_events;
+}
+
+void player::draw_tile (int col, int row)
+{
+  int x = BOARD_BORDER + _x + col*TILE_SIZE;
+  int y = BOARD_BORDER + _y + row*TILE_SIZE;
+
+#if 0
+
+  video::screen.frame_rect
+    (x,
+     y,
+     x + TILE_SIZE,
+     y + TILE_SIZE,
+     1,
+     &pattern::black);
+
+  video::screen.frame_rect
+    (x + 1,
+     y + 1,
+     x + TILE_SIZE - 1,
+     y + TILE_SIZE - 1,
+     1,
+     &pattern::white);
+
+  video::screen.fill_rect
+    (x + 2,
+     y + 2,
+     x + TILE_SIZE - 2,
+     y + TILE_SIZE - 2,
+     _color);
+#else
+  seq->lock ();
+
+  video::screen.fill_rect
+    (x + 1,
+     y + 1,
+     x + TILE_SIZE,
+     y + TILE_SIZE,
+     _color);
+
+  seq->unlock ();
+#endif
+}
+
+void player::erase_tile (int col, int row)
+{
+  int x = BOARD_BORDER + _x + col*TILE_SIZE;
+  int y = BOARD_BORDER + _y + row*TILE_SIZE;
+
+  seq->lock ();
+
+  video::screen.fill_rect
+    (x + 1,
+     y + 1,
+     x + TILE_SIZE,
+     y + TILE_SIZE,
+     &pattern::white);
+
+  seq->unlock ();
+}
+
+void player::draw_score ()
+{
+  int x = BOARD_BORDER + _x + TILE_SIZE*BOARD_WIDTH/2 - 8*6/2;
+  int y = BOARD_BORDER*3/2 + _y + TILE_SIZE*BOARD_HEIGHT - 9/2;
+
+  unicode_char txt[10];
+  unicode_char* p = txt;
+
+  *p++ = 'S'; *p++ = 'C'; *p++ = 'O'; *p++ = 'R'; *p++ = 'E'; *p++ = ':';
+  *p++ = ' ';
+
+  int d = 1;
+  while (d*10 <= _score) d *= 10;
+
+  while (d >= 1)
+    {
+      *p++ = '0' + (_score / d) % 10;
+      d /= 10;
+    }
+
+  *p = '\0';
+
+  seq->lock ();
+
+  font::mono_6x9.draw_string (&video::screen,
+                              x,
+                              y,
+                              txt,
+                              &pattern::white,
+                              _color);
+
+  seq->unlock ();
+}
+
+bool player::move_to (int col, int row)
+{
+  if (col < 0
+      || col >= BOARD_WIDTH
+      || row >= BOARD_HEIGHT
+      || _board[col][row])
+    return FALSE;
+
+  erase_tile (_col, _row);
+  _col = col;
+  _row = row;
+  draw_tile (col, row);
+
+  return TRUE;
+}
+
+void player::run ()
+{
+  time last_step;
+  int speed;
+  int accel;
+  uint8 cmd;
+  time timeout;
+
+  seq->lock ();
+
+  video::screen.frame_rect
+    (_x,
+     _y,
+     _x + BOARD_BORDER*2 + TILE_SIZE*BOARD_WIDTH + 1,
+     _y + BOARD_BORDER*2 + TILE_SIZE*BOARD_HEIGHT + 1,
+     BOARD_BORDER,
+     _color);
+
+  video::screen.fill_rect
+    (_x + BOARD_BORDER,
+     _y + BOARD_BORDER,
+     _x + BOARD_BORDER + TILE_SIZE*BOARD_WIDTH + 1,
+     _y + BOARD_BORDER + TILE_SIZE*BOARD_HEIGHT + 1,
+     &pattern::white);
+
+  video::screen.fill_rect
+    (_x + BOARD_BORDER,
+     _y + BOARD_BORDER + TILE_SIZE*TOP_GAP,
+     _x + BOARD_BORDER + TILE_SIZE*BOARD_WIDTH + 1,
+     _y + BOARD_BORDER + TILE_SIZE*TOP_GAP + 1,
+     &pattern::cyan);
+
+  seq->unlock ();
+
+  _score = 0;
+
+ fresh_board:
+
+  draw_score ();
+
+  for (int row = 0; row < BOARD_HEIGHT; row++)
+    for (int col = 0; col < BOARD_WIDTH; col++)
+      {
+        if (PYRAMID
+            && col + row >= BOARD_HEIGHT
+            && (BOARD_WIDTH-1-col) + row >= BOARD_HEIGHT)
+          {
+            _board[col][row] = TRUE;
+            draw_tile (col, row);
+          }
+        else
+          {
+            _board[col][row] = FALSE;
+            erase_tile (col, row);
+          }
+      }
+
+ new_block:
+
+  _col = random (BOARD_WIDTH);
+  _row = 0;
+  speed = 8;
+  accel = 0;
+
+  last_step = current_time ();
+
+  draw_tile (_col, _row);
+
+  for (;;)
+    {
+      timeout = add_time (last_step, frequency_to_time (speed));
+
+      if (_player_commands->get_or_timeout (&cmd, timeout))
+        switch (cmd)
+          {
+          case LEFT_CMD:  move_to (_col-1, _row); break;
+          case RIGHT_CMD: move_to (_col+1, _row); break;
+          case DROP_CMD:  accel = 8;              break;
+          case WIN_CMD:
+          case LOSE_CMD:
+            _referee_events->put (WIN_LOSE_ACK_EVENT);
+            if (cmd == WIN_CMD)
+              _score++;
+            goto fresh_board;
+          }
+      else
+        {
+          // the "get_or_timeout" timed out so block must move down
+
+          if (move_to (_col, _row+1)) // try to move block down
+            {
+              // block was moved down
+
+              last_step = timeout;
+              speed += accel;
+            }
+          else
+            {
+              // block could not be moved down
+
+              _board[_col][_row] = TRUE;
+              if (_row <= TOP_GAP)
+                {
+                  // tower is finished; tell the referee and hope we
+                  // were the first!
+
+                  if (_id == 0)
+                    _referee_events->put (PLAYER0_FINISHED_EVENT);
+                  else
+                    _referee_events->put (PLAYER1_FINISHED_EVENT);
+
+                  for (;;)
+                    {
+                      _player_commands->get (&cmd);
+                      switch (cmd)
+                        {
+                        case WIN_CMD:
+                        case LOSE_CMD:
+                          _referee_events->put (WIN_LOSE_ACK_EVENT);
+                          if (cmd == WIN_CMD)
+                            _score++;
+                          goto fresh_board;
+                        }
+                    }
+                }
+              else
+                {
+                  // drop the next block
+
+                  goto new_block;
+                }
+            }
+        }
+    }
+}
+
+//-----------------------------------------------------------------------------
+
+class input_controller : public thread
+  {
+  public:
+
+    input_controller (fifo* referee_events);
+    virtual char* name ();
+
+  protected:
+
+    void run ();
+
+  private:
+
+    fifo* _referee_events;
+  };
+
+char* input_controller::name () { return "c"; }
+
+input_controller::input_controller (fifo* referee_events)
+{
+  _referee_events = referee_events;
+}
+
+void input_controller::run ()
+{
+  for (;;)
+    {
+      unicode_char c = getchar ();
+      switch (c)
+        {
+        case 'q': _referee_events->put (PLAYER0_LEFT_EVENT);  break;
+        case 'i': _referee_events->put (PLAYER1_LEFT_EVENT);  break;
+        case 'w': _referee_events->put (PLAYER0_DROP_EVENT);  break;
+        case 'o': _referee_events->put (PLAYER1_DROP_EVENT);  break;
+        case 'e': _referee_events->put (PLAYER0_RIGHT_EVENT); break;
+        case 'p': _referee_events->put (PLAYER1_RIGHT_EVENT); break;
+        }
+    }
+}
+
+//-----------------------------------------------------------------------------
+
+class referee : public thread
+  {
+  public:
+
+    referee ();
+    virtual char* name ();
+
+  protected:
+
+    void run ();
+
+  private:
+
+    player* _players[2];
+    fifo* _to_player[2];
+    fifo* _referee_events;
+  };
+
+char* referee::name () { return "r"; }
+
+referee::referee ()
+{
+  _to_player[0] = new fifo;
+  _to_player[1] = new fifo;
+
+  _referee_events = new fifo;
+
+  _players[0] =
+    new player (0, 0, 159, &pattern::red, _to_player[0], _referee_events);
+
+  _players[1] =
+    new player (1, 409, 159, &pattern::blue, _to_player[1], _referee_events);
+}
+
+void referee::run ()
+{
+  uint8 event;
+
+  (new input_controller (_referee_events))->start ();
+
+  _players[0]->start ();
+  _players[1]->start ();
+
+  for (;;)
+    {
+      _referee_events->get (&event);
+
+      switch (event)
+        {
+        case PLAYER0_LEFT_EVENT : _to_player[0]->put (LEFT_CMD);  break;
+        case PLAYER1_LEFT_EVENT : _to_player[1]->put (LEFT_CMD);  break;
+        case PLAYER0_DROP_EVENT : _to_player[0]->put (DROP_CMD);  break;
+        case PLAYER1_DROP_EVENT : _to_player[1]->put (DROP_CMD);  break;
+        case PLAYER0_RIGHT_EVENT: _to_player[0]->put (RIGHT_CMD); break;
+        case PLAYER1_RIGHT_EVENT: _to_player[1]->put (RIGHT_CMD); break;
+        case PLAYER0_FINISHED_EVENT:
+        case PLAYER1_FINISHED_EVENT:
+          _to_player[(event==PLAYER1_FINISHED_EVENT)]->put (WIN_CMD);
+          _to_player[(event==PLAYER0_FINISHED_EVENT)]->put (LOSE_CMD);
+          int n = 0;
+          for (;;)
+            {
+              _referee_events->get (&event);
+              if (event == WIN_LOSE_ACK_EVENT)
+                if (++n == 2)
+                  break;
+            }
+          break;
+        }
+    }
+}
+
+//-----------------------------------------------------------------------------
+
+// "cpu_load" class.  Useful to evaluate how much CPU time is unused.
+
+class cpu_load : public thread
+  {
+  public:
+
+    cpu_load ();
+    virtual char* name ();
+
+  protected:
+
+    void run ();
+  };
+
+char* cpu_load::name () { return "l"; }
+
+cpu_load::cpu_load ()
+{
+}
+
+void cpu_load::run ()
+{
+  uint32 n = 0;
+  time next = add_time (current_time (), seconds_to_time (1));
+
+  for (;;)
+    {
+      if (less_time (next, current_time ()))
+        {
+          seq->lock ();
+          cout << n/1000 << " ";
+          //scheduler::stats ();/////////////////
+          seq->unlock ();
+          n = 0;
+          next = add_time (current_time (), seconds_to_time (1));
+        }
+      else
+        n++;
+    }
+}
+
+//-----------------------------------------------------------------------------
+
+int main ()
+{
+  seq = new mutex;
+
+  cpu_load* t1 = new cpu_load;
+  referee* t2 = new referee;
+
+  t1->start ();
+  t2->start ();
+
+  t2->join ();
+
+  return 0;
+}
+
+//-----------------------------------------------------------------------------
+#endif

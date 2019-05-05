@@ -1,0 +1,659 @@
+
+Memory Configuration
+
+Name             Origin             Length             Attributes
+*default*        0x0000000000000000 0xffffffffffffffff
+
+Linker script and memory map
+
+                0x0000000008048000                . = (0x8048000 + SIZEOF_HEADERS)
+
+.interp
+ *(.interp)
+
+.hash
+ *(.hash)
+
+.dynsym
+ *(.dynsym)
+
+.dynstr
+ *(.dynstr)
+
+.gnu.version
+ *(.gnu.version)
+
+.gnu.version_d
+ *(.gnu.version_d)
+
+.gnu.version_r
+ *(.gnu.version_r)
+
+.rel.text
+ *(.rel.text)
+ *(.rel.gnu.linkonce.t*)
+
+.rela.text
+ *(.rela.text)
+ *(.rela.gnu.linkonce.t*)
+
+.rel.data
+ *(.rel.data)
+ *(.rel.gnu.linkonce.d*)
+
+.rela.data
+ *(.rela.data)
+ *(.rela.gnu.linkonce.d*)
+
+.rel.rodata
+ *(.rel.rodata)
+ *(.rel.gnu.linkonce.r*)
+
+.rela.rodata
+ *(.rela.rodata)
+ *(.rela.gnu.linkonce.r*)
+
+.rel.got
+ *(.rel.got)
+
+.rela.got
+ *(.rela.got)
+
+.rel.ctors
+ *(.rel.ctors)
+
+.rela.ctors
+ *(.rela.ctors)
+
+.rel.dtors
+ *(.rel.dtors)
+
+.rela.dtors
+ *(.rela.dtors)
+
+.rel.init
+ *(.rel.init)
+
+.rela.init
+ *(.rela.init)
+
+.rel.fini
+ *(.rel.fini)
+
+.rela.fini
+ *(.rela.fini)
+
+.rel.bss
+ *(.rel.bss)
+
+.rela.bss
+ *(.rela.bss)
+
+.rel.plt
+ *(.rel.plt)
+
+.rela.plt
+ *(.rela.plt)
+
+.init
+ *(.init)
+
+.plt
+ *(.plt)
+
+.text           0x0000000000020000     0xa49b
+ *(.text)
+ .text          0x0000000000020000      0xe22 kernel.o
+                0x0000000000020000                kernel_entry
+                0x0000000000020720                video_mode
+                0x0000000000020722                vbe_info
+                0x0000000000020a22                modes
+                0x0000000000020922                mode_info
+ *fill*         0x0000000000020e22        0x2 9090
+ .text          0x0000000000020e24     0x1101 main.o
+                0x00000000000219e2                input_controller::input_controller(fifo*)
+                0x0000000000021e30                cpu_load::run()
+                0x0000000000020e24                random(int)
+                0x0000000000020f04                player::draw_tile(int, int)
+                0x0000000000021a04                input_controller::input_controller(fifo*)
+                0x00000000000219dc                input_controller::name()
+                0x0000000000020ebc                player::player(int, int, int, pattern*, fifo*, fifo*)
+                0x0000000000021df8                cpu_load::cpu_load()
+                0x0000000000020f8c                player::erase_tile(int, int)
+                0x0000000000020e6e                player::name()
+                0x0000000000021a8a                referee::name()
+                0x0000000000021134                player::move_to(int, int)
+                0x0000000000021000                player::draw_score()
+                0x0000000000020e74                player::player(int, int, int, pattern*, fifo*, fifo*)
+                0x0000000000021a26                input_controller::run()
+                0x0000000000021e14                cpu_load::cpu_load()
+                0x0000000000021cc0                referee::run()
+                0x0000000000021ea8                main
+                0x0000000000021df2                cpu_load::name()
+                0x0000000000021282                player::run()
+                0x0000000000021a90                referee::referee()
+                0x0000000000021ba8                referee::referee()
+ *fill*         0x0000000000021f25        0x3 9090
+ .text          0x0000000000021f28      0xe66 fs.o
+                0x0000000000022842                stat(char*, stat*)
+                0x00000000000226de                opendir(char*)
+                0x000000000002273c                readdir(DIR_struct*)
+                0x0000000000021f28                close_file(file_struct*)
+                0x0000000000022882                setup_fs()
+                0x000000000002281c                closedir(DIR_struct*)
+                0x0000000000022230                open_file(char*, file_struct**)
+                0x0000000000021f3e                read_file(file_struct*, void*, unsigned int)
+ *fill*         0x0000000000022d8e        0x2 9090
+ .text          0x0000000000022d90      0xa7f ide.o
+                0x000000000002311a                setup_ide()
+                0x0000000000022f58                irq14
+                0x0000000000022f9c                ide_read_sectors(ide_device_struct*, unsigned int, void*, unsigned int)
+                0x0000000000022e22                ide_cmd_queue_free(ide_cmd_queue_entry_struct*)
+                0x0000000000022d90                ide_cmd_queue_alloc(ide_device_struct*)
+                0x0000000000022e5c                ide_irq(ide_controller_struct*)
+                0x0000000000022f7a                irq15
+ *fill*         0x000000000002380f        0x1 9090
+ .text          0x0000000000023810      0xb75 disk.o
+                0x0000000000023ec8                disk_add_all_partitions()
+                0x0000000000023990                disk_cache_block_release(cache_block_struct*)
+                0x0000000000023d48                disk_print_id(disk_struct*)
+                0x000000000002392c                disk_read_sectors(disk_struct*, unsigned int, void*, unsigned int)
+                0x00000000000238d2                disk_max_BIOS_CHS_to_LBA(disk_struct*)
+                0x0000000000023832                disk_find(unsigned int)
+                0x0000000000023810                disk_alloc()
+                0x00000000000239f2                disk_cache_block_acquire(disk_struct*, unsigned int, cache_block_struct**)
+                0x0000000000024260                setup_disk()
+                0x0000000000023850                disk_BIOS_CHS_to_LBA(disk_struct*, unsigned char*)
+ *fill*         0x0000000000024385        0x3 9090
+ .text          0x0000000000024388     0x1ef8 thread.o
+                0x0000000000025078                thread::~thread()
+                0x00000000000250d6                thread::start()
+                0x0000000000025596                primordial_thread::primordial_thread(void (*)())
+                0x0000000000025944                scheduler::resume_next_thread()
+                0x0000000000024596                mutex::unlock()
+                0x000000000002473c                condvar::wait(mutex*)
+                0x0000000000025cfe                scheduler::switch_to_next_thread(unsigned int, unsigned int, unsigned int*, void*)
+                0x0000000000024700                condvar::condvar()
+                0x000000000002440e                mutex::lock_or_timeout(time)
+                0x0000000000024e90                thread::thread()
+                0x0000000000024c72                condvar::broadcast()
+                0x0000000000024ba2                condvar::signal()
+                0x0000000000025f58                scheduler::suspend_on_sleep_queue(unsigned int, unsigned int, unsigned int*, void*)
+                0x00000000000243e6                mutex::lock()
+                0x0000000000025a08                scheduler::run_thread()
+                0x0000000000025094                thread::~thread()
+                0x0000000000024dc2                condvar::mutexless_signal()
+                0x000000000002547a                thread::yield()
+                0x0000000000024dac                condvar::mutexless_wait()
+                0x00000000000246e6                scheduler::register_condvar(condvar*)
+                0x0000000000026088                scheduler::timer_elapsed()
+                0x0000000000025490                thread::self()
+                0x00000000000248a8                condvar::wait_or_timeout(mutex*, time)
+                0x00000000000255d0                scheduler::setup(void (*)())
+                0x00000000000243c4                mutex::mutex()
+                0x0000000000025574                primordial_thread::primordial_thread(void (*)())
+                0x0000000000025c3a                sys_irq
+                0x0000000000025698                scheduler::stats()
+                0x000000000002556e                primordial_thread::name()
+                0x0000000000025182                thread::join()
+                0x00000000000258ba                scheduler::set_timer(time, time)
+                0x0000000000024388                scheduler::register_mutex(mutex*)
+                0x0000000000025566                thread::run()
+                0x00000000000250b0                thread::~thread()
+                0x0000000000025496                thread::sleep(long long)
+                0x0000000000026274                irq0
+                0x00000000000255c2                scheduler::setup_timer()
+                0x0000000000025e2c                scheduler::suspend_on_wait_queue(unsigned int, unsigned int, unsigned int*, void*)
+                0x00000000000243a2                mutex::mutex()
+                0x0000000000024566                scheduler::yield_if_necessary()
+                0x00000000000244ee                scheduler::reschedule_thread(thread*)
+                0x00000000000255b8                primordial_thread::run()
+                0x0000000000024f84                thread::thread()
+                0x0000000000025568                thread::name()
+                0x000000000002471e                condvar::condvar()
+ .text          0x0000000000026280      0x2f0 time.o
+                0x0000000000026280                bcd_to_int(unsigned char)
+                0x0000000000026464                gettimeofday(timeval*, timezone*)
+                0x000000000002629a                setup_time()
+ .text          0x0000000000026570      0x329 ps2.o
+                0x00000000000267c0                setup_ps2()
+                0x0000000000026720                irq12
+                0x0000000000026602                irq1
+                0x0000000000026570                getchar()
+ *fill*         0x0000000000026899        0x3 9090
+ .text          0x000000000002689c      0x2e5 fifo.o
+                0x000000000002694c                fifo::~fifo()
+                0x0000000000026940                fifo::~fifo()
+                0x0000000000026958                fifo::~fifo()
+                0x00000000000269fc                fifo::get(unsigned char*)
+                0x0000000000026abe                fifo::get_or_timeout(unsigned char*, time)
+                0x000000000002696c                fifo::put(unsigned char)
+                0x00000000000268ee                fifo::fifo()
+                0x000000000002689c                fifo::fifo()
+ *fill*         0x0000000000026b81        0x3 9090
+ .text          0x0000000000026b84     0x1d8c term.o
+                0x0000000000026e64                term::show_cursor()
+                0x000000000002870c                operator<<(term&, unsigned short)
+                0x0000000000026ee2                term::show()
+                0x00000000000287a6                operator<<(term&, void*)
+                0x0000000000026d72                term::toggle_cursor()
+                0x0000000000028072                operator<<(term&, wchar_t*)
+                0x00000000000283c0                operator<<(term&, signed char)
+                0x0000000000027fee                term::term(int, int, int, int, font*, wchar_t*, bool)
+                0x0000000000028812                operator<<(term&, char*)
+                0x0000000000028064                operator<<(term&, bool)
+                0x0000000000026de6                term::hide_cursor()
+                0x0000000000026bd0                term::char_coord_to_screen_coord(int, int, int&, int&, int&, int&)
+                0x0000000000026c64                term::scroll_up()
+                0x0000000000027f78                term::term(int, int, int, int, font*, wchar_t*, bool)
+                0x0000000000028670                operator<<(term&, unsigned char)
+                0x00000000000280a6                operator<<(term&, unsigned int)
+                0x00000000000285b8                operator<<(term&, long long)
+                0x0000000000028500                operator<<(term&, unsigned long long)
+                0x0000000000028280                operator<<(term&, short)
+                0x000000000002813e                operator<<(term&, int)
+                0x0000000000026b84                term::color_to_pattern(int, pattern*&)
+                0x000000000002717a                term::write(wchar_t*, int)
+ .text          0x0000000000028910     0x1607 video.o
+                0x0000000000028944                pattern::get_word(int, int)
+                0x00000000000291e0                video::draw_mouse()
+                0x0000000000029802                raw_bitmap_in_memory::show_mouse()
+                0x0000000000029712                video::move_mouse(int, int)
+                0x00000000000299ec                font::font(int, int, int, unsigned short*, unsigned int*, raw_bitmap*)
+                0x0000000000029186                video::get_mouse_rect(int*, int*)
+                0x0000000000028c1e                video::video(int)
+                0x0000000000029800                raw_bitmap_in_memory::hide_mouse()
+                0x0000000000028910                pattern::pattern(unsigned char*, int, int)
+                0x0000000000029a2a                font::get_char_data(wchar_t, int&, int&)
+                0x0000000000029b4c                font::draw_string(raw_bitmap*, int, int, wchar_t*, pattern*, pattern*)
+                0x00000000000299be                font::font(int, int, int, unsigned short*, unsigned int*, raw_bitmap*)
+                0x000000000002892a                pattern::pattern(unsigned char*, int, int)
+                0x00000000000297b0                raw_bitmap_in_memory::raw_bitmap_in_memory(unsigned char*, int, int, int)
+                0x0000000000029824                raw_bitmap::frame_rect(int, int, int, int, int, pattern*)
+                0x0000000000028ccc                raw_bitmap::bitblt(int, int, int, int, raw_bitmap*, int, int, pattern*, pattern*)
+                0x0000000000029a22                font::get_height()
+                0x0000000000029804                raw_bitmap_in_memory::select_layer(int)
+                0x0000000000029a7e                font::draw_text(raw_bitmap*, int, int, wchar_t*, int, pattern*, pattern*)
+                0x00000000000297d8                raw_bitmap_in_memory::raw_bitmap_in_memory(unsigned char*, int, int, int)
+                0x0000000000029520                video::show_mouse()
+                0x0000000000028b70                video::video(int)
+                0x000000000002897c                raw_bitmap::fill_rect(int, int, int, int, pattern*)
+                0x0000000000029936                raw_bitmap::invert_rect(int, int, int, int)
+                0x0000000000029620                video::hide_mouse()
+                0x0000000000029a1a                font::get_max_width()
+                0x0000000000029128                video::select_layer(int)
+ *fill*         0x0000000000029f17        0x1 9090
+ .text          0x0000000000029f18      0x10f intr.o
+                0x0000000000029faa                irq10
+                0x0000000000029f8a                irq8
+                0x0000000000029fb4                irq11
+                0x0000000000029f18                setup_intr()
+                0x0000000000029f72                irq5
+                0x0000000000029f7a                irq6
+                0x0000000000029f9a                irq9
+                0x0000000000029fc4                irq13
+                0x0000000000029f5a                irq2
+                0x0000000000029fd4                APIC_timer_irq
+                0x0000000000029fe0                APIC_spurious_irq
+                0x0000000000029f82                irq7
+                0x0000000000029fec                unhandled_interrupt
+                0x0000000000029f6a                irq4
+                0x0000000000029f62                irq3
+ *fill*         0x000000000002a027        0x1 9090
+ .text          0x000000000002a028      0x306 rtlib.o
+                0x000000000002a128                operator new[](unsigned int)
+                0x000000000002a258                idle_thread::idle_thread()
+                0x000000000002a16c                __pure_virtual
+                0x000000000002a274                idle_thread::idle_thread()
+                0x000000000002a0e0                log2(unsigned int)
+                0x000000000002a142                memcpy
+                0x000000000002a10c                kfree(void*)
+                0x000000000002a1ec                __do_global_dtors()
+                0x000000000002a042                __umoddi3
+                0x000000000002a126                operator delete(void*)
+                0x000000000002a08e                __udivdi3
+                0x000000000002a18c                __cxa_pure_virtual
+                0x000000000002a0f4                kmalloc(unsigned int)
+                0x000000000002a140                operator delete[](void*)
+                0x000000000002a1ac                __do_global_ctors()
+                0x000000000002a028                fatal_error(char*)
+                0x000000000002a10e                operator new(unsigned int)
+                0x000000000002a290                idle_thread::run()
+                0x000000000002a1ee                __rtlib_entry
+ *(.stub)
+ *(.gnu.warning)
+ *(.gnu.linkonce.t*)
+ .gnu.linkonce.t._ZN6playerD1Ev
+                0x000000000002a32e       0x19 main.o
+                0x000000000002a32e                player::~player()
+ *fill*         0x000000000002a347        0x1 9090
+ .gnu.linkonce.t._ZN6playerD0Ev
+                0x000000000002a348       0x23 main.o
+                0x000000000002a348                player::~player()
+ *fill*         0x000000000002a36b        0x1 9090
+ .gnu.linkonce.t._ZN16input_controllerD1Ev
+                0x000000000002a36c       0x19 main.o
+                0x000000000002a36c                input_controller::~input_controller()
+ *fill*         0x000000000002a385        0x1 9090
+ .gnu.linkonce.t._ZN16input_controllerD0Ev
+                0x000000000002a386       0x23 main.o
+                0x000000000002a386                input_controller::~input_controller()
+ *fill*         0x000000000002a3a9        0x1 9090
+ .gnu.linkonce.t._ZN7refereeD1Ev
+                0x000000000002a3aa       0x19 main.o
+                0x000000000002a3aa                referee::~referee()
+ *fill*         0x000000000002a3c3        0x1 9090
+ .gnu.linkonce.t._ZN7refereeD0Ev
+                0x000000000002a3c4       0x23 main.o
+                0x000000000002a3c4                referee::~referee()
+ *fill*         0x000000000002a3e7        0x1 9090
+ .gnu.linkonce.t._ZN8cpu_loadD1Ev
+                0x000000000002a3e8       0x19 main.o
+                0x000000000002a3e8                cpu_load::~cpu_load()
+ *fill*         0x000000000002a401        0x1 9090
+ .gnu.linkonce.t._ZN8cpu_loadD0Ev
+                0x000000000002a402       0x23 main.o
+                0x000000000002a402                cpu_load::~cpu_load()
+ *fill*         0x000000000002a425        0x1 9090
+ .gnu.linkonce.t._ZN17primordial_threadD1Ev
+                0x000000000002a426       0x1c thread.o
+                0x000000000002a426                primordial_thread::~primordial_thread()
+ .gnu.linkonce.t._ZN17primordial_threadD0Ev
+                0x000000000002a442       0x26 thread.o
+                0x000000000002a442                primordial_thread::~primordial_thread()
+ .gnu.linkonce.t._ZN11idle_threadD1Ev
+                0x000000000002a468       0x19 rtlib.o
+                0x000000000002a468                idle_thread::~idle_thread()
+ *fill*         0x000000000002a481        0x1 9090
+ .gnu.linkonce.t._ZN11idle_threadD0Ev
+                0x000000000002a482       0x19 rtlib.o
+                0x000000000002a482                idle_thread::~idle_thread()
+                0x000000000002a49b                _etext = .
+                0x000000000002a49b                PROVIDE (etext, .)
+
+.fini
+ *(.fini)
+
+.rodata         0x000000000002a4a0      0x440
+ *(.rodata)
+ .rodata        0x000000000002a4a0       0x80 main.o
+ .rodata        0x000000000002a520       0x10 ide.o
+ *fill*         0x000000000002a530       0x10 00
+ .rodata        0x000000000002a540      0x238 disk.o
+ .rodata        0x000000000002a778        0x4 thread.o
+ .rodata        0x000000000002a77c       0x60 term.o
+ *(.gnu.linkonce.r*)
+ *fill*         0x000000000002a7dc        0x4 00
+ .gnu.linkonce.r._ZTV6player
+                0x000000000002a7e0       0x18 main.o
+                0x000000000002a7e0                vtable for player
+ .gnu.linkonce.r._ZTV16input_controller
+                0x000000000002a7f8       0x18 main.o
+                0x000000000002a7f8                vtable for input_controller
+ .gnu.linkonce.r._ZTV7referee
+                0x000000000002a810       0x18 main.o
+                0x000000000002a810                vtable for referee
+ .gnu.linkonce.r._ZTV8cpu_load
+                0x000000000002a828       0x18 main.o
+                0x000000000002a828                vtable for cpu_load
+ .gnu.linkonce.r._ZTV6thread
+                0x000000000002a840       0x18 thread.o
+                0x000000000002a840                vtable for thread
+ .gnu.linkonce.r._ZTV17primordial_thread
+                0x000000000002a858       0x18 thread.o
+                0x000000000002a858                vtable for primordial_thread
+ .gnu.linkonce.r._ZTV4fifo
+                0x000000000002a870       0x10 fifo.o
+                0x000000000002a870                vtable for fifo
+ .gnu.linkonce.r._ZTV5video
+                0x000000000002a880       0x14 video.o
+                0x000000000002a880                vtable for video
+ *fill*         0x000000000002a894        0x4 00
+ .gnu.linkonce.r._ZTV20raw_bitmap_in_memory
+                0x000000000002a898       0x14 video.o
+                0x000000000002a898                vtable for raw_bitmap_in_memory
+ *fill*         0x000000000002a8ac        0x4 00
+ .gnu.linkonce.r._ZTV10raw_bitmap
+                0x000000000002a8b0       0x14 video.o
+                0x000000000002a8b0                vtable for raw_bitmap
+ *fill*         0x000000000002a8c4        0x4 00
+ .gnu.linkonce.r._ZTV11idle_thread
+                0x000000000002a8c8       0x18 rtlib.o
+                0x000000000002a8c8                vtable for idle_thread
+
+.rodata.str1.1  0x000000000002a8e0      0x603
+ .rodata.str1.1
+                0x000000000002a8e0        0xa main.o
+ .rodata.str1.1
+                0x000000000002a8ea      0x107 fs.o
+ .rodata.str1.1
+                0x000000000002a9f1      0x434 disk.o
+ .rodata.str1.1
+                0x000000000002ae25       0x2f thread.o
+ .rodata.str1.1
+                0x000000000002ae54       0x11 term.o
+ .rodata.str1.1
+                0x000000000002ae65       0x21 intr.o
+ .rodata.str1.1
+                0x000000000002ae86       0x5d rtlib.o
+
+.rodata.str1.4  0x000000000002aee4      0x32a
+ .rodata.str1.4
+                0x000000000002aee4      0x126 fs.o
+ *fill*         0x000000000002b00a        0x2 00
+ .rodata.str1.4
+                0x000000000002b00c      0x202 disk.o
+
+.rodata.cst4    0x000000000002b210       0x44
+ .rodata.cst4   0x000000000002b210       0x44 thread.o
+
+.rodata.str4.4  0x000000000002b254       0x34
+ .rodata.str4.4
+                0x000000000002b254       0x34 term.o
+
+.rodata1
+ *(.rodata1)
+                0x000000000002c288                . = (ALIGN (0x1000) + (. & 0xfff))
+
+.data           0x000000000002c2a0    0x465fc
+ *(.data)
+ .data          0x000000000002c2a0        0x4 main.o
+                0x000000000002c2a0                seed
+ .data          0x000000000002c2a4       0x20 time.o
+                0x000000000002c2a4                pos_infinity
+ *fill*         0x000000000002c2c4       0x1c 00
+ .data          0x000000000002c2e0      0x2c8 ps2.o
+ *fill*         0x000000000002c5a8       0x18 00
+ .data          0x000000000002c5c0    0x462c0 video.o
+ .data          0x0000000000072880        0x4 rtlib.o
+ *(.gnu.linkonce.d*)
+                0x0000000000072884                __CTOR_LIST__ = .
+                0x0000000000072884        0x4 LONG 0x2 (((__CTOR_END__ - __CTOR_LIST__) / 0x4) - 0x2)
+ *(.ctors)
+ .ctors         0x0000000000072888        0x4 term.o
+ .ctors         0x000000000007288c        0x4 video.o
+                0x0000000000072890        0x4 LONG 0x0
+                0x0000000000072894                __CTOR_END__ = .
+                0x0000000000072894                __DTOR_LIST__ = .
+                0x0000000000072894        0x4 LONG 0x0 (((__DTOR_END__ - __DTOR_LIST__) / 0x4) - 0x2)
+ *(.dtors)
+                0x0000000000072898        0x4 LONG 0x0
+                0x000000000007289c                __DTOR_END__ = .
+
+.data1
+ *(.data1)
+
+.ctors
+ *(.ctors)
+
+.dtors
+ *(.dtors)
+
+.got
+ *(.got.plt)
+ *(.got)
+
+.dynamic
+ *(.dynamic)
+
+.sdata
+ *(.sdata)
+                0x000000000007289c                _edata = .
+                0x000000000007289c                PROVIDE (edata, .)
+                0x000000000007289c                __bss_start = .
+
+.sbss
+ *(.sbss)
+ *(.scommon)
+
+.bss            0x00000000000728a0     0xaa98
+ *(.dynbss)
+ *(.bss)
+ .bss           0x00000000000728a0       0x24 fs.o
+ *fill*         0x00000000000728c4       0x1c 00
+ .bss           0x00000000000728e0      0x3b0 ide.o
+ *fill*         0x0000000000072c90       0x10 00
+ .bss           0x0000000000072ca0     0xa0ac disk.o
+ *fill*         0x000000000007cd4c       0x14 00
+ .bss           0x000000000007cd60      0x354 thread.o
+                0x000000000007cd64                scheduler::the_primordial_thread
+                0x000000000007cf10                mn
+                0x000000000007cd6c                scheduler::readyq
+                0x000000000007cd70                cn
+                0x000000000007d0b0                seq
+                0x000000000007cf20                mtab
+                0x000000000007cd60                scheduler::current_thread
+                0x000000000007cd80                ctab
+                0x000000000007cd68                scheduler::sleepq
+ *fill*         0x000000000007d0b4        0x4 00
+ .bss           0x000000000007d0b8       0x18 time.o
+                0x000000000007d0c0                _tsc_counts_per_sec
+                0x000000000007d0b8                neg_infinity
+ *fill*         0x000000000007d0d0       0x10 00
+ .bss           0x000000000007d0e0       0x68 ps2.o
+ *fill*         0x000000000007d148       0x18 00
+ .bss           0x000000000007d160       0x5c term.o
+                0x000000000007d160                term::console
+ *fill*         0x000000000007d1bc        0x4 00
+ .bss           0x000000000007d1c0      0x178 video.o
+                0x000000000007d1d8                font::mono_5x7
+                0x000000000007d238                pattern::cyan
+                0x000000000007d25c                pattern::yellow
+                0x000000000007d280                pattern::white
+                0x000000000007d200                video::screen
+                0x000000000007d298                pattern::gray50
+                0x000000000007d224                video::mouse_save
+                0x000000000007d268                pattern::green
+                0x000000000007d2b0                pattern::black
+                0x000000000007d28c                pattern::gray75
+                0x000000000007d1c0                font::mono_6x9
+                0x000000000007d2a4                pattern::gray25
+                0x000000000007d250                pattern::blue
+                0x000000000007d274                pattern::red
+                0x000000000007d244                pattern::magenta
+ *(COMMON)
+                0x000000000007d338                . = ALIGN (0x4)
+                0x000000000007d338                _end = .
+                0x000000000007d338                PROVIDE (end, .)
+
+.stab
+ *(.stab)
+
+.stabstr
+ *(.stabstr)
+
+.stab.excl
+ *(.stab.excl)
+
+.stab.exclstr
+ *(.stab.exclstr)
+
+.stab.index
+ *(.stab.index)
+
+.stab.indexstr
+ *(.stab.indexstr)
+
+.comment        0x0000000000000000      0x1f8
+ *(.comment)
+ .comment       0x0000000000000000       0x2a main.o
+ .comment       0x000000000000002a       0x2a fs.o
+ .comment       0x0000000000000054       0x2a ide.o
+ .comment       0x000000000000007e       0x2a disk.o
+ .comment       0x00000000000000a8       0x2a thread.o
+ .comment       0x00000000000000d2       0x2a time.o
+ .comment       0x00000000000000fc       0x2a ps2.o
+ .comment       0x0000000000000126       0x2a fifo.o
+ .comment       0x0000000000000150       0x2a term.o
+ .comment       0x000000000000017a       0x2a video.o
+ .comment       0x00000000000001a4       0x2a intr.o
+ .comment       0x00000000000001ce       0x2a rtlib.o
+
+.debug
+ *(.debug)
+
+.line
+ *(.line)
+
+.debug_srcinfo
+ *(.debug_srcinfo)
+
+.debug_sfnames
+ *(.debug_sfnames)
+
+.debug_aranges
+ *(.debug_aranges)
+
+.debug_pubnames
+ *(.debug_pubnames)
+
+.debug_info
+ *(.debug_info)
+
+.debug_abbrev
+ *(.debug_abbrev)
+
+.debug_line
+ *(.debug_line)
+
+.debug_frame
+ *(.debug_frame)
+
+.debug_str
+ *(.debug_str)
+
+.debug_loc
+ *(.debug_loc)
+
+.debug_macinfo
+ *(.debug_macinfo)
+
+.debug_weaknames
+ *(.debug_weaknames)
+
+.debug_funcnames
+ *(.debug_funcnames)
+
+.debug_typenames
+ *(.debug_typenames)
+
+.debug_varnames
+ *(.debug_varnames)
+LOAD kernel.o
+LOAD main.o
+LOAD fs.o
+LOAD ide.o
+LOAD disk.o
+LOAD thread.o
+LOAD time.o
+LOAD ps2.o
+LOAD fifo.o
+LOAD term.o
+LOAD video.o
+LOAD intr.o
+LOAD rtlib.o
+Address of section .text set to 0x20000
+OUTPUT(kernel.bin binary)
+
+.note.GNU-stack
+                0x0000000000000000        0x0
