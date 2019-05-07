@@ -259,9 +259,41 @@ debug_string:
 
 code_end:
 
-  .space (1<<9)-2-(code_end-code_start)  # skip to last 2 bytes of sector
+  .space (1<<9)-(2 + 64)-(code_end-code_start)  # Skip to the end. The signature and the bootsector need to be written
 
-  .byte 0x55  # valid boot sectors need these bytes at the end of the sector
+  # partition 4
+  .byte 0x00                   # boot flag (0x00: inactive, 0x80: active)
+  .byte 0x00, 0x00, 0x00       # Start of partition address
+  .byte 0x00                   # system flag
+  .byte 0x00, 0x00, 0x00       # End of partition address
+  .byte 0x00, 0x00, 0x00, 0x00 # Start sector relative to disk
+  .byte 0x00, 0x00, 0x00, 0x00 # number of sectors in partition
+
+  # partition 3
+  .byte 0x00                   # boot flag (0x00: inactive, 0x80: active)
+  .byte 0x00, 0x00, 0x00       # Start of partition address
+  .byte 0x00                   # system flag
+  .byte 0x00, 0x00, 0x00       # End of partition address
+  .byte 0x00, 0x00, 0x00, 0x00 # Start sector relative to disk
+  .byte 0x00, 0x00, 0x00, 0x00 # number of sectors in partition
+
+  # partition 2
+  .byte 0x00                   # boot flag (0x00: inactive, 0x80: active)
+  .byte 0x00, 0x00, 0x00       # Start of partition address
+  .byte 0x00                   # system flag
+  .byte 0x00, 0x00, 0x00       # End of partition address
+  .byte 0x00, 0x00, 0x00, 0x00 # Start sector relative to disk
+  .byte 0x00, 0x00, 0x00, 0x00 # number of sectors in partition
+
+  # partition 1
+  .byte 0x80                   # boot flag (0x00: inactive, 0x80: active)
+  .byte 0x00, 0x00, 0x00       # Start of partition address
+  .byte 0x00                   # system flag
+  .byte 0x00, 0x00, 0x00       # End of partition address
+  .byte 0x00, 0x00, 0x00, 0x00 # Start sector relative to disk
+  .byte 0x00, 0x00, 0x00, 0x00 # number of sectors in partition
+
+  # Signature
+  .byte 0x55
   .byte 0xaa
-
 #------------------------------------------------------------------------------
