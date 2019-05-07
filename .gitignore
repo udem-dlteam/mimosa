@@ -1,4 +1,5 @@
 # Tool binaries folder
 .vscode
+debug/
 # Built
 floppy

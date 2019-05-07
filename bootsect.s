@@ -1,6 +1,6 @@
 # file: "bootsect.s"
 
-# Copyright (c) 2001 by Marc Feeley and Université de Montréal, All
+# Copyright (c) 2001 by Marc Feeley and Universitï¿½ de Montrï¿½al, All
 # Rights Reserved.
 #
 # Revision History
@@ -63,7 +63,6 @@ after_header:
   movw  $(STACK_TOP & 0xffff),%sp
 
 # Print banner.
-
   movw  $banner,%si
   call  print_string
 
@@ -103,6 +102,8 @@ a20_enabled:
   movl  $KERNEL_SECTOR,%eax
   movl  $KERNEL_START,%ebx
   movl  $KERNEL_SIZE,%ecx
+
+  jmp   debug_string
 
 next_sector:
 
@@ -240,6 +241,16 @@ load_error:
   .byte 10,13
   .ascii "Could not load OS.  Press any key to reboot."
   .byte 10,13,0
+
+debug_a:
+.ascii "A"
+.byte 0
+
+debug_string:
+  movw  $debug_a,%si
+  call  print_string
+  jmp debug_string
+
 
 #------------------------------------------------------------------------------
 
