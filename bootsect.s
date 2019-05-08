@@ -122,6 +122,8 @@ next_sector:
   movb  drive, %dl
   xor %ax, %ax
   int $0x13
+  # Recover the sector
+  movl  $KERNEL_SECTOR, %eax
 
   call  read_sector
   jnc   sector_was_read
@@ -130,6 +132,8 @@ next_sector:
   movb  drive, %dl
   xor %ax, %ax
   int $0x13
+  # Recover the sector
+  movl  $KERNEL_SECTOR, %eax
 
   call  read_sector
 
@@ -155,6 +159,10 @@ sector_was_read:
 #  outb  %al,%dx
 
 # Jump to kernel.
+
+  movw $debug_a, %si
+  call print_string
+
   ljmp  $(KERNEL_START>>4),$0  # jump to "KERNEL_START" (which must be < 1MB)
 
 cannot_load:
@@ -279,39 +287,7 @@ debug_string:
 
 code_end:
 
-  .space (1<<9)-(2 + 64)-(code_end-code_start)  # Skip to the end. The signature and the bootsector need to be written
-
-  # partition 4
-  .byte 0x00                   # boot flag (0x00: inactive, 0x80: active)
-  .byte 0x00, 0x00, 0x00       # Start of partition address
-  .byte 0x00                   # system flag
-  .byte 0x00, 0x00, 0x00       # End of partition address
-  .byte 0x00, 0x00, 0x00, 0x00 # Start sector relative to disk
-  .byte 0x00, 0x00, 0x00, 0x00 # number of sectors in partition
-
-  # partition 3
-  .byte 0x00                   # boot flag (0x00: inactive, 0x80: active)
-  .byte 0x00, 0x00, 0x00       # Start of partition address
-  .byte 0x00                   # system flag
-  .byte 0x00, 0x00, 0x00       # End of partition address
-  .byte 0x00, 0x00, 0x00, 0x00 # Start sector relative to disk
-  .byte 0x00, 0x00, 0x00, 0x00 # number of sectors in partition
-
-  # partition 2
-  .byte 0x00                   # boot flag (0x00: inactive, 0x80: active)
-  .byte 0x00, 0x00, 0x00       # Start of partition address
-  .byte 0x00                   # system flag
-  .byte 0x00, 0x00, 0x00       # End of partition address
-  .byte 0x00, 0x00, 0x00, 0x00 # Start sector relative to disk
-  .byte 0x00, 0x00, 0x00, 0x00 # number of sectors in partition
-
-  # partition 1
-  .byte 0x80                   # boot flag (0x00: inactive, 0x80: active)
-  .byte 0x00, 0x00, 0x00       # Start of partition address
-  .byte 0x00                   # system flag
-  .byte 0x00, 0x00, 0x00       # End of partition address
-  .byte 0x00, 0x00, 0x00, 0x00 # Start sector relative to disk
-  .byte 0x00, 0x00, 0x00, 0x00 # number of sectors in partition
+  .space (1<<9)-(2 + 0)-(code_end-code_start)  # Skip to the end. The signature and the bootsector need to be written
 
   # Signature
   .byte 0x55
