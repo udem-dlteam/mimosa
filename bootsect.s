@@ -217,24 +217,24 @@ read_sector:
   popl  %ebx
   popl  %eax
 
-  movl  %eax,%edx
-  shrl  $16,%edx
+  movl  %eax,%edx               # edx contains LDA
+  shrl  $16,%edx                # dx contains LDA
   divw  nb_sectors_per_track    # %ax = cylinder, %dx = sector in track
-  incb  %dl
-  movb  %dl,%cl
-  xorw  %dx,%dx
+  incw  %dx                     # increment sector
+  movb  %dl,%cl                 # move the sector per track to cl
+  xorw  %dx,%dx                 # erase dx
   divw  nb_heads                # %ax = track, %dx = head
-  shlb  $6,%ah
-  orb   %ah,%cl
-  movb  %al,%ch
-  movb  %dl,%dh
-  movb  drive,%dl
-  movl  %ebx,%eax
-  shrl  $4,%eax
-  movw  %ax,%es
+  shlb  $6,%ah                  # keep the top 2 bits of track in ah
+  orb   %ah,%cl                 # cl is top two bits of ah and sectors per track
+  movb  %al,%ch                 # ch is the bottom part of the track
+  movb  %dl,%dh                 # head is now in dh
+  movb  drive,%dl               # dl is now the drive
+  movl  %ebx,%eax               # put the target address in eax
+  shrl  $4,%eax                 # div the address by 2^4
+  movw  %ax,%es                 # insert the address in es
   andw  $0x0f,%bx
-  movw  $0x0201,%ax
-  int   $0x13
+  movw  $0x0201,%ax # in AH, write 0x02 (command read) and in AL write 0x01 (1 sector to read)
+  int   $0x13       # Call the read
 
   popl  %ecx
   popl  %ebx
