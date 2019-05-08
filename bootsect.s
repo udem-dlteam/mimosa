@@ -25,7 +25,7 @@ bootsect_entry:
 
   .code16  # at this point the processor is in 16 bit real mode
 
-#------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 
 code_start:
 
@@ -47,25 +47,31 @@ nb_sectors_per_track:
 nb_heads:
   .byte 0x02,0x00 # number of heads
   .byte 0x00,0x00 # number of hidden sectors
-  .byte 0x00,0x00 # from here this is code
-  .byte 0x00,0x00,0x00,0x00
-drive:
-  .byte 0x00      # the drive value for bios reading
-  .byte                          0x00,0x29,0xd1
-  .byte 0x07,0x22,0x27,0x4f,0x53,0x20,0x20,0x20
-  .byte 0x20,0x20,0x20,0x20,0x20,0x20,0x46,0x41
-  .byte 0x54,0x31,0x32,0x20,0x20,0x20
-
-#------------------------------------------------------------------------------
+  .byte 0x00,0x00 # number of hidden sectors (high word)
+  .byte 0x00,0x00,0x00,0x00 # total number of sectors in file system
+drive:            # Extended block, supposed to be only for FAT 16
+  .byte 0x00      # logical drive number
+  .byte 0x00      # reserved
+  .byte 0x29      # extended signature
+  .byte 0xd1,0x07,0x22,0x27 # serial number
+  .byte 0x4f,0x53,0x20,0x20,0x20,0x20,0x20,0x20,0x20,0x20,0x20 # drive label
+  .byte 0x46,0x41,0x54,0x31,0x32,0x20,0x20,0x20 # file system type (FAT 12)
+# ------------------------------------------------------------------------------
 
 after_header:
 
 # Setup segments.
+  cli
+
+  movb  drive, %dl
+  xor %ax, %ax
+  int $0x13
 
   xorw  %cx,%cx
   movw  %cx,%ds
   movw  %cx,%ss
   movw  $(STACK_TOP & 0xffff),%sp
+  sti
 
 # Print banner.
   movw  $banner,%si
@@ -112,9 +118,22 @@ next_sector:
 
   call  read_sector
   jnc   sector_was_read
+  # Failure: reset drive
+  movb  drive, %dl
+  xor %ax, %ax
+  int $0x13
+
   call  read_sector
   jnc   sector_was_read
+
+  # Failure: reset drive
+  movb  drive, %dl
+  xor %ax, %ax
+  int $0x13
+
   call  read_sector
+
+  # Failure: give up
   jc    cannot_load
 
 sector_was_read:
