@@ -1,0 +1,4 @@
+layout asm
+break *0x7c00
+break *0x20000
+target remote localhost:1234
