@@ -34,13 +34,13 @@ code_start:
   .byte 0xeb,0x3c,0x90 # this is a jump instruction to "after_header"
   .byte 0x2a,0x26,0x41,0x66,0x3c, 0x49,0x48,0x43 # OEM name, number
 nb_bytes_per_sector:
-  .byte 0x00,0x02 # bytes per sector
+  .byte 0x00,0x02 # bytes per sector (512 bytes)
   .byte 0x01      # sector per allocation unit -> sector/cluster
   .byte 0x01,0x00 # reserved sectors for booting (256)
   .byte 0x02      # number of FATs (always 2)
   .byte 0xe0,0x00 # number of root dir entries
   .byte 0x40,0x0b # number of logical sectors
-  .byte 0xf0      # media descriptor byte (f0h: floppy, f8h: disk drive)
+  .byte 0xf8      # media descriptor byte (f0h: floppy, f8h: disk drive)
   .byte 0x09,0x00 # sectors per fat
 nb_sectors_per_track:
   .byte 0x12,0x00 # sectors per track
@@ -50,7 +50,7 @@ nb_heads:
   .byte 0x00,0x00 # number of hidden sectors (high word)
   .byte 0x00,0x00,0x00,0x00 # total number of sectors in file system
 drive:            # Extended block, supposed to be only for FAT 16
-  .byte 0x00      # logical drive number
+  .byte 0x80      # logical drive number
   .byte 0x00      # reserved
   .byte 0x29      # extended signature
   .byte 0xd1,0x07,0x22,0x27 # serial number
@@ -136,6 +136,8 @@ next_sector:
   # Failure: give up
   jc    cannot_load
 
+# ------------------------------
+
 sector_was_read:
 
   incl  %eax
@@ -148,12 +150,11 @@ sector_was_read:
 
 # Turn off floppy disk's motor.
 
-  movw  $0x3f2,%dx
-  xorb  %al,%al
-  outb  %al,%dx
+#  movw  $0x3f2,%dx
+#  xorb  %al,%al
+#  outb  %al,%dx
 
 # Jump to kernel.
-
   ljmp  $(KERNEL_START>>4),$0  # jump to "KERNEL_START" (which must be < 1MB)
 
 cannot_load:
@@ -224,7 +225,7 @@ read_sector:
   shrl  $4,%eax
   movw  %ax,%es
   andw  $0x0f,%bx
-  movw  $(INT13_READ_SECTOR_FN<<8)+1,%ax
+  movw  $0x0201,%ax
   int   $0x13
 
   popl  %ecx

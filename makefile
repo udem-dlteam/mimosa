@@ -30,7 +30,7 @@ build:
 	hexdump -C -n 512 floppy
 
 run:
-	qemu-system-x86_64 -m 4096 -s -S -fda floppy
+	qemu-system-x86_64 -m 4096 -s -S -hda floppy
 #  -vnc localhost:6 -monitor stdio
 debug:
 	qemu-system-x86_64 -m 4096 -s -S -hda floppy
