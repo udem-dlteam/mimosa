@@ -8,7 +8,7 @@
 
 #------------------------------------------------------------------------------
 
-KERNEL_SECTOR = 33              # sector number for "OS.SYS" file
+ROOT_DIR = 33              # sector number for "OS.SYS" file
 INT13_READ_SECTOR_FN = 2        # BIOS int 0x13 function for "read sector"
 INT10_TTY_OUTPUT_FN = 0xE       # BIOS int 0x10 function for "teletype output"
 INT16_READ_KEYBOARD_FN = 0      # BIOS int 0x16 function for "read keyboard"
@@ -119,7 +119,7 @@ a20_enabled:
 
 # Load kernel at "KERNEL_START".
 
-  movl  $KERNEL_SECTOR,%eax
+  movl  $ROOT_DIR,%eax
   movl  $KERNEL_START,%ebx
   movl  $KERNEL_SIZE,%ecx
 
@@ -266,6 +266,10 @@ print_string:
   test  %al,%al
   jnz   print_string_loop
   ret
+
+stage_2_name:
+  .ascii "boot.sys"
+  .byte 0
 
 banner:
   .ascii "Loading"
