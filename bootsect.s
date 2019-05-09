@@ -65,9 +65,9 @@ drive:            # Extended block, supposed to be only for FAT 16
 after_header:
 
 nb_root_sectors:
-  .word 0x00000 # number of roots sectors
+  .word 0x00000 # number of sectors in the root directory
 root_dir_sectors:
-  .long 0x00    # default value on floppy is 33; should be read correctly
+  .long 0x00    # default value on floppy is 19; should be read correctly
 
 
 
@@ -110,10 +110,13 @@ root_dir_sectors:
   # Now we want the number of sectors occupied by the table
   divw nb_bytes_per_sector # ax now contains the number of sectors taken up by the table  
                            # dx contains the number of bytes extra
-  
+  movw %ax, nb_root_sectors
 
+  xor %ax, %ax
+  xor %dx, %dx
+  
   # Calculating the start of the root dir
-  movw nb_of_fats, %ax
+  movb nb_of_fats, %al
   mulw nb_sectors_per_fat
   shll $16, %edx             # set the high part
   movw %ax, %dx
