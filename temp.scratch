@@ -47,3 +47,15 @@ test_a20_loop:
   testb %al,SCRATCH
   loopnz test_a20_loop
   ret
+
+
+  a20_error:
+  .byte 10,13
+  .ascii "A20 line could not be enabled."
+
+
+# Turn off floppy disk's motor.
+
+ movw  $0x3f2,%dx
+ xorb  %al,%al
+ outb  %al,%dx

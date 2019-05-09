@@ -65,8 +65,8 @@ drive:            # Extended block, supposed to be only for FAT 16
 after_header:
 
 nb_root_sectors:
-  .word 0x00000 # number of sectors in the root directory
-root_dir_sectors:
+  .long 0x00000 # number of sectors in the root directory
+root_dir_sector:
   .long 0x00    # default value on floppy is 19; should be read correctly
 
 
@@ -112,6 +112,7 @@ root_dir_sectors:
                            # dx contains the number of bytes extra
   movw %ax, nb_root_sectors
 
+  # Cleanup
   xor %ax, %ax
   xor %dx, %dx
   
@@ -123,31 +124,51 @@ root_dir_sectors:
   addw nb_hidden_sectors, %dx
   addw nb_reserved_sectors, %dx
   # edx now contains the sector of the root directory
+  movl %edx, root_dir_sector # save it
 
-1: jmp 1b
-
-  # Configure the reading
-
-  movl  %edx,%eax
-  movl  $KERNEL_START,%ebx
-  movl  $KERNEL_SIZE,%ecx
-
+  # We can now read the root directory to find the file we want
+  # each sector read will contain 16 entries. Only the 11 first bytes are interesting to us
+  # cx will contain the number of sectors read 
+  
   call reset_drive
+  xorl  %ecx, %ecx
 
-next_sector:
+  movl root_dir_sector, %eax
 
+  next_sector:
+
+  # Are we done?
+  cmp nb_root_sectors, %eax
+  jc cannot_load
+  
+  movl  $SCRATCH, %ebx # write to scratch
   call  read_sector
-  jnc   sector_was_read
-  call reset_drive
-
-  call  read_sector
-  jnc   sector_was_read
-
-  call reset_drive
-  call  read_sector
-
-  # Failure: give up
+  # retry?
   jc    cannot_load
+  # At scratch we now have a sector of the table
+
+  check_entry:
+    pushl %ecx
+    movl $11, %ecx
+    movw $SCRATCH, %di
+    movw $stage_2_name, %si
+    repz cmpsb
+    je found_file
+    popl  %ecx
+
+    addl $ROOT_DIR_ENTRY_SIZE, %ebx   # move on to the next one
+    cmp  nb_bytes_per_sector, %ebx
+    jc check_entry_done               # we read all the entries
+    jmp check_entry # we did not read all the entries, continue
+  check_entry_done:  
+
+  incl %eax # we analysed a sector, go to the next one
+  jmp next_sector
+
+found_file:
+  movw $stage_2_name, %si
+  call print_string
+2: jmp 2b
 
 # ------------------------------
 
@@ -161,11 +182,6 @@ sector_was_read:
 
   ja    next_sector
 
-# Turn off floppy disk's motor.
-
- movw  $0x3f2,%dx
- xorb  %al,%al
- outb  %al,%dx
 
 # Jump to kernel.
   ljmp  $(KERNEL_START>>4),$0  # jump to "KERNEL_START" (which must be < 1MB)
@@ -210,6 +226,7 @@ read_sector:
   pushl %ebx
   pushl %ecx
 
+  # print a message to display that we are reading something
   pushl %eax
   pushl %ebx
   movw  $progress,%si
