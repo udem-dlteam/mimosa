@@ -27,9 +27,13 @@ all: floppy
 
 build:
 	tar cf - . | ssh administrator@localhost -p10022 "rm -rf mimosa-build;mkdir mimosa-build;cd mimosa-build;tar xf -;make clean;make";ssh administrator@localhost -p10022 "cat mimosa-build/floppy" > floppy
+	hexdump -C -n 512 floppy
 
 run:
-	qemu-system-x86_64 -m 4096 -fda floppy -vnc localhost:6 -monitor stdio
+	qemu-system-x86_64 -s -S -m 4096 -hda floppy
+#  -vnc localhost:6 -monitor stdio
+debug:
+	qemu-system-x86_64 -m 4096 -s -S -hda floppy
 
 mf:
 	make clean
@@ -75,59 +79,61 @@ bootsect.bin: bootsect.o
 	as --defsym OS_NAME=$(OS_NAME) --defsym KERNEL_START=$(KERNEL_START) --defsym KERNEL_SIZE=`cat kernel.bin | wc --bytes | sed -e "s/ //g"` -o $*.o $*.s
 
 clean:
-		# rm -f *.o *.asm *.bin *.tmp *.d
-		ls -al
+	rm -rf floppy
+	ssh administrator@localhost -p10022 "rm -rf mimosa-build;"
+	rm -f *.o *.asm *.bin *.tmp *.d
+		# ls -al
 
 # dependencies:
 config.o: config.c etherboot.h osdep.h include/asm.h include/general.h \
-  nic.h pci.h cards.h
+	nic.h pci.h cards.h
 disk.o: disk.cpp include/disk.h include/general.h include/ide.h \
-  include/thread.h include/intr.h include/asm.h include/pic.h \
-  include/apic.h include/time.h include/pit.h include/queue.h \
-  include/term.h include/video.h include/rtlib.h
+	include/thread.h include/intr.h include/asm.h include/pic.h \
+	include/apic.h include/time.h include/pit.h include/queue.h \
+	include/term.h include/video.h include/rtlib.h
 eepro100.o: eepro100.c etherboot.h osdep.h include/asm.h \
-  include/general.h nic.h pci.h cards.h timer2.h
+	include/general.h nic.h pci.h cards.h timer2.h
 fifo.o: fifo.cpp include/fifo.h include/general.h include/thread.h \
-  include/intr.h include/asm.h include/pic.h include/apic.h \
-  include/time.h include/pit.h include/queue.h include/term.h \
-  include/video.h include/rtlib.h
+	include/intr.h include/asm.h include/pic.h include/apic.h \
+	include/time.h include/pit.h include/queue.h include/term.h \
+	include/video.h include/rtlib.h
 fs.o: fs.cpp include/fs.h include/general.h include/disk.h include/ide.h \
-  include/thread.h include/intr.h include/asm.h include/pic.h \
-  include/apic.h include/time.h include/pit.h include/queue.h \
-  include/term.h include/video.h include/rtlib.h
+	include/thread.h include/intr.h include/asm.h include/pic.h \
+	include/apic.h include/time.h include/pit.h include/queue.h \
+	include/term.h include/video.h include/rtlib.h
 ide.o: ide.cpp include/ide.h include/general.h include/thread.h \
-  include/intr.h include/asm.h include/pic.h include/apic.h \
-  include/time.h include/pit.h include/queue.h include/term.h \
-  include/video.h include/rtlib.h include/disk.h
+	include/intr.h include/asm.h include/pic.h include/apic.h \
+	include/time.h include/pit.h include/queue.h include/term.h \
+	include/video.h include/rtlib.h include/disk.h
 intr.o: intr.cpp include/intr.h include/general.h include/asm.h \
-  include/pic.h include/apic.h include/term.h include/video.h
+	include/pic.h include/apic.h include/term.h include/video.h
 main.o: main.cpp include/general.h include/term.h include/video.h \
-  include/fifo.h include/thread.h include/intr.h include/asm.h \
-  include/pic.h include/apic.h include/time.h include/pit.h \
-  include/queue.h include/ps2.h
+	include/fifo.h include/thread.h include/intr.h include/asm.h \
+	include/pic.h include/apic.h include/time.h include/pit.h \
+	include/queue.h include/ps2.h
 misc.o: misc.c etherboot.h osdep.h include/asm.h include/general.h
 net.o: net.cpp include/net.h include/general.h include/rtlib.h \
-  include/term.h include/video.h include/time.h include/asm.h \
-  include/pit.h include/thread.h include/intr.h include/pic.h \
-  include/apic.h include/queue.h etherboot.h osdep.h nic.h
+	include/term.h include/video.h include/time.h include/asm.h \
+	include/pit.h include/thread.h include/intr.h include/pic.h \
+	include/apic.h include/queue.h etherboot.h osdep.h nic.h
 pci.o: pci.c etherboot.h osdep.h include/asm.h include/general.h pci.h
 ps2.o: ps2.cpp include/ps2.h include/general.h include/intr.h \
-  include/asm.h include/pic.h include/apic.h include/time.h include/pit.h \
-  include/video.h include/term.h include/thread.h include/queue.h
+	include/asm.h include/pic.h include/apic.h include/time.h include/pit.h \
+	include/video.h include/term.h include/thread.h include/queue.h
 rtlib.o: rtlib.cpp include/rtlib.h include/general.h include/intr.h \
-  include/asm.h include/pic.h include/apic.h include/time.h include/pit.h \
-  include/ide.h include/thread.h include/queue.h include/term.h \
-  include/video.h include/disk.h include/fs.h include/ps2.h
+	include/asm.h include/pic.h include/apic.h include/time.h include/pit.h \
+	include/ide.h include/thread.h include/queue.h include/term.h \
+	include/video.h include/disk.h include/fs.h include/ps2.h
 term.o: term.cpp include/term.h include/general.h include/video.h
 thread.o: thread.cpp include/thread.h include/general.h include/intr.h \
-  include/asm.h include/pic.h include/apic.h include/time.h include/pit.h \
-  include/queue.h include/term.h include/video.h include/rtlib.h
+	include/asm.h include/pic.h include/apic.h include/time.h include/pit.h \
+	include/queue.h include/term.h include/video.h include/rtlib.h
 time.o: time.cpp include/time.h include/general.h include/asm.h \
-  include/pit.h include/apic.h include/intr.h include/pic.h include/rtc.h \
-  include/term.h include/video.h
+	include/pit.h include/apic.h include/intr.h include/pic.h include/rtc.h \
+	include/term.h include/video.h
 timer2.o: timer2.c etherboot.h osdep.h include/asm.h include/general.h \
-  timer2.h
+	timer2.h
 tulip.o: tulip.c etherboot.h osdep.h include/asm.h include/general.h \
-  nic.h pci.h cards.h
+	nic.h pci.h cards.h
 video.o: video.cpp include/video.h include/general.h include/asm.h \
-  include/vga.h include/term.h mono_5x7.cpp mono_6x9.cpp
+	include/vga.h include/term.h mono_5x7.cpp mono_6x9.cpp

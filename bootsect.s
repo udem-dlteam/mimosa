@@ -25,46 +25,66 @@ bootsect_entry:
 
   .code16  # at this point the processor is in 16 bit real mode
 
-#------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 
 code_start:
 
 # This header will make the boot sector look like the one for an MSDOS floppy.
 
   .byte 0xeb,0x3c,0x90 # this is a jump instruction to "after_header"
-  .byte                0x2a,0x26,0x41,0x66,0x3c
-  .byte 0x49,0x48,0x43
+  .byte 0x2a,0x26,0x41,0x66,0x3c, 0x49,0x48,0x43 # OEM name, number
 nb_bytes_per_sector:
-  .byte                0x00,0x02
-  .byte                          0x01,0x01,0x00
-  .byte 0x02,0xe0,0x00,0x40,0x0b,0xf0,0x09,0x00
+  .byte 0x00,0x02 # bytes per sector (512 bytes)
+  .byte 0x01      # sector per allocation unit -> sector/cluster
+  .byte 0x01,0x00 # reserved sectors for booting (256)
+  .byte 0x02      # number of FATs (always 2)
+  .byte 0xe0,0x00 # number of root dir entries
+  .byte 0x40,0x0b # number of logical sectors
+  .byte 0xf0      # media descriptor byte (f0h: floppy, f8h: disk drive)
+  .byte 0x09,0x00 # sectors per fat
 nb_sectors_per_track:
-  .byte 0x12,0x00
+  .byte 0x00,0x00 # sectors per track
 nb_heads:
-  .byte           0x02,0x00
-  .byte                     0x00,0x00,0x00,0x00
-  .byte 0x00,0x00,0x00,0x00
-drive:
-  .byte                     0x00
-  .byte                          0x00,0x29,0xd1
-  .byte 0x07,0x22,0x27,0x4f,0x53,0x20,0x20,0x20
-  .byte 0x20,0x20,0x20,0x20,0x20,0x20,0x46,0x41
-  .byte 0x54,0x31,0x32,0x20,0x20,0x20
-
-#------------------------------------------------------------------------------
+  .byte 0x00,0x00 # number of heads
+  .byte 0x00,0x00 # number of hidden sectors
+  .byte 0x00,0x00 # number of hidden sectors (high word)
+  .byte 0x00,0x00,0x00,0x00 # total number of sectors in file system
+drive:            # Extended block, supposed to be only for FAT 16
+  .byte 0x00      # logical drive number
+  .byte 0x00      # reserved
+  .byte 0x29      # extended signature
+  .byte 0xd1,0x07,0x22,0x27 # serial number
+  .byte 0x4f,0x53,0x20,0x20,0x20,0x20,0x20,0x20,0x20,0x20,0x20 # drive label
+  .byte 0x46,0x41,0x54,0x31,0x32,0x20,0x20,0x20 # file system type (FAT 12)
+# ------------------------------------------------------------------------------
 
 after_header:
 
 # Setup segments.
+  cli
 
   xorw  %cx,%cx
   movw  %cx,%ds
   movw  %cx,%ss
   movw  $(STACK_TOP & 0xffff),%sp
+  sti
 
 # Print banner.
   movw  $banner,%si
   call  print_string
+
+# Setup drive parameters, especially important for hard drive
+
+  movb $0x08, %ah
+  movb drive, %dl
+  int $0x13
+
+  jc cannot_load
+
+  incb %dh                # dh is maximum head index, we increment by one to get head count
+  movb %dh, nb_heads      # put the number of heads in the header
+  andb $0x3f,%cl          # cl: 00s5......s1 (max sector)
+  movb %cl, nb_sectors_per_track # the number of cylinder is useless for the LDA to CHS conversion
 
 # Enable A20 line so that odd and even megabytes can be accessed.
 
@@ -103,16 +123,24 @@ a20_enabled:
   movl  $KERNEL_START,%ebx
   movl  $KERNEL_SIZE,%ecx
 
-  jmp   debug_string
+  call reset_drive
 
 next_sector:
 
   call  read_sector
   jnc   sector_was_read
+  call reset_drive
+
   call  read_sector
   jnc   sector_was_read
+
+  call reset_drive
   call  read_sector
+
+  # Failure: give up
   jc    cannot_load
+
+# ------------------------------
 
 sector_was_read:
 
@@ -126,11 +154,14 @@ sector_was_read:
 
 # Turn off floppy disk's motor.
 
-  movw  $0x3f2,%dx
-  xorb  %al,%al
-  outb  %al,%dx
+#  movw  $0x3f2,%dx
+#  xorb  %al,%al
+#  outb  %al,%dx
 
 # Jump to kernel.
+
+  movw $debug_a, %si
+  call print_string
 
   ljmp  $(KERNEL_START>>4),$0  # jump to "KERNEL_START" (which must be < 1MB)
 
@@ -170,6 +201,21 @@ test_a20_loop:
 
 #------------------------------------------------------------------------------
 
+reset_drive:
+
+  pushl %eax
+  pushl %edx
+
+  movb  drive, %dl
+  xor %ax, %ax
+  int $0x13
+
+  popl %edx
+  popl %eax
+
+  ret  
+
+
 read_sector:
 
 # Read one sector from relative sector offset %eax (with bootsector =
@@ -186,24 +232,24 @@ read_sector:
   popl  %ebx
   popl  %eax
 
-  movl  %eax,%edx
-  shrl  $16,%edx
+  movl  %eax,%edx               # edx contains LDA
+  shrl  $16,%edx                # dx contains LDA
   divw  nb_sectors_per_track    # %ax = cylinder, %dx = sector in track
-  incb  %dl
-  movb  %dl,%cl
-  xorw  %dx,%dx
+  incw  %dx                     # increment sector
+  movb  %dl,%cl                 # move the sector per track to cl
+  xorw  %dx,%dx                 # erase dx
   divw  nb_heads                # %ax = track, %dx = head
-  shlb  $6,%ah
-  orb   %ah,%cl
-  movb  %al,%ch
-  movb  %dl,%dh
-  movb  drive,%dl
-  movl  %ebx,%eax
-  shrl  $4,%eax
-  movw  %ax,%es
+  shlb  $6,%ah                  # keep the top 2 bits of track in ah
+  orb   %ah,%cl                 # cl is top two bits of ah and sectors per track
+  movb  %al,%ch                 # ch is the bottom part of the track
+  movb  %dl,%dh                 # head is now in dh
+  movb  drive,%dl               # dl is now the drive
+  movl  %ebx,%eax               # put the target address in eax
+  shrl  $4,%eax                 # div the address by 2^4
+  movw  %ax,%es                 # insert the address in es
   andw  $0x0f,%bx
-  movw  $(INT13_READ_SECTOR_FN<<8)+1,%ax
-  int   $0x13
+  movw  $0x0201,%ax # in AH, write 0x02 (command read) and in AL write 0x01 (1 sector to read)
+  int   $0x13       # Call the read
 
   popl  %ecx
   popl  %ebx
@@ -256,9 +302,9 @@ debug_string:
 
 code_end:
 
-  .space (1<<9)-2-(code_end-code_start)  # skip to last 2 bytes of sector
+  .space (1<<9)-(2 + 0)-(code_end-code_start)  # Skip to the end. The signature and the bootsector need to be written
 
-  .byte 0x55  # valid boot sectors need these bytes at the end of the sector
+  # Signature
+  .byte 0x55
   .byte 0xaa
-
 #------------------------------------------------------------------------------
