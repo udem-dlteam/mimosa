@@ -148,16 +148,20 @@ root_dir_sector:
   # At scratch we now have a sector of the table
 
   check_entry:
-    pushl %ecx
     movl $11, %ecx
-    movw $SCRATCH, %di
-    movw $stage_2_name, %si
+    movw %bx, %di
+    lea stage_2_name, %si
+1:  jmp 1b
+    # This is where I am at:
+    # I know that the data is read correctly (at the scratch addrr). Lines 151 to 153
+    # I am not sure they work, and I need to figure out how the comparison is done. 
+    # (Line 160). Not much left to do to find the file! After there is the cluster calculations
+    # and all of that stuff to actually get the data address
     repz cmpsb
     je found_file
-    popl  %ecx
 
-    addl $ROOT_DIR_ENTRY_SIZE, %ebx   # move on to the next one
-    cmp  nb_bytes_per_sector, %ebx
+    addw $ROOT_DIR_ENTRY_SIZE, %bx   # move on to the next one
+    cmp  nb_bytes_per_sector, %bx
     jc check_entry_done               # we read all the entries
     jmp check_entry # we did not read all the entries, continue
   check_entry_done:  
@@ -274,8 +278,7 @@ print_string:
   ret
 
 stage_2_name:
-  .ascii "boot.sys"
-  .byte 0
+  .ascii "aaaaaaaasys" # the extension is implicit
 
 banner:
   .ascii "Loading"
