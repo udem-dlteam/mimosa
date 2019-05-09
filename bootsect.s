@@ -40,7 +40,7 @@ nb_bytes_per_sector:
   .byte 0x02      # number of FATs (always 2)
   .byte 0xe0,0x00 # number of root dir entries
   .byte 0x40,0x0b # number of logical sectors
-  .byte 0xf8      # media descriptor byte (f0h: floppy, f8h: disk drive)
+  .byte 0xf0      # media descriptor byte (f0h: floppy, f8h: disk drive)
   .byte 0x09,0x00 # sectors per fat
 nb_sectors_per_track:
   .byte 0x00,0x00 # sectors per track
@@ -50,7 +50,7 @@ nb_heads:
   .byte 0x00,0x00 # number of hidden sectors (high word)
   .byte 0x00,0x00,0x00,0x00 # total number of sectors in file system
 drive:            # Extended block, supposed to be only for FAT 16
-  .byte 0x80      # logical drive number
+  .byte 0x00      # logical drive number
   .byte 0x00      # reserved
   .byte 0x29      # extended signature
   .byte 0xd1,0x07,0x22,0x27 # serial number
