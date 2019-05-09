@@ -43,9 +43,9 @@ nb_bytes_per_sector:
   .byte 0xf8      # media descriptor byte (f0h: floppy, f8h: disk drive)
   .byte 0x09,0x00 # sectors per fat
 nb_sectors_per_track:
-  .byte 0x12,0x00 # sectors per track
+  .byte 0x3f,0x00 # sectors per track
 nb_heads:
-  .byte 0x02,0x00 # number of heads
+  .byte 0x0f,0x00 # number of heads
   .byte 0x00,0x00 # number of hidden sectors
   .byte 0x00,0x00 # number of hidden sectors (high word)
   .byte 0x00,0x00,0x00,0x00 # total number of sectors in file system

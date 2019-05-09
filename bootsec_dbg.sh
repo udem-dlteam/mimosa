@@ -11,3 +11,4 @@ qemu-system-i386 -s -S -hda ./debug/bootsect.bin
 #(gdb) set architecture i386
 #(gdb) break *0x7c00  # beginning of the bootsect, where the disk drive / floppy is detected
 #(gdb) cont
+# 1:jmp   1b          # Stop here 
