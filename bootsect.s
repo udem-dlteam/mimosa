@@ -7,13 +7,12 @@
 # 22 Sep 01  initial version (Marc Feeley)
 
 # ------------------------------------------------------------------------------
-
-ROOT_DIR = 33              # sector number for "OS.SYS" file
 INT13_READ_SECTOR_FN = 2        # BIOS int 0x13 function for "read sector"
 INT10_TTY_OUTPUT_FN = 0xE       # BIOS int 0x10 function for "teletype output"
 INT16_READ_KEYBOARD_FN = 0      # BIOS int 0x16 function for "read keyboard"
 STACK_TOP = 0x10000             # location of stack top
 SCRATCH = 0x1000                # location of scratch area
+ROOT_DIR_ENTRY_SIZE = 32        # the size for a root directory entry size
 # ------------------------------------------------------------------------------
 
   .globl bootsect_entry
@@ -33,11 +32,12 @@ code_start:
   .byte 0xeb,0x3c,0x90 # this is a jump instruction to "after_header"
   .byte 0x2a,0x26,0x41,0x66,0x3c, 0x49,0x48,0x43 # OEM name, number
 nb_bytes_per_sector:
-  .byte 0x00,0x02 # bytes per sector (512 bytes)
+  .word 0x0200 # bytes per sector (512 bytes)
   .byte 0x01      # sector per allocation unit -> sector/cluster
+nb_reserved_sectors:  
   .word 0x0001 # reserved sectors for booting 1
 nb_of_fats:
-  .byte 0x01      # number of FATs (usually 2)
+  .byte 0x02      # number of FATs (usually 2)
 nb_root_dir_entries:
   .word 0x00e8    # number of root dir entries
 nb_logical_sectors:
@@ -48,8 +48,9 @@ nb_sectors_per_fat:
 nb_sectors_per_track:
   .word 0x009 # sectors per track
 nb_heads:
-  .word 0x00 # number of heads
-  .byte 0x00,0x00 # number of hidden sectors
+  .word 0x0000 # number of heads
+nb_hidden_sectors:
+  .word 0x0000 # number of hidden sectors
   .byte 0x00,0x00 # number of hidden sectors (high word)
   .byte 0x00,0x00,0x00,0x00 # total number of sectors in file system
 drive:            # Extended block, supposed to be only for FAT 16
@@ -62,6 +63,13 @@ drive:            # Extended block, supposed to be only for FAT 16
 # ------------------------------------------------------------------------------
 
 after_header:
+
+nb_root_sectors:
+  .word 0x00000 # number of roots sectors
+root_dir_sectors:
+  .long 0x00    # default value on floppy is 33; should be read correctly
+
+
 
 # Setup segments.
   cli
@@ -93,9 +101,31 @@ after_header:
   xorb %ch, %ch
   movw %cx, nb_sectors_per_track # the number of cylinder is useless for the LDA to CHS conversion
 
-# Load kernel at "KERNEL_START".
+  # Prepare values for stage two loading
 
-  movl  $ROOT_DIR,%eax
+  movw $ROOT_DIR_ENTRY_SIZE, %ax # size in bytes of an entry in the root table
+  xor %dx, %dx 
+  mulw nb_root_dir_entries  # DX contains the high part, AX contains the low part of (number of entries * size of entries)
+  # = directory size
+  # Now we want the number of sectors occupied by the table
+  divw nb_bytes_per_sector # ax now contains the number of sectors taken up by the table  
+                           # dx contains the number of bytes extra
+  
+
+  # Calculating the start of the root dir
+  movw nb_of_fats, %ax
+  mulw nb_sectors_per_fat
+  shll $16, %edx             # set the high part
+  movw %ax, %dx
+  addw nb_hidden_sectors, %dx
+  addw nb_reserved_sectors, %dx
+  # edx now contains the sector of the root directory
+
+1: jmp 1b
+
+  # Configure the reading
+
+  movl  %edx,%eax
   movl  $KERNEL_START,%ebx
   movl  $KERNEL_SIZE,%ecx
 
