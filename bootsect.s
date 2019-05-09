@@ -159,10 +159,6 @@ sector_was_read:
 #  outb  %al,%dx
 
 # Jump to kernel.
-
-  movw $debug_a, %si
-  call print_string
-
   ljmp  $(KERNEL_START>>4),$0  # jump to "KERNEL_START" (which must be < 1MB)
 
 cannot_load:
@@ -287,15 +283,6 @@ load_error:
   .byte 10,13
   .ascii "Could not load OS.  Press any key to reboot."
   .byte 10,13,0
-
-debug_a:
-.ascii "A"
-.byte 0
-
-debug_string:
-  movw  $debug_a,%si
-  call  print_string
-  jmp debug_string
 
 
 #------------------------------------------------------------------------------
