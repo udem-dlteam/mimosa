@@ -1,12 +1,12 @@
 # file: "bootsect.s"
 
-# Copyright (c) 2001 by Marc Feeley and Universit� de Montr�al, All
+# Copyright (c) 2019 by Marc Feeley and Universit� de Montr�al, All
 # Rights Reserved.
 #
 # Revision History
 # 22 Sep 01  initial version (Marc Feeley)
 
-#------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 
 ROOT_DIR = 33              # sector number for "OS.SYS" file
 INT13_READ_SECTOR_FN = 2        # BIOS int 0x13 function for "read sector"
@@ -14,8 +14,7 @@ INT10_TTY_OUTPUT_FN = 0xE       # BIOS int 0x10 function for "teletype output"
 INT16_READ_KEYBOARD_FN = 0      # BIOS int 0x16 function for "read keyboard"
 STACK_TOP = 0x10000             # location of stack top
 SCRATCH = 0x1000                # location of scratch area
-
-#------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 
   .globl bootsect_entry
 
@@ -36,21 +35,25 @@ code_start:
 nb_bytes_per_sector:
   .byte 0x00,0x02 # bytes per sector (512 bytes)
   .byte 0x01      # sector per allocation unit -> sector/cluster
-  .byte 0x01,0x00 # reserved sectors for booting (256)
-  .byte 0x02      # number of FATs (always 2)
-  .byte 0xe0,0x00 # number of root dir entries
-  .byte 0x40,0x0b # number of logical sectors
-  .byte 0xf0      # media descriptor byte (f0h: floppy, f8h: disk drive)
-  .byte 0x09,0x00 # sectors per fat
+  .word 0x0001 # reserved sectors for booting 1
+nb_of_fats:
+  .byte 0x01      # number of FATs (usually 2)
+nb_root_dir_entries:
+  .word 0x00e8    # number of root dir entries
+nb_logical_sectors:
+  .word 0x0b40    # number of logical sectors
+  .byte 0xf8      # media descriptor byte (f0h: floppy, f8h: disk drive)
+nb_sectors_per_fat: 
+  .word 0x0009    # sectors per fat
 nb_sectors_per_track:
-  .byte 0x00,0x00 # sectors per track
+  .word 0x009 # sectors per track
 nb_heads:
-  .byte 0x00,0x00 # number of heads
+  .word 0x00 # number of heads
   .byte 0x00,0x00 # number of hidden sectors
   .byte 0x00,0x00 # number of hidden sectors (high word)
   .byte 0x00,0x00,0x00,0x00 # total number of sectors in file system
 drive:            # Extended block, supposed to be only for FAT 16
-  .byte 0x00      # logical drive number
+  .byte 0x80      # logical drive number
   .byte 0x00      # reserved
   .byte 0x29      # extended signature
   .byte 0xd1,0x07,0x22,0x27 # serial number
@@ -82,40 +85,13 @@ after_header:
   jc cannot_load
 
   incb %dh                # dh is maximum head index, we increment by one to get head count
-  movb %dh, nb_heads      # put the number of heads in the header
+  
+  shrw $8, %dx            # place dh into dl (effictively, also keeps dh to 0x00)
+  movw %dx, nb_heads      # put the number of heads in the header
   andb $0x3f,%cl          # cl: 00s5......s1 (max sector)
-  movb %cl, nb_sectors_per_track # the number of cylinder is useless for the LDA to CHS conversion
-
-# Enable A20 line so that odd and even megabytes can be accessed.
-
-  call  test_a20     # check if A20 line is already enabled
-  jz    a20_enabled
-
-  movw  $0x64,%dx    # try to enable A20 line with the keyboard controller
-  movb  $0xd1,%al
-  outb  %al,%dx
-  movb  $3,%al
-  movw  $0x60,%dx
-  outb  %al,%dx
-
-  call  test_a20
-  jz    a20_enabled
-
-  movw  $0x92,%dx    # try to enable A20 line with the "fast A20 gate"
-  inb   %dx,%al
-  orb   $0x02,%al
-  andb  $0xfe,%al
-  outb  %al,%dx
-
-  call  test_a20
-  jz    a20_enabled
-
-# Give up!
-
-  movw  $a20_error,%si
-  jmp   print_message_and_reboot
-
-a20_enabled:
+  
+  xorb %ch, %ch
+  movw %cx, nb_sectors_per_track # the number of cylinder is useless for the LDA to CHS conversion
 
 # Load kernel at "KERNEL_START".
 
@@ -154,9 +130,9 @@ sector_was_read:
 
 # Turn off floppy disk's motor.
 
-#  movw  $0x3f2,%dx
-#  xorb  %al,%al
-#  outb  %al,%dx
+ movw  $0x3f2,%dx
+ xorb  %al,%al
+ outb  %al,%dx
 
 # Jump to kernel.
   ljmp  $(KERNEL_START>>4),$0  # jump to "KERNEL_START" (which must be < 1MB)
@@ -175,27 +151,6 @@ print_message_and_reboot:
 # Reboot.
 
   ljmp  $0xf000,$0xfff0  # jump to 0xffff0 (the CPU starts there when reset)
-
-#------------------------------------------------------------------------------
-
-test_a20:
-
-# Test if the A20 line is disabled.  On return the Z flag is set if
-# the A20 line is enabled and cleared if it is disabled.  We test it
-# repeatedly because some hardware takes some time to enable the A20
-# line.
-
-  xorw  %cx,%cx 
-test_a20_loop:
-  movb  $0,SCRATCH
-  movw  $0xffff,%ax
-  movw  %ax,%es
-  movb  %al,%es:SCRATCH+0x10
-  testb %al,SCRATCH
-  loopnz test_a20_loop
-  ret
-
-#------------------------------------------------------------------------------
 
 reset_drive:
 
@@ -216,6 +171,7 @@ read_sector:
 
 # Read one sector from relative sector offset %eax (with bootsector =
 # 0) to %ebx.
+# CF = 1 if an error reading the sector occured
 
   pushl %eax
   pushl %ebx
@@ -278,10 +234,6 @@ banner:
 progress:
   .ascii "."
   .byte 0
-
-a20_error:
-  .byte 10,13
-  .ascii "A20 line could not be enabled."
 
 load_error:
   .byte 10,13
