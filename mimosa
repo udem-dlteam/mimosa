@@ -1,6 +1,0 @@
-layout asm
-set architecture i386:x86-64
-set logging on
-break *0x7c00
-break *0x20000
-target remote localhost:1234
