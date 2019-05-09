@@ -43,9 +43,9 @@ nb_bytes_per_sector:
   .byte 0xf8      # media descriptor byte (f0h: floppy, f8h: disk drive)
   .byte 0x09,0x00 # sectors per fat
 nb_sectors_per_track:
-  .byte 0x3f,0x00 # sectors per track
+  .byte 0x00,0x00 # sectors per track
 nb_heads:
-  .byte 0x0f,0x00 # number of heads
+  .byte 0x00,0x00 # number of heads
   .byte 0x00,0x00 # number of hidden sectors
   .byte 0x00,0x00 # number of hidden sectors (high word)
   .byte 0x00,0x00,0x00,0x00 # total number of sectors in file system
@@ -63,10 +63,6 @@ after_header:
 # Setup segments.
   cli
 
-  movb  drive, %dl
-  xor %ax, %ax
-  int $0x13
-
   xorw  %cx,%cx
   movw  %cx,%ds
   movw  %cx,%ss
@@ -76,6 +72,19 @@ after_header:
 # Print banner.
   movw  $banner,%si
   call  print_string
+
+# Setup drive parameters, especially important for hard drive
+
+  movb $0x08, %ah
+  movb drive, %dl
+  int $0x13
+
+  jc cannot_load
+
+  incb %dh                # dh is maximum head index, we increment by one to get head count
+  movb %dh, nb_heads      # put the number of heads in the header
+  andb $0x3f,%cl          # cl: 00s5......s1 (max sector)
+  movb %cl, nb_sectors_per_track # the number of cylinder is useless for the LDA to CHS conversion
 
 # Enable A20 line so that odd and even megabytes can be accessed.
 
@@ -114,27 +123,18 @@ a20_enabled:
   movl  $KERNEL_START,%ebx
   movl  $KERNEL_SIZE,%ecx
 
+  call reset_drive
+
 next_sector:
 
   call  read_sector
   jnc   sector_was_read
-  # Failure: reset drive
-  movb  drive, %dl
-  xor %ax, %ax
-  int $0x13
-  # Recover the sector
-  movl  $KERNEL_SECTOR, %eax
+  call reset_drive
 
   call  read_sector
   jnc   sector_was_read
 
-  # Failure: reset drive
-  movb  drive, %dl
-  xor %ax, %ax
-  int $0x13
-  # Recover the sector
-  movl  $KERNEL_SECTOR, %eax
-
+  call reset_drive
   call  read_sector
 
   # Failure: give up
@@ -200,6 +200,21 @@ test_a20_loop:
   ret
 
 #------------------------------------------------------------------------------
+
+reset_drive:
+
+  pushl %eax
+  pushl %edx
+
+  movb  drive, %dl
+  xor %ax, %ax
+  int $0x13
+
+  popl %edx
+  popl %eax
+
+  ret  
+
 
 read_sector:
 
