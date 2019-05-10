@@ -50,8 +50,7 @@ nb_sectors_per_track:
 nb_heads:
   .word 0x0000 # number of heads
 nb_hidden_sectors:
-  .word 0x0000 # number of hidden sectors
-  .byte 0x00,0x00 # number of hidden sectors (high word)
+  .long 0x00 # number of hidden sectors
   .byte 0x00,0x00,0x00,0x00 # total number of sectors in file system
 drive:            # Extended block, supposed to be only for FAT 16
   .byte 0x80      # logical drive number
@@ -169,8 +168,27 @@ found_file:
   # finally read the file... The cluster is a word at offset 0x1A
   addw $0x1A, %bx
   movw %es:(%bx), %ax # cluster is now in ax
-1: jmp 1b
+  pushw %ax
 
+
+  # Fat offset:
+  xorl %eax, %eax           # clean the upper part
+  movw nb_reserved_sectors, %ax
+  addw nb_hidden_sectors,   %ax # eax is now the reading address
+
+  movl $SCRATCH, %ebx       # the destination address is now ebx
+
+  movw nb_sectors_per_fat, %cx # numbers of sectors to read
+  
+  read_next_fat:
+  call read_sector               # read a single sector
+  incl %eax                      # get ready to read the next one
+  addl nb_bytes_per_sector, %ebx # update the offset
+  loopnz read_next_fat           # decrement cx. if cx is NOT zero, jump to read_next_fat
+
+  movw $stage_2_name, %si
+  call print_string
+  1:jmp 1b
 
 # ------------------------------
 
@@ -279,10 +297,6 @@ print_string:
 
 stage_2_name:
   .ascii "boot    sys" # the extension is implicit, spaces mark blanks
-  .byte 0
-
-found_file_str:
-  .ascii "Found file..."
   .byte 0
 
 banner:
