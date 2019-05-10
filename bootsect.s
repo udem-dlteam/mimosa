@@ -143,9 +143,7 @@ root_dir_sector:
   
   movl  $SCRATCH, %ebx # write to scratch
   # Read sector edits es; save it
-  pushw %es
   call  read_sector
-  popw %es
   # retry?
   jc    cannot_load
   # At scratch we now have a sector of the table
@@ -166,10 +164,13 @@ root_dir_sector:
   jmp next_sector
 
 found_file:
-  # at this point, di contains the start of the root dir entry
-  movw $found_file_str, %si
-  call print_string
-2: jmp 2b
+  # At this point, bx contains the start of the root dir entry
+  # We want to read the cluster number, so we can look up the FAT and
+  # finally read the file... The cluster is a word at offset 0x1A
+  addw $0x1A, %bx
+  movw %es:(%bx), %ax # cluster is now in ax
+1: jmp 1b
+
 
 # ------------------------------
 
@@ -222,7 +223,7 @@ read_sector:
 # Read one sector from relative sector offset %eax (with bootsector =
 # 0) to %ebx.
 # CF = 1 if an error reading the sector occured
-
+  pushw %es
   pushl %eax
   pushl %ebx
   pushl %ecx
@@ -257,6 +258,8 @@ read_sector:
   popl  %ecx
   popl  %ebx
   popl  %eax
+  popw  %es
+
   ret
 
 #------------------------------------------------------------------------------
