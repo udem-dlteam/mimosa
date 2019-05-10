@@ -249,8 +249,8 @@ read_sector:
   shrl  $4,%eax                 # div the address by 2^4
   movw  %ax,%es                 # insert the address in es
   andw  $0x0f,%bx
-  movw  $0x0201,%ax # in AH, write 0x02 (command read) and in AL write 0x01 (1 sector to read)
-  int   $0x13       # Call the read
+  movw  $0x0201,%ax             # in AH, write 0x02 (command read) and in AL write 0x01 (1 sector to read)
+  int   $0x13                   # Call the read
 
   popl  %ecx
   popl  %ebx
@@ -275,7 +275,7 @@ print_string:
   ret
 
 stage_2_name:
-  .ascii "boot    sys" # the extension is implicit, spaces mark blanks
+  .ascii "BOOT    SYS" # the extension is implicit, spaces mark blanks
   .byte 0
 
 banner:
@@ -290,7 +290,7 @@ load_error:
   .byte 10,13
   .ascii "Could not load OS.  Press any key to reboot."
   .byte 10,13,0
-  
+
 code_end:
 
   .space (1<<9)-(2 + 0)-(code_end-code_start)  # Skip to the end. The signature and the bootsector need to be written
