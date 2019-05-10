@@ -68,8 +68,6 @@ nb_root_sectors:
 root_dir_sector:
   .long 0x00    # default value on floppy is 19; should be read correctly
 
-
-
 # Setup segments.
   cli
 
@@ -80,8 +78,8 @@ root_dir_sector:
   sti
 
 # Print banner.
-  movw  $banner,%si
-  call  print_string
+# movw  $banner,%si
+#  call  print_string
 
 # Setup drive parameters, especially important for hard drive
 
@@ -168,7 +166,7 @@ found_file:
   # finally read the file... The cluster is a word at offset 0x1A
   addw $0x1A, %bx
   movw %es:(%bx), %ax # cluster is now in ax
-  pushw %ax
+  pushw %ax # this is dirty; needs to be fixed
 
 
   # Fat offset:
@@ -186,11 +184,53 @@ found_file:
   addl nb_bytes_per_sector, %ebx # update the offset
   loopnz read_next_fat           # decrement cx. if cx is NOT zero, jump to read_next_fat
 
-  movw $stage_2_name, %si
-  call print_string
-  1:jmp 1b
+  # FAT loaded, looking for the file. We write it at KERNEL_START.
+  xorl %eax, %eax                # make sure it's reset
+  xorl %ecx, %ecx
 
-# Jump to kernel.
+  movl $KERNEL_START, %ebx       # we are going to write there
+  
+  popw %cx                       # cx now contains the cluster
+
+  read_file_sector:
+  movw %cx, %ax                  # sector to read is the cluster
+  addw root_dir_sector, %ax      # next, add the offset in sectors of the root dir
+  addw nb_root_sectors, %ax      # plus the length of the root dir
+  subw $2,              %ax      # magic!
+
+  1: jmp 1b
+
+  # Read the first sector in the right memory spot
+  call read_sector
+  addl nb_bytes_per_sector, %ebx # we filled the first 512 byte spot, move on
+
+  # Now we need to lookup the FAT to figure out where is the next sector to read
+  movl $SCRATCH, %edx          
+
+  movw %cx, %si                  # get ready to read the fat entry
+  shrw $1 , %si                  # get half of %si
+  addw %cx, %si                  # si is now 1.5 time cx (the offset)
+
+  addw %si, %dx                  # addr = base_addr + offset
+  movw %dx, %si
+  movw %ds:(%si), %dx            # read from mem into dx
+
+  testw $0x01, %cx               # check if current cluster is odd
+  jnz next_cluster_is_odd
+  andw $0x0FFF, %dx
+  jmp read_cluster_done
+  
+  next_cluster_is_odd:
+  shrw $4, %dx
+
+  read_cluster_done:
+  movw %dx, %cx                  # set the current cluster
+
+  movw $0x0FF8, %ax
+  cmpw %cx,     %ax             # if fat is geq, we are done
+  jl read_file_sector
+  
+  # Jump to kernel.
   ljmp  $(KERNEL_START>>4),$0  # jump to "KERNEL_START" (which must be < 1MB)
 
 cannot_load:
@@ -278,17 +318,13 @@ stage_2_name:
   .ascii "BOOT    SYS" # the extension is implicit, spaces mark blanks
   .byte 0
 
-banner:
-  .ascii "Loading"
-  .byte 0
-
 progress:
   .ascii "."
   .byte 0
 
 load_error:
   .byte 10,13
-  .ascii "Could not load OS.  Press any key to reboot."
+  .ascii "Err. Press any key to reboot."
   .byte 10,13,0
 
 code_end:
