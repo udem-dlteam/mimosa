@@ -26,7 +26,16 @@ GPP_OPTIONS = $(GCC_OPTIONS) -fno-rtti -fno-builtin -fno-exceptions
 all: floppy
 
 build:
+	# To make a "base disk"
+	# dd a file
+	# make a base partition with fdisk and then create the file system with mkfs. It is then possible
+	# To mount it and write the data
 	tar cf - . | ssh administrator@localhost -p10022 "rm -rf mimosa-build;mkdir mimosa-build;cd mimosa-build;tar xf -;make clean;make";ssh administrator@localhost -p10022 "cat mimosa-build/floppy" > floppy
+	ssh administrator@localhost -p10022 "cat mimosa-build/bootsect.bin" > bootsect.bin
+	ssh administrator@localhost -p10022 "cat mimosa-build/kernel.bin"   > boot.sys
+	rm floppy
+	cp blank_drive.img floppy
+	dd if=bootsect.bin of=floppy conv=notrunc
 	hexdump -C -n 512 floppy
 
 
