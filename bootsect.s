@@ -142,24 +142,20 @@ root_dir_sector:
   jc cannot_load
   
   movl  $SCRATCH, %ebx # write to scratch
+  # Read sector edits es; save it
+  pushw %es
   call  read_sector
+  popw %es
   # retry?
   jc    cannot_load
   # At scratch we now have a sector of the table
 
   check_entry:
-    movl $11, %ecx
-    movw %bx, %di
-    lea stage_2_name, %si
-1:  jmp 1b
-    # This is where I am at:
-    # I know that the data is read correctly (at the scratch addrr). Lines 151 to 153
-    # I am not sure they work, and I need to figure out how the comparison is done. 
-    # (Line 160). Not much left to do to find the file! After there is the cluster calculations
-    # and all of that stuff to actually get the data address
-    repz cmpsb
-    je found_file
-
+    movw $11, %cx
+    movw %bx, %di # load the name into di
+    movw $stage_2_name, %si # load the wanted file name into si
+    repz cmpsb              # compare the byte strings
+    je found_file           # if equal, jump to found file
     addw $ROOT_DIR_ENTRY_SIZE, %bx   # move on to the next one
     cmp  nb_bytes_per_sector, %bx
     jc check_entry_done               # we read all the entries
@@ -170,7 +166,8 @@ root_dir_sector:
   jmp next_sector
 
 found_file:
-  movw $stage_2_name, %si
+  # at this point, di contains the start of the root dir entry
+  movw $found_file_str, %si
   call print_string
 2: jmp 2b
 
@@ -278,7 +275,12 @@ print_string:
   ret
 
 stage_2_name:
-  .ascii "aaaaaaaasys" # the extension is implicit
+  .ascii "boot    sys" # the extension is implicit, spaces mark blanks
+  .byte 0
+
+found_file_str:
+  .ascii "Found file..."
+  .byte 0
 
 banner:
   .ascii "Loading"
