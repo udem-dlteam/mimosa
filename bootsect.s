@@ -77,6 +77,19 @@ root_dir_sector:
   movw  $(STACK_TOP & 0xffff),%sp
   sti
 
+  movw  $0x64,%dx    # try to enable A20 line with the keyboard controller
+  movb  $0xd1,%al
+  outb  %al,%dx
+  movb  $3,%al
+  movw  $0x60,%dx
+  outb  %al,%dx
+
+  movw  $0x92,%dx    # try to enable A20 line with the "fast A20 gate"
+  inb   %dx,%al
+  orb   $0x02,%al
+  andb  $0xfe,%al
+  outb  %al,%dx
+
 # Print banner.
 # movw  $banner,%si
 #  call  print_string
@@ -198,10 +211,11 @@ found_file:
   addw nb_root_sectors, %ax      # plus the length of the root dir
   subw $2,              %ax      # magic!
 
-  1: jmp 1b
-
   # Read the first sector in the right memory spot
+  movw $progress, %si
+  call print_string # display a reading indicator
   call read_sector
+
   addl nb_bytes_per_sector, %ebx # we filled the first 512 byte spot, move on
 
   # Now we need to lookup the FAT to figure out where is the next sector to read
@@ -215,7 +229,7 @@ found_file:
   movw %dx, %si
   movw %ds:(%si), %dx            # read from mem into dx
 
-  testw $0x01, %cx               # check if current cluster is odd
+  testw $1, %cx               # check if current cluster is odd
   jnz next_cluster_is_odd
   andw $0x0FFF, %dx
   jmp read_cluster_done
@@ -225,11 +239,11 @@ found_file:
 
   read_cluster_done:
   movw %dx, %cx                  # set the current cluster
-
-  movw $0x0FF8, %ax
-  cmpw %cx,     %ax             # if fat is geq, we are done
+  cmpw $0xFF8, %cx               # if FAT is geq than the last block sym, we are done
+  je leave_this
   jl read_file_sector
-  
+  leave_this:
+  1:jmp 1b
   # Jump to kernel.
   ljmp  $(KERNEL_START>>4),$0  # jump to "KERNEL_START" (which must be < 1MB)
 
@@ -324,7 +338,7 @@ progress:
 
 load_error:
   .byte 10,13
-  .ascii "Err. Press any key to reboot."
+  .ascii "Err."
   .byte 10,13,0
 
 code_end:
