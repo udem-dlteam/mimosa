@@ -190,19 +190,6 @@ found_file:
   call print_string
   1:jmp 1b
 
-# ------------------------------
-
-sector_was_read:
-
-  incl  %eax
-  xorl  %edx,%edx
-  movw  nb_bytes_per_sector,%dx
-  addl  %edx,%ebx
-  subl  %edx,%ecx
-
-  ja    next_sector
-
-
 # Jump to kernel.
   ljmp  $(KERNEL_START>>4),$0  # jump to "KERNEL_START" (which must be < 1MB)
 
@@ -245,14 +232,6 @@ read_sector:
   pushl %eax
   pushl %ebx
   pushl %ecx
-
-  # print a message to display that we are reading something
-  pushl %eax
-  pushl %ebx
-  movw  $progress,%si
-  call  print_string
-  popl  %ebx
-  popl  %eax
 
   movl  %eax,%edx               # edx contains LDA
   shrl  $16,%edx                # dx contains LDA
@@ -311,10 +290,7 @@ load_error:
   .byte 10,13
   .ascii "Could not load OS.  Press any key to reboot."
   .byte 10,13,0
-
-
-#------------------------------------------------------------------------------
-
+  
 code_end:
 
   .space (1<<9)-(2 + 0)-(code_end-code_start)  # Skip to the end. The signature and the bootsector need to be written
