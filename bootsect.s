@@ -194,7 +194,7 @@ found_file:
   read_next_fat:
   call read_sector               # read a single sector
   incl %eax                      # get ready to read the next one
-  addl nb_bytes_per_sector, %ebx # update the offset
+  addw nb_bytes_per_sector, %bx # update the offset
   loopnz read_next_fat           # decrement cx. if cx is NOT zero, jump to read_next_fat
 
   # FAT loaded, looking for the file. We write it at KERNEL_START.
