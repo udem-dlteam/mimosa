@@ -15,7 +15,7 @@ SCRATCH = 0x1000                # location of scratch area
 ROOT_DIR_ENTRY_SIZE = 32        # the size for a root directory entry size
 # ------------------------------------------------------------------------------
 
-  .globl bootsect_entry
+.globl bootsect_entry
 
 bootsect_entry:
 
@@ -202,7 +202,7 @@ found_file:
   xorl %ecx, %ecx
 
   movl $KERNEL_START, %ebx       # we are going to write there
-  
+
   popw %cx                       # cx now contains the cluster
 
   read_file_sector:
@@ -213,10 +213,10 @@ found_file:
 
   # Read the first sector in the right memory spot
   movw $progress, %si
-  call print_string # display a reading indicator
   call read_sector
 
-  addl nb_bytes_per_sector, %ebx # we filled the first 512 byte spot, move on
+  movw nb_bytes_per_sector, %ax
+  addl %eax, %ebx # we filled the first 512 byte spot, move on
 
   # Now we need to lookup the FAT to figure out where is the next sector to read
   movl $SCRATCH, %edx          
@@ -243,7 +243,6 @@ found_file:
   je leave_this
   jl read_file_sector
   leave_this:
-  1:jmp 1b
   # Jump to kernel.
   ljmp  $(KERNEL_START>>4),$0  # jump to "KERNEL_START" (which must be < 1MB)
 
@@ -263,17 +262,9 @@ print_message_and_reboot:
   ljmp  $0xf000,$0xfff0  # jump to 0xffff0 (the CPU starts there when reset)
 
 reset_drive:
-
-  pushl %eax
-  pushl %edx
-
   movb  drive, %dl
   xor %ax, %ax
   int $0x13
-
-  popl %edx
-  popl %eax
-
   ret  
 
 
