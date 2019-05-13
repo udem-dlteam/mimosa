@@ -40,7 +40,7 @@ build:
 
 
 run:
-	qemu-system-x86_64 -m 4096 -hda floppy -s -S
+	qemu-system-x86_64 -m 4096 -hda floppy
 
 mf:
 	make clean

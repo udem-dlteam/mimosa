@@ -4,3 +4,6 @@ debug/
 # Built
 floppy
 gdb\.txt
+
+*.sys
+*.bin
