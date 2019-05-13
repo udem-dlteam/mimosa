@@ -20,8 +20,7 @@ ROOT_DIR_ENTRY_SIZE = 32        # the size for a root directory entry size
 bootsect_entry:
 
 # Note: the BIOS always loads the boot sector of the disk at address 0000:7c00.
-
-  .code16  # at this point the processor is in 16 bit real mode
+.code16  # at this point the processor is in 16 bit real mode
 
 # ------------------------------------------------------------------------------
 
@@ -77,23 +76,6 @@ root_dir_sector:
   movw  $(STACK_TOP & 0xffff),%sp
   sti
 
-  movw  $0x64,%dx    # try to enable A20 line with the keyboard controller
-  movb  $0xd1,%al
-  outb  %al,%dx
-  movb  $3,%al
-  movw  $0x60,%dx
-  outb  %al,%dx
-
-  movw  $0x92,%dx    # try to enable A20 line with the "fast A20 gate"
-  inb   %dx,%al
-  orb   $0x02,%al
-  andb  $0xfe,%al
-  outb  %al,%dx
-
-# Print banner.
-# movw  $banner,%si
-#  call  print_string
-
 # Setup drive parameters, especially important for hard drive
 
   movb $0x08, %ah
@@ -140,7 +122,12 @@ root_dir_sector:
   # each sector read will contain 16 entries. Only the 11 first bytes are interesting to us
   # cx will contain the number of sectors read 
   
-  call reset_drive
+  # reset the drive as a precaution
+  movb  drive, %dl
+  xor %ax, %ax
+  int $0x13
+  # end of reset drive  
+
   xorl  %ecx, %ecx
 
   movl root_dir_sector, %eax
@@ -212,7 +199,6 @@ found_file:
   subw $2,              %ax      # magic!
 
   # Read the first sector in the right memory spot
-  movw $progress, %si
   call read_sector
 
   movw nb_bytes_per_sector, %ax
@@ -245,28 +231,6 @@ found_file:
   leave_this:
   # Jump to kernel.
   ljmp  $(KERNEL_START>>4),$0  # jump to "KERNEL_START" (which must be < 1MB)
-
-cannot_load:
-
-  movw  $load_error,%si
-
-print_message_and_reboot:
-
-  call  print_string
-
-  movb  $INT16_READ_KEYBOARD_FN,%ah
-  int   $0x16 # read keyboard
-
-# Reboot.
-
-  ljmp  $0xf000,$0xfff0  # jump to 0xffff0 (the CPU starts there when reset)
-
-reset_drive:
-  movb  drive, %dl
-  xor %ax, %ax
-  int $0x13
-  ret  
-
 
 read_sector:
 
@@ -313,6 +277,10 @@ print_string_loop:
   movw  $(0<<8)+7,%bx   # page = 0, foreground color = 7
   int   $0x10
   incw  %si
+
+cannot_load:
+  movw  $load_error,%si
+
 print_string:
   movb  (%si),%al
   test  %al,%al
@@ -321,20 +289,46 @@ print_string:
 
 stage_2_name:
   .ascii "BOOT    SYS" # the extension is implicit, spaces mark blanks
-  .byte 0
-
-progress:
-  .ascii "."
-  .byte 0
 
 load_error:
-  .byte 10,13
   .ascii "Err."
   .byte 10,13,0
 
 code_end:
 
-  .space (1<<9)-(2 + 0)-(code_end-code_start)  # Skip to the end. The signature and the bootsector need to be written
+  .space (1<<9)-(2 + 64)-(code_end-code_start)  # Skip to the end. The signature and the bootsector need to be written
+
+    # partition 4
+  .byte 0x00                   # boot flag (0x00: inactive, 0x80: active)
+  .byte 0x00, 0x00, 0x00       # Start of partition address
+  .byte 0x00                   # system flag
+  .byte 0x00, 0x00, 0x00       # End of partition address
+  .byte 0x00, 0x00, 0x00, 0x00 # Start sector relative to disk
+  .byte 0x00, 0x00, 0x00, 0x00 # number of sectors in partition
+
+  # partition 3
+  .byte 0x00                   # boot flag (0x00: inactive, 0x80: active)
+  .byte 0x00, 0x00, 0x00       # Start of partition address
+  .byte 0x00                   # system flag
+  .byte 0x00, 0x00, 0x00       # End of partition address
+  .byte 0x00, 0x00, 0x00, 0x00 # Start sector relative to disk
+  .byte 0x00, 0x00, 0x00, 0x00 # number of sectors in partition
+
+  # partition 2
+  .byte 0x00                   # boot flag (0x00: inactive, 0x80: active)
+  .byte 0x00, 0x00, 0x00       # Start of partition address
+  .byte 0x00                   # system flag
+  .byte 0x00, 0x00, 0x00       # End of partition address
+  .byte 0x00, 0x00, 0x00, 0x00 # Start sector relative to disk
+  .byte 0x00, 0x00, 0x00, 0x00 # number of sectors in partition
+
+  # partition 1
+  .byte 0x80                   # boot flag (0x00: inactive, 0x80: active)
+  .byte 0x00, 0x00, 0x00       # Start of partition address
+  .byte 0x00                   # system flag
+  .byte 0x00, 0x00, 0x00       # End of partition address
+  .byte 0x00, 0x00, 0x00, 0x00 # Start sector relative to disk
+  .byte 0x00, 0x00, 0x00, 0x00 # number of sectors in partition
 
   # Signature
   .byte 0x55
