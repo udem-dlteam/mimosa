@@ -271,7 +271,6 @@ read_sector:
 #------------------------------------------------------------------------------
 
 # Print string utility.
-
 print_string_loop:
   movb  $INT10_TTY_OUTPUT_FN,%ah
   movw  $(0<<8)+7,%bx   # page = 0, foreground color = 7
@@ -280,6 +279,8 @@ print_string_loop:
 
 cannot_load:
   movw  $load_error,%si
+  call print_string
+  hlt
 
 print_string:
   movb  (%si),%al
@@ -292,7 +293,7 @@ stage_2_name:
 
 load_error:
   .ascii "Err."
-  .byte 10,13,0
+  .byte 0
 
 code_end:
 
