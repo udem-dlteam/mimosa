@@ -30,29 +30,29 @@ code_start:
 
   .byte 0xeb,0x3c,0x90 # this is a jump instruction to "after_header"
   .byte 0x2a,0x26,0x41,0x66,0x3c, 0x49,0x48,0x43 # OEM name, number
-# nb_bytes_per_sector:
+nb_bytes_per_sector:
   .word 0x0200 # bytes per sector (512 bytes)
   .byte 0x01      # sector per allocation unit -> sector/cluster
-# nb_reserved_sectors:  
+nb_reserved_sectors:  
   .word 0x0001 # reserved sectors for booting 1
-# nb_of_fats:
+nb_of_fats:
   .byte 0x02      # number of FATs (usually 2)
-# nb_root_dir_entries:
+nb_root_dir_entries:
   .word 0x00e8    # number of root dir entries
-# nb_logical_sectors:
+nb_logical_sectors:
   .word 0x0b40    # number of logical sectors
-  .byte 0xf8      # media descriptor byte (f0h: floppy, f8h: disk drive)
-# nb_sectors_per_fat: 
+  .byte 0xF0      # media descriptor byte (f0h: floppy, f8h: disk drive)
+nb_sectors_per_fat: 
   .word 0x0009    # sectors per fat
-# nb_sectors_per_track:
+nb_sectors_per_track:
   .word 0x009 # sectors per track
-# nb_heads:
+nb_heads:
   .word 0x0000 # number of heads
-# nb_hidden_sectors:
+nb_hidden_sectors:
   .long 0x00 # number of hidden sectors
   .byte 0x00,0x00,0x00,0x00 # total number of sectors in file system
-# drive:            # Extended block, supposed to be only for FAT 16
-  .byte 0x80      # logical drive number
+drive:            # Extended block, supposed to be only for FAT 16
+  .byte 0xAA      # logical drive number
   .byte 0x00      # reserved
   .byte 0x29      # extended signature
   .byte 0xd1,0x07,0x22,0x27 # serial number
@@ -171,19 +171,22 @@ found_file:
   # At this point, bx contains the start of the root dir entry.
   # We want to read the cluster number, so we can look up the FAT and
   # finally read the file... The cluster is a word at offset 0x1A
+  xorw %ax, %ax
+  movw %ax, %es
   addw $0x1A, %bx
   movw %es:(%bx), %ax # cluster is now in ax
   pushw %ax # this is dirty; needs to be fixed
 
   # Fat offset:
   xorl %eax, %eax           # clean the upper part
-  movw nb_reserved_sectors, %ax
-  addw nb_hidden_sectors,   %ax # eax is now the reading address
+  # movw nb_reserved_sectors, %ax
+  # addw nb_hidden_sectors,   %ax # eax is now the reading address
+  movw $1, %ax
 
   movl $SCRATCH, %ebx       # the destination address is now ebx
 
   movw nb_sectors_per_fat, %cx # numbers of sectors to read
-  
+
   read_next_fat:
 
   call read_sector               # read a single sector
@@ -235,17 +238,9 @@ found_file:
   read_cluster_done:
   movw %dx, %cx                  # set the current cluster
   cmpw $0xFF8, %cx               # if FAT is geq than the last block sym, we are done
-  je leave_this
+  je start_kernel
   jl read_file_sector
-  leave_this:
-  # Jump to kernel.
-
-  movw  $ready_to_go,%si
-  call  print_string
-
-  movb  $INT16_READ_KEYBOARD_FN,%ah
-  int $0x16 # read keyboard
-
+  start_kernel:
   ljmp  $(KERNEL_START>>4),$0  # jump to "KERNEL_START" (which must be < 1MB)
 
 read_sector:
@@ -287,11 +282,12 @@ read_sector:
 
   ret
 
-#------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 
 cannot_load:
   movw  $load_error,%si
   call print_string
+  cli
   hlt
 
 # Print string utility.
@@ -309,12 +305,12 @@ print_string:
 stage_2_name:
   .ascii "BOOT    SYS" # the extension is implicit, spaces mark blanks
 
-debug:
-  .ascii "a"
+n_line:
+  .ascii "\n"
   .byte 0
 
-ready_to_go:
-  .ascii "G"
+debug:
+  .ascii "a"
   .byte 0
 
 load_error:
@@ -325,32 +321,10 @@ nb_root_sectors:
   .long 0x00000 # number of sectors in the root directory
 root_dir_sector:
   .long 0x00    # default value on floppy is 19; should be read correctly
-nb_bytes_per_sector:
-  .word 0x0200 # bytes per sector (512 bytes)
-nb_reserved_sectors:  
-  .word 0x0001 # reserved sectors for booting 1
-nb_of_fats:
-  .byte 0x02      # number of FATs (usually 2)
-nb_root_dir_entries:
-  .word 0x00e8    # number of root dir entries
-nb_logical_sectors:
-  .word 0x0b40    # number of logical sectors
-nb_sectors_per_fat: 
-  .word 0x0009    # sectors per fat
-nb_sectors_per_track:
-  .word 0x009 # sectors per track
-nb_heads:
-  .word 0x0000 # number of heads
-nb_hidden_sectors:
-  .long 0x00 # number of hidden sectors
-drive:            # Extended block, supposed to be only for FAT 16
-  .byte 0x80      # logical drive number
 
 code_end:
-
-  .space (1<<9)-(2)-(code_end-code_start)  # Skip to the end. The signature and the bootsector need to be written
-
-  # Signature
-  .byte 0x55
-  .byte 0xaa
+  .space (1<<9)-(2)-(code_end-code_start)  # Skip to the end (minus 2 for the signature)
+# Signature
+.byte 0x55
+.byte 0xaa
 #------------------------------------------------------------------------------

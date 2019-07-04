@@ -33,14 +33,14 @@ build:
 	tar cf - . | ssh administrator@localhost -p10022 "rm -rf mimosa-build;mkdir mimosa-build;cd mimosa-build;tar xf -;make clean;make";ssh administrator@localhost -p10022 "cat mimosa-build/floppy" > floppy
 	ssh administrator@localhost -p10022 "cat mimosa-build/bootsect.bin" > bootsect.bin
 	ssh administrator@localhost -p10022 "cat mimosa-build/kernel.bin"   > boot.sys
-	rm floppy
-	cp blank_drive.img floppy
-	dd if=bootsect.bin of=floppy conv=notrunc
-	hexdump -C -n 512 floppy
+	rm floppy.img
+	cp blank_drive.img floppy.img
+	dd if=bootsect.bin of=floppy.img conv=notrunc
+	hexdump -C -n 512 floppy.img
 
 
 run:
-	qemu-system-x86_64 -m 4096 -hda floppy
+	qemu-system-x86_64 -m 4096 -hda floppy.img
 
 mf:
 	make clean
