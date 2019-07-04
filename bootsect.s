@@ -30,28 +30,28 @@ code_start:
 
   .byte 0xeb,0x3c,0x90 # this is a jump instruction to "after_header"
   .byte 0x2a,0x26,0x41,0x66,0x3c, 0x49,0x48,0x43 # OEM name, number
-nb_bytes_per_sector:
+# nb_bytes_per_sector:
   .word 0x0200 # bytes per sector (512 bytes)
   .byte 0x01      # sector per allocation unit -> sector/cluster
-nb_reserved_sectors:  
+# nb_reserved_sectors:  
   .word 0x0001 # reserved sectors for booting 1
-nb_of_fats:
+# nb_of_fats:
   .byte 0x02      # number of FATs (usually 2)
-nb_root_dir_entries:
+# nb_root_dir_entries:
   .word 0x00e8    # number of root dir entries
-nb_logical_sectors:
+# nb_logical_sectors:
   .word 0x0b40    # number of logical sectors
   .byte 0xf8      # media descriptor byte (f0h: floppy, f8h: disk drive)
-nb_sectors_per_fat: 
+# nb_sectors_per_fat: 
   .word 0x0009    # sectors per fat
-nb_sectors_per_track:
+# nb_sectors_per_track:
   .word 0x009 # sectors per track
-nb_heads:
+# nb_heads:
   .word 0x0000 # number of heads
-nb_hidden_sectors:
+# nb_hidden_sectors:
   .long 0x00 # number of hidden sectors
   .byte 0x00,0x00,0x00,0x00 # total number of sectors in file system
-drive:            # Extended block, supposed to be only for FAT 16
+# drive:            # Extended block, supposed to be only for FAT 16
   .byte 0x80      # logical drive number
   .byte 0x00      # reserved
   .byte 0x29      # extended signature
@@ -59,35 +59,27 @@ drive:            # Extended block, supposed to be only for FAT 16
   .byte 0x4f,0x53,0x20,0x20,0x20,0x20,0x20,0x20,0x20,0x20,0x20 # drive label
   .byte 0x46,0x41,0x54,0x31,0x32,0x20,0x20,0x20 # file system type (FAT 12)
 # ------------------------------------------------------------------------------
-
 after_header:
-
-nb_root_sectors:
-  .long 0x00000 # number of sectors in the root directory
-root_dir_sector:
-  .long 0x00    # default value on floppy is 19; should be read correctly
 
 # Setup segments.
   cli
-
   xorw  %cx,%cx
   movw  %cx,%ds
   movw  %cx,%ss
   movw  $(STACK_TOP & 0xffff),%sp
   sti
 
-# Setup drive parameters, especially important for hard drive
+  movb %dl, drive
+  
+# Get drive geometry
 
   movb $0x08, %ah
-  movb drive, %dl
   int $0x13
-
   jc cannot_load
 
   incb %dh                # dh is maximum head index, we increment by one to get head count
-  
   shrw $8, %dx            # place dh into dl (effictively, also keeps dh to 0x00)
-  movw %dx, nb_heads      # put the number of heads in the header
+  movw %dx, nb_heads      # put the number of heads in the header (max number + 1)
   andb $0x3f,%cl          # cl: 00s5......s1 (max sector)
   
   xorb %ch, %ch
@@ -121,18 +113,12 @@ root_dir_sector:
   # We can now read the root directory to find the file we want
   # each sector read will contain 16 entries. Only the 11 first bytes are interesting to us
   # cx will contain the number of sectors read 
-  
-  # reset the drive as a precaution
-  movb  drive, %dl
-  xor %ax, %ax
-  int $0x13
-  # end of reset drive  
 
   xorl  %ecx, %ecx
 
   movl root_dir_sector, %eax
 
-  next_sector:
+next_sector:
 
   # Are we done?
   cmp nb_root_sectors, %eax
@@ -146,28 +132,48 @@ root_dir_sector:
   # At scratch we now have a sector of the table
 
   check_entry:
-    movw $11, %cx
+    movw $11, %cx # Only the 11 first bytes are interesting to us
     movw %bx, %di # load the name into di
-    movw $stage_2_name, %si # load the wanted file name into si
-    repz cmpsb              # compare the byte strings
-    je found_file           # if equal, jump to found file
+
+    movw %di, %si
+
+    pushl %eax
+    pushl %ebx
+    call print_string # Print the read string...!
+    popl %ebx
+    popl %eax
+
+    pushl %eax
+      # Press a to ACCEPT the current file, anything else to skip
+      xorb %ah, %ah
+      int $0x16
+
+      # movw $stage_2_name, %si # load the wanted file name into si
+      # repz cmpsb              # compare the byte strings
+      cmpb $97, %al
+      
+    popl %eax
+
+    jz found_file           # if equal, jump to found file
+
     addw $ROOT_DIR_ENTRY_SIZE, %bx   # move on to the next one
     cmp  nb_bytes_per_sector, %bx
+
     jc check_entry_done               # we read all the entries
     jmp check_entry # we did not read all the entries, continue
+
   check_entry_done:  
 
   incl %eax # we analysed a sector, go to the next one
   jmp next_sector
 
 found_file:
-  # At this point, bx contains the start of the root dir entry
+  # At this point, bx contains the start of the root dir entry.
   # We want to read the cluster number, so we can look up the FAT and
   # finally read the file... The cluster is a word at offset 0x1A
   addw $0x1A, %bx
   movw %es:(%bx), %ax # cluster is now in ax
   pushw %ax # this is dirty; needs to be fixed
-
 
   # Fat offset:
   xorl %eax, %eax           # clean the upper part
@@ -179,10 +185,12 @@ found_file:
   movw nb_sectors_per_fat, %cx # numbers of sectors to read
   
   read_next_fat:
+
   call read_sector               # read a single sector
   incl %eax                      # get ready to read the next one
-  addw nb_bytes_per_sector, %bx # update the offset
-  loopnz read_next_fat           # decrement cx. if cx is NOT zero, jump to read_next_fat
+  addw nb_bytes_per_sector, %bx  # update the offset
+  decw %cx                       # decrement cx. if cx is NOT zero, jump to read_next_fat
+  jnz read_next_fat        
 
   # FAT loaded, looking for the file. We write it at KERNEL_START.
   xorl %eax, %eax                # make sure it's reset
@@ -193,6 +201,7 @@ found_file:
   popw %cx                       # cx now contains the cluster
 
   read_file_sector:
+
   movw %cx, %ax                  # sector to read is the cluster
   addw root_dir_sector, %ax      # next, add the offset in sectors of the root dir
   addw nb_root_sectors, %ax      # plus the length of the root dir
@@ -215,7 +224,7 @@ found_file:
   movw %dx, %si
   movw %ds:(%si), %dx            # read from mem into dx
 
-  testw $1, %cx               # check if current cluster is odd
+  testw $0x0001, %cx                  # check if current cluster is odd
   jnz next_cluster_is_odd
   andw $0x0FFF, %dx
   jmp read_cluster_done
@@ -230,6 +239,13 @@ found_file:
   jl read_file_sector
   leave_this:
   # Jump to kernel.
+
+  movw  $ready_to_go,%si
+  call  print_string
+
+  movb  $INT16_READ_KEYBOARD_FN,%ah
+  int $0x16 # read keyboard
+
   ljmp  $(KERNEL_START>>4),$0  # jump to "KERNEL_START" (which must be < 1MB)
 
 read_sector:
@@ -253,13 +269,16 @@ read_sector:
   orb   %ah,%cl                 # cl is top two bits of ah and sectors per track
   movb  %al,%ch                 # ch is the bottom part of the track
   movb  %dl,%dh                 # head is now in dh
+
   movb  drive,%dl               # dl is now the drive
   movl  %ebx,%eax               # put the target address in eax
   shrl  $4,%eax                 # div the address by 2^4
   movw  %ax,%es                 # insert the address in es
   andw  $0x0f,%bx
   movw  $0x0201,%ax             # in AH, write 0x02 (command read) and in AL write 0x01 (1 sector to read)
+
   int   $0x13                   # Call the read
+  jc cannot_load
 
   popl  %ecx
   popl  %ebx
@@ -270,18 +289,17 @@ read_sector:
 
 #------------------------------------------------------------------------------
 
+cannot_load:
+  movw  $load_error,%si
+  call print_string
+  hlt
+
 # Print string utility.
 print_string_loop:
   movb  $INT10_TTY_OUTPUT_FN,%ah
   movw  $(0<<8)+7,%bx   # page = 0, foreground color = 7
   int   $0x10
   incw  %si
-
-cannot_load:
-  movw  $load_error,%si
-  call print_string
-  hlt
-
 print_string:
   movb  (%si),%al
   test  %al,%al
@@ -291,45 +309,46 @@ print_string:
 stage_2_name:
   .ascii "BOOT    SYS" # the extension is implicit, spaces mark blanks
 
-load_error:
-  .ascii "Err."
+debug:
+  .ascii "a"
   .byte 0
+
+ready_to_go:
+  .ascii "G"
+  .byte 0
+
+load_error:
+  .ascii "E"
+  .byte 0
+
+nb_root_sectors:
+  .long 0x00000 # number of sectors in the root directory
+root_dir_sector:
+  .long 0x00    # default value on floppy is 19; should be read correctly
+nb_bytes_per_sector:
+  .word 0x0200 # bytes per sector (512 bytes)
+nb_reserved_sectors:  
+  .word 0x0001 # reserved sectors for booting 1
+nb_of_fats:
+  .byte 0x02      # number of FATs (usually 2)
+nb_root_dir_entries:
+  .word 0x00e8    # number of root dir entries
+nb_logical_sectors:
+  .word 0x0b40    # number of logical sectors
+nb_sectors_per_fat: 
+  .word 0x0009    # sectors per fat
+nb_sectors_per_track:
+  .word 0x009 # sectors per track
+nb_heads:
+  .word 0x0000 # number of heads
+nb_hidden_sectors:
+  .long 0x00 # number of hidden sectors
+drive:            # Extended block, supposed to be only for FAT 16
+  .byte 0x80      # logical drive number
 
 code_end:
 
-  .space (1<<9)-(2 + 64)-(code_end-code_start)  # Skip to the end. The signature and the bootsector need to be written
-
-    # partition 4
-  .byte 0x00                   # boot flag (0x00: inactive, 0x80: active)
-  .byte 0x00, 0x00, 0x00       # Start of partition address
-  .byte 0x00                   # system flag
-  .byte 0x00, 0x00, 0x00       # End of partition address
-  .byte 0x00, 0x00, 0x00, 0x00 # Start sector relative to disk
-  .byte 0x00, 0x00, 0x00, 0x00 # number of sectors in partition
-
-  # partition 3
-  .byte 0x00                   # boot flag (0x00: inactive, 0x80: active)
-  .byte 0x00, 0x00, 0x00       # Start of partition address
-  .byte 0x00                   # system flag
-  .byte 0x00, 0x00, 0x00       # End of partition address
-  .byte 0x00, 0x00, 0x00, 0x00 # Start sector relative to disk
-  .byte 0x00, 0x00, 0x00, 0x00 # number of sectors in partition
-
-  # partition 2
-  .byte 0x00                   # boot flag (0x00: inactive, 0x80: active)
-  .byte 0x00, 0x00, 0x00       # Start of partition address
-  .byte 0x00                   # system flag
-  .byte 0x00, 0x00, 0x00       # End of partition address
-  .byte 0x00, 0x00, 0x00, 0x00 # Start sector relative to disk
-  .byte 0x00, 0x00, 0x00, 0x00 # number of sectors in partition
-
-  # partition 1
-  .byte 0x80                   # boot flag (0x00: inactive, 0x80: active)
-  .byte 0x00, 0x00, 0x00       # Start of partition address
-  .byte 0x00                   # system flag
-  .byte 0x00, 0x00, 0x00       # End of partition address
-  .byte 0x00, 0x00, 0x00, 0x00 # Start sector relative to disk
-  .byte 0x00, 0x00, 0x00, 0x00 # number of sectors in partition
+  .space (1<<9)-(2)-(code_end-code_start)  # Skip to the end. The signature and the bootsector need to be written
 
   # Signature
   .byte 0x55
