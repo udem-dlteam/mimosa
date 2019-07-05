@@ -34,6 +34,14 @@ build:
 	dd if=mimosa-build/bootsect.bin of=mimosa-build/floppy.img conv=notrunc
 	hexdump -C -n 512 mimosa-build/floppy.img
 
+create-img:
+	mkdir -p /mnt/tmp
+	mount -o mimosa-build/floppy.img /mnt/tmp
+
+	cp mimosa-build/floppy.img /mnt/tmp/BOOT.SYS
+
+	umount /mnt/tmp
+	rm -rf /mnt/tmp
 
 run:
 	qemu-system-x86_64 -m 4096 -hda mimosa-build/floppy.img
