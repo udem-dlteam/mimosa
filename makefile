@@ -30,10 +30,10 @@ build:
 	# dd a file
 	# make a base partition with fdisk and then create the file system with mkfs. It is then possible
 	# To mount it and write the data
-	tar cf - . | ssh administrator@localhost -p10022 "rm -rf mimosa-build;mkdir mimosa-build;cd mimosa-build;tar xf -;make clean;make";ssh administrator@localhost -p10022 "cat mimosa-build/floppy" > floppy
-	ssh administrator@localhost -p10022 "cat mimosa-build/bootsect.bin" > bootsect.bin
-	ssh administrator@localhost -p10022 "cat mimosa-build/kernel.bin"   > boot.sys
-	rm floppy.img
+	tar cf - . | ssh administrator@localhost -p 10022 "rm -rf mimosa-build;mkdir mimosa-build;cd mimosa-build;tar xf -;make clean;make";ssh administrator@localhost -p 10022 "cat mimosa-build/floppy" > floppy
+	ssh administrator@localhost -p 10022 "cat mimosa-build/bootsect.bin" > bootsect.bin
+	ssh administrator@localhost -p 10022 "cat mimosa-build/kernel.bin"   > boot.sys
+	rm -f floppy.img
 	cp blank_drive.img floppy.img
 	dd if=bootsect.bin of=floppy.img conv=notrunc
 	hexdump -C -n 512 floppy.img
@@ -87,7 +87,7 @@ bootsect.bin: bootsect.o
 
 clean:
 	rm -rf floppy
-	ssh administrator@localhost -p10022 "rm -rf mimosa-build;"
+	ssh administrator@localhost -p 10022 "rm -rf mimosa-build;"
 	rm -f *.o *.asm *.bin *.tmp *.d
 
 # dependencies:
