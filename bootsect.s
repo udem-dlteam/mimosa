@@ -64,7 +64,6 @@ after_header:
 # Setup segments.
   cli
   xorw  %cx,%cx
-  movw  %cx,%es
   movw  %cx,%ds
   movw  %cx,%ss
   movw  $(STACK_TOP & 0xffff),%sp
@@ -155,7 +154,7 @@ next_sector:
     jmp check_entry_loop    # next character
 
     check_entry_no_match:
-       
+
     addw $ROOT_DIR_ENTRY_SIZE, %bx   # move on to the next one
     cmp  nb_bytes_per_sector, %bx
     jc check_entry_done               # we read all the entries
@@ -170,6 +169,8 @@ found_file:
   # We want to read the cluster number, so we can look up the FAT and
   # finally read the file... The cluster is a word at offset 0x1A
   addw $0x1A, %bx
+  xorw %ax, %ax
+  movw %ax, %es
   movw %es:(%bx), %ax # cluster is now in ax
   pushw %ax # this is dirty; needs to be fixed
 
