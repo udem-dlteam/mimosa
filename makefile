@@ -30,18 +30,24 @@ build:
 	tar cf - . | ssh administrator@localhost -p 10022 "rm -rf mimosa-build;mkdir mimosa-build;cd mimosa-build;tar xf -;make clean;make";ssh administrator@localhost -p 10022 "cat mimosa-build/floppy" > mimosa-build/floppy
 	ssh administrator@localhost -p 10022 "cat mimosa-build/bootsect.bin" > mimosa-build/bootsect.bin
 	ssh administrator@localhost -p 10022 "cat mimosa-build/kernel.bin"   > mimosa-build/boot.sys
-	cp blank_drive.img mimosa-build/floppy.img
-	dd if=mimosa-build/bootsect.bin of=mimosa-build/floppy.img conv=notrunc
-	hexdump -C -n 512 mimosa-build/floppy.img
+	
 
 create-img:
+	# Write the OS into the FS
 	mkdir -p /mnt/tmp
-	mount -o mimosa-build/floppy.img /mnt/tmp
+	cp blank_drive.img mimosa-build/floppy.img
+	mount mimosa-build/floppy.img /mnt/tmp
 
-	cp mimosa-build/floppy.img /mnt/tmp/BOOT.SYS
+	cp mimosa-build/boot.sys /mnt/tmp/BOOT.SYS
+
 
 	umount /mnt/tmp
 	rm -rf /mnt/tmp
+
+	# Write the bootsector
+	dd if=mimosa-build/bootsect.bin of=mimosa-build/floppy.img conv=notrunc
+	hexdump -C -n 512 mimosa-build/floppy.img
+	chmod 777 mimosa-build/floppy.img
 
 run:
 	qemu-system-x86_64 -m 4096 -hda mimosa-build/floppy.img
