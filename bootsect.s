@@ -72,7 +72,6 @@ after_header:
   movb %dl, drive
   
 # Get drive geometry
-
   movb $0x08, %ah
   int $0x13
   jc cannot_load
@@ -281,11 +280,6 @@ read_sector:
   ret
 
 # ------------------------------------------------------------------------------
-debug:
-  movw $debug_str, %si
-  call print_string
-  1: jmp 1
-
 cannot_load:
   movw  $load_error,%si
   call print_string
@@ -304,14 +298,6 @@ print_string:
   jnz   print_string_loop
   ret
 
-debug_str:
-  .ascii "D"
-  .byte 0
-
-line_str:
-  .ascii "\r\n"
-  .byte 0
-
 stage_2_name:
   .ascii "BOOT    SYS" # the extension is implicit, spaces mark blanks
 
@@ -325,7 +311,7 @@ root_dir_sector:
   .long 0x00    # default value on floppy is 19; should be read correctly
 
 code_end:
-  .space (1<<9)-(2 + 64)-(code_end-code_start)  # Skip to the end (minus 2 for the signature)
+  .space (1<<9)-(2)-(code_end-code_start)  # Skip to the end (minus 2 for the signature)
 # Signature
 .byte 0x55
 .byte 0xaa
