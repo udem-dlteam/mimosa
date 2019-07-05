@@ -325,7 +325,7 @@ root_dir_sector:
   .long 0x00    # default value on floppy is 19; should be read correctly
 
 code_end:
-  .space (1<<9)-(2)-(code_end-code_start)  # Skip to the end (minus 2 for the signature)
+  .space (1<<9)-(2 + 64)-(code_end-code_start)  # Skip to the end (minus 2 for the signature)
 # Signature
 .byte 0x55
 .byte 0xaa
