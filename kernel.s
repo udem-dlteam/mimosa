@@ -37,11 +37,7 @@ kernel_entry:  # this is the kernel's entry point
 
   call  test_a20
   jz    set_video_mode
-
-
-  # Failure here
-
-  int $0x18
+  int $0x19
 
 test_a20:
   # Test if the A20 line is disabled.  On return the Z flag is set if
