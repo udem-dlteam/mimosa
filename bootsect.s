@@ -64,6 +64,7 @@ after_header:
 # Setup segments.
   cli
   xorw  %cx,%cx
+  movw  %cx,%es
   movw  %cx,%ds
   movw  %cx,%ss
   movw  $(STACK_TOP & 0xffff),%sp
@@ -171,8 +172,6 @@ found_file:
   # At this point, bx contains the start of the root dir entry.
   # We want to read the cluster number, so we can look up the FAT and
   # finally read the file... The cluster is a word at offset 0x1A
-  xorw %ax, %ax
-  movw %ax, %es
   addw $0x1A, %bx
   movw %es:(%bx), %ax # cluster is now in ax
   pushw %ax # this is dirty; needs to be fixed
