@@ -1,23 +1,62 @@
 # file: "kernel.s"
 
-# Copyright (c) 2001 by Marc Feeley and Université de Montréal, All
+# Copyright (c) 2001 by Marc Feeley and Universitï¿½ de Montrï¿½al, All
 # Rights Reserved.
 #
 # Revision History
 # 22 Sep 01  initial version (Marc Feeley)
-
 #------------------------------------------------------------------------------
 
   .globl kernel_entry
 
 kernel_entry:  # this is the kernel's entry point
 
-# Note: the kernel is loaded by the boot sector at "KERNEL_START".
+  # Note: the second stage / kernel is loaded by the boot sector at "KERNEL_START".
 
   .code16  # at this point the processor is in 16 bit real mode
            # and %cs is equal to (KERNEL_START>>4)
 
-#------------------------------------------------------------------------------
+  call  test_a20     # check if A20 line is already enabled
+  jz    set_video_mode
+
+  movw  $0x64,%dx    # try to enable A20 line with the keyboard controller
+  movb  $0xd1,%al
+  outb  %al,%dx
+  movb  $3,%al
+  movw  $0x60,%dx
+  outb  %al,%dx
+
+  call  test_a20
+  jz    set_video_mode
+
+  movw  $0x92,%dx    # try to enable A20 line with the "fast A20 gate"
+  inb   %dx,%al
+  orb   $0x02,%al
+  andb  $0xfe,%al
+  outb  %al,%dx
+
+  call  test_a20
+  jz    set_video_mode
+
+
+  # Failure here
+
+  int $0x18
+
+test_a20:
+  # Test if the A20 line is disabled.  On return the Z flag is set if
+  # the A20 line is enabled and cleared if it is disabled.  We test it
+  # repeatedly because some hardware takes some time to enable the A20
+
+  xorw  %cx,%cx 
+test_a20_loop:
+  movb  $0,SCRATCH_BOT
+  movw  $0xffff,%ax
+  movw  %ax,%es
+  movb  %al,%es:SCRATCH_BOT+0x10
+  testb %al,SCRATCH_BOT
+  loopnz test_a20_loop
+  ret
 
 set_video_mode:
 
