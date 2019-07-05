@@ -30,7 +30,7 @@ build:
 	tar cf - . | ssh administrator@localhost -p 10022 "rm -rf mimosa-build;mkdir mimosa-build;cd mimosa-build;tar xf -;make clean;make";ssh administrator@localhost -p 10022 "cat mimosa-build/floppy" > mimosa-build/floppy
 	ssh administrator@localhost -p 10022 "cat mimosa-build/bootsect.bin" > mimosa-build/bootsect.bin
 	ssh administrator@localhost -p 10022 "cat mimosa-build/kernel.bin"   > mimosa-build/boot.sys
-	
+	hexdump -C -n 512 mimosa-build/bootsect.bin
 
 create-img:
 	# Write the OS into the FS
@@ -46,7 +46,6 @@ create-img:
 
 	# Write the bootsector
 	dd if=mimosa-build/bootsect.bin of=mimosa-build/floppy.img conv=notrunc
-	hexdump -C -n 512 mimosa-build/floppy.img
 	chmod 777 mimosa-build/floppy.img
 
 run:
