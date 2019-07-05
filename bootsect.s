@@ -133,38 +133,35 @@ next_sector:
   # At scratch we now have a sector of the table
 
   check_entry:
-    movw $11, %cx # Only the 11 first bytes are interesting to us
-    movw %bx, %di # load the name into di
+    
+    movw $11, %cx # The name is 11 bytes long
+    movw $stage_2_name, %si # load the comparison pointer into si
+    movw %bx, %di           # load the name pointer into di
 
-    movw %di, %si
+    check_entry_loop:
+    # compare the bytes at the pointer
+    movb (%si), %dh
+    movb (%di), %dl
+    cmp  %dl, %dh
+    
+    jnz check_entry_no_match # the zero flag is set if there is equality
 
-    pushl %eax
-    pushl %ebx
-    call print_string # Print the read string...!
-    popl %ebx
-    popl %eax
+    # next character
+    incw %si
+    incw %di  
 
-    pushl %eax
-      # Press a to ACCEPT the current file, anything else to skip
-      xorb %ah, %ah
-      int $0x16
+    decw %cx
+    jz found_file           # if 0, jump to found file; we read all the characters without fault
+    jmp check_entry_loop    # next character
 
-      # movw $stage_2_name, %si # load the wanted file name into si
-      # repz cmpsb              # compare the byte strings
-      cmpb $97, %al
-      
-    popl %eax
-
-    jz found_file           # if equal, jump to found file
-
+    check_entry_no_match:
+       
     addw $ROOT_DIR_ENTRY_SIZE, %bx   # move on to the next one
     cmp  nb_bytes_per_sector, %bx
-
     jc check_entry_done               # we read all the entries
     jmp check_entry # we did not read all the entries, continue
 
   check_entry_done:  
-
   incl %eax # we analysed a sector, go to the next one
   jmp next_sector
 
@@ -242,6 +239,7 @@ found_file:
   start_kernel:
   ljmp  $(KERNEL_START>>4),$0  # jump to "KERNEL_START" (which must be < 1MB)
 
+
 read_sector:
 
 # Read one sector from relative sector offset %eax (with bootsector =
@@ -282,6 +280,10 @@ read_sector:
   ret
 
 # ------------------------------------------------------------------------------
+debug:
+  movw $debug_str, %si
+  call print_string
+  1: jmp 1
 
 cannot_load:
   movw  $load_error,%si
@@ -301,19 +303,19 @@ print_string:
   jnz   print_string_loop
   ret
 
+debug_str:
+  .ascii "D"
+  .byte 0
+
+line_str:
+  .ascii "\r\n"
+  .byte 0
+
 stage_2_name:
   .ascii "BOOT    SYS" # the extension is implicit, spaces mark blanks
 
-n_line:
-  .ascii "\n"
-  .byte 0
-
-debug:
-  .ascii "a"
-  .byte 0
-
 load_error:
-  .ascii "E"
+  .ascii "IO Error"
   .byte 0
 
 nb_root_sectors:
