@@ -3,7 +3,7 @@
 OS_NAME = "\"MIMOSA version 1.2\""
 KERNEL_START = 0x20000
 
-KERNEL_OBJECTS = kernel.o main.o fs.o ide.o disk.o thread.o time.o ps2.o fifo.o term.o video.o intr.o rtlib.o $(NETWORK_OBJECTS)
+KERNEL_OBJECTS = kernel.o main.o fs.o ide.o disk.o thread.o time.o ps2.o term.o video.o intr.o rtlib.o $(NETWORK_OBJECTS)
 NETWORK_OBJECTS =
 #NETWORK_OBJECTS = eepro100.o tulip.o timer2.o misc.o pci.o config.o net.o
 DEFS = -DINCLUDE_EEPRO100 
