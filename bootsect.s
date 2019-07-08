@@ -30,7 +30,8 @@ code_start:
 # This header will make the boot sector look like the one for an MSDOS floppy.
 
   .byte 0xeb,0x3c,0x90 # this is a jump instruction to "after_header"
-  .byte 0x2a,0x26,0x41,0x66,0x3c, 0x49,0x48,0x43 # OEM name, number
+oem_name:
+  .ascii "MIMOSA  " # OEM name 8 characters (two spaces to get to 8)
 nb_bytes_per_sector:
   .word 0x0200 # bytes per sector (512 bytes)
   .byte 0x01      # sector per allocation unit -> sector/cluster
@@ -85,6 +86,31 @@ after_header:
   xorb %ch, %ch
   movw %cx, nb_sectors_per_track # the number of cylinder is useless for the LDA to CHS conversion
 
+  # Little OS name printing...
+
+  movw $oem_name, %si
+  call print_string
+  
+  movw $new_line, %si
+  call print_string
+
+  # ------------------------------------------------------------------------------
+  # Load the extended bootsector into the RAM
+  # In order to use the extended bootsector correctly, the extended boot sector is 
+  # loaded directly after the normal bootsector. This allows relative jumps in this
+  # file to work correctly.
+
+  movl $0x01, %eax # first sector of drive
+  movl $EXTENDED_MEM, %ebx
+  call read_sector
+
+  # ------------------------------------------------------------------------------
+  # Beyond this point, code in the extended bootsector can be correctly called
+  # ------------------------------------------------------------------------------
+
+  movw $extended_bootsector_loaded, %si
+  call print_string
+
   # Prepare values for stage two loading
 
   movw $ROOT_DIR_ENTRY_SIZE, %ax # size in bytes of an entry in the root table
@@ -100,22 +126,141 @@ after_header:
   xor %ax, %ax
   xor %dx, %dx
 
-  # ------------------------------------------------------------------------------
-  # Load the extended bootsector into the RAM
-  # In order to use the extended bootsector correctly, the extended boot sector is 
-  # loaded directly after the normal bootsector. This allows relative jumps in this
-  # file to work correctly.
+  jmp extended_code_start
+
+
+read_sector:
+
+# Read one sector from relative sector offset %eax (with bootsector =
+# 0) to %ebx.
+# CF = 1 if an error reading the sector occured
+# This function MUST be in the first sector of the bootsector(s)
+  pushw %es
+  pushl %eax
+  pushl %ebx
+  pushl %ecx
+
+  movl  %eax,%edx               # edx contains LDA
+  shrl  $16,%edx                # dx contains LDA
+  divw  nb_sectors_per_track    # %ax = cylinder, %dx = sector in track
+  incw  %dx                     # increment sector
+  movb  %dl,%cl                 # move the sector per track to cl
+  xorw  %dx,%dx                 # erase dx
+  divw  nb_heads                # %ax = track, %dx = head
+  shlb  $6,%ah                  # keep the top 2 bits of track in ah
+  orb   %ah,%cl                 # cl is top two bits of ah and sectors per track
+  movb  %al,%ch                 # ch is the bottom part of the track
+  movb  %dl,%dh                 # head is now in dh
+
+  movb  drive,%dl               # dl is now the drive
+  movl  %ebx,%eax               # put the target address in eax
+  shrl  $4,%eax                 # div the address by 2^4
+  movw  %ax,%es                 # insert the address in es
+  andw  $0x0f,%bx
+  movw  $0x0201,%ax             # in AH, write 0x02 (command read) and in AL write 0x01 (1 sector to read)
+
+  int   $0x13                   # Call the read
+  jc cannot_load
+
+  popl  %ecx
+  popl  %ebx
+  popl  %eax
+  popw  %es
+
+  ret
+
+# ------------------------------------------------------------------------------
+cannot_load:
+  movw  $load_error,%si
+  call print_string
+  cli
+  hlt
+
+nb_root_sectors:
+  .long 0x00000 # number of sectors in the root directory
+root_dir_sector:
+  .long 0x00    # default value on floppy is 19; should be read correctly
+
+new_line:
+  .ascii "\n\r"
+  .byte 0
+
+load_error:
+  .ascii "IO Error. The system failed to load. Please reboot."
+  .byte 0
+
+kernel_name:
+  .ascii "BOOT    SYS" # the extension is implicit, spaces mark blanks
+
+# Print string utility.
+print_string_loop:
+  movb  $INT10_TTY_OUTPUT_FN,%ah
+  movw  $(0<<8)+7,%bx   # page = 0, foreground color = 7
+  int   $0x10
+  incw  %si
+print_string:
+  movb  (%si),%al
+  test  %al,%al
+  jnz   print_string_loop
+  ret
+
+code_end:
+  .space (1<<9)-(2 + 16 * 1)-(code_end-code_start)  # Skip to the end (minus 2 for the signature)
+# Partition table (only one)
+
+# partition 4
+#.byte 0x00                   # boot flag (0x00: inactive, 0x80: active)
+#.byte 0x00, 0x00, 0x00       # Start of partition address
+#.byte 0x00                   # system flag
+#.byte 0x00, 0x00, 0x00       # End of partition address
+#.byte 0x00, 0x00, 0x00, 0x00 # Start sector relative to disk
+#.byte 0x00, 0x00, 0x00, 0x00 # number of sectors in partition
+
+# partition 3
+#.byte 0x00                   # boot flag (0x00: inactive, 0x80: active)
+#.byte 0x00, 0x00, 0x00       # Start of partition address
+#.byte 0x00                   # system flag
+#.byte 0x00, 0x00, 0x00       # End of partition address
+#.byte 0x00, 0x00, 0x00, 0x00 # Start sector relative to disk
+#.byte 0x00, 0x00, 0x00, 0x00 # number of sectors in partition
+
+# partition 2
+#.byte 0x00                   # boot flag (0x00: inactive, 0x80: active)
+#.byte 0x00, 0x00, 0x00       # Start of partition address
+#.byte 0x00                   # system flag
+#.byte 0x00, 0x00, 0x00       # End of partition address
+#.byte 0x00, 0x00, 0x00, 0x00 # Start sector relative to disk
+#.byte 0x00, 0x00, 0x00, 0x00 # number of sectors in partition
+
+# partition 1
+.byte 0x80                   # boot flag (0x00: inactive, 0x80: active)
+.byte 0x00, 0x00, 0x00       # Start of partition address
+.byte 0x00                   # system flag
+.byte 0x00, 0x00, 0x00       # End of partition address
+.byte 0x00, 0x00, 0x00, 0x00 # Start sector relative to disk
+.byte 0x00, 0x00, 0x00, 0x00 # number of sectors in partition
+
+# Signature
+.byte 0x55
+.byte 0xAA
+
+# ---------------------------------------------------------------------------------------
+# ---------------------------------------------------------------------------------------
+# ---------------------------------------------------------------------------------------
+# ---------------------------------------------------------------------------------------
+# ---------------------------------------------------------------------------------------
+extended_code_start:
+
   pushl %eax
   pushl %ebx
 
-  movl $0x01, %eax # first sector of drive
-  movl $EXTENDED_MEM, %ebx
-  call read_sector
+  movw $loading_os_message, %si
+  call print_string
 
   popl %ebx
   popl %eax
-  # ------------------------------------------------------------------------------
-  
+
+
   # Calculating the start of the root dir
   movb nb_of_fats, %al
   mulw nb_sectors_per_fat
@@ -150,7 +295,7 @@ next_sector:
   check_entry:
     
     movw $11, %cx # The name is 11 bytes long
-    movw $stage_2_name, %si # load the comparison pointer into si
+    movw $kernel_name, %si # load the comparison pointer into si
     movw %bx, %di           # load the name pointer into di
 
     check_entry_loop:
@@ -218,6 +363,15 @@ found_file:
 
   read_file_sector:
 
+  pushl %eax
+  pushl %ebx
+
+  movw $progress_dot, %si
+  call print_string
+
+  popl %ebx
+  popl %eax
+
   movw %cx, %ax                  # sector to read is the cluster
   addw root_dir_sector, %ax      # next, add the offset in sectors of the root dir
   addw nb_root_sectors, %ax      # plus the length of the root dir
@@ -253,123 +407,28 @@ found_file:
   cmpw $0xFF8, %cx               # if FAT is geq than the last block sym, we are done
   je start_kernel
   jl read_file_sector
+
   start_kernel:
-  ljmp  $(KERNEL_START>>4),$0  # jump to "KERNEL_START" (which must be < 1MB)
+    ljmp  $(KERNEL_START>>4),$0  # jump to "KERNEL_START" (which must be < 1MB)
 
+# ----------------------------------------------------------------------------------------------------------
+# String and messages
+# ----------------------------------------------------------------------------------------------------------
 
-read_sector:
-
-# Read one sector from relative sector offset %eax (with bootsector =
-# 0) to %ebx.
-# CF = 1 if an error reading the sector occured
-  pushw %es
-  pushl %eax
-  pushl %ebx
-  pushl %ecx
-
-  movl  %eax,%edx               # edx contains LDA
-  shrl  $16,%edx                # dx contains LDA
-  divw  nb_sectors_per_track    # %ax = cylinder, %dx = sector in track
-  incw  %dx                     # increment sector
-  movb  %dl,%cl                 # move the sector per track to cl
-  xorw  %dx,%dx                 # erase dx
-  divw  nb_heads                # %ax = track, %dx = head
-  shlb  $6,%ah                  # keep the top 2 bits of track in ah
-  orb   %ah,%cl                 # cl is top two bits of ah and sectors per track
-  movb  %al,%ch                 # ch is the bottom part of the track
-  movb  %dl,%dh                 # head is now in dh
-
-  movb  drive,%dl               # dl is now the drive
-  movl  %ebx,%eax               # put the target address in eax
-  shrl  $4,%eax                 # div the address by 2^4
-  movw  %ax,%es                 # insert the address in es
-  andw  $0x0f,%bx
-  movw  $0x0201,%ax             # in AH, write 0x02 (command read) and in AL write 0x01 (1 sector to read)
-
-  int   $0x13                   # Call the read
-  jc cannot_load
-
-  popl  %ecx
-  popl  %ebx
-  popl  %eax
-  popw  %es
-
-  ret
-
-# ------------------------------------------------------------------------------
-cannot_load:
-  movw  $load_error,%si
-  call print_string
-  cli
-  hlt
-
-load_error:
-  .ascii "IO Error"
+progress_dot:
+  .ascii "."
   .byte 0
 
-nb_root_sectors:
-  .long 0x00000 # number of sectors in the root directory
-root_dir_sector:
-  .long 0x00    # default value on floppy is 19; should be read correctly
+loading_os_message:
+.ascii "\n\rLoading the operating system"
+.byte 0
 
-code_end:
-  .space (1<<9)-(2 + 16 * 1)-(code_end-code_start)  # Skip to the end (minus 2 for the signature)
-# Partition table (only one)
-
-# partition 4
-#.byte 0x00                   # boot flag (0x00: inactive, 0x80: active)
-#.byte 0x00, 0x00, 0x00       # Start of partition address
-#.byte 0x00                   # system flag
-#.byte 0x00, 0x00, 0x00       # End of partition address
-#.byte 0x00, 0x00, 0x00, 0x00 # Start sector relative to disk
-#.byte 0x00, 0x00, 0x00, 0x00 # number of sectors in partition
-
-# partition 3
-#.byte 0x00                   # boot flag (0x00: inactive, 0x80: active)
-#.byte 0x00, 0x00, 0x00       # Start of partition address
-#.byte 0x00                   # system flag
-#.byte 0x00, 0x00, 0x00       # End of partition address
-#.byte 0x00, 0x00, 0x00, 0x00 # Start sector relative to disk
-#.byte 0x00, 0x00, 0x00, 0x00 # number of sectors in partition
-
-# partition 2
-#.byte 0x00                   # boot flag (0x00: inactive, 0x80: active)
-#.byte 0x00, 0x00, 0x00       # Start of partition address
-#.byte 0x00                   # system flag
-#.byte 0x00, 0x00, 0x00       # End of partition address
-#.byte 0x00, 0x00, 0x00, 0x00 # Start sector relative to disk
-#.byte 0x00, 0x00, 0x00, 0x00 # number of sectors in partition
-
-# partition 1
-.byte 0x80                   # boot flag (0x00: inactive, 0x80: active)
-.byte 0x00, 0x00, 0x00       # Start of partition address
-.byte 0x00                   # system flag
-.byte 0x00, 0x00, 0x00       # End of partition address
-.byte 0x00, 0x00, 0x00, 0x00 # Start sector relative to disk
-.byte 0x00, 0x00, 0x00, 0x00 # number of sectors in partition
-
-# Signature
-.byte 0x55
-.byte 0xAA
-extended_code_start:
-
-stage_2_name:
-  .ascii "BOOT    SYS" # the extension is implicit, spaces mark blanks
-
-# Print string utility.
-print_string_loop:
-  movb  $INT10_TTY_OUTPUT_FN,%ah
-  movw  $(0<<8)+7,%bx   # page = 0, foreground color = 7
-  int   $0x10
-  incw  %si
-print_string:
-  movb  (%si),%al
-  test  %al,%al
-  jnz   print_string_loop
-  ret
+extended_bootsector_loaded:
+.ascii "\n\rBoot code correctly loaded..."
+.byte 0
 
 extended_code_end:
 .space (1<<9)-(2)-(extended_code_end-extended_code_start)  # Make that two sectors
-# Signature of the second reserved block. This is not required, but it allows debugging of the hex file format
+# Signature of the second reserved block. This is not required (it's made up), but it allows debugging of the hex file format
 .byte 0x55
 .byte 0xBB
