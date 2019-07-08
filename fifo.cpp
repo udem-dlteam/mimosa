@@ -1,6 +1,6 @@
 // file: "fifo.cpp"
 
-// Copyright (c) 2001 by Marc Feeley and Université de Montréal, All
+// Copyright (c) 2001 by Marc Feeley and Universitï¿½ de Montrï¿½al, All
 // Rights Reserved.
 //
 // Revision History
@@ -191,16 +191,6 @@ ssize_t fifo::read_or_timeout (uint8* buf, size_t count, time timeout)
 
 #else
 
-fifo::fifo ()
-{
-  _lo = 0;
-  _hi = 0;
-}
-
-fifo::~fifo ()
-{
-}
-
 #if 0
 
 void fifo::put (uint8 byte)
@@ -249,7 +239,7 @@ bool fifo::get_or_timeout (uint8* byte, time timeout)
   while (_lo == _hi)
     {
       enable_interrupts ();
-      if (less_time (timeout, current_time ()))
+      if (less_time (timeout, c1urrent_time ()))
         return FALSE;
       //thread::yield ();
       disable_interrupts ();
@@ -331,58 +321,46 @@ bool fifo::get_or_timeout (uint8* byte, time timeout)
 
 #else
 
-void fifo::put (uint8 byte)
-{
-  _m.lock ();
+void fifo_put(fifo *self, uint8 byte) {
+  self->_m.lock();
 
-  for (;;)
-    {
-      int next_hi = (_hi + 1) % (max_elements+1);
-      if (next_hi != _lo)
-        {
-          _circularq[_hi] = byte;
-          _hi = next_hi;
-          break;
-        }
-      _put_cv.wait (&_m);
+  for (;;) {
+    int next_hi = (self->_hi + 1) % (FIFO_MAX_ELEMENTS + 1);
+    if (next_hi != self->_lo) {
+      self->_circularq[self->_hi] = byte;
+      self->_hi = next_hi;
+      break;
     }
-
-  _get_cv.broadcast ();
-
-  _m.unlock ();
+    // Wait until we get room
+    self->_put_cv.wait(&self->_m);
+  }
 }
 
-void fifo::get (uint8* byte)
-{
-  _m.lock ();
+void fifo_get(fifo *self, uint8 *byte) {
+  self->_m.lock();
 
-  while (_lo == _hi)
-    _get_cv.wait (&_m);
+  while (self->_lo == self->_hi) self->_get_cv.wait(&self->_m);
 
-  *byte = _circularq[_lo];
-
-  _lo = (_lo + 1) % (max_elements+1);
-
-  _put_cv.broadcast ();
-
-  _m.unlock ();
+  *byte = self->_circularq[self->_lo];
+  self->_lo = (self->_lo + 1) % (FIFO_MAX_ELEMENTS + 1);
+  self->_put_cv.broadcast();
+  self->_m.unlock();
 }
 
-bool fifo::get_or_timeout (uint8* byte, time timeout)
-{
-  _m.lock ();
+bool fifo_get_or_timeout(fifo *self, uint8 *byte, time timeout) {
+  self->_m.lock();
 
-  while (_lo == _hi)
-    if (!_get_cv.wait_or_timeout (&_m, timeout))
+  while(self->_lo == self->_hi) {
+    if(!self->_get_cv.wait_or_timeout(&self->_m, timeout)) {
       return FALSE;
+    }
+  }
 
-  *byte = _circularq[_lo];
+  *byte = self->_circularq[self->_lo];
+  self->_lo = (self->_lo + 1) % (FIFO_MAX_ELEMENTS + 1);
+  self->_put_cv.broadcast();
 
-  _lo = (_lo + 1) % (max_elements+1);
-
-  _put_cv.broadcast ();
-
-  _m.unlock ();
+  self->_m.unlock();
 
   return TRUE;
 }
