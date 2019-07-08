@@ -10,7 +10,6 @@
 
 #include "general.h"
 #include "term.h"
-#include "fifo.h"
 #include "thread.h"
 #include "time.h"
 #include "ps2.h"

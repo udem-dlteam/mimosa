@@ -108,7 +108,7 @@ disk.o: disk.cpp include/disk.h include/general.h include/ide.h \
 	include/term.h include/video.h include/rtlib.h
 eepro100.o: eepro100.c etherboot.h osdep.h include/asm.h \
 	include/general.h nic.h pci.h cards.h timer2.h
-fifo.o: fifo.cpp include/fifo.h include/general.h include/thread.h \
+# fifo.o: fifo.cpp include/fifo.h include/general.h include/thread.h \
 	include/intr.h include/asm.h include/pic.h include/apic.h \
 	include/time.h include/pit.h include/queue.h include/term.h \
 	include/video.h include/rtlib.h
@@ -123,7 +123,7 @@ ide.o: ide.cpp include/ide.h include/general.h include/thread.h \
 intr.o: intr.cpp include/intr.h include/general.h include/asm.h \
 	include/pic.h include/apic.h include/term.h include/video.h
 main.o: main.cpp include/general.h include/term.h include/video.h \
-	include/fifo.h include/thread.h include/intr.h include/asm.h \
+	include/thread.h include/intr.h include/asm.h \
 	include/pic.h include/apic.h include/time.h include/pit.h \
 	include/queue.h include/ps2.h
 misc.o: misc.c etherboot.h osdep.h include/asm.h include/general.h
