@@ -12,6 +12,7 @@ INT10_TTY_OUTPUT_FN = 0xE       # BIOS int 0x10 function for "teletype output"
 INT16_READ_KEYBOARD_FN = 0      # BIOS int 0x16 function for "read keyboard"
 STACK_TOP = 0x10000             # location of stack top
 SCRATCH = 0x1000                # location of scratch area
+EXTENDED_MEM = 0x7E00           # location of the extended boot sector (0x7C00 + 512)
 ROOT_DIR_ENTRY_SIZE = 32        # the size for a root directory entry size
 # ------------------------------------------------------------------------------
 
@@ -34,7 +35,7 @@ nb_bytes_per_sector:
   .word 0x0200 # bytes per sector (512 bytes)
   .byte 0x01      # sector per allocation unit -> sector/cluster
 nb_reserved_sectors:  
-  .word 0x0001 # reserved sectors for booting 1
+  .word 0x002 # reserved sectors for booting 2
 nb_of_fats:
   .byte 0x02      # number of FATs (usually 2)
 nb_root_dir_entries:
@@ -98,6 +99,22 @@ after_header:
   # Cleanup
   xor %ax, %ax
   xor %dx, %dx
+
+  # ------------------------------------------------------------------------------
+  # Load the extended bootsector into the RAM
+  # In order to use the extended bootsector correctly, the extended boot sector is 
+  # loaded directly after the normal bootsector. This allows relative jumps in this
+  # file to work correctly.
+  pushl %eax
+  pushl %ebx
+
+  movl $0x01, %eax # first sector of drive
+  movl $EXTENDED_MEM, %ebx
+  call read_sector
+
+  popl %ebx
+  popl %eax
+  # ------------------------------------------------------------------------------
   
   # Calculating the start of the root dir
   movb nb_of_fats, %al
@@ -167,6 +184,7 @@ found_file:
   # At this point, bx contains the start of the root dir entry.
   # We want to read the cluster number, so we can look up the FAT and
   # finally read the file... The cluster is a word at offset 0x1A
+
   addw $0x1A, %bx
   xorw %ax, %ax
   movw %ax, %es
@@ -175,9 +193,8 @@ found_file:
 
   # Fat offset:
   xorl %eax, %eax           # clean the upper part
-  # movw nb_reserved_sectors, %ax
-  # addw nb_hidden_sectors,   %ax # eax is now the reading address
-  movw $1, %ax
+  movw nb_reserved_sectors, %ax
+  addw nb_hidden_sectors,   %ax # eax is now the reading address
 
   movl $SCRATCH, %ebx       # the destination address is now ebx
 
@@ -286,6 +303,59 @@ cannot_load:
   cli
   hlt
 
+load_error:
+  .ascii "IO Error"
+  .byte 0
+
+nb_root_sectors:
+  .long 0x00000 # number of sectors in the root directory
+root_dir_sector:
+  .long 0x00    # default value on floppy is 19; should be read correctly
+
+code_end:
+  .space (1<<9)-(2 + 16 * 1)-(code_end-code_start)  # Skip to the end (minus 2 for the signature)
+# Partition table (only one)
+
+# partition 4
+#.byte 0x00                   # boot flag (0x00: inactive, 0x80: active)
+#.byte 0x00, 0x00, 0x00       # Start of partition address
+#.byte 0x00                   # system flag
+#.byte 0x00, 0x00, 0x00       # End of partition address
+#.byte 0x00, 0x00, 0x00, 0x00 # Start sector relative to disk
+#.byte 0x00, 0x00, 0x00, 0x00 # number of sectors in partition
+
+# partition 3
+#.byte 0x00                   # boot flag (0x00: inactive, 0x80: active)
+#.byte 0x00, 0x00, 0x00       # Start of partition address
+#.byte 0x00                   # system flag
+#.byte 0x00, 0x00, 0x00       # End of partition address
+#.byte 0x00, 0x00, 0x00, 0x00 # Start sector relative to disk
+#.byte 0x00, 0x00, 0x00, 0x00 # number of sectors in partition
+
+# partition 2
+#.byte 0x00                   # boot flag (0x00: inactive, 0x80: active)
+#.byte 0x00, 0x00, 0x00       # Start of partition address
+#.byte 0x00                   # system flag
+#.byte 0x00, 0x00, 0x00       # End of partition address
+#.byte 0x00, 0x00, 0x00, 0x00 # Start sector relative to disk
+#.byte 0x00, 0x00, 0x00, 0x00 # number of sectors in partition
+
+# partition 1
+.byte 0x80                   # boot flag (0x00: inactive, 0x80: active)
+.byte 0x00, 0x00, 0x00       # Start of partition address
+.byte 0x00                   # system flag
+.byte 0x00, 0x00, 0x00       # End of partition address
+.byte 0x00, 0x00, 0x00, 0x00 # Start sector relative to disk
+.byte 0x00, 0x00, 0x00, 0x00 # number of sectors in partition
+
+# Signature
+.byte 0x55
+.byte 0xAA
+extended_code_start:
+
+stage_2_name:
+  .ascii "BOOT    SYS" # the extension is implicit, spaces mark blanks
+
 # Print string utility.
 print_string_loop:
   movb  $INT10_TTY_OUTPUT_FN,%ah
@@ -298,21 +368,8 @@ print_string:
   jnz   print_string_loop
   ret
 
-stage_2_name:
-  .ascii "BOOT    SYS" # the extension is implicit, spaces mark blanks
-
-load_error:
-  .ascii "IO Error"
-  .byte 0
-
-nb_root_sectors:
-  .long 0x00000 # number of sectors in the root directory
-root_dir_sector:
-  .long 0x00    # default value on floppy is 19; should be read correctly
-
-code_end:
-  .space (1<<9)-(2)-(code_end-code_start)  # Skip to the end (minus 2 for the signature)
-# Signature
+extended_code_end:
+.space (1<<9)-(2)-(extended_code_end-extended_code_start)  # Make that two sectors
+# Signature of the second reserved block. This is not required, but it allows debugging of the hex file format
 .byte 0x55
-.byte 0xaa
-#------------------------------------------------------------------------------
+.byte 0xBB
