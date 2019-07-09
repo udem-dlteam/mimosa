@@ -59,7 +59,7 @@ drive:            # Extended block, supposed to be only for FAT 16
   .byte 0x00      # reserved
   .byte 0x29      # extended signature
   .byte 0xd1,0x07,0x22,0x27 # serial number
-  .byte 0x4f,0x53,0x20,0x20,0x20,0x20,0x20,0x20,0x20,0x20,0x20 # drive label
+  .ascii "MIMOSA OS  " # drive label (11 char)
   .ascii "FAT12   " # file system type (FAT 12 here, 8 chars long)
 # ------------------------------------------------------------------------------
 after_header:
@@ -213,7 +213,7 @@ code_end:
 .byte 0x80                   # boot flag (0x00: inactive, 0x80: active)
 .byte 0x00, 0x01, 0x00       # Start of partition address
 .byte 0x01                   # system flag
-.byte 0x00, 0x00, 0x00       # End of partition address
+.byte 0xFF, 0xFF, 0xFF       # End of partition address
 .long 0x00                   # Start sector relative to disk
 .long 2280                   # number of sectors in partition
 
