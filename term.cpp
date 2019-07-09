@@ -1,6 +1,6 @@
 // file: "term.cpp"
 
-// Copyright (c) 2001 by Marc Feeley and Université de Montréal, All
+// Copyright (c) 2001 by Marc Feeley and Universitï¿½ de Montrï¿½al, All
 // Rights Reserved.
 //
 // Revision History
@@ -39,8 +39,8 @@ term::term (int x,
   _bold = FALSE;
   _underline = FALSE;
   _reverse = FALSE;
-  _fg = normal_foreground;
-  _bg = normal_background;
+  _fg = term_normal_foreground;
+  _bg = term_normal_background;
 
   if (initially_visible)
     show ();
@@ -59,57 +59,57 @@ void term::show ()
 
       char_coord_to_screen_coord (_nb_columns-1, _nb_rows-1, sx, sy, ex, ey);
 
-      color_to_pattern (normal_background, background);
+      color_to_pattern (term_normal_background, background);
 
       video::screen.frame_rect
         (_x,
          _y,
-         ex + outer_border + frame_border + inner_border,
-         ey + outer_border + frame_border + inner_border,
-         outer_border,
+         ex + term_outer_border + term_frame_border + term_inner_border,
+         ey + term_outer_border + term_frame_border + term_inner_border,
+         term_outer_border,
          &pattern::white);
 
       video::screen.frame_rect
-        (_x + outer_border,
-         _y + outer_border,
-         ex + frame_border + inner_border,
-         ey + frame_border + inner_border,
-         frame_border,
+        (_x + term_outer_border,
+         _y + term_outer_border,
+         ex + term_frame_border + term_inner_border,
+         ey + term_frame_border + term_inner_border,
+         term_frame_border,
          &pattern::gray50);
 
       video::screen.fill_rect
-        (_x + outer_border + frame_border,
-         _y + char_height + outer_border + frame_border + 2*inner_border,
-         ex + inner_border,
-         _y + char_height + outer_border + 2*frame_border + 2*inner_border,
+        (_x + term_outer_border + term_frame_border,
+         _y + char_height + term_outer_border + term_frame_border + 2*term_inner_border,
+         ex + term_inner_border,
+         _y + char_height + term_outer_border + 2*term_frame_border + 2*term_inner_border,
          &pattern::gray50);
 
       video::screen.fill_rect
-        (_x + outer_border + frame_border,
-         _y + outer_border + frame_border,
-         ex + inner_border,
-         _y + char_height + outer_border + frame_border + 2*inner_border,
+        (_x + term_outer_border + term_frame_border,
+         _y + term_outer_border + term_frame_border,
+         ex + term_inner_border,
+         _y + char_height + term_outer_border + term_frame_border + 2*term_inner_border,
          &pattern::black);
 
       _fn->draw_string
         (&video::screen,
          _fn->draw_string
            (&video::screen,
-            _x + outer_border + frame_border + inner_border,
-            _y + outer_border + frame_border + inner_border,
+            _x + term_outer_border + term_frame_border + term_inner_border,
+            _y + term_outer_border + term_frame_border + term_inner_border,
             L"\x25b6 ", // rightward triangle and space
             &pattern::blue,
             &pattern::black),
-         _y + outer_border + frame_border + inner_border,
+         _y + term_outer_border + term_frame_border + term_inner_border,
          _title,
          &pattern::blue,
          &pattern::black);
 
       video::screen.fill_rect
-        (_x + outer_border + frame_border,
-         _y + char_height + outer_border + 2*frame_border + 2*inner_border,
-         ex + inner_border,
-         ey + inner_border,
+        (_x + term_outer_border + term_frame_border,
+         _y + char_height + term_outer_border + 2*term_frame_border + 2*term_inner_border,
+         ex + term_inner_border,
+         ey + term_inner_border,
          background);
 
       show_cursor ();
@@ -515,8 +515,8 @@ void term::char_coord_to_screen_coord (int column,
 {
   int char_max_width = _fn->get_max_width ();
   int char_height = _fn->get_height ();
-  sx = _x + column*char_max_width + outer_border + frame_border + inner_border;
-  sy = _y + row*char_height + outer_border + 2*frame_border + 3*inner_border
+  sx = _x + column*char_max_width + term_outer_border + term_frame_border + term_inner_border;
+  sy = _y + row*char_height + term_outer_border + 2*term_frame_border + 3*term_inner_border
        + char_height;
   ex = sx + char_max_width;
   ey = sy + char_height;

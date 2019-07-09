@@ -1,6 +1,6 @@
 // file: "term.h"
 
-// Copyright (c) 2001 by Marc Feeley and Université de Montréal, All
+// Copyright (c) 2001 by Marc Feeley and Universitï¿½ de Montrï¿½al, All
 // Rights Reserved.
 //
 // Revision History
@@ -18,85 +18,102 @@
 
 // "term" class declaration.
 
-class term
-  {
-  public:
+const int term_max_nb_params = 10;
+const int term_normal_foreground = 0;  // black
+const int term_normal_background = 7;  // white
+const int term_outer_border = 1;
+const int term_frame_border = 2;
+const int term_inner_border = 2;
 
-    term (int x,
-          int y,
-          int nb_columns,
-          int nb_rows,
-          font* fn,
-          unicode_string title,
-          bool initially_visible = TRUE);
+class term {
+ public:
+  term(int x, int y, int nb_columns, int nb_rows, font* fn,
+       unicode_string title, bool initially_visible = TRUE);
 
-    void show ();
+  void show();
 
-    int write (unicode_char* buf, int count);
+  int write(unicode_char* buf, int count);
 
-    static term console;
+  static term console;
 
-  protected:
+ protected:
+  void char_coord_to_screen_coord(int column, int row, int& sx, int& sy,
+                                  int& ex, int& ey);
 
-    void char_coord_to_screen_coord (int column,
-                                     int row,
-                                     int& sx,
-                                     int& sy,
-                                     int& ex,
-                                     int& ey);
+  void color_to_pattern(int color, pattern*& pat);
 
-    void color_to_pattern (int color, pattern*& pat);
+  void show_cursor();
+  void hide_cursor();
+  void toggle_cursor();
 
-    void show_cursor ();
-    void hide_cursor ();
-    void toggle_cursor ();
+  void scroll_up();
 
-    void scroll_up ();
+  int _x;
+  int _y;
+  int _nb_columns;
+  int _nb_rows;
+  font* _fn;
+  unicode_string _title;
+  int _cursor_column;
+  int _cursor_row;
+  bool _cursor_visible;
+  bool _visible;
 
-    static const int outer_border = 1;
-    static const int frame_border = 2;
-    static const int inner_border = 2;
+  // for vt100 emulation:
+  int _param[term_max_nb_params];
+  int _param_num;
+  bool _bold;
+  bool _underline;
+  bool _reverse;
+  int _fg;
+  int _bg;
+};
 
-    int _x;
-    int _y;
-    int _nb_columns;
-    int _nb_rows;
-    font* _fn;
-    unicode_string _title;
-    int _cursor_column;
-    int _cursor_row;
-    bool _cursor_visible;
-    bool _visible;
-
-    // for vt100 emulation:
-
-    static const int max_nb_params = 10;
-    static const int normal_foreground = 0; // black
-    static const int normal_background = 7; // white
-
-    int _param[max_nb_params];
-    int _param_num;
-    bool _bold;
-    bool _underline;
-    bool _reverse;
-    int _fg;
-    int _bg;
-  };
-
-term& operator<< (term& t, bool x);
-term& operator<< (term& t, int8 x);
-term& operator<< (term& t, int16 x);
-term& operator<< (term& t, int32 x);
-term& operator<< (term& t, int64 x);
-term& operator<< (term& t, uint8 x);
-term& operator<< (term& t, uint16 x);
-term& operator<< (term& t, uint32 x);
-term& operator<< (term& t, uint64 x);
-term& operator<< (term& t, void* x);
-term& operator<< (term& t, native_string x);
-term& operator<< (term& t, unicode_string x);
+term& operator<<(term& t, bool x);
+term& operator<<(term& t, int8 x);
+term& operator<<(term& t, int16 x);
+term& operator<<(term& t, int32 x);
+term& operator<<(term& t, int64 x);
+term& operator<<(term& t, uint8 x);
+term& operator<<(term& t, uint16 x);
+term& operator<<(term& t, uint32 x);
+term& operator<<(term& t, uint64 x);
+term& operator<<(term& t, void* x);
+term& operator<<(term& t, native_string x);
+term& operator<<(term& t, unicode_string x);
 
 #define cout term::console
+
+typedef struct term_c {
+  int _x;
+  int _y;
+  int _nb_columns;
+  int _nb_rows;
+  font* _fn;
+  unicode_string _title;
+  int _cursor_column;
+  int _cursor_row;
+  bool _cursor_visible;
+  bool _visible;
+  // for vt100 emulation:
+  int _param[term_max_nb_params];
+  int _param_num;
+  bool _bold;
+  bool _underline;
+  bool _reverse;
+  int _fg;
+  int _bg;
+} term_c;
+
+void char_coord_to_screen_coord(term_c* self, int column, int row, int& sx,
+                                int& sy, int& ex, int& ey);
+
+void color_to_pattern(term_c* self, int color, pattern** pat);
+
+void show_cursor(term_c* self);
+void hide_cursor(term_c* self);
+void toggle_cursor(term_c* self);
+void scroll_up(term_c* self);
 
 //-----------------------------------------------------------------------------
 
