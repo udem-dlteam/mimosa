@@ -169,7 +169,7 @@ void term::scroll_up ()
                         &pattern::white,
                         &pattern::black);
 
-  color_to_pattern (normal_background, background);
+  color_to_pattern (term_normal_background, background);
 
   video::screen.fill_rect (x0, y2, x3, y3, background);
 }
@@ -270,7 +270,7 @@ int term::write (unicode_char* buf, int count)
                   else if (c == ';')
                     {
                       pn++;
-                      if (pn < max_nb_params)
+                      if (pn < term_max_nb_params)
                         {
                           _param_num = pn;
                           _param[pn] = 0;
@@ -335,8 +335,8 @@ int term::write (unicode_char* buf, int count)
                                   _bold = FALSE;
                                   _underline = FALSE;
                                   _reverse = FALSE;
-                                  _fg = normal_foreground;
-                                  _bg = normal_background;
+                                  _fg = term_normal_foreground;
+                                  _bg = term_normal_background;
                                 }
                               else if (x == 1)
                                 _bold = TRUE;
@@ -398,7 +398,7 @@ int term::write (unicode_char* buf, int count)
                           int cey;
                           pattern* background;
 
-                          color_to_pattern (normal_background, background);
+                          color_to_pattern (term_normal_background, background);
 
                           char_coord_to_screen_coord
                             (0, 0, sx, sy, cex, cey);
