@@ -32,7 +32,9 @@ code_start:
   jmp after_header  # jump after the header block
   .byte 0x90        # nop
 oem_name:
-  .ascii "mkfs.fat" # OEM name 8 characters (two spaces to get to 8)
+  .ascii "MIMOSA"
+  .byte 0
+  .byte 0 # OEM name 8 characters (two spaces to get to 8)
 nb_bytes_per_sector:
   .word 0x0200    # bytes per sector (512 bytes)
 nb_sectors_per_cluster:
@@ -96,7 +98,7 @@ after_header:
 
   # Little OS name printing...
 
-  movw drive_lbl, %si
+  movw $oem_name, %si
   call print_string
   
   movw $new_line, %si
@@ -178,23 +180,40 @@ read_sector:
   ret
 
 # ------------------------------------------------------------------------------
+# Routines and functions
+# ------------------------------------------------------------------------------
+
 cannot_load:
   movw  $load_error,%si
   call print_string
-  cli
-  hlt
+  jmp failure_routine
+
+failure_routine:
+  movw $any_key_reboot_msg, %si
+  call print_string
+  movb  $INT16_READ_KEYBOARD_FN,%ah
+  int   $0x16 # read keyboard
+  ljmp  $0xf000,$0xfff0  # jump to 0xffff0 (the CPU starts there when reset)
+
+# ------------------------------------------------------------------------------
+# String and data
+# ------------------------------------------------------------------------------
 
 nb_root_sectors:
   .long 0x00000 # number of sectors in the root directory
 root_dir_sector:
   .long 0x00    # default value on floppy is 19; should be read correctly
 
+any_key_reboot_msg:
+  .ascii "\n\rPress any key to reboot"
+  .byte 0
+
 new_line:
   .ascii "\n\r"
   .byte 0
 
 load_error:
-  .ascii "IO Error. The system failed to load. Please reboot."
+  .ascii "\n\rIO Error. Unable to load the OS."
   .byte 0
 
 kernel_name:
@@ -212,6 +231,9 @@ print_string:
   jnz   print_string_loop
   ret
 
+# ------------------------------------------------------------------------------
+# MBR data
+# ------------------------------------------------------------------------------
 code_end:
   .space (1<<9)-(2 + 16 * 4)-(code_end-code_start)  # Skip to the end (minus 2 for the signature)
 # Partition table (only one)
@@ -257,10 +279,65 @@ code_end:
 # ---------------------------------------------------------------------------------------
 # ---------------------------------------------------------------------------------------
 # ---------------------------------------------------------------------------------------
+
 extended_code_start:
 
   pushl %eax
   pushl %ebx
+
+  # Enable A20 line
+
+  call  test_a20     # check if A20 line is already enabled
+  jz    load_os
+
+  movw  $0x64,%dx    # try to enable A20 line with the keyboard controller
+  movb  $0xd1,%al
+  outb  %al,%dx
+  movb  $3,%al
+  movw  $0x60,%dx
+  outb  %al,%dx
+
+  call  test_a20
+  jz    load_os
+
+  movw  $0x92,%dx    # try to enable A20 line with the "fast A20 gate"
+  inb   %dx,%al
+  orb   $0x02,%al
+  andb  $0xfe,%al
+  outb  %al,%dx
+
+  call  test_a20
+  jz    load_os
+  jmp   a_20_failure
+
+  test_a20:
+  # Test if the A20 line is disabled.  On return the Z flag is set if
+  # the A20 line is enabled and cleared if it is disabled.  We test it
+  # repeatedly because some hardware takes some time to enable the A20
+
+  xorw  %cx,%cx 
+  test_a20_loop:
+  movb  $0,SCRATCH
+  movw  $0xffff,%ax
+  movw  %ax,%es
+  movb  %al,%es:SCRATCH+0x10
+  testb %al,SCRATCH
+  loopnz test_a20_loop
+  ret
+
+a_20_failure:
+
+  movw $a_20_failure_message, %si
+  call print_string
+  jmp failure_routine  
+
+load_os:
+
+  xorw %ax, %ax
+  movw %ax, %es # A20 messes with it
+
+  movw $a_20_succes_message, %si
+  call print_string
 
   movw $loading_os_message, %si
   call print_string
@@ -419,20 +496,29 @@ found_file:
   start_kernel:
     ljmp  $(KERNEL_START>>4),$0  # jump to "KERNEL_START" (which must be < 1MB)
 
+
 # ----------------------------------------------------------------------------------------------------------
-# String and messages
+# Extended bootloader string and messages
 # ----------------------------------------------------------------------------------------------------------
+
+a_20_succes_message:
+  .ascii "\n\rA20 line enabled."
+  .byte 0
+
+a_20_failure_message:
+  .ascii "\n\rFailure to load the A20 line."
+  .byte 0
 
 progress_dot:
   .ascii "."
   .byte 0
 
 loading_os_message:
-.ascii "\n\rLoading the operating system"
+.ascii "\n\rLoading the operating system..."
 .byte 0
 
 extended_bootsector_loaded:
-.ascii "\n\rBoot code correctly loaded..."
+.ascii "\n\rBoot code correctly loaded."
 .byte 0
 
 extended_code_end:
