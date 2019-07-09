@@ -700,7 +700,135 @@ term_c new_term(int x, int y, int nb_columns, int nb_rows, font* font, unicode_s
   return term;
 }
 
+void term_show(term_c* self) {
+  if (self->_visible) {
+    return;
+  }
 
+  int sx, sy, ex, ey;
+  int char_height = self->_fn->get_height();
+  pattern* background;
+
+  term_char_coord_to_screen_coord(self, self->_nb_columns - 1,
+                                  self->_nb_rows - 1, sx, sy, ex, ey);
+
+  term_color_to_pattern(self, term_normal_background, &background);
+
+  // TODO: Call video properly
+  // Video "static methods"
+  video::screen.frame_rect(
+      self->_x, self->_y,
+      ex + term_outer_border + term_frame_border + term_inner_border,
+      ey + term_outer_border + term_frame_border + term_inner_border,
+      term_outer_border, &pattern::white);
+
+  video::screen.frame_rect(self->_x + term_outer_border,
+                           self->_y + term_outer_border,
+                           ex + term_frame_border + term_inner_border,
+                           ey + term_frame_border + term_inner_border,
+                           term_frame_border, &pattern::gray50);
+
+  video::screen.fill_rect(self->_x + term_outer_border + term_frame_border,
+                          self->_y + char_height + term_outer_border +
+                              term_frame_border + 2 * term_inner_border,
+                          ex + term_inner_border,
+                          self->_y + char_height + term_outer_border +
+                              2 * term_frame_border + 2 * term_inner_border,
+                          &pattern::gray50);
+
+  video::screen.fill_rect(self->_x + term_outer_border + term_frame_border,
+                          self->_y + term_outer_border + term_frame_border,
+                          ex + term_inner_border,
+                          self->_y + char_height + term_outer_border +
+                              term_frame_border + 2 * term_inner_border,
+                          &pattern::black);
+  // EO TODO
+
+  self->_fn->draw_string(
+      &video::screen,
+      self->_fn->draw_string(
+          &video::screen,
+          self->_x + term_outer_border + term_frame_border + term_inner_border,
+          self->_y + term_outer_border + term_frame_border + term_inner_border,
+          L"\x25b6 ",  // rightward triangle and space
+          &pattern::blue, &pattern::black),
+      self->_y + term_outer_border + term_frame_border + term_inner_border,
+      self->_title, &pattern::blue, &pattern::black);
+
+  video::screen.fill_rect(self->_x + term_outer_border + term_frame_border,
+                          self->_y + char_height + term_outer_border +
+                              2 * term_frame_border + 2 * term_inner_border,
+                          ex + term_inner_border, ey + term_inner_border,
+                          background);
+
+  term_show_cursor(self);
+  self->_visible = TRUE;
+}
+
+void term_char_coord_to_screen_coord(term_c* self, int column, int row, int* sx,
+                                     int* sy, int* ex, int* ey) {
+  int char_max_width = self->_fn->get_max_width();
+  int char_height = self->_fn->get_height();
+
+  *sx = self->_x + column * char_max_width + term_outer_border +
+        term_frame_border + term_inner_border;
+  *sy = self->_y + row * char_height + term_outer_border +
+        2 * term_frame_border + 3 * term_inner_border + char_height;
+  *ex = *sx + char_max_width;
+  *ey = *sy + char_height;
+}
+
+void term_color_to_pattern(term_c* self, int color, pattern** pat) {
+  switch (color) {
+    case 0:
+      *pat = &pattern::black;
+      break;
+    case 1:
+      *pat = &pattern::red;
+      break;
+    case 2:
+      *pat = &pattern::green;
+      break;
+    case 3:
+      *pat = &pattern::yellow;
+      break;
+    case 4:
+      *pat = &pattern::blue;
+      break;
+    case 5:
+      *pat = &pattern::magenta;
+      break;
+    case 6:
+      *pat = &pattern::cyan;
+      break;
+    case 7:
+      *pat = &pattern::white;
+      break;
+  }
+}
+
+void term_show_cursor(term_c* self) {
+  if (!self->_cursor_visible) {
+    term_toggle_cursor(self);
+  }
+}
+
+void term_hide_cursor(term_c* self) {
+  if (self->_cursor_visible) {
+    term_toggle_cursor(self);
+  }
+}
+
+void term_toggle_cursor(term_c* self) {
+  int sx, sy, ex, ey;
+
+  term_char_coord_to_screen_coord(self, self->_cursor_column, self->_cursor_row,
+                                  &sx, &sy, &ex, &ey);
+                                  
+  video::screen.invert_rect (sx, sy, ex, ey);
+
+  self->_cursor_visible = !self->_cursor_visible;
+}
 
 //-----------------------------------------------------------------------------
 

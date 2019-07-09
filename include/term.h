@@ -105,14 +105,15 @@ typedef struct term_c {
   int _bg;
 } term_c;
 
-term_c new_term(int x, int y, int nb_columns, int nb_rows, font* font, unicode_string title, bool initialy_visible);
+term_c new_term(int x, int y, int nb_columns, int nb_rows, font* font,
+                unicode_string title, bool initialy_visible);
 
 void term_show(term_c* self);
 
 int term_write(term_c* self, unicode_char* buf, int count);
 
-void term_char_coord_to_screen_coord(term_c* self, int column, int row, int& sx,
-                                int& sy, int& ex, int& ey);
+void term_char_coord_to_screen_coord(term_c* self, int column, int row, int* sx,
+                                     int* sy, int* ex, int* ey);
 
 void term_color_to_pattern(term_c* self, int color, pattern** pat);
 
