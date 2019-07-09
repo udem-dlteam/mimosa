@@ -1111,6 +1111,36 @@ int term_write(term_c* self, unicode_char* buf, int count) {
   return end;
 }
 
+void term_scroll_up (term_c* self)
+{
+  // int x0;
+  // int y0;
+  // int x1;
+  // int y1;
+  // int x2;
+  // int y2;
+  // int x3;
+  // int y3;
+  // pattern* background;
+
+  // char_coord_to_screen_coord (0, 0, x0, y0, x1, y1);
+  // char_coord_to_screen_coord (_nb_columns-1, _nb_rows-1, x2, y2, x3, y3);
+
+  // video::screen.bitblt (x0,
+  //                       y0,
+  //                       x3,
+  //                       y2,
+  //                       &video::screen,
+  //                       x0,
+  //                       y1,
+  //                       &pattern::white,
+  //                       &pattern::black);
+
+  // color_to_pattern (term_normal_background, background);
+
+  // video::screen.fill_rect (x0, y2, x3, y3, background);
+}
+
 //-----------------------------------------------------------------------------
 
 // Local Variables: //
