@@ -108,20 +108,32 @@ typedef struct term_c {
 term_c new_term(int x, int y, int nb_columns, int nb_rows, font* font,
                 unicode_string title, bool initialy_visible);
 
-void term_show(term_c* self);
+void term_show(term_c* self); //#!
 
-int term_write(term_c* self, unicode_char* buf, int count);
+int term_write(term_c* self, unicode_char* buf, int count); //#!
 
 void term_char_coord_to_screen_coord(term_c* self, int column, int row, int* sx,
-                                     int* sy, int* ex, int* ey);
+                                     int* sy, int* ex, int* ey); //#!
 
-void term_color_to_pattern(term_c* self, int color, pattern** pat);
+void term_color_to_pattern(term_c* self, int color, pattern** pat); //#!
 
-void term_show_cursor(term_c* self);
-void term_hide_cursor(term_c* self);
-void term_toggle_cursor(term_c* self);
-void term_scroll_up(term_c* self);
+void term_show_cursor(term_c* self); //#!
+void term_hide_cursor(term_c* self);//#!
+void term_toggle_cursor(term_c* self);//#!
+void term_scroll_up(term_c* self); //#!
 
+term_c* term_write(term_c* self, bool x);
+term_c* term_write(term_c* self, int8 x);
+term_c* term_write(term_c* self, int16 x);
+term_c* term_write(term_c* self, int32 x);
+term_c* term_write(term_c* self, int64 x);
+term_c* term_write(term_c* self, uint8 x);
+term_c* term_write(term_c* self, uint16 x);
+term_c* term_write(term_c* self, uint32 x);
+term_c* term_write(term_c* self, uint64 x);
+term_c* term_write(term_c* self, void* x);
+term_c* term_write(term_c* self, native_string x);
+term_c* term_write(term_c* self, unicode_string x);
 //-----------------------------------------------------------------------------
 
 #endif

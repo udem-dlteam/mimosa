@@ -1113,7 +1113,7 @@ int term_write(term_c* self, unicode_char* buf, int count) {
 
 void term_scroll_up(term_c* self) {
   int x0, y0, x1, y1, x2, y2, x3, y3;
-  
+
   pattern* background;
 
   term_char_coord_to_screen_coord(self, 0, 0, &x0, &y0, &x1, &y1);
@@ -1126,6 +1126,121 @@ void term_scroll_up(term_c* self) {
   term_color_to_pattern(self, term_normal_background, &background);
 
   video::screen.fill_rect(x0, y2, x3, y3, background);
+}
+
+term_c* term_write(term_c* self, bool x) {
+  return term_write(self, x ? L"TRUE" : L"FALSE");
+}
+
+term_c* term_write(term_c* self, int8 x) {
+  return term_write(self, CAST(int32, x));
+}
+
+term_c* term_write(term_c* self, int16 x) {
+  return term_write(self, CAST(int32, x));
+}
+
+term_c* term_write(term_c* self, int32 x) {
+  if (x < 0) {
+    return term_write(term_write(self, L"-"), CAST(uint32, -x));
+  } else {
+    return term_write(self, CAST(uint32, x));
+  }
+}
+
+term_c* term_write(term_c* self, int64 x) {
+  return term_write(self, CAST(uint64, x));
+}
+
+term_c* term_write(term_c* self, uint8 x) {
+  return term_write(self, CAST(uint32, x));
+}
+
+term_c* term_write(term_c* self, uint16 x) {
+  return term_write(self, CAST(uint32, x));
+}
+
+term_c* term_write(term_c* self, uint32 x) {
+  const int max_digits = 10;  // 2^32 contains 10 decimal digits
+  unicode_char buf[max_digits + 1];
+  unicode_char* str = buf + max_digits;
+
+  *str = '\0';
+
+  if (x == 0)
+    *--str = '0';
+  else {
+    while (x != 0) {
+      uint32 x10 = x / 10;
+      *--str = '0' + (x - x10 * 10);
+      x = x10;
+    }
+  }
+
+  return term_write(self, str);
+}
+
+term_c* term_write(term_c* self, uint64 x) {
+  const int max_digits = 20;  // 2^64 contains 20 decimal digits
+  unicode_char buf[max_digits + 1];
+  unicode_char* str = buf + max_digits;
+
+  *str = '\0';
+
+  if (x == 0)
+    *--str = '0';
+  else {
+    while (x != 0) {
+      uint64 x10 = x / 10;
+      *--str = '0' + (x - x10 * 10);
+      x = x10;
+    }
+  }
+
+  return term_write(self, str);
+}
+
+term_c* term_write(term_c* self, void* x) {
+  const int nb_digits = 8;  // 32 bit pointer contains 8 hexadecimal digits
+  unicode_char buf[2 + nb_digits + 1];
+  unicode_string str = buf + 2 + nb_digits;
+  uint32 n = CAST(uint32, x);
+  int i;
+
+  *str = '\0';
+
+  for (i = 0; i < nb_digits; i++) {
+    *--str = "0123456789abcdef"[n & 0xf];
+    n = n >> 4;
+  }
+
+  *--str = 'x';
+  *--str = '0';
+
+  return term_write(self, str);
+}
+
+term_c* term_write(term_c* self, native_string x) {
+  unicode_char buf[2];
+
+  buf[1] = '\0';
+
+  while (*x != '\0') {
+    buf[0] = CAST(uint8, *x++);
+    term_write(self, buf);
+  }
+
+  return self;
+}
+
+term_c* term_write(term_c* self, unicode_string x) {
+  int n = 0;
+
+  while (x[n] != '\0') n++;
+
+  term_write(self, x, n);
+
+  return self;
 }
 
 //-----------------------------------------------------------------------------

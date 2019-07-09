@@ -18,16 +18,18 @@
 
 int main ()
 { 
-  term_c tty = new_term(0, 320, 80, 10, &font::mono_6x9, L"tty", true);
+  term_c* tty = &new_term(0, 320, 80, 10, &font::mono_6x9, L"tty", true);
+  
+  term_write(tty, "\033[46m" );
+  term_write(tty, "Gambit v4.9.3");
+  term_write(tty, "\033[0m\n");
 
-  // tty << "\033[46m" << "Gambit v4.9.3" << "\033[0m\n";
-  // tty << "\n";
-  // tty << "> ";
+  term_write(tty, "\n");
+  term_write(tty, "> ");
 
-  // for (int i=0; i<20000; i++)
-  //   for (int j=0; j<1000000; j++) ; // waste time
+  for (int i=0; i<20000; i++)
 
-  // tty << "fooled you twice!!!!";
+  term_write(tty, "fooled you twice!!!!");
 
   for (;;) ; // loop forever!
 
