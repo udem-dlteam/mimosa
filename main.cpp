@@ -17,17 +17,17 @@
 //-----------------------------------------------------------------------------
 
 int main ()
-{
-  term tty (0, 320, 80, 10, &font::mono_6x9, L"tty");
+{ 
+  term_c tty = new_term(0, 320, 80, 10, &font::mono_6x9, L"tty", true);
 
-  tty << "\033[46m" << "Gambit v4.9.3" << "\033[0m\n";
-  tty << "\n";
-  tty << "> ";
+  // tty << "\033[46m" << "Gambit v4.9.3" << "\033[0m\n";
+  // tty << "\n";
+  // tty << "> ";
 
-  for (int i=0; i<20000; i++)
-    for (int j=0; j<1000000; j++) ; // waste time
+  // for (int i=0; i<20000; i++)
+  //   for (int j=0; j<1000000; j++) ; // waste time
 
-  tty << "fooled you twice!!!!";
+  // tty << "fooled you twice!!!!";
 
   for (;;) ; // loop forever!
 
