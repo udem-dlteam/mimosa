@@ -830,6 +830,287 @@ void term_toggle_cursor(term_c* self) {
   self->_cursor_visible = !self->_cursor_visible;
 }
 
+int term_write(term_c* self, unicode_char* buf, int count) {
+  int start, end, i;
+  unicode_char c;
+
+  video::screen.hide_mouse();
+  term_show(self);
+
+  start = end = 0;
+
+  while (end < count) {
+    i = start;
+    end = count;
+
+    if (self->_param_num == -2) {  // not inside an escape sequence
+
+      while (i < end) {
+        c = buf[i++];
+        if (c == 0x08 || c == 0x0a || c == 0x0d || c == 0x1b)  // special char?
+        {
+          i--;  // only process characters before the special character
+          break;
+        }
+      }
+    }
+
+    if (i > start) {
+      end = i;  // stop drawing characters at the first special one
+    } else {
+      while (i < end) {
+        int op = -999;  // noop
+        int arg = 0;
+        int pn = self->_param_num;
+
+        c = buf[i++];
+
+        switch (pn) {
+          case -2:
+            if (c == 0x08) {         // backspace character?
+              op = -1;               // move cursor horizontally
+              arg = -1;              // one column left
+            } else if (c == 0x0a) {  // linefeed character?
+
+              term_hide_cursor(self);
+              self->_cursor_column = 0;
+
+              if (self->_cursor_row == self->_nb_rows - 1) {  // on last row?
+                term_scroll_up(self);
+              } else {
+                op = 0;   // move cursor vertically
+                arg = 1;  // one row down
+              }
+
+            } else if (c == 0x0d)  // carriage return character?
+            {
+              op = self->_cursor_row + 1;  // move cursor on same row
+              arg = 1;                     // to leftmost column
+            } else if (c == 0x1b)          // ESC character?
+              self->_param_num = -1;
+            else {
+              end = i - 1;  // special character processing is done
+            }
+            break;
+
+          case -1:
+            if (c == '[') {
+              self->_param_num = 0;
+              self->_param[0] = 0;
+            } else {
+              self->_param_num = -2;
+            }
+            break;
+
+          default:
+            if (c >= '0' && c <= '9') {
+              int x = c - '0';
+              int p = self->_param[pn];
+              if (p < 1000) {
+                self->_param[pn] = p * 10 + x;
+              }
+
+            } else if (c == ';') {
+              pn++;
+              if (pn < term_max_nb_params) {
+                self->_param_num = pn;
+                self->_param[pn] = 0;
+              }
+            } else {
+              self->_param_num = -2;
+
+              if (c == 'A') {
+                op = 0;  // move cursor vertically
+                arg = -self->_param[0];
+                if (arg >= 0) arg = -1;
+              } else if (c == 'B') {
+                op = 0;  // move cursor vertically
+                arg = -self->_param[0];
+                if (arg <= 0) arg = 1;
+              } else if (c == 'C') {
+                op = -1;  // move cursor horizontally
+                arg = -self->_param[0];
+                if (arg <= 0) arg = 1;
+              } else if (c == 'D') {
+                op = -1;  // move cursor horizontally
+                arg = -self->_param[0];
+                if (arg >= 0) arg = -1;
+              } else if (c == 'H' || c == 'f') {
+                op = self->_param[0];   // move cursor, op = row
+                arg = self->_param[1];  // arg = column
+                if (op <= 0) op = 1;
+                if (pn < 1 || arg <= 0) arg = 1;
+              } else if (c == 'J') {
+                op = -2;  // clear characters
+                arg = self->_param[0];
+                if (arg <= 0) arg = 0;
+              } else if (c == 'K') {
+                op = -3;  // clear characters
+                arg = self->_param[0];
+                if (arg <= 0) arg = 0;
+              } else if (c == 'm') {
+                int j;
+                op = -4;  // set attributes
+                for (j = 0; j <= pn; j++) {
+                  int x = self->_param[j];
+                  if (x <= 0) {
+                    self->_bold = FALSE;
+                    self->_underline = FALSE;
+                    self->_reverse = FALSE;
+                    self->_fg = term_normal_foreground;
+                    self->_bg = term_normal_background;
+                  } else if (x == 1) {
+                    self->_bold = TRUE;
+                  } else if (x == 4) {
+                    self->_underline = TRUE;
+                  } else if (x == 7) {
+                    self->_reverse = TRUE;
+                  } else if (x >= 30 && x <= 37) {
+                    self->_fg = x - 30;
+                  } else if (x >= 40 && x <= 47) {
+                    self->_bg = x - 40;
+                  }
+                }
+              }
+            }
+        }
+
+        // execute appropriate operation as indicated by "op" and "arg"
+
+        if (op != -999)  // not noop?
+        {
+          if (op >= -1)  // move cursor?
+          {
+            term_hide_cursor(self);
+
+            if (op <= 0) {
+              if (op == 0) {
+                self->_cursor_row += arg;
+              } else {
+                self->_cursor_column += arg;
+              }
+            } else {
+              self->_cursor_row = op - 1;
+              self->_cursor_column = arg - 1;
+            }
+
+            if (self->_cursor_row < 0) {
+              self->_cursor_row = 0;
+            } else if (self->_cursor_row >= self->_nb_rows) {
+              self->_cursor_row = self->_nb_rows - 1;
+            }
+
+            if (self->_cursor_column < 0) {
+              self->_cursor_column = 0;
+            } else if (self->_cursor_column >= self->_nb_columns) {
+              self->_cursor_column = self->_nb_columns - 1;
+            }
+          } else if (op >= -3) {  // clear characters
+            if (arg <= 2) {
+              int sx;
+              int sy;
+              int ex;
+              int ey;
+              int csx;
+              int csy;
+              int cex;
+              int cey;
+              pattern* background;
+
+              term_color_to_pattern(self, term_normal_background, &background);
+
+              term_char_coord_to_screen_coord(self, 0, 0, &sx, &sy, &cex, &cey);
+
+              term_char_coord_to_screen_coord(self, self->_nb_columns - 1,
+                                              self->_nb_rows - 1, &csx, &csy,
+                                              &ex, &ey);
+
+              term_char_coord_to_screen_coord(self, self->_cursor_column,
+                                              self->_cursor_row, &csx, &csy,
+                                              &cex, &cey);
+
+              if (arg != 1) term_hide_cursor(self);
+
+              if (op == -2 && arg != 0) {
+                video::screen.fill_rect(sx, sy, ex, csy, background);
+              }
+
+              video::screen.fill_rect((arg == 0) ? csx : sx, csy,
+                                      (arg == 1) ? csx : ex, cey, background);
+
+              if (op == -2 && arg != 1)
+                video::screen.fill_rect(sx, cey, ex, ey, background);
+            }
+          } else if (op == -4) {  // set attributes
+            // note: attributes are handled when characters
+            // are displayed
+          }
+        }
+      }
+
+      start = end;
+    }
+    // All escape sequence and special character processing is
+    // done.
+
+    while (start < end) {
+      int sx;
+      int sy;
+      int ex;
+      int ey;
+      int fg;
+      int bg;
+      pattern* foreground;
+      pattern* background;
+      int n = end - start;
+
+      if (n > self->_nb_columns - self->_cursor_column)  // one line at a time
+        n = self->_nb_columns - self->_cursor_column;
+
+      if (self->_reverse) {
+        fg = self->_bg;
+        bg = self->_fg;
+      } else {
+        fg = self->_fg;
+        bg = self->_bg;
+      }
+
+      term_char_coord_to_screen_coord(self, self->_cursor_column,
+                                      self->_cursor_row, &sx, &sy, &ex, &ey);
+
+      term_color_to_pattern(self, fg, &foreground);
+      term_color_to_pattern(self, bg, &background);
+
+      term_hide_cursor(self);
+
+      self->_fn->draw_text(&video::screen, sx, sy, buf + start, n, foreground,
+                           background);
+
+      start += n;
+
+      self->_cursor_column += n;
+
+      if (self->_cursor_column >= self->_nb_columns) {
+        self->_cursor_column = 0;
+        self->_cursor_row++;
+        if (self->_cursor_row >= self->_nb_rows) {
+          term_scroll_up(self);
+          self->_cursor_row = self->_nb_rows - 1;
+        }
+      }
+    }
+
+    end = start;
+  }
+
+  if (!self->_cursor_visible) {
+    term_show_cursor(self);
+  }
+
+  video::screen.show_mouse();
+  return end;
+}
+
 //-----------------------------------------------------------------------------
 
 // Local Variables: //
