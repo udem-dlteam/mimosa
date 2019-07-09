@@ -33,33 +33,34 @@ code_start:
 oem_name:
   .ascii "MIMOSA  " # OEM name 8 characters (two spaces to get to 8)
 nb_bytes_per_sector:
-  .word 0x0200 # bytes per sector (512 bytes)
-  .byte 0x01      # sector per allocation unit -> sector/cluster
+  .word 0x0200    # bytes per sector (512 bytes)
+  .byte 0x20      # sector per allocation unit -> sector/cluster
 nb_reserved_sectors:  
-  .word 0x002 # reserved sectors for booting 2
+  .word 0x02     # reserved sectors for booting 2
 nb_of_fats:
   .byte 0x02      # number of FATs (usually 2)
 nb_root_dir_entries:
   .word 0x00e8    # number of root dir entries
 nb_logical_sectors:
   .word 0x0b40    # number of logical sectors
+media_descriptor:
   .byte 0xF0      # media descriptor byte (f0h: floppy, f8h: disk drive)
 nb_sectors_per_fat: 
-  .word 0x0009    # sectors per fat
+  .word 0x09    # sectors per fat
 nb_sectors_per_track:
-  .word 0x009 # sectors per track
+  .word 0x012     # sectors per track (cylinder)
 nb_heads:
-  .word 0x0000 # number of heads
+  .word 0x02 # number of heads
 nb_hidden_sectors:
   .long 0x00 # number of hidden sectors
-  .byte 0x00,0x00,0x00,0x00 # total number of sectors in file system
+  .long 0x00 # total number of sectors in file system (zero since nb_logical_sectors is not zero)
 drive:            # Extended block, supposed to be only for FAT 16
   .byte 0xAA      # logical drive number
   .byte 0x00      # reserved
   .byte 0x29      # extended signature
   .byte 0xd1,0x07,0x22,0x27 # serial number
   .byte 0x4f,0x53,0x20,0x20,0x20,0x20,0x20,0x20,0x20,0x20,0x20 # drive label
-  .byte 0x46,0x41,0x54,0x31,0x32,0x20,0x20,0x20 # file system type (FAT 12)
+  .ascii "FAT12   " # file system type (FAT 12 here, 8 chars long)
 # ------------------------------------------------------------------------------
 after_header:
 
@@ -205,40 +206,40 @@ print_string:
   ret
 
 code_end:
-  .space (1<<9)-(2 + 16 * 1)-(code_end-code_start)  # Skip to the end (minus 2 for the signature)
+  .space (1<<9)-(2 + 16 * 4)-(code_end-code_start)  # Skip to the end (minus 2 for the signature)
 # Partition table (only one)
-
-# partition 4
-#.byte 0x00                   # boot flag (0x00: inactive, 0x80: active)
-#.byte 0x00, 0x00, 0x00       # Start of partition address
-#.byte 0x00                   # system flag
-#.byte 0x00, 0x00, 0x00       # End of partition address
-#.byte 0x00, 0x00, 0x00, 0x00 # Start sector relative to disk
-#.byte 0x00, 0x00, 0x00, 0x00 # number of sectors in partition
-
-# partition 3
-#.byte 0x00                   # boot flag (0x00: inactive, 0x80: active)
-#.byte 0x00, 0x00, 0x00       # Start of partition address
-#.byte 0x00                   # system flag
-#.byte 0x00, 0x00, 0x00       # End of partition address
-#.byte 0x00, 0x00, 0x00, 0x00 # Start sector relative to disk
-#.byte 0x00, 0x00, 0x00, 0x00 # number of sectors in partition
-
-# partition 2
-#.byte 0x00                   # boot flag (0x00: inactive, 0x80: active)
-#.byte 0x00, 0x00, 0x00       # Start of partition address
-#.byte 0x00                   # system flag
-#.byte 0x00, 0x00, 0x00       # End of partition address
-#.byte 0x00, 0x00, 0x00, 0x00 # Start sector relative to disk
-#.byte 0x00, 0x00, 0x00, 0x00 # number of sectors in partition
 
 # partition 1
 .byte 0x80                   # boot flag (0x00: inactive, 0x80: active)
+.byte 0x00, 0x01, 0x00       # Start of partition address
+.byte 0x01                   # system flag
+.byte 0x00, 0x00, 0x00       # End of partition address
+.long 0x00                   # Start sector relative to disk
+.long 2280                   # number of sectors in partition
+
+# partition 2
+.byte 0x00                   # boot flag (0x00: inactive, 0x80: active)
 .byte 0x00, 0x00, 0x00       # Start of partition address
 .byte 0x00                   # system flag
 .byte 0x00, 0x00, 0x00       # End of partition address
-.byte 0x00, 0x00, 0x00, 0x00 # Start sector relative to disk
-.byte 0x00, 0x00, 0x00, 0x00 # number of sectors in partition
+.long 0x00                   # Start sector relative to disk
+.long 0x00 # number of sectors in partition
+
+# partition 3
+.byte 0x00                   # boot flag (0x00: inactive, 0x80: active)
+.byte 0x00, 0x00, 0x00       # Start of partition address
+.byte 0x00                   # system flag
+.byte 0x00, 0x00, 0x00       # End of partition address
+.long 0x00                   # Start sector relative to disk
+.long 0x00 # number of sectors in partition
+
+# partition 4
+.byte 0x00                   # boot flag (0x00: inactive, 0x80: active)
+.byte 0x00, 0x00, 0x00       # Start of partition address
+.byte 0x00                   # system flag
+.byte 0x00, 0x00, 0x00       # End of partition address
+.long 0x00                   # Start sector relative to disk
+.long 0x00 # number of sectors in partition
 
 # Signature
 .byte 0x55
