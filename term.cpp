@@ -710,7 +710,7 @@ void term_show(term_c* self) {
   pattern* background;
 
   term_char_coord_to_screen_coord(self, self->_nb_columns - 1,
-                                  self->_nb_rows - 1, sx, sy, ex, ey);
+                                  self->_nb_rows - 1, &sx, &sy, &ex, &ey);
 
   term_color_to_pattern(self, term_normal_background, &background);
 
@@ -824,7 +824,7 @@ void term_toggle_cursor(term_c* self) {
 
   term_char_coord_to_screen_coord(self, self->_cursor_column, self->_cursor_row,
                                   &sx, &sy, &ex, &ey);
-                                  
+
   video::screen.invert_rect (sx, sy, ex, ey);
 
   self->_cursor_visible = !self->_cursor_visible;
