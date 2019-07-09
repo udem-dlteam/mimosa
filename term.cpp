@@ -671,6 +671,38 @@ term& operator<< (term& t, unicode_string x)
 }
 
 //-----------------------------------------------------------------------------
+// C Rewrite
+
+term_c new_term(int x, int y, int nb_columns, int nb_rows, font* font, unicode_string title, bool initialy_visible) {
+  term_c term;
+
+  term._x = x;
+  term._y = y;
+  term._nb_columns = nb_columns;
+  term._nb_rows = nb_rows;
+  term._fn = font;
+  term._title = title;
+  term._visible = FALSE;
+  term._cursor_column = term._cursor_row = 0;
+  term._cursor_visible = FALSE;
+  // VT 100
+  term._param_num = -2;
+  term._bold = FALSE;
+  term._underline = FALSE;
+  term._reverse = FALSE;
+  term._fg = term_normal_foreground;
+  term._bg = term_normal_background;    
+
+  if (initialy_visible) {
+    term_show(&term);
+  }
+
+  return term;
+}
+
+
+
+//-----------------------------------------------------------------------------
 
 // Local Variables: //
 // mode: C++ //

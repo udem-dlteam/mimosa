@@ -105,15 +105,21 @@ typedef struct term_c {
   int _bg;
 } term_c;
 
-void char_coord_to_screen_coord(term_c* self, int column, int row, int& sx,
+term_c new_term(int x, int y, int nb_columns, int nb_rows, font* font, unicode_string title, bool initialy_visible);
+
+void term_show(term_c* self);
+
+int term_write(term_c* self, unicode_char* buf, int count);
+
+void term_char_coord_to_screen_coord(term_c* self, int column, int row, int& sx,
                                 int& sy, int& ex, int& ey);
 
-void color_to_pattern(term_c* self, int color, pattern** pat);
+void term_color_to_pattern(term_c* self, int color, pattern** pat);
 
-void show_cursor(term_c* self);
-void hide_cursor(term_c* self);
-void toggle_cursor(term_c* self);
-void scroll_up(term_c* self);
+void term_show_cursor(term_c* self);
+void term_hide_cursor(term_c* self);
+void term_toggle_cursor(term_c* self);
+void term_scroll_up(term_c* self);
 
 //-----------------------------------------------------------------------------
 
