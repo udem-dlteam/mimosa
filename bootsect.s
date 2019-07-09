@@ -42,7 +42,7 @@ nb_reserved_sectors:
 nb_of_fats:
   .byte 0x02      # number of FATs (usually 2)
 nb_root_dir_entries:
-  .word 0x00e8    # number of root dir entries
+  .word 0xE0      # number of root dir entries (224)
 nb_logical_sectors:
   .word 0x0b40    # number of logical sectors
 media_descriptor:
@@ -218,11 +218,11 @@ code_end:
 
 # partition 1
 .byte 0x80                   # boot flag (0x00: inactive, 0x80: active)
-.byte 0x00, 0x00, 0x00       # Start of partition address
-.byte 0x00                   # system flag
-.byte 0x00, 0x00, 0x00       # End of partition address CHS : 79 1 18
+.byte 0x00, 0x01, 0x00       # Start of partition address
+.byte 0x01                   # system flag
+.byte 0x01, 0x12, 0x4F       # End of partition address CHS : 79 1 18
 .long 0x00                   # Start sector relative to disk
-.long 0x00                   # number of sectors in partition
+.long 0xB40                  # number of sectors in partition
 
 # partition 2
 .byte 0x00                   # boot flag (0x00: inactive, 0x80: active)
