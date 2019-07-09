@@ -4,3 +4,9 @@ debug/
 # Built
 floppy
 gdb\.txt
+
+*.sys
+*.bin
+\.gdb_history
+
+mimosa-build/

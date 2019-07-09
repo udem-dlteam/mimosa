@@ -1,6 +1,6 @@
 // file: "main.cpp"
 
-// Copyright (c) 2001 by Marc Feeley and Université de Montréal, All
+// Copyright (c) 2001 by Marc Feeley and Universitï¿½ de Montrï¿½al, All
 // Rights Reserved.
 //
 // Revision History
@@ -10,7 +10,6 @@
 
 #include "general.h"
 #include "term.h"
-#include "fifo.h"
 #include "thread.h"
 #include "time.h"
 #include "ps2.h"
@@ -28,7 +27,7 @@ int main ()
   for (int i=0; i<20000; i++)
     for (int j=0; j<1000000; j++) ; // waste time
 
-  tty << "fooled you!!!!";
+  tty << "fooled you twice!!!!";
 
   for (;;) ; // loop forever!
 

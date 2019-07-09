@@ -3,7 +3,7 @@
 OS_NAME = "\"MIMOSA version 1.2\""
 KERNEL_START = 0x20000
 
-KERNEL_OBJECTS = kernel.o main.o fs.o ide.o disk.o thread.o time.o ps2.o fifo.o term.o video.o intr.o rtlib.o $(NETWORK_OBJECTS)
+KERNEL_OBJECTS = kernel.o main.o fs.o ide.o disk.o thread.o time.o ps2.o term.o video.o intr.o rtlib.o $(NETWORK_OBJECTS)
 NETWORK_OBJECTS =
 #NETWORK_OBJECTS = eepro100.o tulip.o timer2.o misc.o pci.o config.o net.o
 DEFS = -DINCLUDE_EEPRO100 
@@ -26,10 +26,30 @@ GPP_OPTIONS = $(GCC_OPTIONS) -fno-rtti -fno-builtin -fno-exceptions
 all: floppy
 
 build:
-	tar cf - . | ssh administrator@localhost -p10022 "rm -rf mimosa-build;mkdir mimosa-build;cd mimosa-build;tar xf -;make clean;make";ssh administrator@localhost -p10022 "cat mimosa-build/floppy" > floppy
+	mkdir -p mimosa-build
+	tar cf - . | ssh administrator@localhost -p 10022 "rm -rf mimosa-build;mkdir mimosa-build;cd mimosa-build;tar xf -;make clean;make";ssh administrator@localhost -p 10022 "cat mimosa-build/floppy" > mimosa-build/floppy
+	ssh administrator@localhost -p 10022 "cat mimosa-build/bootsect.bin" > mimosa-build/bootsect.bin
+	ssh administrator@localhost -p 10022 "cat mimosa-build/kernel.bin"   > mimosa-build/boot.sys
+	hexdump -C -n 512 mimosa-build/bootsect.bin
+
+create-img:
+	# Write the OS into the FS
+	mkdir -p /mnt/tmp
+	cp blank_drive.img mimosa-build/floppy.img
+	mount mimosa-build/floppy.img /mnt/tmp
+
+	cp mimosa-build/boot.sys /mnt/tmp/BOOT.SYS
+
+
+	umount /mnt/tmp
+	rm -rf /mnt/tmp
+
+	# Write the bootsector
+	dd if=mimosa-build/bootsect.bin of=mimosa-build/floppy.img conv=notrunc
+	chmod 777 mimosa-build/floppy.img
 
 run:
-	qemu-system-x86_64 -m 4096 -fda floppy -vnc :6 -monitor stdio
+	qemu-system-x86_64 -m 4096 -hda mimosa-build/floppy.img
 
 mf:
 	make clean
@@ -75,8 +95,8 @@ bootsect.bin: bootsect.o
 	as --defsym OS_NAME=$(OS_NAME) --defsym KERNEL_START=$(KERNEL_START) --defsym KERNEL_SIZE=`cat kernel.bin | wc --bytes | sed -e "s/ //g"` -o $*.o $*.s
 
 clean:
-	rm -rf floppy
-	ssh administrator@localhost -p10022 "rm -rf mimosa-build;"
+	rm -rf mimosa-build
+	ssh administrator@localhost -p 10022 "rm -rf mimosa-build;"
 	rm -f *.o *.asm *.bin *.tmp *.d
 
 # dependencies:
@@ -88,7 +108,7 @@ disk.o: disk.cpp include/disk.h include/general.h include/ide.h \
 	include/term.h include/video.h include/rtlib.h
 eepro100.o: eepro100.c etherboot.h osdep.h include/asm.h \
 	include/general.h nic.h pci.h cards.h timer2.h
-fifo.o: fifo.cpp include/fifo.h include/general.h include/thread.h \
+# fifo.o: fifo.cpp include/fifo.h include/general.h include/thread.h \
 	include/intr.h include/asm.h include/pic.h include/apic.h \
 	include/time.h include/pit.h include/queue.h include/term.h \
 	include/video.h include/rtlib.h
@@ -103,7 +123,7 @@ ide.o: ide.cpp include/ide.h include/general.h include/thread.h \
 intr.o: intr.cpp include/intr.h include/general.h include/asm.h \
 	include/pic.h include/apic.h include/term.h include/video.h
 main.o: main.cpp include/general.h include/term.h include/video.h \
-	include/fifo.h include/thread.h include/intr.h include/asm.h \
+	include/thread.h include/intr.h include/asm.h \
 	include/pic.h include/apic.h include/time.h include/pit.h \
 	include/queue.h include/ps2.h
 misc.o: misc.c etherboot.h osdep.h include/asm.h include/general.h
