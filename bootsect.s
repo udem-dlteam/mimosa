@@ -29,14 +29,16 @@ code_start:
 
 # This header will make the boot sector look like the one for an MSDOS floppy.
 
-  .byte 0xeb,0x3c,0x90 # this is a jump instruction to "after_header"
+  jmp after_header  # jump after the header block
+  .byte 0x90        # nop
 oem_name:
-  .ascii "MIMOSA  " # OEM name 8 characters (two spaces to get to 8)
+  .ascii "mkfs.fat" # OEM name 8 characters (two spaces to get to 8)
 nb_bytes_per_sector:
   .word 0x0200    # bytes per sector (512 bytes)
+nb_sectors_per_cluster:
   .byte 0x20      # sector per allocation unit -> sector/cluster
 nb_reserved_sectors:  
-  .word 0x02     # reserved sectors for booting 2
+  .word 0x02      # reserved sectors for booting (2 to get an extended boot sector)
 nb_of_fats:
   .byte 0x02      # number of FATs (usually 2)
 nb_root_dir_entries:
@@ -53,13 +55,17 @@ nb_heads:
   .word 0x02 # number of heads
 nb_hidden_sectors:
   .long 0x00 # number of hidden sectors
-  .long 0x00 # total number of sectors in file system (zero since nb_logical_sectors is not zero)
 drive:            # Extended block, supposed to be only for FAT 16
   .byte 0xAA      # logical drive number
-  .byte 0x00      # reserved
+clean_fs:
+  .byte 0x01      # reserved
+extended_bpb_sig:
   .byte 0x29      # extended signature
-  .byte 0xd1,0x07,0x22,0x27 # serial number
+serial_num:
+  .byte 0xFF,0xFF,0xFF,0xFF # serial number
+drive_lbl:
   .ascii "MIMOSA OS  " # drive label (11 char)
+fs_label:
   .ascii "FAT12   " # file system type (FAT 12 here, 8 chars long)
 # ------------------------------------------------------------------------------
 after_header:
@@ -67,6 +73,7 @@ after_header:
 # Setup segments.
   cli
   xorw  %cx,%cx
+  movw  %cx,%es
   movw  %cx,%ds
   movw  %cx,%ss
   movw  $(STACK_TOP & 0xffff),%sp
@@ -89,7 +96,7 @@ after_header:
 
   # Little OS name printing...
 
-  movw $oem_name, %si
+  movw drive_lbl, %si
   call print_string
   
   movw $new_line, %si
@@ -211,11 +218,11 @@ code_end:
 
 # partition 1
 .byte 0x80                   # boot flag (0x00: inactive, 0x80: active)
-.byte 0x00, 0x01, 0x00       # Start of partition address
-.byte 0x01                   # system flag
-.byte 0xFF, 0xFF, 0xFF       # End of partition address
+.byte 0x00, 0x00, 0x00       # Start of partition address
+.byte 0x00                   # system flag
+.byte 0x00, 0x00, 0x00       # End of partition address CHS : 79 1 18
 .long 0x00                   # Start sector relative to disk
-.long 2280                   # number of sectors in partition
+.long 0x00                   # number of sectors in partition
 
 # partition 2
 .byte 0x00                   # boot flag (0x00: inactive, 0x80: active)
