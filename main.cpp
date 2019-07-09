@@ -28,6 +28,7 @@ int main ()
   term_write(tty, "> ");
 
   for (int i=0; i<20000; i++)
+  ;
 
   term_write(tty, "fooled you twice!!!!");
 
