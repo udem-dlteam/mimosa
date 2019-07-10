@@ -25,65 +25,6 @@ const int term_outer_border = 1;
 const int term_frame_border = 2;
 const int term_inner_border = 2;
 
-class term {
- public:
-  term(int x, int y, int nb_columns, int nb_rows, font* fn,
-       unicode_string title, bool initially_visible = TRUE);
-
-  void show();
-
-  int write(unicode_char* buf, int count);
-
-  static term console;
-
- protected:
-  void char_coord_to_screen_coord(int column, int row, int& sx, int& sy,
-                                  int& ex, int& ey);
-
-  void color_to_pattern(int color, pattern*& pat);
-
-  void show_cursor();
-  void hide_cursor();
-  void toggle_cursor();
-
-  void scroll_up();
-
-  int _x;
-  int _y;
-  int _nb_columns;
-  int _nb_rows;
-  font* _fn;
-  unicode_string _title;
-  int _cursor_column;
-  int _cursor_row;
-  bool _cursor_visible;
-  bool _visible;
-
-  // for vt100 emulation:
-  int _param[term_max_nb_params];
-  int _param_num;
-  bool _bold;
-  bool _underline;
-  bool _reverse;
-  int _fg;
-  int _bg;
-};
-
-term& operator<<(term& t, bool x);
-term& operator<<(term& t, int8 x);
-term& operator<<(term& t, int16 x);
-term& operator<<(term& t, int32 x);
-term& operator<<(term& t, int64 x);
-term& operator<<(term& t, uint8 x);
-term& operator<<(term& t, uint16 x);
-term& operator<<(term& t, uint32 x);
-term& operator<<(term& t, uint64 x);
-term& operator<<(term& t, void* x);
-term& operator<<(term& t, native_string x);
-term& operator<<(term& t, unicode_string x);
-
-#define cout term::console
-
 typedef struct term_c {
   int _x;
   int _y;
@@ -105,8 +46,13 @@ typedef struct term_c {
   int _bg;
 } term_c;
 
+
 term_c new_term(int x, int y, int nb_columns, int nb_rows, font* font,
                 unicode_string title, bool initialy_visible);
+
+
+term_c term_console= new_term(0,0, 80, 30, &font::mono_6x9, L"console", true);
+#define cout &term_console
 
 void term_show(term_c* self); //#!
 

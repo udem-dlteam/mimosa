@@ -1,6 +1,6 @@
 // file: "net.cpp"
 
-// Copyright (c) 2001 by Marc Feeley and Université de Montréal, All
+// Copyright (c) 2001 by Marc Feeley and Universitï¿½ de Montrï¿½al, All
 // Rights Reserved.
 //
 // Revision History
@@ -481,14 +481,28 @@ void reset_stats ()
 }
 
 void print_stats (uint32 usecs)
-{
-  cout << usecs << " usecs, polls=" << stats.nb_polls
-       << ", received: ARP=" << stats.nb_ARP
-       << " ICMP=" << stats.nb_ICMP
-       << " IGMP=" << stats.nb_IGMP
-       << " IP=" << stats.nb_IP
-       << " other=" << stats.nb_other
-       << "\n";
+{ 
+
+  term_write(cout, usecs);
+  term_write(cout, " usecs, polls=");
+  term_write(cout, stats.nb_polls);
+  
+  term_write(cout, ", received: ARP=");
+  term_write(cout, stats.nb_ARP);
+
+  term_write(cout, " ICMP=");
+  term_write(cout, stats.nb_ICMP);
+
+  term_write(cout, " IGMP=");
+  term_write(cout, stats.nb_IGMP);
+
+  term_write(cout, " IP=");
+  term_write(cout, stats.nb_IP);
+
+  term_write(cout, " other=");
+  term_write(cout, stats.nb_other);
+
+  term_write(cout, "\n");
 }
 
 void exec_node (int node_id)

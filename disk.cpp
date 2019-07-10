@@ -1,6 +1,6 @@
 // file: "disk.cpp"
 
-// Copyright (c) 2001 by Marc Feeley and Université de Montréal, All
+// Copyright (c) 2001 by Marc Feeley and Universitï¿½ de Montrï¿½al, All
 // Rights Reserved.
 //
 // Revision History
@@ -365,21 +365,33 @@ static void disk_print_path (uint32 path)
   if (path > 0)
     {
       disk_print_path (path / 10);
-      cout << "/" << (path % 10) - 1;
+      term_write(term_write(cout, "/"), (path % 10) - 1);
     }
 }
 
-void disk_print_id (disk* d)
-{
-  if (d->_.ide.dev->kind == IDE_DEVICE_ATA)
-    cout << "ATA";
-  else
-    cout << "ATAPI";
-  cout << " ide" << d->_.ide.dev->ctrl->id << "." << d->_.ide.dev->id;
-  disk_print_path (d->partition_path);
-  cout << " " << (d->partition_length >> (20 - d->log2_sector_size)) << "MB";
-  if (d->partition_type != 0)
-    cout << " (" << partition_name_from_type (d->partition_type) << ")";
+void disk_print_id(disk* d) {
+  if (d->_.ide.dev->kind == IDE_DEVICE_ATA) {
+    term_write(cout, "ATA");
+  } else {
+    term_write(cout, "ATAPI");
+  }
+
+  term_write(cout, " ide");
+  term_write(cout, d->_.ide.dev->ctrl->id);
+  term_write(cout, ".");
+  term_write(cout, d->_.ide.dev->id);
+
+  disk_print_path(d->partition_path);
+
+  term_write(cout, " ");
+  term_write(cout, (d->partition_length >> (20 - d->log2_sector_size)));
+  term_write(cout, "MB");
+
+  if (d->partition_type != 0) {
+    term_write(cout, " (");
+    term_write(cout, partition_name_from_type(d->partition_type));
+    term_write(cout, ")");
+  }
 }
 
 //-----------------------------------------------------------------------------

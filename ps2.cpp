@@ -1,6 +1,6 @@
 // file: "ps2.cpp"
 
-// Copyright (c) 2002 by Marc Feeley and Université de Montréal, All
+// Copyright (c) 2002 by Marc Feeley and Universitï¿½ de Montrï¿½al, All
 // Rights Reserved.
 //
 // Revision History

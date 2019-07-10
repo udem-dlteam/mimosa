@@ -1,6 +1,6 @@
 // file: "mouse.cpp"
 
-// Copyright (c) 2002 by Marc Feeley and Université de Montréal, All
+// Copyright (c) 2002 by Marc Feeley and Universitï¿½ de Montrï¿½al, All
 // Rights Reserved.
 //
 // Revision History
@@ -47,21 +47,20 @@ static int32 controller_auxb_read ()
   int32 timeout = 800000; // 400000 works on our test machine, use twice
                           // as much for safety
 
-  do
-    {
-      uint8 s = inb (KBD_PORT_STATUS);
-      if (s & KBD_OUTB)
-        {
-          uint8 result = inb (KBD_PORT_A);
-          if (s & KBD_AUXB)
-            {
-              cout << "got " << result << "\n";
-            return result;
-            }
-          // a byte was received from the keyboard, but we are
-          // expecting a byte from the auxb device, so ignore it
-        }
-    } while (--timeout > 0);
+  do {
+    uint8 s = inb(KBD_PORT_STATUS);
+    if (s & KBD_OUTB) {
+      uint8 result = inb(KBD_PORT_A);
+      if (s & KBD_AUXB) {
+        term_write(cout, "got ");
+        term_write(cout, result);
+        term_write(cout, "\n");
+        return result;
+      }
+      // a byte was received from the keyboard, but we are
+      // expecting a byte from the auxb device, so ignore it
+    }
+  } while (--timeout > 0);
 
   return -1;
 }
@@ -139,46 +138,54 @@ void mouse::process_scancode (uint8 scancode)
           my -= dy;
           //          cout << "(" << mx << "," << my << ") ";
         }
-      if (n == 2400)
-        {
+        if (n == 2400) {
           char str[9];
           int i;
-          for (i=0; i<n; i++)
-            {
-              if (i%3 == 0) cout << "\n";
-              scancode = t[i].code;
-              str[8] = 0;
-              str[0] = "01"[(scancode>>7)&1];
-              str[1] = "01"[(scancode>>6)&1];
-              str[2] = "01"[(scancode>>5)&1];
-              str[3] = "01"[(scancode>>4)&1];
-              str[4] = "01"[(scancode>>3)&1];
-              str[5] = "01"[(scancode>>2)&1];
-              str[6] = "01"[(scancode>>1)&1];
-              str[7] = "01"[(scancode>>0)&1];
-              cout << str << " us=" << t[i].us << "\n";
+          for (i = 0; i < n; i++) {
+
+            if (i % 3 == 0) {
+              term_write(cout, "\n");
             }
+            
+            scancode = t[i].code;
+            str[8] = 0;
+            str[0] = "01"[(scancode >> 7) & 1];
+            str[1] = "01"[(scancode >> 6) & 1];
+            str[2] = "01"[(scancode >> 5) & 1];
+            str[3] = "01"[(scancode >> 4) & 1];
+            str[4] = "01"[(scancode >> 3) & 1];
+            str[5] = "01"[(scancode >> 2) & 1];
+            str[6] = "01"[(scancode >> 1) & 1];
+            str[7] = "01"[(scancode >> 0) & 1];
+
+            term_write(cout, str);
+            term_write(cout, " us=");
+            term_write(cout, t[i].us);
+            term_write(cout, "\n");
+          }
         }
     }
   return;
 
   mouse_buf[mouse_buf_ptr++] = scancode;
-  if (mouse_buf_ptr == 3)
-    {
-      int32 delta_x = 0;
-      int32 delta_y = 0;
-      delta_x = mouse_buf[1];
-      if (mouse_buf[0] & (1<<4))
-        delta_x -= 256;
-      delta_y = mouse_buf[1];
-      if (mouse_buf[0] & (1<<5))
-        delta_y -= 256;
-      mouse_x += delta_x;
-      mouse_y += delta_y;
-      if (delta_x != 0 || delta_y != 0)
-        cout << "(" << mouse_x << " " << mouse_y << ")";
-      mouse_buf_ptr = 0;
+  if (mouse_buf_ptr == 3) {
+    int32 delta_x = 0;
+    int32 delta_y = 0;
+    delta_x = mouse_buf[1];
+    if (mouse_buf[0] & (1 << 4)) delta_x -= 256;
+    delta_y = mouse_buf[1];
+    if (mouse_buf[0] & (1 << 5)) delta_y -= 256;
+    mouse_x += delta_x;
+    mouse_y += delta_y;
+    if (delta_x != 0 || delta_y != 0) {
+      term_write(cout, "(");
+      term_write(cout, mouse_x);
+      term_write(cout, " ");
+      term_write(cout, mouse_y);
+      term_write(cout, ")");
     }
+    mouse_buf_ptr = 0;
+  }
 }
 
 #ifdef USE_IRQ12_FOR_MOUSE
