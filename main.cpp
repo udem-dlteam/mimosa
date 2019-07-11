@@ -30,7 +30,7 @@ int main ()
   for (int i=0; i<20000; i++)
   ;
 
-  term_write(tty, "fooled you twice!!!!");
+  term_write(tty, "Font is in C");
 
   for (;;) ; // loop forever!
 
