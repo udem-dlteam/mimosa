@@ -178,8 +178,48 @@ pattern new_pattern(bitmap_word* words, int height, int depth);
 
 bitmap_word pattern_get_word(pattern* self, int y, int layer);
 
+//-----------------------------------------------------------------------------
 
 //-----------------------------------------------------------------------------
+// raw_bitmap
+
+typedef struct raw_bitmap_vtable {
+  void (* hide_mouse)(void* self);
+  void (* show_mouse)(void* self);
+  bitmap_word* (* _select_layer)(void* self, int layer);
+} raw_bitmap_vtable;
+
+typedef struct raw_bitmap_c {
+  raw_bitmap_vtable* vtable;
+  int _width;
+  int _height;
+  int _depth;
+} raw_bitmap_c;
+
+raw_bitmap_c new_raw_bitmap(int x, int y, int x_end, int y_end,
+                            raw_bitmap_c* src, int src_x, int src_y,
+                            pattern* foreground, pattern* background);
+
+void raw_bitmap_fill_rect(raw_bitmap_c* self, int x, int y, int x_end,
+                          int y_end, pattern* foreground);
+
+void raw_bitmap_frame_rect(raw_bitmap_c* self, int x, int y, int x_end,
+                           int y_end, int border, pattern* foreground);
+
+void raw_bitmap_show_mouse(raw_bitmap_c* self);
+
+void raw_bitmap_hide_mouse(raw_bitmap_c* self);
+
+bitmap_word* _raw_bitmap_select_layer(raw_bitmap_c* self, int layer);
+
+void invert_rect(raw_bitmap_c* self, int x, int y, int x_end, int y_end);
+
+//-----------------------------------------------------------------------------
+
+
+
+
+
 
 //-----------------------------------------------------------------------------
 // Font

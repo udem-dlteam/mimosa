@@ -93,8 +93,6 @@ after_header:
   movw $new_line, %si
   call print_string
 
-
-
   popl %ebx
   popl %eax
   
