@@ -110,7 +110,7 @@ void term_show(term* self) {
 void term_char_coord_to_screen_coord(term* self, int column, int row, int* sx,
                                      int* sy, int* ex, int* ey) {
   int char_max_width = font_get_max_width(self->_fn);
-  int char_height = font_get_max_width(self->_fn);
+  int char_height = font_get_height(self->_fn);
 
   *sx = self->_x + column * char_max_width + term_outer_border +
         term_frame_border + term_inner_border;
