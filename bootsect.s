@@ -206,7 +206,9 @@ failure_routine:
   popl %ebx
   popl %eax
 
+  xorb %ah, %ah          # Make sure it's on read key
   int $0x16
+  
   ljmp  $0xf000,$0xfff0  # jump to 0xffff0 (the CPU starts there when reset)
 
 nb_root_sectors:
