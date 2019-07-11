@@ -1,6 +1,6 @@
 // file: "fs.cpp"
 
-// Copyright (c) 2001 by Marc Feeley and Université de Montréal, All
+// Copyright (c) 2001 by Marc Feeley and Universitï¿½ de Montrï¿½al, All
 // Rights Reserved.
 //
 // Revision History
@@ -139,7 +139,7 @@ static error_code open_root_dir (file_system* fs, file** result)
       }
 
     case FAT32_FS:
-      cout << "open_root_dir for FAT32 unimplemented\n";
+      term_write(cout, "open_root_dir for FAT32 unimplemented\n");
 
     default:
       kfree (f);
@@ -583,35 +583,35 @@ static error_code mount_FAT121632 (disk* d, file_system** result)
       || log2_bps < 9
       || log2_bps > 12)
     {
-      cout << "bytes per sector is not a power of 2 between 512 and 4096\n";
+      term_write(cout, "bytes per sector is not a power of 2 between 512 and 4096\n");
       err = UNKNOWN_ERROR;
     }
   else if (d->log2_sector_size != log2_bps)
     {
-      cout << "BytsPerSec and disk's sector size are inconsistent\n";
+      term_write(cout, "BytsPerSec and disk's sector size are inconsistent\n");
       err = UNKNOWN_ERROR;
     }
   else if ((1 << log2_spc) != spc
            || log2_spc > 8)
     {
-      cout << "sectors per cluster is not a power of 2 between 1 and 128\n";
+      term_write(cout, "sectors per cluster is not a power of 2 between 1 and 128\n");
       err = UNKNOWN_ERROR;
     }
   else if (expecting_FAT32)
     {
       if (rec != 0)
         {
-          cout << "RootEntCnt is not 0\n";
+          term_write(cout, "RootEntCnt is not 0\n");
           err = UNKNOWN_ERROR;
         }
       else if (total_sectors16 != 0)
         {
-          cout << "TotSec16 is not 0\n";
+          term_write(cout, "TotSec16 is not 0\n");
           err = UNKNOWN_ERROR;
         }
       else if (total_sectors == 0)
         {
-          cout << "TotSec32 is 0\n";
+          term_write(cout, "TotSec32 is 0\n");
           err = UNKNOWN_ERROR;
         }
       else
@@ -620,7 +620,7 @@ static error_code mount_FAT121632 (disk* d, file_system** result)
 
           if (FAT_size == 0)
             {
-              cout << "FATSz32 is 0\n";
+              term_write(cout, "FATSz32 is 0\n");
               err = UNKNOWN_ERROR;
             }
         }
@@ -629,14 +629,14 @@ static error_code mount_FAT121632 (disk* d, file_system** result)
     {
       if (rec == 0)
         {
-          cout << "RootEntCnt is 0\n";
+          term_write(cout, "RootEntCnt is 0\n");
           err = UNKNOWN_ERROR;
         }
       else if (total_sectors == 0)
         {
           if (total_sectors16 == 0)
             {
-              cout << "TotSec16 and TotSec32 are 0\n";
+              term_write(cout, "TotSec16 and TotSec32 are 0\n");
               err = UNKNOWN_ERROR;
             }
           else
@@ -646,7 +646,7 @@ static error_code mount_FAT121632 (disk* d, file_system** result)
         {
           if (total_sectors16 != 0 && total_sectors16 != total_sectors)
             {
-              cout << "TotSec16 != TotSec32\n";
+              term_write(cout, "TotSec16 != TotSec32\n");
               err = UNKNOWN_ERROR;
             }
         }
@@ -670,14 +670,14 @@ static error_code mount_FAT121632 (disk* d, file_system** result)
         {
           if (expecting_FAT32)
             {
-              cout << "volume is FAT12 or FAT16 but FATSz16 is 0\n";
+              term_write(cout,"volume is FAT12 or FAT16 but FATSz16 is 0\n");
               err = UNKNOWN_ERROR;
             }
           else if (total_data_clusters < 4085)
             {
               if (d->partition_type != 1)
                 {
-                  cout << "partition type is not 1\n";
+                  term_write(cout, "partition type is not 1\n");
                   err = UNKNOWN_ERROR;
                 }
               else
@@ -687,7 +687,7 @@ static error_code mount_FAT121632 (disk* d, file_system** result)
             {
               if (d->partition_type != 4 && d->partition_type != 6)
                 {
-                  cout << "partition type is not 4 or 6\n";
+                  term_write(cout, "partition type is not 4 or 6\n");
                   err = UNKNOWN_ERROR;
                 }
               else
@@ -698,12 +698,12 @@ static error_code mount_FAT121632 (disk* d, file_system** result)
         {
           if (!expecting_FAT32)
             {
-              cout << "volume is FAT32 but FATSz16 is not 0\n";
+              term_write(cout, "volume is FAT32 but FATSz16 is not 0\n");
               err = UNKNOWN_ERROR;
             }
           else if (d->partition_type != 11)
             {
-              cout << "partition type is not 11\n";
+              term_write(cout, "partition type is not 11\n");
               err = UNKNOWN_ERROR;
             }
           else
@@ -752,28 +752,37 @@ static error_code mount_partition (disk* d)
       break;
     }
 
-  if (fs != NULL)
-    {
-      if (fs_mod.nb_mounted_fs < MAX_NB_MOUNTED_FS)
-        {
-          fs_mod.mounted_fs[fs_mod.nb_mounted_fs++] = fs;
+    if (fs != NULL) {
+      if (fs_mod.nb_mounted_fs < MAX_NB_MOUNTED_FS) {
+        fs_mod.mounted_fs[fs_mod.nb_mounted_fs++] = fs;
 
-          cout << "Mounting partition ";
-          disk_print_id (d);
-          cout << " as ";
-          switch (fs->kind)
-            {
-            case FAT12_FS: cout << "FAT12"; break;
-            case FAT16_FS: cout << "FAT16"; break;
-            case FAT32_FS: cout << "FAT32"; break;
-            }
-          cout << "\n";
+        term_write(cout, "Mouting partition ");
 
-          return NO_ERROR;
+        disk_print_id(d);
+
+        term_write(cout, " as ");
+
+        const char* kind;
+
+        switch (fs->kind) {
+          case FAT12_FS:
+            kind = "FAT12";
+            break;
+          case FAT16_FS:
+            kind = "FAT16";
+            break;
+          case FAT32_FS:
+            kind = "FAT32";
+            break;
         }
+
+        term_write(term_write(cout, kind), "\n");
+
+        return NO_ERROR;
+      }
     }
 
-  return UNKNOWN_ERROR;
+    return UNKNOWN_ERROR;
 }
 
 static void mount_all_partitions ()
