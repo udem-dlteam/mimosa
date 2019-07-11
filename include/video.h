@@ -59,7 +59,11 @@ typedef BITMAP_WORD_SELECT(uint32,uint64) bitmap_quad_word; // to be able to
                                                             // at a time
 
 //-----------------------------------------------------------------------------
+// Extern declarations for statics
+extern font_c mono_5x7;
+extern font_c mono_6x9;
 
+//-----------------------------------------------------------------------------
 // "pattern" class declaration.
 
 class pattern

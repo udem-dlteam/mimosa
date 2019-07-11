@@ -625,6 +625,81 @@ int font::draw_string (raw_bitmap* dst,
 }
 
 //-----------------------------------------------------------------------------
+// C rewrite
+//-----------------------------------------------------------------------------
+
+
+//-----------------------------------------------------------------------------
+// FONT
+//-----------------------------------------------------------------------------
+
+font_c new_font(int max_width, int height, int nb_chars, uint16* char_map,
+                uint32* char_end, raw_bitmap* raw) {
+  font_c font;
+  font._max_width = max_width;
+  font._height = height;
+  font._nb_chars = nb_chars;
+  font._char_map = char_map;
+  font._char_end = char_end;
+  font._raw = raw;
+
+  return font;
+}
+
+int font_get_max_width(font_c* self) {
+  return self->_max_width;
+}
+
+int font_get_height(font_c* self) {
+  return self->_height;
+}
+
+void _font_get_char_data(font_c* self, unicode_char c, int& start, int& width) {
+  int i;
+
+  if (c >= self->_nb_chars) {
+    c = 0;
+  }
+
+  i = self->_char_map[c];
+
+  if (i == 0) {
+    start = 0;
+  } else {
+    start = self->_char_end[i - 1];
+  }
+
+  width = self->_char_end[i] - start;
+}
+
+int font_draw_text(font_c* self, raw_bitmap* dst, int x, int y,
+                   unicode_char* text, int count, pattern* foreground,
+                   pattern* background) {
+  while (count-- > 0) {
+    unicode_char c = *text++;
+    int start;
+    int width;
+
+    _font_get_char_data(self, c, start, width);
+
+    dst->bitblt(x, y, x + width, y + self->_height, self->_raw, start, 0,
+                foreground, background);
+
+    x += width;
+  }
+
+  return x;
+}
+
+int font_draw_string(font_c* self, raw_bitmap* dst, int x, int y,
+                     unicode_string str, pattern* foreground,
+                     pattern* background) {
+  int n = 0;
+
+  while (str[n] != '\0') n++;
+
+  return font_draw_text(self, dst, x, y, str, n, foreground, background);
+}
 
 // Local Variables: //
 // mode: C++ //
