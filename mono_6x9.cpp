@@ -74703,4 +74703,7 @@ static uint32 mono_6x9_char_end[] =
 
 static raw_bitmap_in_memory mono_6x9_raw_bitmap (mono_6x9_pixels, 7088, 9, 1);
 
-font font::mono_6x9 (6, 9, 65536, mono_6x9_char_map, mono_6x9_char_end, &mono_6x9_raw_bitmap);
+font_c create_mono_6x9() {
+  return new_font(6, 9, 65536, mono_6x9_char_map, mono_6x9_char_end,
+                  &mono_6x9_raw_bitmap);
+}

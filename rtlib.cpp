@@ -17,10 +17,15 @@
 #include "ps2.h"
 #include "term.h"
 #include "thread.h"
+#include "mono_5x7.h"
+#include "mono_6x9.h"
 
 static void __rtlib_setup (); // forward declaration
 
+font_c font_mono_5x7;
+font_c font_mono_6x9;
 term term_console;
+
 //-----------------------------------------------------------------------------
 
 void fatal_error (native_string msg)
@@ -195,8 +200,11 @@ void __do_global_ctors ()
   for (i = nptrs; i >= 1; i--)
     __CTOR_LIST__[i] ();
 
+  // Create the fonts that might be used
+  font_mono_5x7 = create_mono_5x7();
+  font_mono_6x9 = create_mono_6x9();
   // Create the console terminal
-  term_console = new_term(0, 0, 80, 30, &font::mono_6x9, L"console", true);
+  term_console = new_term(0, 0, 80, 30, &font_mono_6x9, L"console", true);
 }
 
 void __do_global_dtors ()

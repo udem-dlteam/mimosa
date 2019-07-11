@@ -532,98 +532,6 @@ void raw_bitmap::invert_rect (int x, int y, int x_end, int y_end)
 
 // "font" class implementation.
 
-#include "mono_5x7.cpp"
-#include "mono_6x9.cpp"
-
-font::font (int max_width,
-            int height,
-            int nb_chars,
-            uint16* char_map,
-            uint32* char_end,
-            raw_bitmap* raw)
-{
-  _max_width = max_width;
-  _height = height;
-  _nb_chars = nb_chars;
-  _char_map = char_map;
-  _char_end = char_end;
-  _raw = raw;
-}
-
-int font::get_max_width ()
-{
-  return _max_width;
-}
-
-int font::get_height ()
-{
-  return _height;
-}
-
-void font::get_char_data (unicode_char c, int& start, int& width)
-{
-  int i;
-
-  if (c >= _nb_chars)
-    c = 0;
-
-  i = _char_map[c];
-
-  if (i == 0)
-    start = 0;
-  else
-    start = _char_end[i-1];
-
-  width = _char_end[i] - start;
-}
-
-int font::draw_text (raw_bitmap* dst,
-                     int x,
-                     int y,
-                     unicode_char* text,
-                     int count,
-                     pattern* foreground,
-                     pattern* background)
-{
-  while (count-- > 0)
-    {
-      unicode_char c = *text++;
-      int start;
-      int width;
-
-      get_char_data (c, start, width);
-
-      dst->bitblt (x,
-                   y,
-                   x + width,
-                   y + _height,
-                   _raw,
-                   start,
-                   0,
-                   foreground,
-                   background);
-
-      x += width;
-    }
-
-  return x;
-}
-
-int font::draw_string (raw_bitmap* dst,
-                       int x,
-                       int y,
-                       unicode_string str,
-                       pattern* foreground,
-                       pattern* background)
-{
-  int n = 0;
-
-  while (str[n] != '\0')
-    n++;
-
-  return draw_text (dst, x, y, str, n, foreground, background);
-}
-
 //-----------------------------------------------------------------------------
 // C rewrite
 //-----------------------------------------------------------------------------
@@ -632,6 +540,8 @@ int font::draw_string (raw_bitmap* dst,
 //-----------------------------------------------------------------------------
 // FONT
 //-----------------------------------------------------------------------------
+#include "mono_5x7.cpp"
+#include "mono_6x9.cpp"
 
 font_c new_font(int max_width, int height, int nb_chars, uint16* char_map,
                 uint32* char_end, raw_bitmap* raw) {

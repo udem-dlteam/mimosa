@@ -189,58 +189,15 @@ class video : public raw_bitmap
     int _mouse_hides;
   };
 
-//-----------------------------------------------------------------------------
-
-// "font" class declaration.
-
-class font
-  {
-  public:
-
-    font (int max_width,
-          int height,
-          int nb_chars,
-          uint16* char_map,
-          uint32* char_end,
-          raw_bitmap* raw);
-
-    int get_max_width ();
-
-    int get_height ();
-
-    int draw_text (raw_bitmap* dst,
-                   int x,
-                   int y,
-                   unicode_char* text,
-                   int count,
-                   pattern* foreground,
-                   pattern* background);
-
-    int draw_string (raw_bitmap* dst,
-                     int x,
-                     int y,
-                     unicode_string str,
-                     pattern* foreground,
-                     pattern* background);
-
-    static font mono_5x7;
-    static font mono_6x9;
-
-  protected:
-
-    void get_char_data (unicode_char c, int& start, int& width);
-
-    int _max_width;
-    int _height;
-    int _nb_chars;
-    uint16* _char_map;
-    uint32* _char_end;
-    raw_bitmap* _raw;
-  };
 
 //-----------------------------------------------------------------------------
 // C rewrite section
 //-----------------------------------------------------------------------------
+
+
+//-----------------------------------------------------------------------------
+// Font
+
 
 typedef struct font_c {
   int _max_width;
@@ -277,7 +234,6 @@ void _font_get_char_data(font_c* self, unicode_char c, int& start, int& width);
 // Extern declarations for statics
 extern font_c font_mono_5x7;
 extern font_c font_mono_6x9;
-
 
 #endif
 
