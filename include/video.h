@@ -59,36 +59,13 @@ typedef BITMAP_WORD_SELECT(uint32,uint64) bitmap_quad_word; // to be able to
                                                             // at a time
 
 //-----------------------------------------------------------------------------
-// "pattern" class declaration.
 
-class pattern
-  {
-  public:
+typedef struct pattern_c {
+  bitmap_word* _words;
+  int _height;
+  int _depth;
+} pattern_c;
 
-    pattern (bitmap_word* words, int height, int depth);
-
-    bitmap_word get_word (int y, int layer);
-
-    static pattern black;
-    static pattern gray25;
-    static pattern gray50;
-    static pattern gray75;
-    static pattern white;
-    static pattern red;
-    static pattern green;
-    static pattern yellow;
-    static pattern blue;
-    static pattern magenta;
-    static pattern cyan;
-
-  protected:
-
-    bitmap_word* _words;
-    int _height;
-    int _depth;
-  };
-
-//-----------------------------------------------------------------------------
 
 // "raw_bitmap" class declaration.
 
@@ -103,21 +80,21 @@ class raw_bitmap
                  raw_bitmap* src,
                  int src_x,
                  int src_y,
-                 pattern* foreground,
-                 pattern* background);
+                 pattern_c* foreground,
+                 pattern_c* background);
 
     void fill_rect (int x,
                     int y,
                     int x_end,
                     int y_end,
-                    pattern* foreground);
+                    pattern_c* foreground);
 
     void frame_rect (int x,
                      int y,
                      int x_end,
                      int y_end,
                      int border,
-                     pattern* foreground);
+                     pattern_c* foreground);
 
     void invert_rect (int x, int y, int x_end, int y_end);
 
@@ -194,6 +171,15 @@ class video : public raw_bitmap
 // C rewrite section
 //-----------------------------------------------------------------------------
 
+//-----------------------------------------------------------------------------
+// Pattern
+
+pattern_c new_pattern(bitmap_word* words, int height, int depth);
+
+bitmap_word pattern_get_word(pattern_c* self, int y, int layer);
+
+
+//-----------------------------------------------------------------------------
 
 //-----------------------------------------------------------------------------
 // Font
@@ -216,12 +202,12 @@ int font_get_max_width(font_c* self);
 int font_get_height(font_c* self);
 
 int font_draw_text(font_c* self, raw_bitmap* dst, int x, int y,
-                   unicode_char* text, int count, pattern* foreground,
-                   pattern* background);
+                   unicode_char* text, int count, pattern_c* foreground,
+                   pattern_c* background);
 
 int font_draw_string(font_c* self, raw_bitmap* dst, int x, int y,
-                     unicode_string str, pattern* foreground,
-                     pattern* background);
+                     unicode_string str, pattern_c* foreground,
+                     pattern_c* background);
 
 void _font_get_char_data(font_c* self, unicode_char c, int& start, int& width);
 //-----------------------------------------------------------------------------
@@ -232,6 +218,21 @@ void _font_get_char_data(font_c* self, unicode_char c, int& start, int& width);
 
 //-----------------------------------------------------------------------------
 // Extern declarations for statics
+
+
+extern pattern_c pattern_black;
+extern pattern_c pattern_gray25;
+extern pattern_c pattern_gray50;
+extern pattern_c pattern_gray75;
+extern pattern_c pattern_white;
+extern pattern_c pattern_red;
+extern pattern_c pattern_green;
+extern pattern_c pattern_yellow;
+extern pattern_c pattern_blue;
+extern pattern_c pattern_magenta;
+extern pattern_c pattern_cyan;
+
+
 extern font_c font_mono_5x7;
 extern font_c font_mono_6x9;
 
