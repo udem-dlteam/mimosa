@@ -75,13 +75,26 @@ after_header:
 # Setup segments.
   cli
   xorw  %cx,%cx
-  movw  %cx,%es
   movw  %cx,%ds
   movw  %cx,%ss
   movw  $(STACK_TOP & 0xffff),%sp
   sti
 
   movb %dl, drive
+
+  pushl %eax
+  pushl %ebx
+
+  movw $drive_lbl, %si
+  call print_string
+
+  movw $new_line, %si
+  call print_string
+
+
+
+  popl %ebx
+  popl %eax
   
 # Get drive geometry
   movb $0x08, %ah
@@ -98,12 +111,7 @@ after_header:
 
   # Little OS name printing...
 
-  movw $drive_lbl, %si
-  call print_string
-
-  movw $new_line, %si
-  call print_string
-
+  
   # ------------------------------------------------------------------------------
   # Load the extended bootsector into the RAM
   # In order to use the extended bootsector correctly, the extended boot sector is 
@@ -181,10 +189,21 @@ read_sector:
 
 # ------------------------------------------------------------------------------
 cannot_load:
-  movw  $load_error,%si
+  
+  pushl %eax
+  pushl %ebx
+
+  movw $load_error_message, %si
   call print_string
-  cli
-  hlt
+  
+  movw $any_key_message, %si
+  call print_string
+  
+  popl %ebx
+  popl %eax
+
+  int $0x16
+  ljmp  $0xf000,$0xfff0  # jump to 0xffff0 (the CPU starts there when reset)
 
 nb_root_sectors:
   .long 0x00000 # number of sectors in the root directory
@@ -195,8 +214,12 @@ new_line:
   .ascii "\n\r"
   .byte 0
 
-load_error:
+load_error_message:
   .ascii "IO Error. The system failed to load. Please reboot."
+  .byte 0
+
+any_key_message:
+  .ascii "Press any key to reboot..."
   .byte 0
 
 kernel_name:
