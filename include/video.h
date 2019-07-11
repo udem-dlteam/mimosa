@@ -1,6 +1,6 @@
 // file: "video.h"
 
-// Copyright (c) 2001 by Marc Feeley and Université de Montréal, All
+// Copyright (c) 2001 by Marc Feeley and Universitï¿½ de Montrï¿½al, All
 // Rights Reserved.
 //
 // Revision History
@@ -60,36 +60,12 @@ typedef BITMAP_WORD_SELECT(uint32,uint64) bitmap_quad_word; // to be able to
 
 //-----------------------------------------------------------------------------
 
-// "pattern" class declaration.
+typedef struct pattern {
+  bitmap_word* _words;
+  int _height;
+  int _depth;
+} pattern;
 
-class pattern
-  {
-  public:
-
-    pattern (bitmap_word* words, int height, int depth);
-
-    bitmap_word get_word (int y, int layer);
-
-    static pattern black;
-    static pattern gray25;
-    static pattern gray50;
-    static pattern gray75;
-    static pattern white;
-    static pattern red;
-    static pattern green;
-    static pattern yellow;
-    static pattern blue;
-    static pattern magenta;
-    static pattern cyan;
-
-  protected:
-
-    bitmap_word* _words;
-    int _height;
-    int _depth;
-  };
-
-//-----------------------------------------------------------------------------
 
 // "raw_bitmap" class declaration.
 
@@ -190,56 +166,75 @@ class video : public raw_bitmap
     int _mouse_hides;
   };
 
+
+//-----------------------------------------------------------------------------
+// C rewrite section
 //-----------------------------------------------------------------------------
 
-// "font" class declaration.
+//-----------------------------------------------------------------------------
+// Pattern
 
-class font
-  {
-  public:
+pattern new_pattern(bitmap_word* words, int height, int depth);
 
-    font (int max_width,
-          int height,
-          int nb_chars,
-          uint16* char_map,
-          uint32* char_end,
-          raw_bitmap* raw);
+bitmap_word pattern_get_word(pattern* self, int y, int layer);
 
-    int get_max_width ();
 
-    int get_height ();
+//-----------------------------------------------------------------------------
 
-    int draw_text (raw_bitmap* dst,
-                   int x,
-                   int y,
-                   unicode_char* text,
-                   int count,
-                   pattern* foreground,
+//-----------------------------------------------------------------------------
+// Font
+
+
+typedef struct font_c {
+  int _max_width;
+  int _height;
+  int _nb_chars;
+  uint16* _char_map;
+  uint32* _char_end;
+  raw_bitmap* _raw;
+} font_c;
+
+font_c new_font(int max_width, int height, int nb_chars, uint16* char_map,
+                uint32* char_end, raw_bitmap* raw);
+
+int font_get_max_width(font_c* self);
+
+int font_get_height(font_c* self);
+
+int font_draw_text(font_c* self, raw_bitmap* dst, int x, int y,
+                   unicode_char* text, int count, pattern* foreground,
                    pattern* background);
 
-    int draw_string (raw_bitmap* dst,
-                     int x,
-                     int y,
-                     unicode_string str,
-                     pattern* foreground,
+int font_draw_string(font_c* self, raw_bitmap* dst, int x, int y,
+                     unicode_string str, pattern* foreground,
                      pattern* background);
 
-    static font mono_5x7;
-    static font mono_6x9;
+void _font_get_char_data(font_c* self, unicode_char c, int& start, int& width);
+//-----------------------------------------------------------------------------
 
-  protected:
 
-    void get_char_data (unicode_char c, int& start, int& width);
 
-    int _max_width;
-    int _height;
-    int _nb_chars;
-    uint16* _char_map;
-    uint32* _char_end;
-    raw_bitmap* _raw;
-  };
+
 
 //-----------------------------------------------------------------------------
+// Extern declarations for statics
+
+
+extern pattern pattern_black;
+extern pattern pattern_gray25;
+extern pattern pattern_gray50;
+extern pattern pattern_gray75;
+extern pattern pattern_white;
+extern pattern pattern_red;
+extern pattern pattern_green;
+extern pattern pattern_yellow;
+extern pattern pattern_blue;
+extern pattern pattern_magenta;
+extern pattern pattern_cyan;
+
+
+extern font_c font_mono_5x7;
+extern font_c font_mono_6x9;
 
 #endif
 

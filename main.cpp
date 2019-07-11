@@ -18,7 +18,7 @@
 
 int main ()
 { 
-  term* tty = &new_term(0, 320, 80, 10, &font::mono_6x9, L"tty", true);
+  term* tty = &new_term(0, 320, 80, 10, &font_mono_6x9, L"tty", true);
   
   term_write(tty, "\033[46m" );
   term_write(tty, "Gambit v4.9.3");
@@ -30,7 +30,7 @@ int main ()
   for (int i=0; i<20000; i++)
   ;
 
-  term_write(tty, "fooled you twice!!!!");
+  term_write(tty, "Pattern is in C!");
 
   for (;;) ; // loop forever!
 

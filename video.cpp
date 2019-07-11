@@ -17,103 +17,72 @@
 
 // "pattern" class implementation.
 
-pattern::pattern (bitmap_word* words, int height, int depth)
-{
-  _words = words;
-  _height = height;
-  _depth = depth;
-};
+static bitmap_word black_bitmap_words[] = {0x00, 0x00, 0x00, 0x00,
+                                           0x00, 0x00, 0x00, 0x00};
 
-bitmap_word pattern::get_word (int y, int layer)
-{
-  layer = layer % _depth;
-  return _words[(y % _height) + _height * layer];
-};
+pattern pattern_black = new_pattern(black_bitmap_words, 8, 1);
 
-static bitmap_word black_bitmap_words[] =
-{ 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+static bitmap_word gray25_bitmap_words[] = {0x00, 0x55, 0x00, 0x55,
+                                            0x00, 0x55, 0x00, 0x55};
 
-pattern pattern::black (black_bitmap_words, 8, 1);
+pattern pattern_gray25 = new_pattern(gray25_bitmap_words, 8, 1);
 
-static bitmap_word gray25_bitmap_words[] =
-{ 0x00, 0x55, 0x00, 0x55, 0x00, 0x55, 0x00, 0x55 };
+static bitmap_word gray50_bitmap_words[] = {0xaa, 0x55, 0xaa, 0x55,
+                                            0xaa, 0x55, 0xaa, 0x55};
 
-pattern pattern::gray25 (gray25_bitmap_words, 8, 1);
+pattern pattern_gray50 = new_pattern(gray50_bitmap_words, 8, 1);
 
-static bitmap_word gray50_bitmap_words[] =
-{ 0xaa, 0x55, 0xaa, 0x55, 0xaa, 0x55, 0xaa, 0x55 };
+static bitmap_word gray75_bitmap_words[] = {0xff, 0x55, 0xff, 0x55,
+                                            0xff, 0x55, 0xff, 0x55};
 
-pattern pattern::gray50 (gray50_bitmap_words, 8, 1);
+pattern pattern_gray75 = new_pattern(gray75_bitmap_words, 8, 1);
 
-static bitmap_word gray75_bitmap_words[] =
-{ 0xff, 0x55, 0xff, 0x55, 0xff, 0x55, 0xff, 0x55 };
+static bitmap_word white_bitmap_words[] = {0xff, 0xff, 0xff, 0xff,
+                                           0xff, 0xff, 0xff, 0xff};
 
-pattern pattern::gray75 (gray75_bitmap_words, 8, 1);
+pattern pattern_white = new_pattern(white_bitmap_words, 8, 1);
 
-static bitmap_word white_bitmap_words[] =
-{ 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
+static bitmap_word red_bitmap_words[] = {
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+    0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
 
-pattern pattern::white (white_bitmap_words, 8, 1);
+pattern pattern_red = new_pattern(red_bitmap_words, 8, 4);
 
-static bitmap_word red_bitmap_words[] =
-{
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
-, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
-, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff
-, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff
-};
+static bitmap_word green_bitmap_words[] = {
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff,
+    0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
 
-pattern pattern::red (red_bitmap_words, 8, 4);
+pattern pattern_green = new_pattern(green_bitmap_words, 8, 4);
 
-static bitmap_word green_bitmap_words[] =
-{
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
-, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff
-, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
-, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff
-};
+static bitmap_word yellow_bitmap_words[] = {
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff,
+    0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+    0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
 
-pattern pattern::green (green_bitmap_words, 8, 4);
+pattern pattern_yellow = new_pattern(yellow_bitmap_words, 8, 4);
 
-static bitmap_word yellow_bitmap_words[] =
-{
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
-, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff
-, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff
-, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff
-};
+static bitmap_word blue_bitmap_words[] = {
+    0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
 
-pattern pattern::yellow (yellow_bitmap_words, 8, 4);
+pattern pattern_blue = new_pattern(blue_bitmap_words, 8, 4);
 
-static bitmap_word blue_bitmap_words[] =
-{
-  0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff
-, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
-, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
-, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff
-};
+static bitmap_word magenta_bitmap_words[] = {
+    0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+    0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
 
-pattern pattern::blue (blue_bitmap_words, 8, 4);
+pattern pattern_magenta = new_pattern(magenta_bitmap_words, 8, 4);
 
-static bitmap_word magenta_bitmap_words[] =
-{
-  0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff
-, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
-, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff
-, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff
-};
+static bitmap_word cyan_bitmap_words[] = {
+    0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+    0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
 
-pattern pattern::magenta (magenta_bitmap_words, 8, 4);
-
-static bitmap_word cyan_bitmap_words[] =
-{
-  0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff
-, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff
-, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
-, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff
-};
-
-pattern pattern::cyan (cyan_bitmap_words, 8, 4);
+pattern pattern_cyan = new_pattern(cyan_bitmap_words, 8, 4);
 
 //-----------------------------------------------------------------------------
 
@@ -153,7 +122,7 @@ video::video (int mode)
                     0,
                     _width,
                     _height,
-                    &pattern::gray50);
+                    &pattern_gray50);
 
   //show_mouse ();
 }
@@ -176,8 +145,8 @@ void video::hide_mouse ()
                      &mouse_save,
                      0,
                      0,
-                     &pattern::white,
-                     &pattern::black);
+                     &pattern_white,
+                     &pattern_black);
     }
 }
 
@@ -197,8 +166,8 @@ void video::show_mouse ()
                          &screen,
                          _mouse_x,
                          _mouse_y,
-                         &pattern::white,
-                         &pattern::black);
+                         &pattern_white,
+                         &pattern_black);
 
       draw_mouse ();
     }
@@ -263,23 +232,23 @@ void video::draw_mouse ()
   get_mouse_rect (&width, &height);
 
   if (width < 1) return;
-  fill_rect (x+0, y+0, x+1, y+minimum(11,height), &pattern::red);
+  fill_rect (x+0, y+0, x+1, y+minimum(11,height), &pattern_red);
   if (width < 2) return;
-  fill_rect (x+1, y+1, x+2, y+minimum(10,height), &pattern::red);
+  fill_rect (x+1, y+1, x+2, y+minimum(10,height), &pattern_red);
   if (width < 3) return;
-  fill_rect (x+2, y+2, x+3, y+minimum(9,height), &pattern::red);
+  fill_rect (x+2, y+2, x+3, y+minimum(9,height), &pattern_red);
   if (width < 4) return;
-  fill_rect (x+3, y+3, x+4, y+minimum(10,height), &pattern::red);
+  fill_rect (x+3, y+3, x+4, y+minimum(10,height), &pattern_red);
   if (width < 5) return;
-  fill_rect (x+4, y+4, x+5, y+minimum(12,height), &pattern::red);
+  fill_rect (x+4, y+4, x+5, y+minimum(12,height), &pattern_red);
   if (width < 6) return;
-  fill_rect (x+5, y+5, x+6, y+minimum(8,height), &pattern::red);
-  fill_rect (x+5, y+10, x+6, y+minimum(14,height), &pattern::red);
+  fill_rect (x+5, y+5, x+6, y+minimum(8,height), &pattern_red);
+  fill_rect (x+5, y+10, x+6, y+minimum(14,height), &pattern_red);
   if (width < 7) return;
-  fill_rect (x+6, y+6, x+7, y+minimum(8,height), &pattern::red);
-  fill_rect (x+6, y+12, x+7, y+minimum(14,height), &pattern::red);
+  fill_rect (x+6, y+6, x+7, y+minimum(8,height), &pattern_red);
+  fill_rect (x+6, y+12, x+7, y+minimum(14,height), &pattern_red);
   if (width < 8) return;
-  fill_rect (x+7, y+7, x+8, y+minimum(8,height), &pattern::red);
+  fill_rect (x+7, y+7, x+8, y+minimum(8,height), &pattern_red);
 }
 
 static bitmap_word mouse_bitmap[MOUSE_WIDTH_IN_BITMAP_WORDS * MOUSE_HEIGHT * 4];
@@ -361,8 +330,9 @@ void raw_bitmap::bitblt (int x,
             {
               for (layer=_depth-1; layer>=0; layer--)
                 {
-                  bitmap_word fg = foreground->get_word (y, layer);
-                  bitmap_word bg = background->get_word (y, layer);
+                  bitmap_word fg = pattern_get_word(foreground, y, layer);
+                  bitmap_word bg = pattern_get_word(background, y, layer);
+
                   bitmap_word* s = src->select_layer (layer)
                                    + ((src_y*src->_width + src_x)
                                       >> LOG2_BITMAP_WORD_WIDTH);
@@ -396,36 +366,31 @@ void raw_bitmap::bitblt (int x,
               src_y++;
               y++;
             }
-        }
-      else
-        {
-          for (row=nb_rows; row>0; row--)
-            {
-              for (layer=_depth-1; layer>=0; layer--)
-                {
-                  bitmap_word fg = foreground->get_word (y, layer);
-                  bitmap_word bg = background->get_word (y, layer);
-                  bitmap_word* s = src->select_layer (layer)
-                                   + ((src_y*src->_width + src_x)
-                                      >> LOG2_BITMAP_WORD_WIDTH);
-                  bitmap_word* d = select_layer (layer)
-                                   + ((y*_width + x)
-                                      >> LOG2_BITMAP_WORD_WIDTH);
-                  bitmap_quad_word b;
-                  bitmap_word m;
+      } else {
+        for (row = nb_rows; row > 0; row--) {
+          for (layer = _depth - 1; layer >= 0; layer--) {
 
-                  b = (CAST(bitmap_quad_word,s[0]) << BITMAP_WORD_WIDTH)
-                      | s[1];
-                  m = (CAST(bitmap_word,-1) >> (x & (BITMAP_WORD_WIDTH-1)))
-                      & (CAST(bitmap_word,-1)
-                         << ((-x_end) & (BITMAP_WORD_WIDTH-1)));
-                  *d = COMBINE_BITS_FG_BG(*d, b>>realignment, m, fg, bg);
-                }
+            bitmap_word fg = pattern_get_word(foreground, y, layer);
+            bitmap_word bg = pattern_get_word(background, y, layer);
 
-              src_y++;
-              y++;
-            }
+            bitmap_word* s =
+                src->select_layer(layer) +
+                ((src_y * src->_width + src_x) >> LOG2_BITMAP_WORD_WIDTH);
+            bitmap_word* d = select_layer(layer) +
+                             ((y * _width + x) >> LOG2_BITMAP_WORD_WIDTH);
+            bitmap_quad_word b;
+            bitmap_word m;
+
+            b = (CAST(bitmap_quad_word, s[0]) << BITMAP_WORD_WIDTH) | s[1];
+            m = (CAST(bitmap_word, -1) >> (x & (BITMAP_WORD_WIDTH - 1))) &
+                (CAST(bitmap_word, -1) << ((-x_end) & (BITMAP_WORD_WIDTH - 1)));
+            *d = COMBINE_BITS_FG_BG(*d, b >> realignment, m, fg, bg);
+          }
+
+          src_y++;
+          y++;
         }
+      }
 
       show_mouse ();
       src->show_mouse ();
@@ -454,7 +419,8 @@ void raw_bitmap::fill_rect (int x,
             {
               for (layer=_depth-1; layer>=0; layer--)
                 {
-                  bitmap_word fg = foreground->get_word (y, layer);
+                  bitmap_word fg = pattern_get_word(foreground, y, layer);
+
                   bitmap_word* d = select_layer (layer)
                                    + ((y*_width + x)
                                       >> LOG2_BITMAP_WORD_WIDTH);
@@ -485,7 +451,7 @@ void raw_bitmap::fill_rect (int x,
             {
               for (layer=_depth-1; layer>=0; layer--)
                 {
-                  bitmap_word fg = foreground->get_word (y, layer);
+                  bitmap_word fg = pattern_get_word(foreground, y, layer);
                   bitmap_word* d = select_layer (layer)
                                    + ((y*_width + x)
                                       >> LOG2_BITMAP_WORD_WIDTH);
@@ -524,7 +490,7 @@ void raw_bitmap::frame_rect (int x,
 void raw_bitmap::invert_rect (int x, int y, int x_end, int y_end)
 {
   hide_mouse ();
-  bitblt(x, y, x_end, y_end, this, x, y, &pattern::black, &pattern::white);
+  bitblt(x, y, x_end, y_end, this, x, y, &pattern_black, &pattern_white);
   show_mouse ();
 }
 
@@ -532,99 +498,102 @@ void raw_bitmap::invert_rect (int x, int y, int x_end, int y_end)
 
 // "font" class implementation.
 
+//-----------------------------------------------------------------------------
+// C rewrite
+//-----------------------------------------------------------------------------
+
+//-----------------------------------------------------------------------------
+// PATTERN
+//-----------------------------------------------------------------------------
+
+pattern new_pattern(bitmap_word* words, int height, int depth) {
+  pattern pattern;
+
+  pattern._words = words;
+  pattern._height = height;
+  pattern._depth = depth;
+
+  return pattern;
+}
+
+bitmap_word pattern_get_word(pattern* self, int y, int layer) {
+  layer = layer % self->_depth;
+  return self->_words[(y % self->_height) + self->_height * layer];
+}
+
+//-----------------------------------------------------------------------------
+// FONT
+//-----------------------------------------------------------------------------
 #include "mono_5x7.cpp"
 #include "mono_6x9.cpp"
 
-font::font (int max_width,
-            int height,
-            int nb_chars,
-            uint16* char_map,
-            uint32* char_end,
-            raw_bitmap* raw)
-{
-  _max_width = max_width;
-  _height = height;
-  _nb_chars = nb_chars;
-  _char_map = char_map;
-  _char_end = char_end;
-  _raw = raw;
+font_c new_font(int max_width, int height, int nb_chars, uint16* char_map,
+                uint32* char_end, raw_bitmap* raw) {
+  font_c font;
+  font._max_width = max_width;
+  font._height = height;
+  font._nb_chars = nb_chars;
+  font._char_map = char_map;
+  font._char_end = char_end;
+  font._raw = raw;
+
+  return font;
 }
 
-int font::get_max_width ()
-{
-  return _max_width;
+int font_get_max_width(font_c* self) {
+  return self->_max_width;
 }
 
-int font::get_height ()
-{
-  return _height;
+int font_get_height(font_c* self) {
+  return self->_height;
 }
 
-void font::get_char_data (unicode_char c, int& start, int& width)
-{
+void _font_get_char_data(font_c* self, unicode_char c, int& start, int& width) {
   int i;
 
-  if (c >= _nb_chars)
+  if (c >= self->_nb_chars) {
     c = 0;
+  }
 
-  i = _char_map[c];
+  i = self->_char_map[c];
 
-  if (i == 0)
+  if (i == 0) {
     start = 0;
-  else
-    start = _char_end[i-1];
+  } else {
+    start = self->_char_end[i - 1];
+  }
 
-  width = _char_end[i] - start;
+  width = self->_char_end[i] - start;
 }
 
-int font::draw_text (raw_bitmap* dst,
-                     int x,
-                     int y,
-                     unicode_char* text,
-                     int count,
-                     pattern* foreground,
-                     pattern* background)
-{
-  while (count-- > 0)
-    {
-      unicode_char c = *text++;
-      int start;
-      int width;
+int font_draw_text(font_c* self, raw_bitmap* dst, int x, int y,
+                   unicode_char* text, int count, pattern* foreground,
+                   pattern* background) {
+  while (count-- > 0) {
+    unicode_char c = *text++;
+    int start;
+    int width;
 
-      get_char_data (c, start, width);
+    _font_get_char_data(self, c, start, width);
 
-      dst->bitblt (x,
-                   y,
-                   x + width,
-                   y + _height,
-                   _raw,
-                   start,
-                   0,
-                   foreground,
-                   background);
+    dst->bitblt(x, y, x + width, y + self->_height, self->_raw, start, 0,
+                foreground, background);
 
-      x += width;
-    }
+    x += width;
+  }
 
   return x;
 }
 
-int font::draw_string (raw_bitmap* dst,
-                       int x,
-                       int y,
-                       unicode_string str,
-                       pattern* foreground,
-                       pattern* background)
-{
+int font_draw_string(font_c* self, raw_bitmap* dst, int x, int y,
+                     unicode_string str, pattern* foreground,
+                     pattern* background) {
   int n = 0;
 
-  while (str[n] != '\0')
-    n++;
+  while (str[n] != '\0') n++;
 
-  return draw_text (dst, x, y, str, n, foreground, background);
+  return font_draw_text(self, dst, x, y, str, n, foreground, background);
 }
-
-//-----------------------------------------------------------------------------
 
 // Local Variables: //
 // mode: C++ //

@@ -12,7 +12,7 @@
 
 //-----------------------------------------------------------------------------
 
-term new_term(int x, int y, int nb_columns, int nb_rows, font* font,
+term new_term(int x, int y, int nb_columns, int nb_rows, font_c* font,
               unicode_string title, bool initialy_visible) {
   term term;
 
@@ -46,7 +46,8 @@ void term_show(term* self) {
   }
 
   int sx, sy, ex, ey;
-  int char_height = self->_fn->get_height();
+  int char_height = font_get_height(self->_fn);
+
   pattern* background;
 
   term_char_coord_to_screen_coord(self, self->_nb_columns - 1,
@@ -60,13 +61,13 @@ void term_show(term* self) {
       self->_x, self->_y,
       ex + term_outer_border + term_frame_border + term_inner_border,
       ey + term_outer_border + term_frame_border + term_inner_border,
-      term_outer_border, &pattern::white);
+      term_outer_border, &pattern_white);
 
   video::screen.frame_rect(self->_x + term_outer_border,
                            self->_y + term_outer_border,
                            ex + term_frame_border + term_inner_border,
                            ey + term_frame_border + term_inner_border,
-                           term_frame_border, &pattern::gray50);
+                           term_frame_border, &pattern_gray50);
 
   video::screen.fill_rect(self->_x + term_outer_border + term_frame_border,
                           self->_y + char_height + term_outer_border +
@@ -74,26 +75,27 @@ void term_show(term* self) {
                           ex + term_inner_border,
                           self->_y + char_height + term_outer_border +
                               2 * term_frame_border + 2 * term_inner_border,
-                          &pattern::gray50);
+                          &pattern_gray50);
 
   video::screen.fill_rect(self->_x + term_outer_border + term_frame_border,
                           self->_y + term_outer_border + term_frame_border,
                           ex + term_inner_border,
                           self->_y + char_height + term_outer_border +
                               term_frame_border + 2 * term_inner_border,
-                          &pattern::black);
+                          &pattern_black);
   // EO TODO
 
-  self->_fn->draw_string(
-      &video::screen,
-      self->_fn->draw_string(
-          &video::screen,
-          self->_x + term_outer_border + term_frame_border + term_inner_border,
-          self->_y + term_outer_border + term_frame_border + term_inner_border,
-          L"\x25b6 ",  // rightward triangle and space
-          &pattern::blue, &pattern::black),
+  int curr_x = font_draw_string(
+      self->_fn, &video::screen,
+      self->_x + term_outer_border + term_frame_border + term_inner_border,
       self->_y + term_outer_border + term_frame_border + term_inner_border,
-      self->_title, &pattern::blue, &pattern::black);
+      L"\x25b6 ",  // rightward triangle and space
+      &pattern_blue, &pattern_black);
+
+  font_draw_string(
+      self->_fn, &video::screen, curr_x,
+      self->_y + term_outer_border + term_frame_border + term_inner_border,
+      self->_title, &pattern_blue, &pattern_black);
 
   video::screen.fill_rect(self->_x + term_outer_border + term_frame_border,
                           self->_y + char_height + term_outer_border +
@@ -107,8 +109,8 @@ void term_show(term* self) {
 
 void term_char_coord_to_screen_coord(term* self, int column, int row, int* sx,
                                      int* sy, int* ex, int* ey) {
-  int char_max_width = self->_fn->get_max_width();
-  int char_height = self->_fn->get_height();
+  int char_max_width = font_get_max_width(self->_fn);
+  int char_height = font_get_height(self->_fn);
 
   *sx = self->_x + column * char_max_width + term_outer_border +
         term_frame_border + term_inner_border;
@@ -121,28 +123,28 @@ void term_char_coord_to_screen_coord(term* self, int column, int row, int* sx,
 void term_color_to_pattern(term* self, int color, pattern** pat) {
   switch (color) {
     case 0:
-      *pat = &pattern::black;
+      *pat = &pattern_black;
       break;
     case 1:
-      *pat = &pattern::red;
+      *pat = &pattern_red;
       break;
     case 2:
-      *pat = &pattern::green;
+      *pat = &pattern_green;
       break;
     case 3:
-      *pat = &pattern::yellow;
+      *pat = &pattern_yellow;
       break;
     case 4:
-      *pat = &pattern::blue;
+      *pat = &pattern_blue;
       break;
     case 5:
-      *pat = &pattern::magenta;
+      *pat = &pattern_magenta;
       break;
     case 6:
-      *pat = &pattern::cyan;
+      *pat = &pattern_cyan;
       break;
     case 7:
-      *pat = &pattern::white;
+      *pat = &pattern_white;
       break;
   }
 }
@@ -423,8 +425,8 @@ int term_write(term* self, unicode_char* buf, int count) {
 
       term_hide_cursor(self);
 
-      self->_fn->draw_text(&video::screen, sx, sy, buf + start, n, foreground,
-                           background);
+      font_draw_text(self->_fn, &video::screen, sx, sy, buf + start, n,
+                     foreground, background);
 
       start += n;
 
@@ -460,8 +462,8 @@ void term_scroll_up(term* self) {
   term_char_coord_to_screen_coord(self, self->_nb_columns - 1,
                                   self->_nb_rows - 1, &x2, &y2, &x3, &y3);
 
-  video::screen.bitblt(x0, y0, x3, y2, &video::screen, x0, y1, &pattern::white,
-                       &pattern::black);
+  video::screen.bitblt(x0, y0, x3, y2, &video::screen, x0, y1, &pattern_white,
+                       &pattern_black);
 
   term_color_to_pattern(self, term_normal_background, &background);
 

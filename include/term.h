@@ -30,7 +30,7 @@ typedef struct term {
   int _y;
   int _nb_columns;
   int _nb_rows;
-  font* _fn;
+  font_c* _fn;
   unicode_string _title;
   int _cursor_column;
   int _cursor_row;
@@ -46,7 +46,7 @@ typedef struct term {
   int _bg;
 } term;
 
-term new_term(int x, int y, int nb_columns, int nb_rows, font* font,
+term new_term(int x, int y, int nb_columns, int nb_rows, font_c* font,
               unicode_string title, bool initialy_visible);
 
 void term_show(term* self);  //#!
