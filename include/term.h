@@ -56,7 +56,7 @@ int term_write(term* self, unicode_char* buf, int count);  //#!
 void term_char_coord_to_screen_coord(term* self, int column, int row, int* sx,
                                      int* sy, int* ex, int* ey);  //#!
 
-void term_color_to_pattern(term* self, int color, pattern_c** pat);  //#!
+void term_color_to_pattern(term* self, int color, pattern** pat);  //#!
 
 void term_show_cursor(term* self);    //#!
 void term_hide_cursor(term* self);    //#!

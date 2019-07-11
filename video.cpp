@@ -20,69 +20,69 @@
 static bitmap_word black_bitmap_words[] = {0x00, 0x00, 0x00, 0x00,
                                            0x00, 0x00, 0x00, 0x00};
 
-pattern_c pattern_black = new_pattern(black_bitmap_words, 8, 1);
+pattern pattern_black = new_pattern(black_bitmap_words, 8, 1);
 
 static bitmap_word gray25_bitmap_words[] = {0x00, 0x55, 0x00, 0x55,
                                             0x00, 0x55, 0x00, 0x55};
 
-pattern_c pattern_gray25 = new_pattern(gray25_bitmap_words, 8, 1);
+pattern pattern_gray25 = new_pattern(gray25_bitmap_words, 8, 1);
 
 static bitmap_word gray50_bitmap_words[] = {0xaa, 0x55, 0xaa, 0x55,
                                             0xaa, 0x55, 0xaa, 0x55};
 
-pattern_c pattern_gray50 = new_pattern(gray50_bitmap_words, 8, 1);
+pattern pattern_gray50 = new_pattern(gray50_bitmap_words, 8, 1);
 
 static bitmap_word gray75_bitmap_words[] = {0xff, 0x55, 0xff, 0x55,
                                             0xff, 0x55, 0xff, 0x55};
 
-pattern_c pattern_gray75 = new_pattern(gray75_bitmap_words, 8, 1);
+pattern pattern_gray75 = new_pattern(gray75_bitmap_words, 8, 1);
 
 static bitmap_word white_bitmap_words[] = {0xff, 0xff, 0xff, 0xff,
                                            0xff, 0xff, 0xff, 0xff};
 
-pattern_c pattern_white = new_pattern(white_bitmap_words, 8, 1);
+pattern pattern_white = new_pattern(white_bitmap_words, 8, 1);
 
 static bitmap_word red_bitmap_words[] = {
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
     0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
 
-pattern_c pattern_red = new_pattern(red_bitmap_words, 8, 4);
+pattern pattern_red = new_pattern(red_bitmap_words, 8, 4);
 
 static bitmap_word green_bitmap_words[] = {
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff,
     0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
 
-pattern_c pattern_green = new_pattern(green_bitmap_words, 8, 4);
+pattern pattern_green = new_pattern(green_bitmap_words, 8, 4);
 
 static bitmap_word yellow_bitmap_words[] = {
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff,
     0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
     0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
 
-pattern_c pattern_yellow = new_pattern(yellow_bitmap_words, 8, 4);
+pattern pattern_yellow = new_pattern(yellow_bitmap_words, 8, 4);
 
 static bitmap_word blue_bitmap_words[] = {
     0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
 
-pattern_c pattern_blue = new_pattern(blue_bitmap_words, 8, 4);
+pattern pattern_blue = new_pattern(blue_bitmap_words, 8, 4);
 
 static bitmap_word magenta_bitmap_words[] = {
     0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00,
     0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
     0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
 
-pattern_c pattern_magenta = new_pattern(magenta_bitmap_words, 8, 4);
+pattern pattern_magenta = new_pattern(magenta_bitmap_words, 8, 4);
 
 static bitmap_word cyan_bitmap_words[] = {
     0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
     0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
 
-pattern_c pattern_cyan = new_pattern(cyan_bitmap_words, 8, 4);
+pattern pattern_cyan = new_pattern(cyan_bitmap_words, 8, 4);
 
 //-----------------------------------------------------------------------------
 
@@ -307,8 +307,8 @@ void raw_bitmap::bitblt (int x,
                          raw_bitmap* src,
                          int src_x,
                          int src_y,
-                         pattern_c* foreground,
-                         pattern_c* background)
+                         pattern* foreground,
+                         pattern* background)
 {
   if (x < x_end && y < y_end)
     {
@@ -401,7 +401,7 @@ void raw_bitmap::fill_rect (int x,
                             int y,
                             int x_end,
                             int y_end,
-                            pattern_c* foreground)
+                            pattern* foreground)
 {
   if (x < x_end && y < y_end)
     {
@@ -477,7 +477,7 @@ void raw_bitmap::frame_rect (int x,
                              int x_end,
                              int y_end,
                              int border,
-                             pattern_c* foreground)
+                             pattern* foreground)
 {
   hide_mouse ();
   fill_rect (x,            y,            x_end,    y+border,     foreground);
@@ -506,8 +506,8 @@ void raw_bitmap::invert_rect (int x, int y, int x_end, int y_end)
 // PATTERN
 //-----------------------------------------------------------------------------
 
-pattern_c new_pattern(bitmap_word* words, int height, int depth) {
-  pattern_c pattern;
+pattern new_pattern(bitmap_word* words, int height, int depth) {
+  pattern pattern;
 
   pattern._words = words;
   pattern._height = height;
@@ -516,7 +516,7 @@ pattern_c new_pattern(bitmap_word* words, int height, int depth) {
   return pattern;
 }
 
-bitmap_word pattern_get_word(pattern_c* self, int y, int layer) {
+bitmap_word pattern_get_word(pattern* self, int y, int layer) {
   layer = layer % self->_depth;
   return self->_words[(y % self->_height) + self->_height * layer];
 }
@@ -567,8 +567,8 @@ void _font_get_char_data(font_c* self, unicode_char c, int& start, int& width) {
 }
 
 int font_draw_text(font_c* self, raw_bitmap* dst, int x, int y,
-                   unicode_char* text, int count, pattern_c* foreground,
-                   pattern_c* background) {
+                   unicode_char* text, int count, pattern* foreground,
+                   pattern* background) {
   while (count-- > 0) {
     unicode_char c = *text++;
     int start;
@@ -586,8 +586,8 @@ int font_draw_text(font_c* self, raw_bitmap* dst, int x, int y,
 }
 
 int font_draw_string(font_c* self, raw_bitmap* dst, int x, int y,
-                     unicode_string str, pattern_c* foreground,
-                     pattern_c* background) {
+                     unicode_string str, pattern* foreground,
+                     pattern* background) {
   int n = 0;
 
   while (str[n] != '\0') n++;

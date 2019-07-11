@@ -48,7 +48,7 @@ void term_show(term* self) {
   int sx, sy, ex, ey;
   int char_height = font_get_height(self->_fn);
 
-  pattern_c* background;
+  pattern* background;
 
   term_char_coord_to_screen_coord(self, self->_nb_columns - 1,
                                   self->_nb_rows - 1, &sx, &sy, &ex, &ey);
@@ -120,7 +120,7 @@ void term_char_coord_to_screen_coord(term* self, int column, int row, int* sx,
   *ey = *sy + char_height;
 }
 
-void term_color_to_pattern(term* self, int color, pattern_c** pat) {
+void term_color_to_pattern(term* self, int color, pattern** pat) {
   switch (color) {
     case 0:
       *pat = &pattern_black;
@@ -357,7 +357,7 @@ int term_write(term* self, unicode_char* buf, int count) {
               int csy;
               int cex;
               int cey;
-              pattern_c* background;
+              pattern* background;
 
               term_color_to_pattern(self, term_normal_background, &background);
 
@@ -402,8 +402,8 @@ int term_write(term* self, unicode_char* buf, int count) {
       int ey;
       int fg;
       int bg;
-      pattern_c* foreground;
-      pattern_c* background;
+      pattern* foreground;
+      pattern* background;
       int n = end - start;
 
       if (n > self->_nb_columns - self->_cursor_column)  // one line at a time
@@ -456,7 +456,7 @@ int term_write(term* self, unicode_char* buf, int count) {
 void term_scroll_up(term* self) {
   int x0, y0, x1, y1, x2, y2, x3, y3;
 
-  pattern_c* background;
+  pattern* background;
 
   term_char_coord_to_screen_coord(self, 0, 0, &x0, &y0, &x1, &y1);
   term_char_coord_to_screen_coord(self, self->_nb_columns - 1,
