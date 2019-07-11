@@ -12,7 +12,8 @@
 
 //-----------------------------------------------------------------------------
 
-term new_term(int x, int y, int nb_columns, int nb_rows, font* font, unicode_string title, bool initialy_visible) {
+term new_term(int x, int y, int nb_columns, int nb_rows, font* font,
+              unicode_string title, bool initialy_visible) {
   term term;
 
   term._x = x;
@@ -30,7 +31,7 @@ term new_term(int x, int y, int nb_columns, int nb_rows, font* font, unicode_str
   term._underline = FALSE;
   term._reverse = FALSE;
   term._fg = term_normal_foreground;
-  term._bg = term_normal_background;    
+  term._bg = term_normal_background;
 
   if (initialy_visible) {
     term_show(&term);
@@ -164,7 +165,7 @@ void term_toggle_cursor(term* self) {
   term_char_coord_to_screen_coord(self, self->_cursor_column, self->_cursor_row,
                                   &sx, &sy, &ex, &ey);
 
-  video::screen.invert_rect (sx, sy, ex, ey);
+  video::screen.invert_rect(sx, sy, ex, ey);
 
   self->_cursor_visible = !self->_cursor_visible;
 }

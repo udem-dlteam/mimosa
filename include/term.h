@@ -46,23 +46,22 @@ typedef struct term {
   int _bg;
 } term;
 
-
 term new_term(int x, int y, int nb_columns, int nb_rows, font* font,
-                unicode_string title, bool initialy_visible);
+              unicode_string title, bool initialy_visible);
 
-void term_show(term* self); //#!
+void term_show(term* self);  //#!
 
-int term_write(term* self, unicode_char* buf, int count); //#!
+int term_write(term* self, unicode_char* buf, int count);  //#!
 
 void term_char_coord_to_screen_coord(term* self, int column, int row, int* sx,
-                                     int* sy, int* ex, int* ey); //#!
+                                     int* sy, int* ex, int* ey);  //#!
 
-void term_color_to_pattern(term* self, int color, pattern** pat); //#!
+void term_color_to_pattern(term* self, int color, pattern** pat);  //#!
 
-void term_show_cursor(term* self); //#!
-void term_hide_cursor(term* self);//#!
-void term_toggle_cursor(term* self);//#!
-void term_scroll_up(term* self); //#!
+void term_show_cursor(term* self);    //#!
+void term_hide_cursor(term* self);    //#!
+void term_toggle_cursor(term* self);  //#!
+void term_scroll_up(term* self);      //#!
 
 term* term_write(term* self, bool x);
 term* term_write(term* self, int8 x);
@@ -77,7 +76,6 @@ term* term_write(term* self, void* x);
 term* term_write(term* self, native_string x);
 term* term_write(term* self, unicode_string x);
 //-----------------------------------------------------------------------------
-
 
 //-----------------------------------------------------------------------------
 // Static objects
