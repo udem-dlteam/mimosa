@@ -12,7 +12,7 @@
 
 //-----------------------------------------------------------------------------
 
-term new_term(int x, int y, int nb_columns, int nb_rows, font* font,
+term new_term(int x, int y, int nb_columns, int nb_rows, font_c* font,
               unicode_string title, bool initialy_visible) {
   term term;
 
@@ -46,7 +46,8 @@ void term_show(term* self) {
   }
 
   int sx, sy, ex, ey;
-  int char_height = self->_fn->get_height();
+  int char_height = font_get_height(self->_fn);
+
   pattern* background;
 
   term_char_coord_to_screen_coord(self, self->_nb_columns - 1,
@@ -84,14 +85,15 @@ void term_show(term* self) {
                           &pattern::black);
   // EO TODO
 
-  self->_fn->draw_string(
-      &video::screen,
-      self->_fn->draw_string(
-          &video::screen,
-          self->_x + term_outer_border + term_frame_border + term_inner_border,
-          self->_y + term_outer_border + term_frame_border + term_inner_border,
-          L"\x25b6 ",  // rightward triangle and space
-          &pattern::blue, &pattern::black),
+  int curr_x = font_draw_string(
+      self->_fn, &video::screen,
+      self->_x + term_outer_border + term_frame_border + term_inner_border,
+      self->_y + term_outer_border + term_frame_border + term_inner_border,
+      L"\x25b6 ",  // rightward triangle and space
+      &pattern::blue, &pattern::black);
+
+  font_draw_string(
+      self->_fn, &video::screen, curr_x,
       self->_y + term_outer_border + term_frame_border + term_inner_border,
       self->_title, &pattern::blue, &pattern::black);
 
@@ -107,8 +109,8 @@ void term_show(term* self) {
 
 void term_char_coord_to_screen_coord(term* self, int column, int row, int* sx,
                                      int* sy, int* ex, int* ey) {
-  int char_max_width = self->_fn->get_max_width();
-  int char_height = self->_fn->get_height();
+  int char_max_width = font_get_max_width(self->_fn);
+  int char_height = font_get_max_width(self->_fn);
 
   *sx = self->_x + column * char_max_width + term_outer_border +
         term_frame_border + term_inner_border;
@@ -423,8 +425,8 @@ int term_write(term* self, unicode_char* buf, int count) {
 
       term_hide_cursor(self);
 
-      self->_fn->draw_text(&video::screen, sx, sy, buf + start, n, foreground,
-                           background);
+      font_draw_text(self->_fn, &video::screen, sx, sy, buf + start, n,
+                     foreground, background);
 
       start += n;
 
