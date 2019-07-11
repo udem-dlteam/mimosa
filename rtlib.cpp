@@ -19,7 +19,8 @@
 #include "thread.h"
 
 static void __rtlib_setup (); // forward declaration
-term_c term_console;
+
+term term_console;
 //-----------------------------------------------------------------------------
 
 void fatal_error (native_string msg)

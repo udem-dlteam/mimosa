@@ -25,7 +25,7 @@ const int term_outer_border = 1;
 const int term_frame_border = 2;
 const int term_inner_border = 2;
 
-typedef struct term_c {
+typedef struct term {
   int _x;
   int _y;
   int _nb_columns;
@@ -44,45 +44,45 @@ typedef struct term_c {
   bool _reverse;
   int _fg;
   int _bg;
-} term_c;
+} term;
 
 
-term_c new_term(int x, int y, int nb_columns, int nb_rows, font* font,
+term new_term(int x, int y, int nb_columns, int nb_rows, font* font,
                 unicode_string title, bool initialy_visible);
 
-void term_show(term_c* self); //#!
+void term_show(term* self); //#!
 
-int term_write(term_c* self, unicode_char* buf, int count); //#!
+int term_write(term* self, unicode_char* buf, int count); //#!
 
-void term_char_coord_to_screen_coord(term_c* self, int column, int row, int* sx,
+void term_char_coord_to_screen_coord(term* self, int column, int row, int* sx,
                                      int* sy, int* ex, int* ey); //#!
 
-void term_color_to_pattern(term_c* self, int color, pattern** pat); //#!
+void term_color_to_pattern(term* self, int color, pattern** pat); //#!
 
-void term_show_cursor(term_c* self); //#!
-void term_hide_cursor(term_c* self);//#!
-void term_toggle_cursor(term_c* self);//#!
-void term_scroll_up(term_c* self); //#!
+void term_show_cursor(term* self); //#!
+void term_hide_cursor(term* self);//#!
+void term_toggle_cursor(term* self);//#!
+void term_scroll_up(term* self); //#!
 
-term_c* term_write(term_c* self, bool x);
-term_c* term_write(term_c* self, int8 x);
-term_c* term_write(term_c* self, int16 x);
-term_c* term_write(term_c* self, int32 x);
-term_c* term_write(term_c* self, int64 x);
-term_c* term_write(term_c* self, uint8 x);
-term_c* term_write(term_c* self, uint16 x);
-term_c* term_write(term_c* self, uint32 x);
-term_c* term_write(term_c* self, uint64 x);
-term_c* term_write(term_c* self, void* x);
-term_c* term_write(term_c* self, native_string x);
-term_c* term_write(term_c* self, unicode_string x);
+term* term_write(term* self, bool x);
+term* term_write(term* self, int8 x);
+term* term_write(term* self, int16 x);
+term* term_write(term* self, int32 x);
+term* term_write(term* self, int64 x);
+term* term_write(term* self, uint8 x);
+term* term_write(term* self, uint16 x);
+term* term_write(term* self, uint32 x);
+term* term_write(term* self, uint64 x);
+term* term_write(term* self, void* x);
+term* term_write(term* self, native_string x);
+term* term_write(term* self, unicode_string x);
 //-----------------------------------------------------------------------------
 
 
 //-----------------------------------------------------------------------------
 // Static objects
 //-----------------------------------------------------------------------------
-extern term_c term_console;
+extern term term_console;
 
 #endif
 

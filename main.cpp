@@ -18,7 +18,7 @@
 
 int main ()
 { 
-  term_c* tty = &new_term(0, 320, 80, 10, &font::mono_6x9, L"tty", true);
+  term* tty = &new_term(0, 320, 80, 10, &font::mono_6x9, L"tty", true);
   
   term_write(tty, "\033[46m" );
   term_write(tty, "Gambit v4.9.3");

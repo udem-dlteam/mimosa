@@ -12,8 +12,8 @@
 
 //-----------------------------------------------------------------------------
 
-term_c new_term(int x, int y, int nb_columns, int nb_rows, font* font, unicode_string title, bool initialy_visible) {
-  term_c term;
+term new_term(int x, int y, int nb_columns, int nb_rows, font* font, unicode_string title, bool initialy_visible) {
+  term term;
 
   term._x = x;
   term._y = y;
@@ -39,7 +39,7 @@ term_c new_term(int x, int y, int nb_columns, int nb_rows, font* font, unicode_s
   return term;
 }
 
-void term_show(term_c* self) {
+void term_show(term* self) {
   if (self->_visible) {
     return;
   }
@@ -104,7 +104,7 @@ void term_show(term_c* self) {
   self->_visible = TRUE;
 }
 
-void term_char_coord_to_screen_coord(term_c* self, int column, int row, int* sx,
+void term_char_coord_to_screen_coord(term* self, int column, int row, int* sx,
                                      int* sy, int* ex, int* ey) {
   int char_max_width = self->_fn->get_max_width();
   int char_height = self->_fn->get_height();
@@ -117,7 +117,7 @@ void term_char_coord_to_screen_coord(term_c* self, int column, int row, int* sx,
   *ey = *sy + char_height;
 }
 
-void term_color_to_pattern(term_c* self, int color, pattern** pat) {
+void term_color_to_pattern(term* self, int color, pattern** pat) {
   switch (color) {
     case 0:
       *pat = &pattern::black;
@@ -146,19 +146,19 @@ void term_color_to_pattern(term_c* self, int color, pattern** pat) {
   }
 }
 
-void term_show_cursor(term_c* self) {
+void term_show_cursor(term* self) {
   if (!self->_cursor_visible) {
     term_toggle_cursor(self);
   }
 }
 
-void term_hide_cursor(term_c* self) {
+void term_hide_cursor(term* self) {
   if (self->_cursor_visible) {
     term_toggle_cursor(self);
   }
 }
 
-void term_toggle_cursor(term_c* self) {
+void term_toggle_cursor(term* self) {
   int sx, sy, ex, ey;
 
   term_char_coord_to_screen_coord(self, self->_cursor_column, self->_cursor_row,
@@ -169,7 +169,7 @@ void term_toggle_cursor(term_c* self) {
   self->_cursor_visible = !self->_cursor_visible;
 }
 
-int term_write(term_c* self, unicode_char* buf, int count) {
+int term_write(term* self, unicode_char* buf, int count) {
   int start, end, i;
   unicode_char c;
 
@@ -450,7 +450,7 @@ int term_write(term_c* self, unicode_char* buf, int count) {
   return end;
 }
 
-void term_scroll_up(term_c* self) {
+void term_scroll_up(term* self) {
   int x0, y0, x1, y1, x2, y2, x3, y3;
 
   pattern* background;
@@ -467,19 +467,19 @@ void term_scroll_up(term_c* self) {
   video::screen.fill_rect(x0, y2, x3, y3, background);
 }
 
-term_c* term_write(term_c* self, bool x) {
+term* term_write(term* self, bool x) {
   return term_write(self, x ? L"TRUE" : L"FALSE");
 }
 
-term_c* term_write(term_c* self, int8 x) {
+term* term_write(term* self, int8 x) {
   return term_write(self, CAST(int32, x));
 }
 
-term_c* term_write(term_c* self, int16 x) {
+term* term_write(term* self, int16 x) {
   return term_write(self, CAST(int32, x));
 }
 
-term_c* term_write(term_c* self, int32 x) {
+term* term_write(term* self, int32 x) {
   if (x < 0) {
     return term_write(term_write(self, L"-"), CAST(uint32, -x));
   } else {
@@ -487,19 +487,19 @@ term_c* term_write(term_c* self, int32 x) {
   }
 }
 
-term_c* term_write(term_c* self, int64 x) {
+term* term_write(term* self, int64 x) {
   return term_write(self, CAST(uint64, x));
 }
 
-term_c* term_write(term_c* self, uint8 x) {
+term* term_write(term* self, uint8 x) {
   return term_write(self, CAST(uint32, x));
 }
 
-term_c* term_write(term_c* self, uint16 x) {
+term* term_write(term* self, uint16 x) {
   return term_write(self, CAST(uint32, x));
 }
 
-term_c* term_write(term_c* self, uint32 x) {
+term* term_write(term* self, uint32 x) {
   const int max_digits = 10;  // 2^32 contains 10 decimal digits
   unicode_char buf[max_digits + 1];
   unicode_char* str = buf + max_digits;
@@ -519,7 +519,7 @@ term_c* term_write(term_c* self, uint32 x) {
   return term_write(self, str);
 }
 
-term_c* term_write(term_c* self, uint64 x) {
+term* term_write(term* self, uint64 x) {
   const int max_digits = 20;  // 2^64 contains 20 decimal digits
   unicode_char buf[max_digits + 1];
   unicode_char* str = buf + max_digits;
@@ -539,7 +539,7 @@ term_c* term_write(term_c* self, uint64 x) {
   return term_write(self, str);
 }
 
-term_c* term_write(term_c* self, void* x) {
+term* term_write(term* self, void* x) {
   const int nb_digits = 8;  // 32 bit pointer contains 8 hexadecimal digits
   unicode_char buf[2 + nb_digits + 1];
   unicode_string str = buf + 2 + nb_digits;
@@ -559,7 +559,7 @@ term_c* term_write(term_c* self, void* x) {
   return term_write(self, str);
 }
 
-term_c* term_write(term_c* self, native_string x) {
+term* term_write(term* self, native_string x) {
   unicode_char buf[2];
 
   buf[1] = '\0';
@@ -572,7 +572,7 @@ term_c* term_write(term_c* self, native_string x) {
   return self;
 }
 
-term_c* term_write(term_c* self, unicode_string x) {
+term* term_write(term* self, unicode_string x) {
   int n = 0;
 
   while (x[n] != '\0') n++;
