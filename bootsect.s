@@ -87,7 +87,7 @@ after_header:
   pushl %eax
   pushl %ebx
 
-  movw $drive_lbl, %si
+  movw $oem_name, %si
   call print_string
 
   movw $new_line, %si
