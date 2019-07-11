@@ -1,6 +1,6 @@
 // file: "video.h"
 
-// Copyright (c) 2001 by Marc Feeley and Université de Montréal, All
+// Copyright (c) 2001 by Marc Feeley and Universitï¿½ de Montrï¿½al, All
 // Rights Reserved.
 //
 // Revision History
@@ -240,6 +240,34 @@ class font
   };
 
 //-----------------------------------------------------------------------------
+// C rewrite section
+//-----------------------------------------------------------------------------
+
+typedef struct font_c {
+  int _max_width;
+  int _height;
+  int _nb_chars;
+  uint16* _char_map;
+  uint32* _char_end;
+  raw_bitmap* _raw;
+} font_c;
+
+font_c new_font(int max_width, int height, int nb_chars, uint16* char_map,
+                uint32 char_end, raw_bitmap* raw);
+
+int font_get_max_width(font_c* self);
+
+int font_get_height(font_c* self);
+
+int font_draw_text(font_c* self, raw_bitmap* dst, int x, int y,
+                   unicode_char* text, int count, pattern* foreground,
+                   pattern* background);
+
+int font_draw_string(font_c* self, raw_bitmap* dst, int x, int y,
+                     unicode_string str, pattern* foreground,
+                     pattern* background);
+
+void _font_get_char_data(font_c* self, unicode_char c, int& start, int& width);
 
 #endif
 
