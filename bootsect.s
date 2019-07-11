@@ -93,8 +93,6 @@ after_header:
   movw $new_line, %si
   call print_string
 
-
-
   popl %ebx
   popl %eax
   
@@ -350,16 +348,16 @@ a_20_failure:
 
 load_os:
 
-  xorw %ax, %ax
-  movw %ax, %es # A20 messes with it
-
   movw $a_20_succes_message, %si
   call print_string
 
   movw $loading_os_message, %si
   call print_string
 
-  popl %ebx
+  xorw %ax, %ax
+  movw %ax, %es # A20 messes with it
+
+  popl %ebx # from extended code start
   popl %eax
 
 
