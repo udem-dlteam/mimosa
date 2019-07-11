@@ -29,8 +29,8 @@ code_start:
 
 # This header will make the boot sector look like the one for an MSDOS floppy.
 
-  jmp after_header  # jump after the header block
-  .byte 0x90        # nop
+jmp after_header  # jump after the header block
+  .byte 0x00        # nop
 oem_name:
   .ascii "mkfs.fat" # OEM name 8 characters (two spaces to get to 8)
 nb_bytes_per_sector:
@@ -64,7 +64,9 @@ extended_bpb_sig:
 serial_num:
   .byte 0xFF,0xFF,0xFF,0xFF # serial number
 drive_lbl:
-  .ascii "MIMOSA OS  " # drive label (11 char)
+  .ascii "MIMOSA OS"
+  .byte 0
+  .byte 0 # drive label (11 char)
 fs_label:
   .ascii "FAT12   " # file system type (FAT 12 here, 8 chars long)
 # ------------------------------------------------------------------------------
@@ -96,9 +98,9 @@ after_header:
 
   # Little OS name printing...
 
-  movw drive_lbl, %si
+  movw $drive_lbl, %si
   call print_string
-  
+
   movw $new_line, %si
   call print_string
 
