@@ -1,6 +1,6 @@
 // file: "intr.cpp"
 
-// Copyright (c) 2001 by Marc Feeley and Université de Montréal, All
+// Copyright (c) 2001 by Marc Feeley and Universitï¿½ de Montrï¿½al, All
 // Rights Reserved.
 //
 // Revision History
@@ -334,9 +334,10 @@ void APIC_spurious_irq ()
   APIC_EOI = 0;
 }
 
-void unhandled_interrupt (int num)
-{
-  cout << "\033[41m unhandled interrupt " << num << " \033[0m";
+void unhandled_interrupt(int num) {
+  term_write(cout, "\033[41m unhandled interrupt ");
+  term_write(cout, num);
+  term_write(cout, " \033[0m");
 }
 
 //-----------------------------------------------------------------------------

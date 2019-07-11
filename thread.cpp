@@ -1,6 +1,6 @@
 // file: "thread.cpp"
 
-// Copyright (c) 2001 by Marc Feeley and Université de Montréal, All
+// Copyright (c) 2001 by Marc Feeley and Universitï¿½ de Montrï¿½al, All
 // Rights Reserved.
 //
 // Revision History
@@ -465,31 +465,31 @@ void scheduler::stats ()
   int m = 0;
   int p = 0;
 
-  cout << "(";
+  term_write(cout, "(");
 
   {
     wait_mutex_node* t = readyq->_next_in_wait_queue;
     while (t != readyq)
       {
-        cout << CAST(thread*,t)->name ();
+        term_write(cout, CAST(thread*,t)->name ());
         n++;
         t = t->_next_in_wait_queue;
       }
   }
 
-  cout << " ";
+  term_write(cout, " ");
 
   {
     wait_mutex_sleep_node* t = sleepq->_next_in_sleep_queue;
     while (t != sleepq)
       {
-        cout << CAST(thread*,t)->name ();
+        term_write(cout, CAST(thread*,t)->name ());
         m++;
         t = t->_next_in_sleep_queue;
       }
   }
 
-  cout << " ";
+  term_write(cout, " ");
 
   {
     for (int i = 0; i < mn; i++)
@@ -497,7 +497,11 @@ void scheduler::stats ()
         wait_mutex_node* t = mtab[i]->_next_in_wait_queue;
         while (t != mtab[i])
           {
-            cout << "m" << i << "=" << CAST(thread*,t)->name () << " ";
+            term_write(cout, "m");
+            term_write(cout, i);
+            term_write(cout, "=");
+            term_write(cout, CAST(thread*, t)->name());
+            term_write(cout, " ");
             p++;
             t = t->_next_in_wait_queue;
           }
@@ -510,14 +514,18 @@ void scheduler::stats ()
         wait_mutex_node* t = ctab[i]->_next_in_wait_queue;
         while (t != ctab[i])
           {
-            cout << "c" << i << "=" << CAST(thread*,t)->name () << " ";
+            term_write(cout, "c");
+            term_write(cout, i);
+            term_write(cout, "=");
+            term_write(cout, CAST(thread*,t)->name () );
+            term_write(cout, " ");
             p++;
             t = t->_next_in_wait_queue;
           }
       }
   }
 
-  cout << ")\n";
+  term_write(cout, ")\n");
 
   enable_interrupts ();
 

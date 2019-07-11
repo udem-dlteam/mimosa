@@ -5,7 +5,6 @@
 //
 // Revision History
 // 22 Sep 01  initial version (Marc Feeley)
-
 #ifndef TERM_H
 #define TERM_H
 
@@ -47,12 +46,8 @@ typedef struct term_c {
 } term_c;
 
 
-term_c new_term(int x, int y, int nb_columns, int nb_rows, font* font,
+term_c* new_term(int x, int y, int nb_columns, int nb_rows, font* font,
                 unicode_string title, bool initialy_visible);
-
-
-term_c term_console= new_term(0,0, 80, 30, &font::mono_6x9, L"console", true);
-#define cout &term_console
 
 void term_show(term_c* self); //#!
 
@@ -81,6 +76,12 @@ term_c* term_write(term_c* self, void* x);
 term_c* term_write(term_c* self, native_string x);
 term_c* term_write(term_c* self, unicode_string x);
 //-----------------------------------------------------------------------------
+
+
+//-----------------------------------------------------------------------------
+// Static objects
+//-----------------------------------------------------------------------------
+extern term_c* term_console;
 
 #endif
 

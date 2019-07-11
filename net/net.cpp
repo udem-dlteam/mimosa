@@ -512,9 +512,11 @@ void exec_node (int node_id)
 
   gettimeofday (&last, NULL);
 
-  term window (0, 420, 80, 3, &font::mono_6x9, L"window");
+  term_c window = new_term(0, 420, 80, 3, &font::mono_6x9, L"window", true);
 
-  cout << "This is " << nodes[node_id].name << "\n";
+  term_write(cout, "This is ");
+  term_write(cout, nodes[node_id].name );
+  term_write(cout, "\n");
 
   reset_stats ();
 
@@ -741,7 +743,7 @@ extern "C" void console_putc (int c)
   native_char str[2];
   str[0] = c;
   str[1] = '\0';
-  cout << str;
+  term_write(cout, str);
 }
 
 extern "C" int console_ischar ()
@@ -755,11 +757,11 @@ void setup_net ()
 {
   if (!eth_probe ())
     {
-      cout << "No adapter found\n";
+      term_write(cout, "No adaptoer found\n");
       return;
     }
 
-  cout << "Adapter found\n";
+  term_write(cout, "Adapter found\n");
 
   int node_id = find_node_id_from_node_addr (nic.node_addr);
 
@@ -768,8 +770,8 @@ void setup_net ()
       exec_node (node_id);
       return;
     }
-
-  cout << "Unknown node!\n";
+    
+  term_write(cout, "Unknown node!\n");
 }
 
 //-----------------------------------------------------------------------------
