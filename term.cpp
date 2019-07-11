@@ -12,8 +12,8 @@
 
 //-----------------------------------------------------------------------------
 
-term_c* new_term(int x, int y, int nb_columns, int nb_rows, font* font, unicode_string title, bool initialy_visible) {
-  static term_c term;
+term_c new_term(int x, int y, int nb_columns, int nb_rows, font* font, unicode_string title, bool initialy_visible) {
+  term_c term;
 
   term._x = x;
   term._y = y;
@@ -36,7 +36,7 @@ term_c* new_term(int x, int y, int nb_columns, int nb_rows, font* font, unicode_
     term_show(&term);
   }
 
-  return &term;
+  return term;
 }
 
 void term_show(term_c* self) {

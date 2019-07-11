@@ -13,6 +13,7 @@
 #include "general.h"
 #include "video.h"
 
+#define cout &term_console
 //-----------------------------------------------------------------------------
 
 // "term" class declaration.
@@ -46,7 +47,7 @@ typedef struct term_c {
 } term_c;
 
 
-term_c* new_term(int x, int y, int nb_columns, int nb_rows, font* font,
+term_c new_term(int x, int y, int nb_columns, int nb_rows, font* font,
                 unicode_string title, bool initialy_visible);
 
 void term_show(term_c* self); //#!
@@ -81,7 +82,7 @@ term_c* term_write(term_c* self, unicode_string x);
 //-----------------------------------------------------------------------------
 // Static objects
 //-----------------------------------------------------------------------------
-extern term_c* term_console;
+extern term_c term_console;
 
 #endif
 

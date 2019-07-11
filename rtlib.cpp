@@ -19,7 +19,7 @@
 #include "thread.h"
 
 static void __rtlib_setup (); // forward declaration
-
+term_c term_console;
 //-----------------------------------------------------------------------------
 
 void fatal_error (native_string msg)
@@ -193,6 +193,9 @@ void __do_global_ctors ()
     for (nptrs = 0; __CTOR_LIST__[nptrs + 1] != 0; nptrs++);
   for (i = nptrs; i >= 1; i--)
     __CTOR_LIST__[i] ();
+
+  // Create the console terminal
+  term_console = new_term(0, 0, 80, 30, &font::mono_6x9, L"console", true);
 }
 
 void __do_global_dtors ()
