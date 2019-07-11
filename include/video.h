@@ -59,11 +59,6 @@ typedef BITMAP_WORD_SELECT(uint32,uint64) bitmap_quad_word; // to be able to
                                                             // at a time
 
 //-----------------------------------------------------------------------------
-// Extern declarations for statics
-extern font_c mono_5x7;
-extern font_c mono_6x9;
-
-//-----------------------------------------------------------------------------
 // "pattern" class declaration.
 
 class pattern
@@ -257,7 +252,7 @@ typedef struct font_c {
 } font_c;
 
 font_c new_font(int max_width, int height, int nb_chars, uint16* char_map,
-                uint32 char_end, raw_bitmap* raw);
+                uint32* char_end, raw_bitmap* raw);
 
 int font_get_max_width(font_c* self);
 
@@ -272,6 +267,13 @@ int font_draw_string(font_c* self, raw_bitmap* dst, int x, int y,
                      pattern* background);
 
 void _font_get_char_data(font_c* self, unicode_char c, int& start, int& width);
+
+
+//-----------------------------------------------------------------------------
+// Extern declarations for statics
+extern font_c mono_5x7;
+extern font_c mono_6x9;
+
 
 #endif
 
