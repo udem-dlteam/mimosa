@@ -267,12 +267,16 @@ int font_draw_string(font_c* self, raw_bitmap* dst, int x, int y,
                      pattern* background);
 
 void _font_get_char_data(font_c* self, unicode_char c, int& start, int& width);
+//-----------------------------------------------------------------------------
+
+
+
 
 
 //-----------------------------------------------------------------------------
 // Extern declarations for statics
-extern font_c mono_5x7;
-extern font_c mono_6x9;
+extern font_c font_mono_5x7;
+extern font_c font_mono_6x9;
 
 
 #endif
