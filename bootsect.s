@@ -200,7 +200,8 @@ cannot_load:
 
   movw $load_error_message, %si
   call print_string
-  
+
+failure_routine:
   movw $any_key_message, %si
   call print_string
   
@@ -344,6 +345,7 @@ a_20_failure:
 
   movw $a_20_failure_message, %si
   call print_string
+  
   jmp failure_routine  
 
 load_os:
