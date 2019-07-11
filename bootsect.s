@@ -29,8 +29,8 @@ code_start:
 
 # This header will make the boot sector look like the one for an MSDOS floppy.
 
-  jmp after_header  # jump after the header block
-  .byte 0x90        # nop
+jmp after_header  # jump after the header block
+  .byte 0x00        # nop
 oem_name:
   .ascii "MIMOSA"
   .byte 0
@@ -66,7 +66,9 @@ extended_bpb_sig:
 serial_num:
   .byte 0xFF,0xFF,0xFF,0xFF # serial number
 drive_lbl:
-  .ascii "MIMOSA OS  " # drive label (11 char)
+  .ascii "MIMOSA OS"
+  .byte 0
+  .byte 0 # drive label (11 char)
 fs_label:
   .ascii "FAT12   " # file system type (FAT 12 here, 8 chars long)
 # ------------------------------------------------------------------------------
@@ -75,13 +77,26 @@ after_header:
 # Setup segments.
   cli
   xorw  %cx,%cx
-  movw  %cx,%es
   movw  %cx,%ds
   movw  %cx,%ss
   movw  $(STACK_TOP & 0xffff),%sp
   sti
 
   movb %dl, drive
+
+  pushl %eax
+  pushl %ebx
+
+  movw $drive_lbl, %si
+  call print_string
+
+  movw $new_line, %si
+  call print_string
+
+
+
+  popl %ebx
+  popl %eax
   
 # Get drive geometry
   movb $0x08, %ah
@@ -98,12 +113,7 @@ after_header:
 
   # Little OS name printing...
 
-  movw $oem_name, %si
-  call print_string
   
-  movw $new_line, %si
-  call print_string
-
   # ------------------------------------------------------------------------------
   # Load the extended bootsector into the RAM
   # In order to use the extended bootsector correctly, the extended boot sector is 
@@ -184,20 +194,21 @@ read_sector:
 # ------------------------------------------------------------------------------
 
 cannot_load:
-  movw  $load_error,%si
-  call print_string
-  jmp failure_routine
+  
+  pushl %eax
+  pushl %ebx
 
-failure_routine:
-  movw $any_key_reboot_msg, %si
+  movw $load_error_message, %si
   call print_string
-  movb  $INT16_READ_KEYBOARD_FN,%ah
-  int   $0x16 # read keyboard
+  
+  movw $any_key_message, %si
+  call print_string
+  
+  popl %ebx
+  popl %eax
+
+  int $0x16
   ljmp  $0xf000,$0xfff0  # jump to 0xffff0 (the CPU starts there when reset)
-
-# ------------------------------------------------------------------------------
-# String and data
-# ------------------------------------------------------------------------------
 
 nb_root_sectors:
   .long 0x00000 # number of sectors in the root directory
@@ -212,8 +223,12 @@ new_line:
   .ascii "\n\r"
   .byte 0
 
-load_error:
-  .ascii "\n\rIO Error. Unable to load the OS."
+load_error_message:
+  .ascii "IO Error. The system failed to load. Please reboot."
+  .byte 0
+
+any_key_message:
+  .ascii "Press any key to reboot..."
   .byte 0
 
 kernel_name:
