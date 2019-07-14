@@ -196,7 +196,7 @@ typedef struct raw_bitmap_c {
   int _depth;
 } raw_bitmap_c;
 
-raw_bitmap_c new_raw_bitmap(int x, int y, int x_end, int y_end,
+void raw_bitmap_bitblt(raw_bitmap_c* self, int x, int y, int x_end, int y_end,
                             raw_bitmap_c* src, int src_x, int src_y,
                             pattern* foreground, pattern* background);
 
@@ -206,18 +206,56 @@ void raw_bitmap_fill_rect(raw_bitmap_c* self, int x, int y, int x_end,
 void raw_bitmap_frame_rect(raw_bitmap_c* self, int x, int y, int x_end,
                            int y_end, int border, pattern* foreground);
 
-void raw_bitmap_show_mouse(raw_bitmap_c* self);
+void raw_bitmap_show_mouse(void* self);
 
-void raw_bitmap_hide_mouse(raw_bitmap_c* self);
+void raw_bitmap_hide_mouse(void* self);
 
-bitmap_word* _raw_bitmap_select_layer(raw_bitmap_c* self, int layer);
+bitmap_word* _raw_bitmap_select_layer(void* self, int layer);
 
 void invert_rect(raw_bitmap_c* self, int x, int y, int x_end, int y_end);
 
 //-----------------------------------------------------------------------------
 
+//-----------------------------------------------------------------------------
+// raw_bitmap_in_memory
 
+typedef struct raw_bitmap_in_memory_c {
+  raw_bitmap_c super;
+  bitmap_word* _start;
+} raw_bitmap_in_memory_c;
 
+void raw_bitmap_in_memory_hide_mouse(void* self);
+
+void raw_bitmap_in_memory_show_mouse(void* self);
+
+bitmap_word* _raw_bitmap_in_memory_select_layer(void* self, int layer);
+
+//-----------------------------------------------------------------------------
+
+//-----------------------------------------------------------------------------
+// video
+
+typedef struct video_c {
+  raw_bitmap_c super;
+  int _mode;
+  bitmap_word* _start;
+  int _mouse_x;
+  int _mouse_y;
+  int _mouse_hides;
+} video_c;
+
+void video_move_mouse(video_c* self, int dx, int dy);
+
+void video_hide_mouse(void* self);
+
+void video_show_mouse(void* self);
+
+bitmap_word* video_select_layer(void* self, int layer);
+
+void video_get_mouse_rect(video_c* self, int* width, int* height);
+
+void video_draw_mouse(video_c* self);
+//-----------------------------------------------------------------------------
 
 
 
@@ -275,6 +313,13 @@ extern pattern pattern_cyan;
 
 extern font_c font_mono_5x7;
 extern font_c font_mono_6x9;
+
+extern video_c v_screen;
+extern raw_bitmap_in_memory_c v_mouse_save;
+
+extern raw_bitmap_vtable _raw_bitmap_vtable;
+extern raw_bitmap_vtable _raw_bitmap_in_memory_vtable;
+extern raw_bitmap_vtable _video_vtable;
 
 #endif
 

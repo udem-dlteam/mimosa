@@ -15,6 +15,7 @@
 
 //-----------------------------------------------------------------------------
 
+
 // "pattern" class implementation.
 
 static bitmap_word black_bitmap_words[] = {0x00, 0x00, 0x00, 0x00,
@@ -501,6 +502,163 @@ void raw_bitmap::invert_rect (int x, int y, int x_end, int y_end)
 //-----------------------------------------------------------------------------
 // C rewrite
 //-----------------------------------------------------------------------------
+
+//-----------------------------------------------------------------------------
+// raw_bitmap
+//-----------------------------------------------------------------------------
+
+void raw_bitmap_bitblt(raw_bitmap_c* self, int x, int y, int x_end,
+                               int y_end, raw_bitmap_c* src, int src_x,
+                               int src_y, pattern* foreground,
+                               pattern* background) {
+  if (x < x_end && y < y_end) {
+    int realignment =
+        (((x & (BITMAP_WORD_WIDTH - 1)) - (src_x & (BITMAP_WORD_WIDTH - 1))) &
+         (BITMAP_WORD_WIDTH * 2 - 1)) ^
+        BITMAP_WORD_WIDTH;
+    int nb_words_per_row =
+        ((x_end - 1) >> LOG2_BITMAP_WORD_WIDTH) - (x >> LOG2_BITMAP_WORD_WIDTH);
+    int nb_rows = y_end - y;
+    int row;
+    int layer;
+
+    self->vtable->hide_mouse(self);
+    src->vtable->hide_mouse(src);
+
+    if (nb_words_per_row > 0) {
+      for (row = nb_rows; row > 0; row--) {
+        for (layer = self->_depth - 1; layer >= 0; layer--) {
+          bitmap_word fg = pattern_get_word(foreground, y, layer);
+          bitmap_word bg = pattern_get_word(background, y, layer);
+
+          bitmap_word* s =
+              src->vtable->_select_layer(src, layer) +
+              ((src_y * src->_width + src_x) >> LOG2_BITMAP_WORD_WIDTH);
+          bitmap_word* d = self->vtable->_select_layer(self, layer) +
+                           ((y * self->_width + x) >> LOG2_BITMAP_WORD_WIDTH);
+          bitmap_quad_word b;
+          bitmap_word m;
+          int col;
+
+          b = (CAST(bitmap_quad_word, s[0]) << BITMAP_WORD_WIDTH) | s[1];
+          s += 2;
+          m = CAST(bitmap_word, -1) >> (x & (BITMAP_WORD_WIDTH - 1));
+          *d = COMBINE_BITS_FG_BG(*d, b >> realignment, m, fg, bg);
+
+          for (col = nb_words_per_row - 1; col > 0; col--) {
+            b = (b << BITMAP_WORD_WIDTH) | *s++;
+            d++;
+            *d = COMBINE_WORDS_FG_BG(*d, b >> realignment, fg, bg);
+          }
+
+          m = CAST(bitmap_word, -1) << ((-x_end) & (BITMAP_WORD_WIDTH - 1));
+          b = (b << BITMAP_WORD_WIDTH) | *s;
+          d++;
+          *d = COMBINE_BITS_FG_BG(*d, b >> realignment, m, fg, bg);
+        }
+
+        src_y++;
+        y++;
+      }
+    } else {
+      for (row = nb_rows; row > 0; row--) {
+        for (layer = self->_depth - 1; layer >= 0; layer--) {
+          bitmap_word fg = pattern_get_word(foreground, y, layer);
+          bitmap_word bg = pattern_get_word(background, y, layer);
+
+          bitmap_word* s =
+              src->vtable->_select_layer(src,layer) +
+              ((src_y * src->_width + src_x) >> LOG2_BITMAP_WORD_WIDTH);
+          bitmap_word* d = self->vtable->_select_layer(self, layer) +
+                           ((y * self->_width + x) >> LOG2_BITMAP_WORD_WIDTH);
+          bitmap_quad_word b;
+          bitmap_word m;
+
+          b = (CAST(bitmap_quad_word, s[0]) << BITMAP_WORD_WIDTH) | s[1];
+          m = (CAST(bitmap_word, -1) >> (x & (BITMAP_WORD_WIDTH - 1))) &
+              (CAST(bitmap_word, -1) << ((-x_end) & (BITMAP_WORD_WIDTH - 1)));
+          *d = COMBINE_BITS_FG_BG(*d, b >> realignment, m, fg, bg);
+        }
+
+        src_y++;
+        y++;
+      }
+    }
+
+
+    self->vtable->show_mouse(self);
+    src->vtable->show_mouse(src);
+  }
+}
+
+void raw_bitmap_fill_rect(raw_bitmap_c* self, int x, int y, int x_end,
+                          int y_end, pattern* foreground) {
+  if (x < x_end && y < y_end) {
+    int nb_words_per_row =
+        ((x_end - 1) >> LOG2_BITMAP_WORD_WIDTH) - (x >> LOG2_BITMAP_WORD_WIDTH);
+    int nb_rows = y_end - y;
+    int row;
+    int layer;
+
+    self->vtable->hide_mouse(self);
+
+    if (nb_words_per_row > 0) {
+      for (row = nb_rows; row > 0; row--) {
+        for (layer = self->_depth - 1; layer >= 0; layer--) {
+          bitmap_word fg = pattern_get_word(foreground, y, layer);
+
+          bitmap_word* d = self->vtable->_select_layer(self,layer) +
+                           ((y * self->_width + x) >> LOG2_BITMAP_WORD_WIDTH);
+          bitmap_word m;
+          int col;
+
+          m = CAST(bitmap_word, -1) >> (x & (BITMAP_WORD_WIDTH - 1));
+          *d = COMBINE_BITS(*d, fg, m);
+
+          for (col = nb_words_per_row - 1; col > 0; col--) {
+            d++;
+            *d = COMBINE_WORDS(*d, fg);
+          }
+
+          m = CAST(bitmap_word, -1) << ((-x_end) & (BITMAP_WORD_WIDTH - 1));
+          d++;
+          *d = COMBINE_BITS(*d, fg, m);
+        }
+
+        y++;
+      }
+    } else {
+      for (row = nb_rows; row > 0; row--) {
+        for (layer = self->_depth - 1; layer >= 0; layer--) {
+          bitmap_word fg = pattern_get_word(foreground, y, layer);
+          bitmap_word* d = self->vtable->_select_layer(self, layer) +
+                           ((y * self->_width + x) >> LOG2_BITMAP_WORD_WIDTH);
+          bitmap_word m;
+
+          m = (CAST(bitmap_word, -1) >> (x & (BITMAP_WORD_WIDTH - 1))) &
+              (CAST(bitmap_word, -1) << ((-x_end) & (BITMAP_WORD_WIDTH - 1)));
+          *d = COMBINE_BITS(*d, fg, m);
+        }
+
+        y++;
+      }
+    }
+
+    self->vtable->show_mouse(self);
+  }
+}
+
+void raw_bitmap_frame_rect(raw_bitmap_c* self, int x, int y, int x_end,
+                           int y_end, int border, pattern* foreground) {
+  self->vtable->hide_mouse(self);
+  raw_bitmap_fill_rect(self, x, y, x_end, y + border, foreground);
+  raw_bitmap_fill_rect(self, x, y + border, x + border, y_end - border,
+                       foreground);
+  raw_bitmap_fill_rect(self, x_end - border, y + border, x_end, y_end - border,
+                       foreground);
+  raw_bitmap_fill_rect(self, x, y_end - border, x_end, y_end, foreground);
+  self->vtable->show_mouse(self);
+}
 
 //-----------------------------------------------------------------------------
 // PATTERN
