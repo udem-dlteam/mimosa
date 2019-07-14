@@ -19,12 +19,22 @@
 #include "thread.h"
 #include "mono_5x7.h"
 #include "mono_6x9.h"
+#include "video.h"
 
 static void __rtlib_setup (); // forward declaration
 
 font_c font_mono_5x7;
 font_c font_mono_6x9;
 term term_console;
+video screen;
+
+raw_bitmap_vtable _raw_bitmap_vtable;
+raw_bitmap_vtable _raw_bitmap_in_memory_vtable;
+raw_bitmap_vtable _video_vtable;
+
+static bitmap_word mouse_bitmap[MOUSE_WIDTH_IN_BITMAP_WORDS * MOUSE_HEIGHT * 4];
+
+raw_bitmap_in_memory mouse_save;
 
 //-----------------------------------------------------------------------------
 
@@ -199,10 +209,30 @@ void __do_global_ctors ()
     for (nptrs = 0; __CTOR_LIST__[nptrs + 1] != 0; nptrs++);
   for (i = nptrs; i >= 1; i--)
     __CTOR_LIST__[i] ();
+  // Video VTables
+  _video_vtable.hide_mouse = video_hide_mouse;
+  _video_vtable.show_mouse = video_show_mouse;
+  _video_vtable._select_layer = video_select_layer;
+
+  _raw_bitmap_in_memory_vtable.hide_mouse = raw_bitmap_in_memory_hide_mouse;
+  _raw_bitmap_in_memory_vtable.show_mouse = raw_bitmap_in_memory_show_mouse;
+  _raw_bitmap_in_memory_vtable._select_layer = _raw_bitmap_in_memory_select_layer;
+
+  _raw_bitmap_vtable.hide_mouse = raw_bitmap_hide_mouse;
+  _raw_bitmap_vtable.show_mouse = raw_bitmap_show_mouse;
+  _raw_bitmap_vtable._select_layer = _raw_bitmap_select_layer;
+  
+  // Screen
+  screen = new_video(18);
+
+  mouse_save = new_raw_bitmap_in_memory(
+    mouse_bitmap, MOUSE_WIDTH_IN_BITMAP_WORDS << LOG2_BITMAP_WORD_WIDTH,
+    MOUSE_HEIGHT, 4);
 
   // Create the fonts that might be used
   font_mono_5x7 = create_mono_5x7();
   font_mono_6x9 = create_mono_6x9();
+
   // Create the console terminal
   term_console = new_term(0, 0, 80, 30, &font_mono_6x9, L"console", true);
 }

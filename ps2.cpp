@@ -282,7 +282,7 @@ static void process_mouse_data (uint8 data)
   if (b1 & (1<<4)) dx -= 256;
   if (b1 & (1<<5)) dy -= 256;
 
-  video::screen.move_mouse (dx, -dy);
+  video_move_mouse(&screen, dx, -dy);
 }
 
 #ifdef USE_IRQ12_FOR_MOUSE
