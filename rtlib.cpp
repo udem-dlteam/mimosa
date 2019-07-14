@@ -224,6 +224,9 @@ void __do_global_ctors ()
   
   // Screen
   screen = new_video(18);
+  raw_bitmap_fill_rect(&screen.super, 0, 0, screen.super._width,
+                        screen.super._height, &pattern_gray50);
+
 
   mouse_save = new_raw_bitmap_in_memory(
     mouse_bitmap, MOUSE_WIDTH_IN_BITMAP_WORDS << LOG2_BITMAP_WORD_WIDTH,

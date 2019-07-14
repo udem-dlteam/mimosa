@@ -140,9 +140,6 @@ video new_video(int mode) {
   video._mouse_y = video.super._height / 2;
   video._mouse_hides = 1;
 
-  raw_bitmap_fill_rect(&screen.super, 0, 0, video.super._width,
-                       video.super._height, &pattern_gray50);
-
   return video;
 }
 
