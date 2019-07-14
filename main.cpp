@@ -30,7 +30,7 @@ int main ()
   for (int i=0; i<20000; i++)
   ;
 
-  term_write(tty, "Pattern is in C!");
+  term_write(tty, "Video.cpp is in C!");
 
   for (;;) ; // loop forever!
 
