@@ -13,7 +13,6 @@
 #include "vga.h"
 #include "term.h"
 
-//-----------------------------------------------------------------------------
 
 
 // "pattern" class implementation.
@@ -92,6 +91,15 @@ pattern pattern_cyan = new_pattern(cyan_bitmap_words, 8, 4);
 #define MOUSE_WIDTH  8
 #define MOUSE_WIDTH_IN_BITMAP_WORDS ((MOUSE_WIDTH+BITMAP_WORD_WIDTH-1) >> LOG2_BITMAP_WORD_WIDTH)
 #define MOUSE_HEIGHT 12
+
+//-----------------------------------------------------------------------------
+video_c v_screen = new_video(18);
+
+static bitmap_word mouse_bitmap[MOUSE_WIDTH_IN_BITMAP_WORDS * MOUSE_HEIGHT * 4];
+raw_bitmap_in_memory_c v_mouse_save = new_raw_bitmap_in_memory(
+    mouse_bitmap, MOUSE_WIDTH_IN_BITMAP_WORDS << LOG2_BITMAP_WORD_WIDTH,
+    MOUSE_HEIGHT, 4);
+//-----------------------------------------------------------------------------
 
 video::video (int mode)
 {
@@ -252,7 +260,6 @@ void video::draw_mouse ()
   fill_rect (x+7, y+7, x+8, y+minimum(8,height), &pattern_red);
 }
 
-static bitmap_word mouse_bitmap[MOUSE_WIDTH_IN_BITMAP_WORDS * MOUSE_HEIGHT * 4];
 
 raw_bitmap_in_memory video::mouse_save
   (mouse_bitmap,
@@ -538,19 +545,6 @@ video_c new_video(int mode) {
   return video;
 }
 
-void video_move_mouse(video_c* self, int dx, int dy) {
-
-  self->super->vtable->hide_mouse((void*)self);
-
-  self->_mouse_x += dx;
-  self->_mouse_y += dy;
-
-  clip(&self->_mouse_x, 0, self->super._width);
-  clip(&self->_mouse_y, 0, self->super._height);
-
-  self->super->vtable->show_mouse((void*)self);
-}
-
 void video_hide_mouse(void* self) {
   video_c* sself = (video_c*) self;
   sself->_mouse_hides++;
@@ -587,7 +581,7 @@ void video_show_mouse(video_c* self) {
 
 void video_move_mouse(video_c* self,int dx, int dy)
 {
-  hide_mouse ();
+  self->super.vtable->hide_mouse((void*)self);
 
   self->_mouse_x += dx;
   self->_mouse_y += dy;
@@ -595,7 +589,7 @@ void video_move_mouse(video_c* self,int dx, int dy)
   clip (&self->_mouse_x, 0, self->super._width);
   clip (&self->_mouse_y, 0, self->super._height);
 
-  show_mouse ();
+  self->super.vtable->show_mouse((void*)self);
 }
 
 void video_get_mouse_rect (video_c* self, int* width, int* height)
@@ -611,31 +605,50 @@ void video_draw_mouse (video_c* self)
 {
 #define minimum(a,b) (((a)<(b))?(a):(b))
 
-  int x = _mouse_x;
-  int y = _mouse_y;
+  int x = self->_mouse_x;
+  int y = self->_mouse_y;
   int width;
   int height;
 
-  get_mouse_rect (&width, &height);
+  video_get_mouse_rect(self, &width, &height);
 
   if (width < 1) return;
-  fill_rect (x+0, y+0, x+1, y+minimum(11,height), &pattern_red);
+  raw_bitmap_fill_rect(&self->super, x + 0, y + 0, x + 1,
+                       y + minimum(11, height), &pattern_red);
+
   if (width < 2) return;
-  fill_rect (x+1, y+1, x+2, y+minimum(10,height), &pattern_red);
+  raw_bitmap_fill_rect(&self->super, x + 1, y + 1, x + 2,
+                       y + minimum(10, height), &pattern_red);
+
   if (width < 3) return;
-  fill_rect (x+2, y+2, x+3, y+minimum(9,height), &pattern_red);
+  raw_bitmap_fill_rect(&self->super, x + 2, y + 2, x + 3,
+                       y + minimum(9, height), &pattern_red);
+
   if (width < 4) return;
-  fill_rect (x+3, y+3, x+4, y+minimum(10,height), &pattern_red);
+  raw_bitmap_fill_rect(&self->super, x + 3, y + 3, x + 4,
+                       y + minimum(10, height), &pattern_red);
+
   if (width < 5) return;
-  fill_rect (x+4, y+4, x+5, y+minimum(12,height), &pattern_red);
+  raw_bitmap_fill_rect(&self->super, x + 4, y + 4, x + 5,
+                       y + minimum(12, height), &pattern_red);
+
   if (width < 6) return;
-  fill_rect (x+5, y+5, x+6, y+minimum(8,height), &pattern_red);
-  fill_rect (x+5, y+10, x+6, y+minimum(14,height), &pattern_red);
+  raw_bitmap_fill_rect(&self->super, x + 5, y + 5, x + 6,
+                       y + minimum(8, height), &pattern_red);
+
+  raw_bitmap_fill_rect(&self->super, x + 5, y + 10, x + 6,
+                       y + minimum(14, height), &pattern_red);
+
   if (width < 7) return;
-  fill_rect (x+6, y+6, x+7, y+minimum(8,height), &pattern_red);
-  fill_rect (x+6, y+12, x+7, y+minimum(14,height), &pattern_red);
+  raw_bitmap_fill_rect(&self->super, x + 6, y + 6, x + 7,
+                       y + minimum(8, height), &pattern_red);
+
+  raw_bitmap_fill_rect(&self->super, x + 6, y + 12, x + 7,
+                       y + minimum(14, height), &pattern_red);
+
   if (width < 8) return;
-  fill_rect (x+7, y+7, x+8, y+minimum(8,height), &pattern_red);
+  raw_bitmap_fill_rect(&self->super, x + 7, y + 7, x + 8,
+                       y + minimum(8, height), &pattern_red);
 }
 
 //-----------------------------------------------------------------------------
@@ -835,7 +848,7 @@ void raw_bitmap_invert_rect(raw_bitmap_c* self, int x, int y, int x_end, int y_e
 }
 
 bitmap_word* _raw_bitmap_select_layer(void* self, int layer) {
-;
+  ;
 }
 
 void raw_bitmap_show_mouse(void* self) {
