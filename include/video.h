@@ -212,7 +212,7 @@ void raw_bitmap_hide_mouse(void* self);
 
 bitmap_word* _raw_bitmap_select_layer(void* self, int layer);
 
-void invert_rect(raw_bitmap_c* self, int x, int y, int x_end, int y_end);
+void raw_bitmap_invert_rect(raw_bitmap_c* self, int x, int y, int x_end, int y_end);
 
 //-----------------------------------------------------------------------------
 
@@ -223,6 +223,9 @@ typedef struct raw_bitmap_in_memory_c {
   raw_bitmap_c super;
   bitmap_word* _start;
 } raw_bitmap_in_memory_c;
+
+raw_bitmap_in_memory_c new_raw_bitmap_in_memory(bitmap_word* start, int width,
+                                                int height, int depth);
 
 void raw_bitmap_in_memory_hide_mouse(void* self);
 
@@ -243,6 +246,8 @@ typedef struct video_c {
   int _mouse_y;
   int _mouse_hides;
 } video_c;
+
+video_c new_video(int mode);
 
 void video_move_mouse(video_c* self, int dx, int dy);
 
@@ -296,8 +301,6 @@ void _font_get_char_data(font_c* self, unicode_char c, int& start, int& width);
 
 //-----------------------------------------------------------------------------
 // Extern declarations for statics
-
-
 extern pattern pattern_black;
 extern pattern pattern_gray25;
 extern pattern pattern_gray50;
@@ -310,12 +313,21 @@ extern pattern pattern_blue;
 extern pattern pattern_magenta;
 extern pattern pattern_cyan;
 
-
 extern font_c font_mono_5x7;
 extern font_c font_mono_6x9;
 
 extern video_c v_screen;
 extern raw_bitmap_in_memory_c v_mouse_save;
+
+/*
+raw_bitmap_in_memory video::mouse_save
+  (mouse_bitmap,
+   MOUSE_WIDTH_IN_BITMAP_WORDS << LOG2_BITMAP_WORD_WIDTH,
+   MOUSE_HEIGHT,
+   4);
+
+video video::screen (18);
+*/
 
 extern raw_bitmap_vtable _raw_bitmap_vtable;
 extern raw_bitmap_vtable _raw_bitmap_in_memory_vtable;
