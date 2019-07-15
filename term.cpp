@@ -589,6 +589,15 @@ term* term_write(term* self, unicode_string x) {
   return self;
 }
 
+term* term_write(term* self, native_char x) {
+  native_char buf[2];
+
+  buf[0] = x;
+  buf[1] = '\0';
+
+  return term_write(cout, buf);
+}
+
 //-----------------------------------------------------------------------------
 
 // Local Variables: //
