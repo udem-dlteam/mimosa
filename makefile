@@ -49,7 +49,7 @@ create-img:
 	chmod 777 mimosa-build/floppy.img
 
 run:
-	qemu-system-x86_64 -m 4096 -hda mimosa-build/floppy.img
+	qemu-system-x86_64 -m 4096 -hda mimosa-build/floppy.img -debugcon stdio
 
 mf:
 	make clean
