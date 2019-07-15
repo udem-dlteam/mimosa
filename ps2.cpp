@@ -170,7 +170,7 @@ static void keypress(uint8 ch) {
     circular_buffer_cv->mutexless_signal();
   }
 
-  term_write(cout, CAST(unicode_char, ch));
+  term_write(cout, CAST(native_char, ch));
 }
 
 unicode_char getchar ()
