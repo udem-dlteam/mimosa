@@ -400,11 +400,10 @@ class primordial_thread : public thread
     void_fn _continuation;
   };
 
-char* primordial_thread::name () { return "m"; }
+  char* primordial_thread::name() { return "PRIMORDIAL_THREAD"; }
 
-primordial_thread::primordial_thread (void_fn continuation)
-{
-  _continuation = continuation;
+  primordial_thread::primordial_thread(void_fn continuation) {
+    _continuation = continuation;
 }
 
 void primordial_thread::run ()
@@ -569,18 +568,27 @@ void scheduler::resume_next_thread ()
 
   thread* current = wait_queue_head (readyq);
 
-  if (current != NULL)
-    {
-      current_thread = current;
-      time now = current_time_no_interlock ();
-      current->_end_of_quantum = add_time (now, current->_quantum);
-      set_timer (current->_end_of_quantum, now);
-      restore_context (current->_sp);
+  term_write(cout, "resume next thread called\n");
+  term_write(cout, "Current thread is: ");
 
-      // ** NEVER REACHED **
-    }
+  if (NULL == current) {
+    term_write(cout, "Null thread :(");
+  } else {
+    term_write(cout, current->name());
+  }
 
-  fatal_error ("deadlock detected");
+  // if (current != NULL)
+  //   {
+  //     current_thread = current;
+  //     time now = current_time_no_interlock ();
+  //     current->_end_of_quantum = add_time (now, current->_quantum);
+  //     set_timer (current->_end_of_quantum, now);
+  //     restore_context (current->_sp);
+
+  //     // ** NEVER REACHED **
+  //   }
+
+  fatal_error("Deadlock detected");
 
   // ** NEVER REACHED ** (this function never returns)
 }
