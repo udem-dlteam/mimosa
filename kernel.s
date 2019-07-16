@@ -831,90 +831,9 @@ int15_intr:
   jmp int_handle_common_stub
 
 unhandled_intr:
-  pushl $99
-  call  show_intr
-
-end_intr:
-  addl  $4,%esp
-  # movl  4(%esp),%eax
-  iret
-
-show_intr:
-  pushl %eax
-  pushl %ebx
-  pushl %ecx
-  pushl %edx
-  pushl %esi
-  pushl %edi
-  pushl %ebp
-
-  movb  $'I',%al
-  outb  %al,$0xe9
-
-  movb  $'N',%al
-  outb  %al,$0xe9
-
-  movb  $'T',%al
-  outb  %al,$0xe9
-
-  movb  $' ',%al
-  outb  %al,$0xe9
-
-  movl  20(%esp),%eax
-  movb  $10,%bl
-  divb  %bl
-  addb  $'0',%al
-  outb  %al,$0xe9
-
-  movb  %ah,%al
-  addb  $'0',%al
-  outb  %al,$0xe9
-
-  movb  $' ',%al
-  outb  %al,$0xe9
-
-  movb  $'e',%al
-  outb  %al,$0xe9
-
-  movb  $'i',%al
-  outb  %al,$0xe9
-
-  movb  $'p',%al
-  outb  %al,$0xe9
-
-  movb  $'=',%al
-  outb  %al,$0xe9
-
-  movl  $8,%ecx
-  movl  24(%esp),%ebx
-1:roll  $4,%ebx
-  movl  %ebx,%eax
-  andb  $0xf,%al
-  addb  $'0',%al
-  cmpb  $'0'+10,%al
-  jb    2f
-  addb  $'a'-('0'+10),%al
-2:outb  %al,$0xe9
-  loop  1b
-
-  movb  $'\n',%al
-  outb  %al,$0xe9
-
-  movl  20(%esp),%eax
-  pushl %eax
-
-  .globl unhandled_interrupt
-
-  call unhandled_interrupt
-
-  popl  %ebp
-  popl  %edi
-  popl  %esi
-  popl  %edx
-  popl  %ecx
-  popl  %ebx
-  popl  %eax
-  ret
+  cli
+  pushl $0xA0 # INT ARG
+  pushl $99   # INT NO
 
 int_handle_common_stub:
     pusha
@@ -944,336 +863,144 @@ irq0_intr:
 
   .globl irq0
 
-  pushl %eax
-  pushl %ebx
-  pushl %ecx
-  pushl %edx
-  pushl %esi
-  pushl %edi
-  pushl %ebp
+  pusha
   call  irq0
-  popl  %ebp
-  popl  %edi
-  popl  %esi
-  popl  %edx
-  popl  %ecx
-  popl  %ebx
-  popl  %eax
+  popa
   iret
 
 irq1_intr:
 
   .globl irq1
 
-  pushl %eax
-  pushl %ebx
-  pushl %ecx
-  pushl %edx
-  pushl %esi
-  pushl %edi
-  pushl %ebp
+  pusha
   call  irq1
-  popl  %ebp
-  popl  %edi
-  popl  %esi
-  popl  %edx
-  popl  %ecx
-  popl  %ebx
-  popl  %eax
+  popa
   iret
 
 irq2_intr:
 
   .globl irq2
 
-  pushl %eax
-  pushl %ebx
-  pushl %ecx
-  pushl %edx
-  pushl %esi
-  pushl %edi
-  pushl %ebp
+  pusha
   call  irq2
-  popl  %ebp
-  popl  %edi
-  popl  %esi
-  popl  %edx
-  popl  %ecx
-  popl  %ebx
-  popl  %eax
+  popa
   iret
 
 irq3_intr:
 
   .globl irq3
 
-  pushl %eax
-  pushl %ebx
-  pushl %ecx
-  pushl %edx
-  pushl %esi
-  pushl %edi
-  pushl %ebp
+  pusha
   call  irq3
-  popl  %ebp
-  popl  %edi
-  popl  %esi
-  popl  %edx
-  popl  %ecx
-  popl  %ebx
-  popl  %eax
+  popa
   iret
 
 irq4_intr:
 
   .globl irq4
 
-  pushl %eax
-  pushl %ebx
-  pushl %ecx
-  pushl %edx
-  pushl %esi
-  pushl %edi
-  pushl %ebp
+  pusha
   call  irq4
-  popl  %ebp
-  popl  %edi
-  popl  %esi
-  popl  %edx
-  popl  %ecx
-  popl  %ebx
-  popl  %eax
+  popa
   iret
 
 irq5_intr:
 
   .globl irq5
 
-  pushl %eax
-  pushl %ebx
-  pushl %ecx
-  pushl %edx
-  pushl %esi
-  pushl %edi
-  pushl %ebp
+ pusha
   call  irq5
-  popl  %ebp
-  popl  %edi
-  popl  %esi
-  popl  %edx
-  popl  %ecx
-  popl  %ebx
-  popl  %eax
+  popa
   iret
 
 irq6_intr:
 
   .globl irq6
 
-  pushl %eax
-  pushl %ebx
-  pushl %ecx
-  pushl %edx
-  pushl %esi
-  pushl %edi
-  pushl %ebp
+  pusha
   call  irq6
-  popl  %ebp
-  popl  %edi
-  popl  %esi
-  popl  %edx
-  popl  %ecx
-  popl  %ebx
-  popl  %eax
+  popa
   iret
 
 irq7_intr:
 
   .globl irq7
 
-  pushl %eax
-  pushl %ebx
-  pushl %ecx
-  pushl %edx
-  pushl %esi
-  pushl %edi
-  pushl %ebp
+  pusha
   call  irq7
-  popl  %ebp
-  popl  %edi
-  popl  %esi
-  popl  %edx
-  popl  %ecx
-  popl  %ebx
-  popl  %eax
+  popa
   iret
 
 irq8_intr:
 
   .globl irq8
 
-  pushl %eax
-  pushl %ebx
-  pushl %ecx
-  pushl %edx
-  pushl %esi
-  pushl %edi
-  pushl %ebp
+ pusha
   call  irq8
-  popl  %ebp
-  popl  %edi
-  popl  %esi
-  popl  %edx
-  popl  %ecx
-  popl  %ebx
-  popl  %eax
+  popa
   iret
 
 irq9_intr:
 
   .globl irq9
 
-  pushl %eax
-  pushl %ebx
-  pushl %ecx
-  pushl %edx
-  pushl %esi
-  pushl %edi
-  pushl %ebp
+  pusha
   call  irq9
-  popl  %ebp
-  popl  %edi
-  popl  %esi
-  popl  %edx
-  popl  %ecx
-  popl  %ebx
-  popl  %eax
+  popa
   iret
 
 irq10_intr:
 
   .globl irq10
 
-  pushl %eax
-  pushl %ebx
-  pushl %ecx
-  pushl %edx
-  pushl %esi
-  pushl %edi
-  pushl %ebp
+ pusha
   call  irq10
-  popl  %ebp
-  popl  %edi
-  popl  %esi
-  popl  %edx
-  popl  %ecx
-  popl  %ebx
-  popl  %eax
+  popa
   iret
 
 irq11_intr:
 
   .globl irq11
 
-  pushl %eax
-  pushl %ebx
-  pushl %ecx
-  pushl %edx
-  pushl %esi
-  pushl %edi
-  pushl %ebp
+  pusha
   call  irq11
-  popl  %ebp
-  popl  %edi
-  popl  %esi
-  popl  %edx
-  popl  %ecx
-  popl  %ebx
-  popl  %eax
+  popa
   iret
 
 irq12_intr:
 
   .globl irq12
 
-  pushl %eax
-  pushl %ebx
-  pushl %ecx
-  pushl %edx
-  pushl %esi
-  pushl %edi
-  pushl %ebp
+  pusha
   call  irq12
-  popl  %ebp
-  popl  %edi
-  popl  %esi
-  popl  %edx
-  popl  %ecx
-  popl  %ebx
-  popl  %eax
+  popa
   iret
 
 irq13_intr:
 
   .globl irq13
 
-  pushl %eax
-  pushl %ebx
-  pushl %ecx
-  pushl %edx
-  pushl %esi
-  pushl %edi
-  pushl %ebp
+  pusha
   call  irq13
-  popl  %ebp
-  popl  %edi
-  popl  %esi
-  popl  %edx
-  popl  %ecx
-  popl  %ebx
-  popl  %eax
+  popa
   iret
 
 irq14_intr:
 
   .globl irq14
 
-  pushl %eax
-  pushl %ebx
-  pushl %ecx
-  pushl %edx
-  pushl %esi
-  pushl %edi
-  pushl %ebp
+  pusha
   call  irq14
-  popl  %ebp
-  popl  %edi
-  popl  %esi
-  popl  %edx
-  popl  %ecx
-  popl  %ebx
-  popl  %eax
+  popa
   iret
 
 irq15_intr:
 
   .globl irq15
 
-  pushl %eax
-  pushl %ebx
-  pushl %ecx
-  pushl %edx
-  pushl %esi
-  pushl %edi
-  pushl %ebp
+  pusha
   call  irq15
-  popl  %ebp
-  popl  %edi
-  popl  %esi
-  popl  %edx
-  popl  %ecx
-  popl  %ebx
-  popl  %eax
+  popa
   iret
 
 APIC_timer_intr:
