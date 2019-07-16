@@ -10,9 +10,8 @@ DEFS = -DINCLUDE_EEPRO100
 #DEFS = -DINCLUDE_TULIP
 #DEFS = -DINCLUDE_TULIP -DINCLUDE_EEPRO100 
 
-GCC = gcc-3.4 -m32 -Wno-write-strings
-
-GPP = g++-3.4 -m32 -Wno-write-strings
+GCC = gcc-3.4 -m32 -Wno-write-strings -g
+GPP = g++-3.4 -m32 -Wno-write-strings -g
 
 SPECIAL_OPTIONS =
 
@@ -29,7 +28,7 @@ build:
 	mkdir -p mimosa-build
 	tar cf - . | ssh administrator@localhost -p 10022 "rm -rf mimosa-build;mkdir mimosa-build;cd mimosa-build;tar xf -;make clean;make";ssh administrator@localhost -p 10022 "cat mimosa-build/floppy" > mimosa-build/floppy
 	ssh administrator@localhost -p 10022 "cat mimosa-build/bootsect.bin" > mimosa-build/bootsect.bin
-	ssh administrator@localhost -p 10022 "cat mimosa-build/kernel.bin"   > mimosa-build/boot.sys
+	ssh administrator@localhost -p 10022 "cat mimosa-build/kernel.bin"   > mimosa-build/boot.bin
 	hexdump -C -n 512 mimosa-build/bootsect.bin
 
 create-img:
@@ -38,7 +37,7 @@ create-img:
 	cp blank_drive.img mimosa-build/floppy.img
 	mount mimosa-build/floppy.img /mnt/tmp
 
-	cp mimosa-build/boot.sys /mnt/tmp/BOOT.SYS
+	cp mimosa-build/boot.bin /mnt/tmp/BOOT.SYS
 
 
 	umount /mnt/tmp
@@ -49,7 +48,7 @@ create-img:
 	chmod 777 mimosa-build/floppy.img
 
 run:
-	qemu-system-x86_64 -m 4096 -hda mimosa-build/floppy.img -debugcon stdio
+	qemu-system-x86_64 -s -S -m 4096 -hda mimosa-build/floppy.img -debugcon stdio
 
 mf:
 	make clean
