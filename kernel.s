@@ -1049,21 +1049,10 @@ sys_intr:
 
   .globl sys_irq
 
-  pushl %eax
-  pushl %ebx
-  pushl %ecx
-  pushl %edx
-  pushl %esi
-  pushl %edi
-  pushl %ebp
+  pusha
   call  sys_irq
-  popl  %ebp
-  popl  %edi
-  popl  %esi
-  popl  %edx
-  popl  %ecx
-  popl  %ebx
-  popl  %eax
+  popa
+
   iret
 
 #------------------------------------------------------------------------------
