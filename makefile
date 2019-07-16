@@ -10,8 +10,8 @@ DEFS = -DINCLUDE_EEPRO100
 #DEFS = -DINCLUDE_TULIP
 #DEFS = -DINCLUDE_TULIP -DINCLUDE_EEPRO100 
 
-GCC = gcc-3.4 -m32 -Wno-write-strings -g
-GPP = g++-3.4 -m32 -Wno-write-strings -g
+GCC = gcc-3.4 -m32 -Wno-write-strings -ggdb 
+GPP = g++-3.4 -m32 -Wno-write-strings -ggdb
 
 SPECIAL_OPTIONS =
 
@@ -48,7 +48,7 @@ create-img:
 	chmod 777 mimosa-build/floppy.img
 
 run:
-	qemu-system-x86_64 -s -S -m 4096 -hda mimosa-build/floppy.img -debugcon stdio
+	qemu-system-x86_64 -s -m 4096 -hda mimosa-build/floppy.img -debugcon stdio
 
 mf:
 	make clean

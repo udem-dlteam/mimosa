@@ -1049,10 +1049,51 @@ sys_intr:
 
   .globl sys_irq
 
+  cli
   pusha
-  call  sys_irq
-  popa
+  # make sure the C code does not affect ESP
+  pushl %esp
 
+  movb $'S', %al
+  outb %al, $0xE9;
+
+  movb $'Y', %al
+  outb %al, $0xE9;
+
+  movb $'S', %al
+  outb %al, $0xE9;
+
+  movb $' ', %al
+  outb %al, $0xE9;
+
+  movb $'I', %al
+  outb %al, $0xE9;
+
+  movb $'N', %al
+  outb %al, $0xE9;
+
+  movb $'T', %al
+  outb %al, $0xE9;
+
+  movb $'\n', %al
+  outb %al, $0xE9;
+
+  movb $'\r', %al
+  outb %al, $0xE9;
+
+  call  sys_irq
+  popl  %esp
+  popa
+  sti
+
+  iret
+
+.globl asm_restore_context
+asm_restore_context:
+  movl 4(%esp), %eax           # Get the first argument: the stack pointer
+  movl %eax, %esp              # Restore the stack pointer
+  popa
+  sti
   iret
 
 #------------------------------------------------------------------------------

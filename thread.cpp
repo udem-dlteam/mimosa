@@ -292,22 +292,36 @@ thread::thread ()
 
   s += stack_size / sizeof (uint32);
 
+
+  // Stack frame we want to build:
+  //  ___________________________
+  // |           EFLAGS          |
+  //  ---------------------------
+  // |             |       CS    |
+  //  ---------------------------
+  // |            EIP            |
+  //  ---------------------------
+  // |        GEN-PURPOSE        |
+  //  ---------------------------
   *--s = 0;              // the (dummy) return address of "run_thread"
   *--s = eflags_reg ();  // space for "EFLAGS"
   *--s = cs_reg ();      // space for "%cs"
   *--s = CAST(uint32,&scheduler::run_thread); // to call "run_thread"
+
+  // Room for pushall, all initiated at zero
+  for (int i = 0; i < 8; i++) {
+    *-- s = 0;
+  }
 
   // Note: the 3 topmost words on the thread's stack are in the same
   // layout as expected by the "iret" instruction.  When an "iret"
   // instruction is executed to restore the thread's context, the
   // function "run_thread" will be called and this function will get a
   // dummy return address (it is important that the function
-  // "run_thread" never returns).
-
+  // "run_thread" never returns). The general purpose is used for 
+  // correct context switching and restoring between tasks.
   _sp = s;
-
   _quantum = frequency_to_time (10000); // quantum is 1/10000th of a second
-
   _prio = normal_priority;
   _terminated = FALSE;
 }
@@ -319,10 +333,10 @@ thread::~thread ()
 
 thread* thread::start ()
 {
-  disable_interrupts ();
+  // disable_interrupts ();
   scheduler::reschedule_thread (this);
   scheduler::yield_if_necessary ();
-  enable_interrupts ();
+  //enable_interrupts ();
   return this;
 }
 
@@ -450,10 +464,15 @@ void scheduler::setup (void_fn continuation)
   // ** NEVER REACHED ** (this function never returns)
 }
 
-void sys_irq ()///////////////// AMD... why do we need this hack???
+void sys_irq (void* esp)///////////////// AMD... why do we need this hack???
 {
   ASSERT_INTERRUPTS_DISABLED ();
-  scheduler::resume_next_thread ();
+
+  term_write(cout, "ESP= ");
+  term_write(cout, esp);
+  term_write(cout, "\n\r");
+
+  resume_next_thread ();
 }
 
 void scheduler::stats ()
@@ -545,8 +564,10 @@ void scheduler::yield_if_necessary ()
 
   thread* t = wait_queue_head (readyq);
 
-  if (t != current_thread)
+  if (t != current_thread) {
     save_context (scheduler::switch_to_next_thread, NULL);
+  }
+  
 }
 
 void scheduler::run_thread ()
@@ -562,35 +583,33 @@ void scheduler::run_thread ()
   // ** NEVER REACHED ** (this function never returns)
 }
 
-void scheduler::resume_next_thread ()
-{
-  ASSERT_INTERRUPTS_DISABLED (); // Interrupts should be disabled at this point
+extern "C" void asm_restore_context(uint32* esp);
 
-  thread* current = wait_queue_head (readyq);
+void resume_next_thread() {
+  ASSERT_INTERRUPTS_DISABLED();  // Interrupts should be disabled at this point
+
+  thread* current = wait_queue_head(scheduler::readyq);
 
   term_write(cout, "resume next thread called\n");
   term_write(cout, "Current thread is: ");
 
   if (NULL == current) {
     term_write(cout, "Null thread :(");
+    for(;;);
   } else {
     term_write(cout, current->name());
   }
 
-  // if (current != NULL)
-  //   {
-  //     current_thread = current;
-  //     time now = current_time_no_interlock ();
-  //     current->_end_of_quantum = add_time (now, current->_quantum);
-  //     set_timer (current->_end_of_quantum, now);
-  //     restore_context (current->_sp);
-
-  //     // ** NEVER REACHED **
-  //   }
+  if (current != NULL) {
+    scheduler::current_thread = current;
+    time now = current_time_no_interlock();
+    current->_end_of_quantum = add_time(now, current->_quantum);
+    scheduler::set_timer(current->_end_of_quantum, now);
+    //current->_sp
+    asm_restore_context(current->_sp); // never returns
+  }
 
   fatal_error("Deadlock detected");
-
-  // ** NEVER REACHED ** (this function never returns)
 }
 
 void scheduler::switch_to_next_thread
@@ -793,7 +812,7 @@ void irq0 ()
   ASSERT_INTERRUPTS_DISABLED ();
 
 #ifdef SHOW_TIMER_INTERRUPTS
-  cout << "\033[41m irq0 \033[0m";
+  term_write(cout, "\033[41m irq0 \033[0m");
 #endif
 
   ACKNOWLEDGE_IRQ(0);
@@ -810,7 +829,7 @@ void APIC_timer_irq ()
   ASSERT_INTERRUPTS_DISABLED ();
 
 #ifdef SHOW_TIMER_INTERRUPTS
-  cout << "\033[41m APIC timer irq \033[0m";
+  term_write(cout, "\033[41m APIC timer irq \033[0m)");
 #endif
 
   APIC_EOI = 0;

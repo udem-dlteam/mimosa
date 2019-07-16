@@ -1,6 +1,6 @@
 // file: "thread.h"
 
-// Copyright (c) 2001 by Marc Feeley and Université de Montréal, All
+// Copyright (c) 2001 by Marc Feeley and Universitï¿½ de Montrï¿½al, All
 // Rights Reserved.
 //
 // Revision History
@@ -147,11 +147,11 @@ do {                                                                          \
 
 #endif
 
-//-----------------------------------------------------------------------------
+          //-----------------------------------------------------------------------------
 
-// Available thread priorities.
+          // Available thread priorities.
 
-typedef int priority;
+          typedef int priority;
 
 #define low_priority    0
 #define normal_priority 100
@@ -441,7 +441,6 @@ class scheduler
     static void reschedule_thread (thread* t); // makes thread "t" runnable
     static void yield_if_necessary (); // yields to a higher priority thread if there is one
     static void run_thread (); // begins the thread's execution
-    static void resume_next_thread (); // resumes the next runnable thread
 
     // transfers the current thread to the tail of the queue of
     // runnable threads and resumes the thread at the head of the
@@ -478,7 +477,7 @@ class scheduler
     friend class mutex;
     friend class condvar;
     friend class thread;
-    friend void sys_irq ();////////////
+    friend void sys_irq (void* esp);////////////
 #ifdef USE_PIT_FOR_TIMER
     friend void irq0 ();
 #endif
@@ -487,6 +486,8 @@ class scheduler
 #endif
   };
 
+
+void resume_next_thread();
 //-----------------------------------------------------------------------------
 
 #if 0

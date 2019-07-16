@@ -341,7 +341,7 @@ void unhandled_interrupt(int num) {
 }
 
 void interrupt_handle(interrupt_data data) {
-  term_write(cout, "New handle! No:");
+  term_write(cout, "INT NO:");
   term_write(cout, data.int_no);
   term_write(cout, " EIP=");
   term_write(cout, (void*) data.eip);

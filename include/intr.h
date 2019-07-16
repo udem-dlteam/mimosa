@@ -87,7 +87,7 @@ extern "C" void APIC_timer_irq ();
 extern "C" void APIC_spurious_irq ();
 extern "C" void unhandled_interrupt (int num);
 extern "C" void interrupt_handle(interrupt_data data);
-extern "C" void sys_irq ();
+extern "C" void sys_irq (void* esp);
 
 //-----------------------------------------------------------------------------
 

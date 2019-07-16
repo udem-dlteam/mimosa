@@ -21,7 +21,7 @@
 #include "mono_6x9.h"
 #include "video.h"
 
-static void __rtlib_setup (); // forward declaration
+void __rtlib_setup (); // forward declaration
 
 font_c font_mono_5x7;
 font_c font_mono_6x9;
@@ -43,8 +43,9 @@ void fatal_error (native_string msg)
   disable_interrupts ();
 
   while (*msg != '\0')
-    outb (*msg++, 0xe9); // under "bochs" this sends the message to the console
-
+    // Write the message to the serial port
+    outb (*msg++, 0xe9);
+  
   for (;;) ; // freeze execution
 
   // ** NEVER REACHED ** (this function never returns)
@@ -270,8 +271,8 @@ void __rtlib_entry ()
 
   __do_global_ctors ();
 
-  // scheduler::setup (&__rtlib_setup);
-  __rtlib_setup();
+  scheduler::setup (&__rtlib_setup);
+  //__rtlib_setup();
   // ** NEVER REACHED ** (this function never returns)
 }
 
@@ -346,15 +347,17 @@ static void identify_cpu ()
 
 #ifdef USE_APIC_FOR_TIMER
 
-  cout << "CPU/bus clock multiplier = " << _cpu_bus_multiplier.num;
+  term_write(cout, "CPU/bus clock multiplier = ");
+  term_write(cout, _cpu_bus_multiplier.num);
 
-  if (_cpu_bus_multiplier.den == 1)
-    cout << "\n";
-  else
-    {
-      cout << "/" << _cpu_bus_multiplier.den << " is not an integer!\n";
-      fatal_error ("CPU/bus clock multiplier is not an integer\n");
-    }
+  if (_cpu_bus_multiplier.den == 1) {
+    term_write(cout, "\n\r");
+  } else {
+    term_write(cout, "/");
+    term_write(cout, _cpu_bus_multiplier.den);
+    term_write(cout, " is not an integer!\n");
+    fatal_error("CPU/bus clock multiplier is not an integer\n");
+  }
 
 #endif
 #endif
@@ -378,11 +381,13 @@ idle_thread::idle_thread ()
 
 void idle_thread::run ()
 {
+  term_write(cout, "IDLE\n\r");
+
   for (;;)
     thread::yield ();
 }
 
-static void __rtlib_setup ()
+void __rtlib_setup ()
 { 
   term_write(cout, "Initializing ");
   term_write(cout, "\033[46m");
@@ -391,10 +396,9 @@ static void __rtlib_setup ()
 
   identify_cpu ();
 
-  setup_ps2 ();
-  enable_interrupts ();
+  //setup_ps2 ();
 
-  //  (new idle_thread)->start (); // need an idle thread to prevent deadlocks
+  (new idle_thread)->start (); // need an idle thread to prevent deadlocks
 
   //setup_disk ();
   //setup_ide ();

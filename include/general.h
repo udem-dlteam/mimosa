@@ -109,7 +109,7 @@ typedef int32 error_code;
 #define USE_RET_FOR_RESTORE_CONTEXT
 
 //#define SHOW_INTERRUPTS
-//#define SHOW_TIMER_INTERRUPTS
+#define SHOW_TIMER_INTERRUPTS
 //#define SHOW_CPU_INFO
 //#define SHOW_IDE_INFO
 //#define SHOW_DISK_INFO
