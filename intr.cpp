@@ -347,6 +347,7 @@ void interrupt_handle(interrupt_data data) {
   term_write(cout, (void*) data.eip);
   term_write(cout, " INT ARG: ");
   term_write(cout, data.error_code);
+  term_write(cout, "\n\r");
 }
 
 //-----------------------------------------------------------------------------

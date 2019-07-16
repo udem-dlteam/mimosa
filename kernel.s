@@ -748,74 +748,87 @@ int1_intr:
 
 int2_intr:
   cli
-  pushl $0xA0 # INT ARG
+  pushl $0x00 # INT ARG
   pushl $0x02 # INT NO
   jmp int_handle_common_stub
 
 int3_intr:
-  pushl $3
-  call  show_intr
-  jmp   end_intr
+  cli
+  pushl $0x00 # INT ARG
+  pushl $0x03 # INT NO
+  jmp int_handle_common_stub
 
 int4_intr:
-  pushl $4
-  call  show_intr
-  jmp   end_intr
+  cli
+  pushl $0x00 # INT ARG
+  pushl $0x04 # INT NO
+  jmp int_handle_common_stub
 
 int5_intr:
-  pushl $5
-  call  show_intr
-  jmp   end_intr
+  cli
+  pushl $0x00 # INT ARG
+  pushl $0x05 # INT NO
+  jmp int_handle_common_stub
 
 int6_intr:
-  pushl $6
-  call  show_intr
-  jmp   end_intr
+  cli
+  pushl $0x00 # INT ARG
+  pushl $0x06 # INT NO
+  jmp int_handle_common_stub
 
 int7_intr:
-  pushl $7
-  call  show_intr
-  jmp   end_intr
+  cli
+  pushl $0x00 # INT ARG
+  pushl $0x07 # INT NO
+  jmp int_handle_common_stub
 
 int8_intr:
-  pushl $8
-  call  show_intr
-  jmp   end_intr
+  cli
+  # This interrupts pushes a real error code
+  pushl $0x08 # INT NO
+  jmp int_handle_common_stub
 
 int9_intr:
-  pushl $9
-  call  show_intr
-  jmp   end_intr
+  cli
+  pushl $0x00 # INT ARG
+  pushl $0x09 # INT NO
+  jmp int_handle_common_stub
 
 int10_intr:
-  pushl $10
-  call  show_intr
-  jmp   end_intr
+  cli
+  # This interrupts pushes a real error code
+  pushl $0x0A # INT NO
+  jmp int_handle_common_stub
 
 int11_intr:
-  pushl $11
-  call  show_intr
-  jmp   end_intr
+  cli
+  # This interrupts pushes a real error code
+  pushl $0x0B # INT NO
+  jmp int_handle_common_stub
 
 int12_intr:
-  pushl $12
-  call  show_intr
-  jmp   end_intr
+  cli
+  # This interrupts pushes a real error code
+  pushl $0x0C # INT NO
+  jmp int_handle_common_stub
 
 int13_intr:
-  pushl $13
-  call  show_intr
-  jmp   end_intr
+  cli
+  # This interrupts pushes a real error code
+  pushl $0x0D # INT NO
+  jmp int_handle_common_stub
 
 int14_intr:
-  pushl $14
-  call  show_intr
-  jmp   end_intr
+  cli
+  # This interrupts pushes a real error code
+  pushl $0x0E # INT NO
+  jmp int_handle_common_stub
 
 int15_intr:
-  pushl $15
-  call  show_intr
-  jmp   end_intr
+  cli
+  pushl $0xA0 # INT ARG
+  pushl $0x0F # INT NO
+  jmp int_handle_common_stub
 
 unhandled_intr:
   pushl $99
