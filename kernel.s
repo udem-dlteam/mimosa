@@ -735,19 +735,22 @@ start_of_32bit_protected_mode:
 # Interrupt handlers.
 
 int0_intr:
-  pushl $0
-  call  show_intr
-  jmp   end_intr
+  cli
+  pushl $0x00
+  pushl $0x00
+  jmp int_handle_common_stub
 
 int1_intr:
-  pushl $1
-  call  show_intr
-  jmp   end_intr
+  cli
+  pushl $0x00 # INT ARG
+  pushl $0x01 # INT NO
+  jmp int_handle_common_stub
 
 int2_intr:
-  pushl $2
-  call  show_intr
-  jmp   end_intr
+  cli
+  pushl $0xA0 # INT ARG
+  pushl $0x02 # INT NO
+  jmp int_handle_common_stub
 
 int3_intr:
   pushl $3
@@ -820,9 +823,7 @@ unhandled_intr:
 
 end_intr:
   addl  $4,%esp
-  movl  4(%esp),%eax
-here:
-  jmp   here
+  # movl  4(%esp),%eax
   iret
 
 show_intr:
@@ -830,6 +831,9 @@ show_intr:
   pushl %ebx
   pushl %ecx
   pushl %edx
+  pushl %esi
+  pushl %edi
+  pushl %ebp
 
   movb  $'I',%al
   outb  %al,$0xe9
@@ -890,11 +894,34 @@ show_intr:
 
   call unhandled_interrupt
 
+  popl  %ebp
+  popl  %edi
+  popl  %esi
   popl  %edx
   popl  %ecx
   popl  %ebx
   popl  %eax
   ret
+
+int_handle_common_stub:
+    pusha
+
+    movw %ds, %ax
+    pushl %eax
+
+    cld
+
+    .globl interrupt_handle
+    call interrupt_handle
+
+    popl %eax
+    popa
+
+    # Clean the stack
+    addl $8, %esp
+
+    sti
+    iret
 
 #------------------------------------------------------------------------------
 

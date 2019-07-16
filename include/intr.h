@@ -1,6 +1,6 @@
 // file: "intr.h"
 
-// Copyright (c) 2001 by Marc Feeley and Université de Montréal, All
+// Copyright (c) 2001 by Marc Feeley and Universitï¿½ de Montrï¿½al, All
 // Rights Reserved.
 //
 // Revision History
@@ -17,6 +17,14 @@
 #include "apic.h"
 
 //-----------------------------------------------------------------------------
+
+typedef struct interrupt_data {
+  uint32 ds;
+  uint32 edi, esi, ebp, esp, ebx, edx, ecx, eax;
+  uint32 int_no, error_code;
+  uint32 eip, cs, eflags, useresp, ss;
+} interrupt_data;
+
 
 // Initialization of interrupt manager.
 
@@ -78,6 +86,7 @@ extern "C" void irq15 ();
 extern "C" void APIC_timer_irq ();
 extern "C" void APIC_spurious_irq ();
 extern "C" void unhandled_interrupt (int num);
+extern "C" void interrupt_handle(interrupt_data data);
 extern "C" void sys_irq ();
 
 //-----------------------------------------------------------------------------

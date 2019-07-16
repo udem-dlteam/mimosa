@@ -270,8 +270,8 @@ void __rtlib_entry ()
 
   __do_global_ctors ();
 
-  scheduler::setup (&__rtlib_setup);
-
+  // scheduler::setup (&__rtlib_setup);
+  __rtlib_setup();
   // ** NEVER REACHED ** (this function never returns)
 }
 
@@ -391,9 +391,8 @@ static void __rtlib_setup ()
 
   identify_cpu ();
 
-  //setup_ps2 ();
-
-  //enable_interrupts ();
+  setup_ps2 ();
+  enable_interrupts ();
 
   //  (new idle_thread)->start (); // need an idle thread to prevent deadlocks
 

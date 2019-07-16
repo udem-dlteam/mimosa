@@ -30,7 +30,15 @@ int main ()
   for (int i=0; i<20000; i++)
   ;
 
-  term_write(tty, "Video.cpp is in C!");
+  term_write(tty, "Video.cpp is in C!\n");
+
+  __asm__ __volatile__ ("int $0x02" : : : "memory");
+
+  term_write(tty, "Interrupts don't scare me!\n");
+
+  int x = 0;
+  int y = 0;
+  int z = x / y;
 
   for (;;) ; // loop forever!
 
