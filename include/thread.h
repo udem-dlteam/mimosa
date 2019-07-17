@@ -19,23 +19,25 @@
 
 #ifdef CHECK_ASSERTIONS
 
-#define ASSERT_INTERRUPTS_DISABLED() \
-do { \
-     if (eflags_reg () & (1<<9)) \
-       { \
-         cout << __FILE__ << ":" << __LINE__ \
-              << ", failed ASSERT_INTERRUPTS_DISABLED\n"; \
-       } \
-   } while (0)
+#define ASSERT_INTERRUPTS_DISABLED()                            \
+  do {                                                          \
+    if (eflags_reg() & (1 << 9)) {                              \
+      term_write(cout, __FILE__);                               \
+      term_write(cout, ":");                                    \
+      term_write(cout, __LINE__);                               \
+      term_write(cout, ", failed ASSERT_INTERRUPTS_DISABLED\n"); \
+    }                                                           \
+  } while (0)
 
-#define ASSERT_INTERRUPTS_ENABLED() \
-do { \
-     if ((eflags_reg () & (1<<9)) == 0) \
-       { \
-         cout << __FILE__ << ":" << __LINE__ \
-              << ", failed ASSERT_INTERRUPTS_ENABLED\n"; \
-       } \
-   } while (0)
+#define ASSERT_INTERRUPTS_ENABLED()                            \
+  do {                                                         \
+    if ((eflags_reg() & (1 << 9)) == 0) {                      \
+      term_write(cout, __FILE__);                              \
+      term_write(cout, ":");                                   \
+      term_write(cout, __LINE__);                              \
+      term_write(cout, ", failed ASSERT_INTERRUPTS_ENABLED\n"); \
+    }                                                          \
+  } while (0)
 
 #else
 
