@@ -40,12 +40,8 @@ raw_bitmap_in_memory mouse_save;
 
 void fatal_error (native_string msg)
 {
-  disable_interrupts ();
-
-  while (*msg != '\0')
-    // Write the message to the serial port
-    outb (*msg++, 0xe9);
-  
+  __asm__ __volatile__ ("cli" : : : "memory");
+  debug_write(msg);
   for (;;) ; // freeze execution
 
   // ** NEVER REACHED ** (this function never returns)
@@ -370,35 +366,29 @@ class idle_thread : public thread
     idle_thread ();
 
   protected:
-
     virtual void run ();
   };
 
-idle_thread::idle_thread ()
+idle_thread::idle_thread()
 {
 }
 
-void idle_thread::run ()
-{
-  for (;;) thread::yield ();
+void idle_thread::run() {
+  for (;;) thread::yield();
 }
 
 extern "C" void a_sti();
 
 void __rtlib_setup ()
 { 
-  term_write(cout, "ENTERED __RTLIB_SETUP");
-  __asm__ __volatile__("sti");
-  
+  enable_interrupts();
   term_write(cout, "Initializing ");
   term_write(cout, "\033[46m");
   term_write(cout, OS_NAME);
   term_write(cout, "\033[0m\n\n");
 
   identify_cpu ();
-
   setup_ps2 ();
-  enable_interrupts();
 
   (new idle_thread)->start (); // need an idle thread to prevent deadlocks
 

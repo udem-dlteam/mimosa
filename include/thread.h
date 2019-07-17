@@ -19,24 +19,24 @@
 
 #ifdef CHECK_ASSERTIONS
 
-#define ASSERT_INTERRUPTS_DISABLED()                            \
-  do {                                                          \
-    if (eflags_reg() & (1 << 9)) {                              \
-      term_write(cout, __FILE__);                               \
-      term_write(cout, ":");                                    \
-      term_write(cout, __LINE__);                               \
-      term_write(cout, ", failed ASSERT_INTERRUPTS_DISABLED\n"); \
-    }                                                           \
+#define ASSERT_INTERRUPTS_DISABLED()                      \
+  do {                                                    \
+    if ((eflags_reg() & (1 << 9)) != 0) {                 \
+      debug_write(__FILE__);                              \
+      debug_write(":");                                   \
+      debug_write(__LINE__);                              \
+      fatal_error("FAILED ASSERT_INTERRUPTS_DISABLED\n"); \
+    }                                                     \
   } while (0)
 
-#define ASSERT_INTERRUPTS_ENABLED()                            \
-  do {                                                         \
-    if ((eflags_reg() & (1 << 9)) == 0) {                      \
-      term_write(cout, __FILE__);                              \
-      term_write(cout, ":");                                   \
-      term_write(cout, __LINE__);                              \
-      term_write(cout, ", failed ASSERT_INTERRUPTS_ENABLED\n"); \
-    }                                                          \
+#define ASSERT_INTERRUPTS_ENABLED()                      \
+  do {                                                   \
+    if ((eflags_reg() & (1 << 9)) != 1) {                \
+      debug_write(__FILE__);                             \
+      debug_write(":");                                  \
+      debug_write(__LINE__);                             \
+      fatal_error("FAILED ASSERT_INTERRUPTS_ENABLED\n"); \
+    }                                                    \
   } while (0)
 
 #else
@@ -70,7 +70,7 @@ do { \
 do {                                                                          \
      ASSERT_INTERRUPTS_DISABLED ();                                           \
      __asm__ __volatile__                                                     \
-       ("pushal                                                            \n \
+       ("pusha                                                             \n \
          pushl %1               # The fourth parameter of the receiver fn  \n \
          lea   -16(%%esp),%%eax # The third parameter of the receiver fn   \n \
          pushl %%eax                                                       \n \
@@ -78,7 +78,8 @@ do {                                                                          \
          pushl %%cs             #  as expected by the ``iret'' instruction \n \
          call  %P0              #  so that ``iret'' can restore the context\n \
          addl  $8,%%esp         # Remove the third and fourth parameter    \n \
-         popal"                                                               \
+         popa                                                              \n \
+         sti"                                                                 \
         :                                                                     \
         : "i" (receiver), "g" (data)                                          \
         : );                                                             \

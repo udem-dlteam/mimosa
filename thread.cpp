@@ -29,19 +29,15 @@ mutex::mutex ()
   scheduler::register_mutex (this);
 }
 
-void mutex::lock ()
-{
-  disable_interrupts ();
+void mutex::lock() {
+  disable_interrupts();
 
-  if (_locked)
-    { //cout << "a";///////////
-      save_context (scheduler::suspend_on_wait_queue, this);
-    //cout << "A";
-    }
-  else
+  if (_locked) {
+    save_context(scheduler::suspend_on_wait_queue, this);
+  } else {
     _locked = TRUE;
-
-  enable_interrupts ();
+  }
+  enable_interrupts();
 }
 
 bool mutex::lock_or_timeout (time timeout)
@@ -88,6 +84,7 @@ bool mutex::lock_or_timeout (time timeout)
 
       wait_queue_remove (current);
       wait_queue_insert (current, this);
+      debug_write("LN 91");
       save_context (scheduler::suspend_on_sleep_queue, NULL);
 
       enable_interrupts ();
@@ -103,23 +100,21 @@ bool mutex::lock_or_timeout (time timeout)
 #endif
 }
 
-void mutex::unlock ()
-{
-  disable_interrupts ();
+void mutex::unlock() {
+  disable_interrupts();
 
-  thread* t = wait_queue_head (CAST(wait_queue*,this));
+  thread* t = wait_queue_head(CAST(wait_queue*, this));
 
-  if (t == NULL)
+  if (t == NULL) {
     _locked = FALSE;
-  else
-    {
-      sleep_queue_remove (t);
-      sleep_queue_detach (t);
-      scheduler::reschedule_thread (t);
-      scheduler::yield_if_necessary ();
-    }
+  } else {
+    sleep_queue_remove(t);
+    sleep_queue_detach(t);
+    scheduler::reschedule_thread(t);
+    scheduler::yield_if_necessary();
+  }
 
-  enable_interrupts ();
+  enable_interrupts();
 }
 
 //-----------------------------------------------------------------------------
@@ -151,13 +146,17 @@ void condvar::wait (mutex* m)
       scheduler::reschedule_thread (t);
     }
 
-  { //cout << "b";/////////
-  save_context (scheduler::suspend_on_wait_queue, this);
-  //cout << "B";
-  }
+  // Why is this there???
+  // { //cout << "b";/////////
+
+  //     debug_write("LN 159");
+  // save_context (scheduler::suspend_on_wait_queue, this);
+  // //cout << "B";
+  // }
 
   if (m->_locked)
     { //cout << "c";///////////
+    debug_write("LN 166");
     save_context (scheduler::suspend_on_wait_queue, m);
     //cout << "C";
     }
@@ -177,24 +176,24 @@ bool condvar::wait_or_timeout (mutex* m, time timeout)
 
   if (t == NULL)
     m->_locked = FALSE;
-  else
-    {
-      sleep_queue_remove (t);
-      sleep_queue_detach (t);
-      scheduler::reschedule_thread (t);
-    }
+  else {
+    sleep_queue_remove(t);
+    sleep_queue_detach(t);
+    scheduler::reschedule_thread(t);
+  }
 
-  if (!less_time (current_time_no_interlock (), timeout))
-    {
-      enable_interrupts ();
-      return FALSE;
-    }
+  if (!less_time(current_time_no_interlock(), timeout)) {
+    enable_interrupts();
+    return FALSE;
+  }
 
   current->_timeout = timeout;
   current->_did_not_timeout = TRUE;
 
   wait_queue_remove (current);
   wait_queue_insert (current, this);
+
+  debug_write("LN 205");
   save_context (scheduler::suspend_on_sleep_queue, NULL);
 
   ASSERT_INTERRUPTS_DISABLED ();
@@ -250,6 +249,8 @@ void condvar::mutexless_wait ()
   ASSERT_INTERRUPTS_DISABLED (); // Interrupts should be disabled at this point
 
   { //cout << "d";////////////
+
+  debug_write("LN 262");
   save_context (scheduler::suspend_on_wait_queue, this);
   //cout << "D";
   }
@@ -352,15 +353,14 @@ void thread::join ()
   _m.unlock ();
 }
 
-void thread::yield ()
-{
-  disable_interrupts ();
-  { //cout << "e";////////////
-  save_context (scheduler::switch_to_next_thread, NULL);
-  //cout << "E";
+void thread::yield() {
+  disable_interrupts();
+  {  // cout << "e";////////////
+    save_context(scheduler::switch_to_next_thread, NULL);
+    // cout << "E";
   }
 
-  enable_interrupts ();
+  enable_interrupts();
 }
 
 thread* thread::self ()
@@ -389,6 +389,7 @@ void thread::sleep (int64 timeout_nsecs)
 
   wait_queue_remove (current);
 
+      debug_write("LN 403");
   save_context (scheduler::suspend_on_sleep_queue, NULL);
 
   enable_interrupts ();
@@ -462,18 +463,13 @@ void scheduler::setup (void_fn continuation)
   wait_queue_insert (current_thread, readyq);
 
   setup_timer ();
-  __asm__ __volatile__ ("int $0xD0" :::"memory");
+  __asm__ __volatile__ ("int $0xD0":::"memory");
   // ** NEVER REACHED ** (this function never returns)
 }
 
 void sys_irq (void* esp)///////////////// AMD... why do we need this hack???
 {
   ASSERT_INTERRUPTS_DISABLED ();
-
-  term_write(cout, "ESP= ");
-  term_write(cout, esp);
-  term_write(cout, "\n\r");
-
   resume_next_thread ();
 }
 
@@ -567,6 +563,8 @@ void scheduler::yield_if_necessary ()
   thread* t = wait_queue_head (readyq);
 
   if (t != current_thread) {
+
+      debug_write("LN 584");
       save_context (scheduler::switch_to_next_thread, NULL);
   }
   
@@ -584,8 +582,6 @@ void scheduler::run_thread ()
 
   // ** NEVER REACHED ** (this function never returns)
 }
-
-extern "C" void asm_restore_context(uint32* esp);
 
 void resume_next_thread() {
   ASSERT_INTERRUPTS_DISABLED();  // Interrupts should be disabled at this point
@@ -626,6 +622,7 @@ void scheduler::suspend_on_wait_queue
    uint32* sp,
    void* q)
 {
+  debug_write("SUSPEND ON WAIT QUEUE IN");
   ASSERT_INTERRUPTS_DISABLED (); // Interrupts should be disabled at this point
 
   thread* current = current_thread;
@@ -786,8 +783,9 @@ void scheduler::timer_elapsed ()
 
     if (less_time(now, current->_end_of_quantum)) {
       //      cout << "timer is fast\n";/////////////
-      set_timer(current->_end_of_quantum, now);
+      scheduler::set_timer(current->_end_of_quantum, now);
     } else {  // cout << "f";//////////
+      // debug_write("LN 794");
       save_context(scheduler::switch_to_next_thread, NULL);
       // cout << "F";
     }

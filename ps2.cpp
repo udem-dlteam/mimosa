@@ -15,6 +15,7 @@
 #include "time.h"
 #include "video.h"
 #include "term.h"
+#include "rtlib.h"
 #include "thread.h"
 
 //-----------------------------------------------------------------------------

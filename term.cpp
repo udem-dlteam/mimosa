@@ -453,8 +453,7 @@ int term_write(term* self, unicode_char* buf, int count) {
     term_show_cursor(self);
   }
 
-  screen.super.vtable->show_mouse(&screen);
-
+  screen.super.vtable->show_mouse(&screen);  
   return end;
 }
 
@@ -567,12 +566,7 @@ term* term_write(term* self, void* x) {
   return term_write(self, str);
 }
 
-
-mutex __m;
-
 term* term_write(term* self, native_string x) {
-
-  __m.lock();
 
   unicode_char buf[2];
 
@@ -582,9 +576,6 @@ term* term_write(term* self, native_string x) {
     buf[0] = CAST(uint8, *x++);
     term_write(self, buf);
   }
-
-  __m.unlock();
-
   return self;
 }
 
@@ -605,6 +596,27 @@ term* term_write(term* self, native_char x) {
   buf[1] = '\0';
 
   return term_write(cout, buf);
+}
+
+
+void debug_write(uint32 x) {
+  const int max_digits = 10;  // 2^32 contains 10 decimal digits
+  native_char buf[max_digits + 1];
+  native_string str = buf + max_digits;
+
+  *str = '\0';
+
+  if (x == 0)
+    *--str = '0';
+  else {
+    while (x != 0) {
+      uint32 x10 = x / 10;
+      *--str = '0' + (x - x10 * 10);
+      x = x10;
+    }
+  }
+
+  debug_write(str);
 }
 
 void debug_write(native_string str) {
