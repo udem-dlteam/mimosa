@@ -9,6 +9,7 @@
 //-----------------------------------------------------------------------------
 
 #include "term.h"
+#include "thread.h"
 
 //-----------------------------------------------------------------------------
 
@@ -566,7 +567,13 @@ term* term_write(term* self, void* x) {
   return term_write(self, str);
 }
 
+
+mutex __m;
+
 term* term_write(term* self, native_string x) {
+
+  __m.lock();
+
   unicode_char buf[2];
 
   buf[1] = '\0';
@@ -575,6 +582,8 @@ term* term_write(term* self, native_string x) {
     buf[0] = CAST(uint8, *x++);
     term_write(self, buf);
   }
+
+  __m.unlock();
 
   return self;
 }
@@ -596,6 +605,15 @@ term* term_write(term* self, native_char x) {
   buf[1] = '\0';
 
   return term_write(cout, buf);
+}
+
+void debug_write(native_string str) {
+  const int OUT_PORT = 0XE9;
+  while (*str != '\0') {
+    outb(*str++, OUT_PORT);
+  }
+  outb('\n', OUT_PORT);
+  outb('\r', OUT_PORT);
 }
 
 //-----------------------------------------------------------------------------
