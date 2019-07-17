@@ -13,6 +13,7 @@
 #include "pic.h"
 #include "apic.h"
 #include "term.h"
+#include "rtlib.h"
 
 //-----------------------------------------------------------------------------
 
@@ -348,6 +349,8 @@ void interrupt_handle(interrupt_data data) {
   term_write(cout, " INT ARG: ");
   term_write(cout, data.error_code);
   term_write(cout, "\n\r");
+
+  fatal_error("CPU exception occured :<(");
 }
 
 //-----------------------------------------------------------------------------

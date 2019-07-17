@@ -1087,15 +1087,6 @@ sys_intr:
   sti
 
   iret
-
-.globl asm_restore_context
-asm_restore_context:
-  movl 4(%esp), %eax           # Get the first argument: the stack pointer
-  movl %eax, %esp              # Restore the stack pointer
-  popa
-  sti
-  iret
-
 #------------------------------------------------------------------------------
 
 # Video mode information.

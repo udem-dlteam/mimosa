@@ -271,8 +271,9 @@ void __rtlib_entry ()
 
   __do_global_ctors ();
 
+  setup_ps2();
   scheduler::setup (&__rtlib_setup);
-  //__rtlib_setup();
+  // __rtlib_setup();
   // ** NEVER REACHED ** (this function never returns)
 }
 
@@ -381,14 +382,16 @@ idle_thread::idle_thread ()
 
 void idle_thread::run ()
 {
-  term_write(cout, "IDLE\n\r");
-
-  for (;;)
-    thread::yield ();
+  for (;;) thread::yield ();
 }
+
+extern "C" void a_sti();
 
 void __rtlib_setup ()
 { 
+  term_write(cout, "ENTERED __RTLIB_SETUP");
+  __asm__ __volatile__("sti");
+  
   term_write(cout, "Initializing ");
   term_write(cout, "\033[46m");
   term_write(cout, OS_NAME);
@@ -396,7 +399,7 @@ void __rtlib_setup ()
 
   identify_cpu ();
 
-  //setup_ps2 ();
+  setup_ps2 ();
 
   (new idle_thread)->start (); // need an idle thread to prevent deadlocks
 

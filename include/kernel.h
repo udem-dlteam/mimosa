@@ -13,8 +13,6 @@
 
 #include "general.h"
 
-void asm_restore_context(uint32* esp);
-
 #endif
 
 // Local Variables: //

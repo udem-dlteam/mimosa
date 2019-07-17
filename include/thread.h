@@ -78,7 +78,7 @@ do {                                                                          \
          addl  $8,%%esp         # Remove the third and fourth parameter    \n \
          popal"                                                               \
         :                                                                     \
-        : "m" (receiver), "g" (data)                                          \
+        : "i" (receiver), "g" (data)                                          \
         : );                                                             \
    } while (0)
 
@@ -123,6 +123,7 @@ do {                                                                          \
      ASSERT_INTERRUPTS_DISABLED ();                                           \
      __asm__ __volatile__                                                     \
        ("movl  %0,%%esp  # Restore the stack pointer                       \n \
+         movl  %0,%%esp  # Restore the stack pointer                       \n \
          iret            # Return from the ``call'' in ``save_context''"      \
         :                                                                     \
         : "g" (sp));                                                          \

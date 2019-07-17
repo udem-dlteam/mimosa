@@ -17,7 +17,6 @@
 //-----------------------------------------------------------------------------
 
 int main() {
-  
   term* tty = &new_term(0, 320, 80, 10, &font_mono_6x9, L"tty", true);
 
   term_write(tty, "\033[46m");
@@ -32,15 +31,7 @@ int main() {
 
   term_write(tty, "Video.cpp is in C!\n");
 
-  __asm__ __volatile__("int $0x02" : : : "memory");
-
-  term_write(tty, "Interrupt don't scare me!\n");
-
-
-  __asm__ __volatile__("int $0xD0" : : : "memory");
-
-  for (;;)
-    ;  // loop forever!
+  for (;;);
 
   return 0;
 }

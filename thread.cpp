@@ -35,7 +35,7 @@ void mutex::lock ()
 
   if (_locked)
     { //cout << "a";///////////
-    save_context (scheduler::suspend_on_wait_queue, this);
+      save_context (scheduler::suspend_on_wait_queue, this);
     //cout << "A";
     }
   else
@@ -294,26 +294,30 @@ thread::thread ()
 
 
   // Stack frame we want to build:
-  //  ___________________________
+  //  ---------------------------
+  // |        GEN-PURPOSE        |
+  //  ---------------------------
   // |           EFLAGS          |
   //  ---------------------------
   // |             |       CS    |
   //  ---------------------------
   // |            EIP            |
-  //  ---------------------------
-  // |        GEN-PURPOSE        |
-  //  ---------------------------
+  //  ---------------------------  
+  // Room for pushall, all initiated at zero
+  // This stack frame is built in order to be compatible with the 
+  // context switching routines that expected the general purpose registers
+  // to be before the IRET frame.
+  for (int i = 0; i < 8; i++) {
+    *-- s = 0;
+  }
+
   *--s = 0;              // the (dummy) return address of "run_thread"
   *--s = eflags_reg ();  // space for "EFLAGS"
   *--s = cs_reg ();      // space for "%cs"
   *--s = CAST(uint32,&scheduler::run_thread); // to call "run_thread"
 
-  // Room for pushall, all initiated at zero
-  for (int i = 0; i < 8; i++) {
-    *-- s = 0;
-  }
 
-  // Note: the 3 topmost words on the thread's stack are in the same
+  // Note: the 3 bottommost words on the thread's stack are in the same
   // layout as expected by the "iret" instruction.  When an "iret"
   // instruction is executed to restore the thread's context, the
   // function "run_thread" will be called and this function will get a
@@ -458,9 +462,7 @@ void scheduler::setup (void_fn continuation)
   wait_queue_insert (current_thread, readyq);
 
   setup_timer ();
-  asm ("int $0xd0"); //////////// call sys_irq
-  ////////resume_next_thread ();
-
+  __asm__ __volatile__ ("int $0xD0" :::"memory");
   // ** NEVER REACHED ** (this function never returns)
 }
 
@@ -565,7 +567,7 @@ void scheduler::yield_if_necessary ()
   thread* t = wait_queue_head (readyq);
 
   if (t != current_thread) {
-    save_context (scheduler::switch_to_next_thread, NULL);
+      save_context (scheduler::switch_to_next_thread, NULL);
   }
   
 }
@@ -590,23 +592,12 @@ void resume_next_thread() {
 
   thread* current = wait_queue_head(scheduler::readyq);
 
-  term_write(cout, "resume next thread called\n");
-  term_write(cout, "Current thread is: ");
-
-  if (NULL == current) {
-    term_write(cout, "Null thread :(");
-    for(;;);
-  } else {
-    term_write(cout, current->name());
-  }
-
   if (current != NULL) {
     scheduler::current_thread = current;
     time now = current_time_no_interlock();
     current->_end_of_quantum = add_time(now, current->_quantum);
     scheduler::set_timer(current->_end_of_quantum, now);
-    //current->_sp
-    asm_restore_context(current->_sp); // never returns
+    restore_context(current->_sp); // never returns
   }
 
   fatal_error("Deadlock detected");
@@ -617,7 +608,7 @@ void scheduler::switch_to_next_thread
    uint32 eflags, // the stack as a byproduct of using "iret".
    uint32* sp,
    void* dummy)
-{
+{  
   ASSERT_INTERRUPTS_DISABLED (); // Interrupts should be disabled at this point
 
   thread* current = current_thread;
@@ -791,17 +782,14 @@ void scheduler::timer_elapsed ()
   }
 #endif
 
-  thread* current = current_thread;
+    thread* current = current_thread;
 
-  if (less_time (now, current->_end_of_quantum))
-    {
+    if (less_time(now, current->_end_of_quantum)) {
       //      cout << "timer is fast\n";/////////////
-      set_timer (current->_end_of_quantum, now);
-    }
-  else
-    { //cout << "f";//////////
-    save_context (scheduler::switch_to_next_thread, NULL);
-    //cout << "F";
+      set_timer(current->_end_of_quantum, now);
+    } else {  // cout << "f";//////////
+      save_context(scheduler::switch_to_next_thread, NULL);
+      // cout << "F";
     }
 }
 
@@ -813,6 +801,7 @@ void irq0 ()
 
 #ifdef SHOW_TIMER_INTERRUPTS
   term_write(cout, "\033[41m irq0 \033[0m");
+  term_write(cout, "\n\r");
 #endif
 
   ACKNOWLEDGE_IRQ(0);

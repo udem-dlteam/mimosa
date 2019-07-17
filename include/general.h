@@ -105,11 +105,11 @@ typedef int32 error_code;
 // Athlon processors cause an "invalid TSS" exception when the "iret"
 // instruction is used.
 
-//#define USE_IRET_FOR_RESTORE_CONTEXT
+// #define USE_IRET_FOR_RESTORE_CONTEXT
 #define USE_RET_FOR_RESTORE_CONTEXT
 
 //#define SHOW_INTERRUPTS
-#define SHOW_TIMER_INTERRUPTS
+//#define SHOW_TIMER_INTERRUPTS
 //#define SHOW_CPU_INFO
 //#define SHOW_IDE_INFO
 //#define SHOW_DISK_INFO
