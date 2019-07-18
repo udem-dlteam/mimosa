@@ -26,14 +26,14 @@ mutex::mutex ()
 {
   wait_queue_init (this);
   _locked = FALSE;
-  scheduler::register_mutex (this);
+  sched_reg_mutex(this);
 }
 
 void mutex::lock() {
   disable_interrupts();
 
   if (_locked) {
-    save_context(scheduler::suspend_on_wait_queue, this);
+    save_context(_sched_suspend_on_wait_queue, this);
   } else {
     _locked = TRUE;
   }
@@ -69,7 +69,7 @@ bool mutex::lock_or_timeout (time timeout)
 #else
   disable_interrupts ();
 
-  thread* current = scheduler::current_thread;
+  thread* current = sched_current_thread;
 
   if (_locked)
     {
@@ -85,7 +85,7 @@ bool mutex::lock_or_timeout (time timeout)
       wait_queue_remove (current);
       wait_queue_insert (current, this);
       debug_write("LN 91");
-      save_context (scheduler::suspend_on_sleep_queue, NULL);
+      save_context (_sched_suspend_on_wait_queue, NULL);
 
       enable_interrupts ();
 
@@ -110,8 +110,8 @@ void mutex::unlock() {
   } else {
     sleep_queue_remove(t);
     sleep_queue_detach(t);
-    scheduler::reschedule_thread(t);
-    scheduler::yield_if_necessary();
+    _sched_reschedule_thread(t);
+    _sched_yield_if_necessary();
   }
 
   enable_interrupts();
@@ -128,7 +128,7 @@ mutex* seq;////////////////////
 condvar::condvar ()
 {
   wait_queue_init (this);
-  scheduler::register_condvar (this);
+  sched_reg_condvar(this);
 }
 
 void condvar::wait (mutex* m)
@@ -137,14 +137,13 @@ void condvar::wait (mutex* m)
 
   thread* t = wait_queue_head (CAST(wait_queue*,m));
 
-  if (t == NULL)
+  if (t == NULL) {
     m->_locked = FALSE;
-  else
-    {
-      sleep_queue_remove (t);
-      sleep_queue_detach (t);
-      scheduler::reschedule_thread (t);
-    }
+  } else {
+    sleep_queue_remove(t);
+    sleep_queue_detach(t);
+    _sched_reschedule_thread(t);
+  }
 
   // Why is this there???
   // { //cout << "b";/////////
@@ -154,14 +153,13 @@ void condvar::wait (mutex* m)
   // //cout << "B";
   // }
 
-  if (m->_locked)
-    { //cout << "c";///////////
+  if (m->_locked) {  // cout << "c";///////////
     debug_write("LN 166");
-    save_context (scheduler::suspend_on_wait_queue, m);
-    //cout << "C";
-    }
-  else
+    save_context(_sched_suspend_on_wait_queue, m);
+    // cout << "C";
+  } else {
     m->_locked = TRUE;
+  }
 
   enable_interrupts ();
 }
@@ -170,16 +168,16 @@ bool condvar::wait_or_timeout (mutex* m, time timeout)
 {
   disable_interrupts ();
 
-  thread* current = scheduler::current_thread;
+  thread* current = sched_current_thread;
 
   thread* t = wait_queue_head (CAST(wait_queue*,m));
 
-  if (t == NULL)
+  if (t == NULL) {
     m->_locked = FALSE;
-  else {
+  } else {
     sleep_queue_remove(t);
     sleep_queue_detach(t);
-    scheduler::reschedule_thread(t);
+    _sched_reschedule_thread(t);
   }
 
   if (!less_time(current_time_no_interlock(), timeout)) {
@@ -194,7 +192,7 @@ bool condvar::wait_or_timeout (mutex* m, time timeout)
   wait_queue_insert (current, this);
 
   debug_write("LN 205");
-  save_context (scheduler::suspend_on_sleep_queue, NULL);
+  save_context(_sched_suspend_on_sleep_queue, NULL);
 
   ASSERT_INTERRUPTS_DISABLED ();
 
@@ -209,68 +207,55 @@ bool condvar::wait_or_timeout (mutex* m, time timeout)
   return FALSE;
 }
 
-void condvar::signal ()
-{
-  disable_interrupts ();
+void condvar::signal() {
+  disable_interrupts();
 
-  thread* t = wait_queue_head (CAST(wait_queue*,this));
+  thread* t = wait_queue_head(CAST(wait_queue*, this));
 
-  if (t != NULL)
-    {
-      sleep_queue_remove (t);
-      sleep_queue_detach (t);
-      scheduler::reschedule_thread (t);
-      scheduler::yield_if_necessary ();
-    }
+  if (t != NULL) {
+    sleep_queue_remove(t);
+    sleep_queue_detach(t);
+    _sched_reschedule_thread(t);
+    _sched_yield_if_necessary();
+  }
 
-  enable_interrupts ();
+  enable_interrupts();
 }
 
-void condvar::broadcast ()
-{
-  disable_interrupts ();
+void condvar::broadcast() {
+  disable_interrupts();
 
   thread* t;
 
-  while ((t = wait_queue_head (CAST(wait_queue*,this))) != NULL)
-    {
-      sleep_queue_remove (t);
-      sleep_queue_detach (t);
-      scheduler::reschedule_thread (t);
-    }
-
-  scheduler::yield_if_necessary ();
-
-  enable_interrupts ();
-}
-
-void condvar::mutexless_wait ()
-{
-  ASSERT_INTERRUPTS_DISABLED (); // Interrupts should be disabled at this point
-
-  { //cout << "d";////////////
-
-  debug_write("LN 262");
-  save_context (scheduler::suspend_on_wait_queue, this);
-  //cout << "D";
+  while ((t = wait_queue_head(CAST(wait_queue*, this))) != NULL) {
+    sleep_queue_remove(t);
+    sleep_queue_detach(t);
+    _sched_reschedule_thread(t);
   }
 
-  ASSERT_INTERRUPTS_DISABLED (); // Interrupts should be disabled at this point
+  _sched_yield_if_necessary();
+  enable_interrupts();
 }
 
-void condvar::mutexless_signal ()
-{
-  ASSERT_INTERRUPTS_DISABLED (); // Interrupts should be disabled at this point
+void condvar::mutexless_wait() {
+  ASSERT_INTERRUPTS_DISABLED();  // Interrupts should be disabled at this point
 
-  thread* t = wait_queue_head (CAST(wait_queue*,this));
+  save_context(_sched_suspend_on_wait_queue, this);
 
-  if (t != NULL)
-    {
-      sleep_queue_remove (t);
-      sleep_queue_detach (t);
-      scheduler::reschedule_thread (t);
-      scheduler::yield_if_necessary ();
-    }
+  ASSERT_INTERRUPTS_DISABLED();  // Interrupts should be disabled at this point
+}
+
+void condvar::mutexless_signal() {
+  ASSERT_INTERRUPTS_DISABLED();  // Interrupts should be disabled at this point
+
+  thread* t = wait_queue_head(CAST(wait_queue*, this));
+
+  if (t != NULL) {
+    sleep_queue_remove(t);
+    sleep_queue_detach(t);
+    _sched_reschedule_thread(t);
+    _sched_yield_if_necessary();
+  }
 }
 
 //-----------------------------------------------------------------------------
@@ -315,7 +300,7 @@ thread::thread ()
   *--s = 0;              // the (dummy) return address of "run_thread"
   *--s = eflags_reg ();  // space for "EFLAGS"
   *--s = cs_reg ();      // space for "%cs"
-  *--s = CAST(uint32,&scheduler::run_thread); // to call "run_thread"
+  *--s = CAST(uint32,&_sched_run_thread); // to call "run_thread"
 
 
   // Note: the 3 bottommost words on the thread's stack are in the same
@@ -336,12 +321,11 @@ thread::~thread ()
   kfree (_stack);
 }
 
-thread* thread::start ()
-{
+thread* thread::start() {
   // disable_interrupts ();
-  scheduler::reschedule_thread (this);
-  scheduler::yield_if_necessary ();
-  //enable_interrupts ();
+  _sched_reschedule_thread(this);
+  _sched_yield_if_necessary();
+  // enable_interrupts ();
   return this;
 }
 
@@ -356,20 +340,16 @@ void thread::join ()
 void thread::yield() {
   disable_interrupts();
   {  // cout << "e";////////////
-    save_context(scheduler::switch_to_next_thread, NULL);
+    save_context(_sched_switch_to_next_thread, NULL);
     // cout << "E";
   }
 
   enable_interrupts();
 }
 
-thread* thread::self ()
-{
-  return scheduler::current_thread;
-}
+thread* thread::self() { return sched_current_thread; }
 
-void thread::sleep (int64 timeout_nsecs)
-{
+void thread::sleep(int64 timeout_nsecs) {
 #if 0
   if (timeout_nsecs > 0)
     {
@@ -380,19 +360,19 @@ void thread::sleep (int64 timeout_nsecs)
         yield ();
     }
 #else
-  disable_interrupts ();
+  disable_interrupts();
 
-  thread* current = scheduler::current_thread;
+  thread* current = sched_current_thread;
 
-  current->_timeout = add_time (current_time_no_interlock (),
-                                nanoseconds_to_time (timeout_nsecs));
+  current->_timeout =
+      add_time(current_time_no_interlock(), nanoseconds_to_time(timeout_nsecs));
 
-  wait_queue_remove (current);
+  wait_queue_remove(current);
 
-      debug_write("LN 403");
-  save_context (scheduler::suspend_on_sleep_queue, NULL);
+  debug_write("LN 403");
+  save_context(_sched_suspend_on_wait_queue, NULL);
 
-  enable_interrupts ();
+  enable_interrupts();
 #endif
 }
 
@@ -437,19 +417,71 @@ void primordial_thread::run ()
 mutex* mtab[100]; int mn = 0;
 condvar* ctab[100]; int cn = 0;
 
-void scheduler::register_mutex (mutex* m)
+void sys_irq (void* esp)///////////////// AMD... why do we need this hack???
 {
-  mtab[mn++] = m;
+  ASSERT_INTERRUPTS_DISABLED ();
+  _sched_resume_next_thread ();
 }
 
-void scheduler::register_condvar (condvar* c)
-{
-  ctab[cn++] = c;
+void _sched_resume_next_thread() {
+  ASSERT_INTERRUPTS_DISABLED();  // Interrupts should be disabled at this point
+
+  thread* current = wait_queue_head(readyq);
+
+  if (current != NULL) {
+    sched_current_thread = current;
+    time now = current_time_no_interlock();
+    current->_end_of_quantum = add_time(now, current->_quantum);
+    _sched_set_timer(current->_end_of_quantum, now);
+    restore_context(current->_sp); // never returns
+  }
+
+  fatal_error("Deadlock detected");
 }
 
-void scheduler::setup (void_fn continuation)
+
+#ifdef USE_PIT_FOR_TIMER
+
+void irq0 ()
 {
-  ASSERT_INTERRUPTS_DISABLED (); // Interrupts should be disabled at this point
+  ASSERT_INTERRUPTS_DISABLED ();
+
+#ifdef SHOW_TIMER_INTERRUPTS
+  term_write(cout, "\033[41m irq0 \033[0m");
+  term_write(cout, "\n\r");
+#endif
+
+  ACKNOWLEDGE_IRQ(0);
+
+  _sched_timer_elapsed();
+}
+
+#endif
+
+#ifdef USE_APIC_FOR_TIMER
+
+void APIC_timer_irq ()
+{
+  ASSERT_INTERRUPTS_DISABLED ();
+
+#ifdef SHOW_TIMER_INTERRUPTS
+  term_write(cout, "\033[41m APIC timer irq \033[0m)");
+#endif
+
+  APIC_EOI = 0;
+
+  scheduler::timer_elapsed ();
+}
+
+#endif
+
+//-----------------------------------------------------------------------------
+// C Rewrite
+//-----------------------------------------------------------------------------
+
+
+void sched_setup(void_fn continuation) {
+   ASSERT_INTERRUPTS_DISABLED (); // Interrupts should be disabled at this point
 
   readyq = new wait_queue;
   wait_queue_init (readyq);
@@ -457,25 +489,19 @@ void scheduler::setup (void_fn continuation)
   sleepq = new sleep_queue;
   sleep_queue_init (sleepq);
 
-  the_primordial_thread = new primordial_thread (continuation);
-  current_thread = the_primordial_thread;
+  sched_primordial_thread = new primordial_thread (continuation);
+  sched_current_thread = sched_primordial_thread;
 
-  wait_queue_insert (current_thread, readyq);
+  wait_queue_insert (sched_current_thread, readyq);
 
-  setup_timer ();
+  _sched_setup_timer ();
   __asm__ __volatile__ ("int $0xD0":::"memory");
-  // ** NEVER REACHED ** (this function never returns)
+  // ** NEVER REACHED **
+  fatal_error("sched_setup should never return");
 }
 
-void sys_irq (void* esp)///////////////// AMD... why do we need this hack???
-{
-  ASSERT_INTERRUPTS_DISABLED ();
-  resume_next_thread ();
-}
-
-void scheduler::stats ()
-{
-  disable_interrupts ();
+void sched_stats() {
+  disable_interrupts();
 
   int n = 0;
   int m = 0;
@@ -485,176 +511,145 @@ void scheduler::stats ()
 
   {
     wait_mutex_node* t = readyq->_next_in_wait_queue;
-    while (t != readyq)
-      {
-        term_write(cout, CAST(thread*,t)->name ());
-        n++;
-        t = t->_next_in_wait_queue;
-      }
+    while (t != readyq) {
+      term_write(cout, CAST(thread*, t)->name());
+      n++;
+      t = t->_next_in_wait_queue;
+    }
   }
 
   term_write(cout, " ");
 
   {
     wait_mutex_sleep_node* t = sleepq->_next_in_sleep_queue;
-    while (t != sleepq)
-      {
-        term_write(cout, CAST(thread*,t)->name ());
-        m++;
-        t = t->_next_in_sleep_queue;
-      }
+    while (t != sleepq) {
+      term_write(cout, CAST(thread*, t)->name());
+      m++;
+      t = t->_next_in_sleep_queue;
+    }
   }
 
   term_write(cout, " ");
 
   {
-    for (int i = 0; i < mn; i++)
-      {
-        wait_mutex_node* t = mtab[i]->_next_in_wait_queue;
-        while (t != mtab[i])
-          {
-            term_write(cout, "m");
-            term_write(cout, i);
-            term_write(cout, "=");
-            term_write(cout, CAST(thread*, t)->name());
-            term_write(cout, " ");
-            p++;
-            t = t->_next_in_wait_queue;
-          }
+    for (int i = 0; i < mn; i++) {
+      wait_mutex_node* t = mtab[i]->_next_in_wait_queue;
+      while (t != mtab[i]) {
+        term_write(cout, "m");
+        term_write(cout, i);
+        term_write(cout, "=");
+        term_write(cout, CAST(thread*, t)->name());
+        term_write(cout, " ");
+        p++;
+        t = t->_next_in_wait_queue;
       }
+    }
   }
 
   {
-    for (int i = 0; i < cn; i++)
-      {
-        wait_mutex_node* t = ctab[i]->_next_in_wait_queue;
-        while (t != ctab[i])
-          {
-            term_write(cout, "c");
-            term_write(cout, i);
-            term_write(cout, "=");
-            term_write(cout, CAST(thread*,t)->name () );
-            term_write(cout, " ");
-            p++;
-            t = t->_next_in_wait_queue;
-          }
+    for (int i = 0; i < cn; i++) {
+      wait_mutex_node* t = ctab[i]->_next_in_wait_queue;
+      while (t != ctab[i]) {
+        term_write(cout, "c");
+        term_write(cout, i);
+        term_write(cout, "=");
+        term_write(cout, CAST(thread*, t)->name());
+        term_write(cout, " ");
+        p++;
+        t = t->_next_in_wait_queue;
       }
+    }
   }
 
   term_write(cout, ")\n");
 
-  enable_interrupts ();
+  enable_interrupts();
 
-  //cout << "(" << n << " " << m << " " << p << ")";
+  // cout << "(" << n << " " << m << " " << p << ")";
 }
 
-void scheduler::reschedule_thread (thread* t)
-{
-  ASSERT_INTERRUPTS_DISABLED (); // Interrupts should be disabled at this point
-
-  wait_queue_remove (t);
-  wait_queue_insert (t, readyq);
+void sched_reg_mutex(mutex* m) {
+  mtab[mn++] = m;
 }
 
-void scheduler::yield_if_necessary ()
-{
-  ASSERT_INTERRUPTS_DISABLED (); // Interrupts should be disabled at this point
-
-  thread* t = wait_queue_head (readyq);
-
-  if (t != current_thread) {
-
-      debug_write("LN 584");
-      save_context (scheduler::switch_to_next_thread, NULL);
-  }
-  
+void sched_reg_condvar(condvar* c) {
+  ctab[cn++] = c;
 }
 
-void scheduler::run_thread ()
-{
-  current_thread->run ();
-  current_thread->_terminated = TRUE;
-  current_thread->_joiners.broadcast ();
-
-  disable_interrupts ();
-  wait_queue_remove (current_thread);
-  resume_next_thread ();
-
-  // ** NEVER REACHED ** (this function never returns)
+void _sched_reschedule_thread(thread* t) {
+  ASSERT_INTERRUPTS_DISABLED();  // Interrupts should be disabled at this point
+  wait_queue_remove(t);
+  wait_queue_insert(t, readyq);
 }
 
-void resume_next_thread() {
+void _sched_yield_if_necessary() {
   ASSERT_INTERRUPTS_DISABLED();  // Interrupts should be disabled at this point
 
-  thread* current = wait_queue_head(scheduler::readyq);
+  thread* t = wait_queue_head(readyq);
 
-  if (current != NULL) {
-    scheduler::current_thread = current;
-    time now = current_time_no_interlock();
-    current->_end_of_quantum = add_time(now, current->_quantum);
-    scheduler::set_timer(current->_end_of_quantum, now);
-    restore_context(current->_sp); // never returns
+  if (t != sched_current_thread) {
+    save_context(_sched_switch_to_next_thread, NULL);
   }
-
-  fatal_error("Deadlock detected");
 }
 
-void scheduler::switch_to_next_thread
-  (uint32 cs,     // The parameters "cs" and "eflags" are only on
-   uint32 eflags, // the stack as a byproduct of using "iret".
-   uint32* sp,
-   void* dummy)
-{  
-  ASSERT_INTERRUPTS_DISABLED (); // Interrupts should be disabled at this point
+void _sched_run_thread() {
+  sched_current_thread->run();
+  sched_current_thread->_terminated = TRUE;
+  sched_current_thread->_joiners.broadcast();
 
-  thread* current = current_thread;
-
-  current->_sp = sp;
-  reschedule_thread (current);
-  resume_next_thread ();
+  disable_interrupts();
+  wait_queue_remove(sched_current_thread);
+  _sched_resume_next_thread();
 
   // ** NEVER REACHED ** (this function never returns)
+  fatal_error("_sched_run_thread() should never return");
 }
 
-void scheduler::suspend_on_wait_queue
-  (uint32 cs,     // The parameters "cs" and "eflags" are only on
-   uint32 eflags, // the stack as a byproduct of using "iret".
-   uint32* sp,
-   void* q)
-{
-  debug_write("SUSPEND ON WAIT QUEUE IN");
-  ASSERT_INTERRUPTS_DISABLED (); // Interrupts should be disabled at this point
+void _sched_switch_to_next_thread(uint32 cs, uint32 eflags, uint32* sp,
+                                  void* q) {
+  ASSERT_INTERRUPTS_DISABLED();  // Interrupts should be disabled at this point
 
-  thread* current = current_thread;
+  thread* current = sched_current_thread;
 
   current->_sp = sp;
-  wait_queue_remove (current);
-  wait_queue_insert (current, CAST(wait_queue*,q));
-  resume_next_thread ();
+  _sched_reschedule_thread(current);
+  _sched_resume_next_thread();
 
   // ** NEVER REACHED ** (this function never returns)
+  fatal_error("_sched_switch_to_next_thread is never supposed to return");
 }
 
-void scheduler::suspend_on_sleep_queue
-  (uint32 cs,     // The parameters "cs" and "eflags" are only on
-   uint32 eflags, // the stack as a byproduct of using "iret".
-   uint32* sp,
-   void* dummy)
-{
-  ASSERT_INTERRUPTS_DISABLED (); // Interrupts should be disabled at this point
+void _sched_suspend_on_wait_queue(uint32 cs, uint32 eflags, uint32* sp,
+                                  void* q) {
+  ASSERT_INTERRUPTS_DISABLED();  // Interrupts should be disabled at this point
 
-  thread* current = current_thread;
+  thread* current = sched_current_thread;
 
   current->_sp = sp;
-  sleep_queue_insert (current, sleepq);
-  resume_next_thread ();
+  wait_queue_remove(current);
+  wait_queue_insert(current, CAST(wait_queue*, q));
+  _sched_resume_next_thread();
 
   // ** NEVER REACHED ** (this function never returns)
+  fatal_error("_sched_suspend_on_wait_queue is never supposed to return");
 }
 
-void scheduler::setup_timer ()
-{
-  // When the timer elapses an interrupt is sent to the processor,
+void _sched_suspend_on_sleep_queue(uint32 cs, uint32 eflags, uint32* sp,
+                                   void* dummy) {
+  ASSERT_INTERRUPTS_DISABLED();  // Interrupts should be disabled at this point
+
+  thread* current = sched_current_thread;
+
+  current->_sp = sp;
+  sleep_queue_insert(current, sleepq);
+  _sched_resume_next_thread();
+
+  // ** NEVER REACHED ** (this function never returns)
+  fatal_error("_sched_suspend_on_sleep_queue is never supposed to return");
+}
+
+void _sched_setup_timer() {
+   // When the timer elapses an interrupt is sent to the processor,
   // causing it to call the function "timer_elapsed".  This is how CPU
   // multiplexing is achieved.  Unfortunately, it takes quite a bit of
   // time to service an interrupt and this can be an important part of
@@ -690,22 +685,20 @@ void scheduler::setup_timer ()
 #endif
 }
 
-void scheduler::set_timer (time t, time now)
-{
+void _sched_set_timer(time t, time now) {
   // t must be >= now
 
-  ASSERT_INTERRUPTS_DISABLED ();
+  ASSERT_INTERRUPTS_DISABLED();
 
   int64 count;
 
 #ifdef USE_PIT_FOR_TIMER
 
-  count = time_to_pit_counts (subtract_time (t, now))
-          + 2; // 2 is added to avoid timer undershoot cascades when
-               // PIT is running fast compared to RTC or TSC
+  count = time_to_pit_counts(subtract_time(t, now)) +
+          2;  // 2 is added to avoid timer undershoot cascades when
+              // PIT is running fast compared to RTC or TSC
 
-  if (count > 0xffff)
-    count = 0;
+  if (count > 0xffff) count = 0;
 #ifdef USE_PIT_1_BYTE_COUNT
   else if (count > 0xff)
     count = 0xff;
@@ -718,31 +711,29 @@ void scheduler::set_timer (time t, time now)
   // 1000 nanoseconds and a voluntary context switch ("yield" with no
   // timer reprogramming) takes about 700 nanoseconds.
 
-  outb (count, PIT_PORT_CTR(0,PIT1_PORT_BASE));      // send LSB
+  outb(count, PIT_PORT_CTR(0, PIT1_PORT_BASE));  // send LSB
 
 #ifndef USE_PIT_1_BYTE_COUNT
-  outb (count >> 8, PIT_PORT_CTR(0,PIT1_PORT_BASE)); // send MSB
+  outb(count >> 8, PIT_PORT_CTR(0, PIT1_PORT_BASE));  // send MSB
 #endif
 
 #endif
 
 #ifdef USE_APIC_FOR_TIMER
 
-  count = time_to_apic_timer_counts (subtract_time (t, now))
-          + 100; // 100 is added to avoid timer undershoot cascades when
-                 // APIC timer is running fast compared to RTC or TSC
+  count = time_to_apic_timer_counts(subtract_time(t, now)) +
+          100;  // 100 is added to avoid timer undershoot cascades when
+                // APIC timer is running fast compared to RTC or TSC
 
-  if (count > 0xffffffff)
-    count = 0xffffffff;
+  if (count > 0xffffffff) count = 0xffffffff;
 
   APIC_INITIAL_TIMER_COUNT = count;
 
 #endif
 }
 
-void scheduler::timer_elapsed ()
-{
-  ASSERT_INTERRUPTS_DISABLED ();
+void _sched_timer_elapsed() {
+   ASSERT_INTERRUPTS_DISABLED ();
 
   time now = current_time_no_interlock ();
 
@@ -757,7 +748,7 @@ void scheduler::timer_elapsed ()
       t->_did_not_timeout = FALSE;
       sleep_queue_remove (t);
       sleep_queue_detach (t);
-      reschedule_thread (t);
+      _sched_reschedule_thread (t);
     }
 #else
   {
@@ -778,58 +769,22 @@ void scheduler::timer_elapsed ()
       }
   }
 #endif
-
-    thread* current = current_thread;
+    thread* current = sched_current_thread;
 
     if (less_time(now, current->_end_of_quantum)) {
       //      cout << "timer is fast\n";/////////////
-      scheduler::set_timer(current->_end_of_quantum, now);
+      _sched_set_timer(current->_end_of_quantum, now);
     } else {  // cout << "f";//////////
       // debug_write("LN 794");
-      save_context(scheduler::switch_to_next_thread, NULL);
+      save_context(_sched_switch_to_next_thread, NULL);
       // cout << "F";
     }
 }
 
-#ifdef USE_PIT_FOR_TIMER
-
-void irq0 ()
-{
-  ASSERT_INTERRUPTS_DISABLED ();
-
-#ifdef SHOW_TIMER_INTERRUPTS
-  term_write(cout, "\033[41m irq0 \033[0m");
-  term_write(cout, "\n\r");
-#endif
-
-  ACKNOWLEDGE_IRQ(0);
-
-  scheduler::timer_elapsed ();
-}
-
-#endif
-
-#ifdef USE_APIC_FOR_TIMER
-
-void APIC_timer_irq ()
-{
-  ASSERT_INTERRUPTS_DISABLED ();
-
-#ifdef SHOW_TIMER_INTERRUPTS
-  term_write(cout, "\033[41m APIC timer irq \033[0m)");
-#endif
-
-  APIC_EOI = 0;
-
-  scheduler::timer_elapsed ();
-}
-
-#endif
-
-wait_queue* scheduler::readyq;
-sleep_queue* scheduler::sleepq;
-thread* scheduler::the_primordial_thread;
-thread* scheduler::current_thread;
+wait_queue* readyq;
+sleep_queue* sleepq;
+thread* sched_primordial_thread;
+thread* sched_current_thread;
 
 //-----------------------------------------------------------------------------
 

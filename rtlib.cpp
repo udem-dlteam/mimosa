@@ -267,7 +267,7 @@ void __rtlib_entry ()
 
   __do_global_ctors ();
 
-  scheduler::setup (&__rtlib_setup);  
+  sched_setup (&__rtlib_setup);  
   // ** NEVER REACHED ** (this function never returns)
 }
 
@@ -374,7 +374,10 @@ idle_thread::idle_thread()
 }
 
 void idle_thread::run() {
-  for (;;) thread::yield();
+  for (;;) {
+    // debug_write("I");
+    thread::yield();
+  }
 }
 
 extern "C" void a_sti();
