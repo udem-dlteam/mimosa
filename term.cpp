@@ -9,6 +9,7 @@
 //-----------------------------------------------------------------------------
 
 #include "term.h"
+#include "thread.h"
 
 //-----------------------------------------------------------------------------
 
@@ -57,51 +58,52 @@ void term_show(term* self) {
 
   // TODO: Call video properly
   // Video "static methods"
-  video::screen.frame_rect(
-      self->_x, self->_y,
+  raw_bitmap_frame_rect(
+      &screen.super, self->_x, self->_y,
       ex + term_outer_border + term_frame_border + term_inner_border,
       ey + term_outer_border + term_frame_border + term_inner_border,
       term_outer_border, &pattern_white);
 
-  video::screen.frame_rect(self->_x + term_outer_border,
-                           self->_y + term_outer_border,
-                           ex + term_frame_border + term_inner_border,
-                           ey + term_frame_border + term_inner_border,
-                           term_frame_border, &pattern_gray50);
+  raw_bitmap_frame_rect(&screen.super, self->_x + term_outer_border,
+                        self->_y + term_outer_border,
+                        ex + term_frame_border + term_inner_border,
+                        ey + term_frame_border + term_inner_border,
+                        term_frame_border, &pattern_gray50);
 
-  video::screen.fill_rect(self->_x + term_outer_border + term_frame_border,
-                          self->_y + char_height + term_outer_border +
-                              term_frame_border + 2 * term_inner_border,
-                          ex + term_inner_border,
-                          self->_y + char_height + term_outer_border +
-                              2 * term_frame_border + 2 * term_inner_border,
-                          &pattern_gray50);
+  raw_bitmap_fill_rect(&screen.super,
+                       self->_x + term_outer_border + term_frame_border,
+                       self->_y + char_height + term_outer_border +
+                           term_frame_border + 2 * term_inner_border,
+                       ex + term_inner_border,
+                       self->_y + char_height + term_outer_border +
+                           2 * term_frame_border + 2 * term_inner_border,
+                       &pattern_gray50);
 
-  video::screen.fill_rect(self->_x + term_outer_border + term_frame_border,
-                          self->_y + term_outer_border + term_frame_border,
-                          ex + term_inner_border,
-                          self->_y + char_height + term_outer_border +
-                              term_frame_border + 2 * term_inner_border,
-                          &pattern_black);
+  raw_bitmap_fill_rect(
+      &screen.super, self->_x + term_outer_border + term_frame_border,
+      self->_y + term_outer_border + term_frame_border, ex + term_inner_border,
+      self->_y + char_height + term_outer_border + term_frame_border +
+          2 * term_inner_border,
+      &pattern_black);
   // EO TODO
 
   int curr_x = font_draw_string(
-      self->_fn, &video::screen,
+      self->_fn, &screen.super,
       self->_x + term_outer_border + term_frame_border + term_inner_border,
       self->_y + term_outer_border + term_frame_border + term_inner_border,
       L"\x25b6 ",  // rightward triangle and space
       &pattern_blue, &pattern_black);
 
   font_draw_string(
-      self->_fn, &video::screen, curr_x,
+      self->_fn, &screen.super, curr_x,
       self->_y + term_outer_border + term_frame_border + term_inner_border,
       self->_title, &pattern_blue, &pattern_black);
 
-  video::screen.fill_rect(self->_x + term_outer_border + term_frame_border,
-                          self->_y + char_height + term_outer_border +
-                              2 * term_frame_border + 2 * term_inner_border,
-                          ex + term_inner_border, ey + term_inner_border,
-                          background);
+  raw_bitmap_fill_rect(
+      &screen.super, self->_x + term_outer_border + term_frame_border,
+      self->_y + char_height + term_outer_border + 2 * term_frame_border +
+          2 * term_inner_border,
+      ex + term_inner_border, ey + term_inner_border, background);
 
   term_show_cursor(self);
   self->_visible = TRUE;
@@ -167,7 +169,7 @@ void term_toggle_cursor(term* self) {
   term_char_coord_to_screen_coord(self, self->_cursor_column, self->_cursor_row,
                                   &sx, &sy, &ex, &ey);
 
-  video::screen.invert_rect(sx, sy, ex, ey);
+  raw_bitmap_invert_rect(&screen.super, sx, sy, ex, ey);
 
   self->_cursor_visible = !self->_cursor_visible;
 }
@@ -176,7 +178,8 @@ int term_write(term* self, unicode_char* buf, int count) {
   int start, end, i;
   unicode_char c;
 
-  video::screen.hide_mouse();
+  screen.super.vtable->hide_mouse(&screen);
+
   term_show(self);
 
   start = end = 0;
@@ -374,14 +377,15 @@ int term_write(term* self, unicode_char* buf, int count) {
               if (arg != 1) term_hide_cursor(self);
 
               if (op == -2 && arg != 0) {
-                video::screen.fill_rect(sx, sy, ex, csy, background);
+                raw_bitmap_fill_rect(&screen.super,sx, sy, ex, csy, background);
               }
 
-              video::screen.fill_rect((arg == 0) ? csx : sx, csy,
-                                      (arg == 1) ? csx : ex, cey, background);
+              raw_bitmap_fill_rect(&screen.super, (arg == 0) ? csx : sx, csy,
+                                   (arg == 1) ? csx : ex, cey, background);
 
               if (op == -2 && arg != 1)
-                video::screen.fill_rect(sx, cey, ex, ey, background);
+                raw_bitmap_fill_rect(&screen.super, sx, cey, ex, ey,
+                                     background);
             }
           } else if (op == -4) {  // set attributes
             // note: attributes are handled when characters
@@ -425,7 +429,7 @@ int term_write(term* self, unicode_char* buf, int count) {
 
       term_hide_cursor(self);
 
-      font_draw_text(self->_fn, &video::screen, sx, sy, buf + start, n,
+      font_draw_text(self->_fn, &screen.super, sx, sy, buf + start, n,
                      foreground, background);
 
       start += n;
@@ -449,7 +453,7 @@ int term_write(term* self, unicode_char* buf, int count) {
     term_show_cursor(self);
   }
 
-  video::screen.show_mouse();
+  screen.super.vtable->show_mouse(&screen);  
   return end;
 }
 
@@ -462,12 +466,12 @@ void term_scroll_up(term* self) {
   term_char_coord_to_screen_coord(self, self->_nb_columns - 1,
                                   self->_nb_rows - 1, &x2, &y2, &x3, &y3);
 
-  video::screen.bitblt(x0, y0, x3, y2, &video::screen, x0, y1, &pattern_white,
-                       &pattern_black);
+  raw_bitmap_bitblt(&screen.super, x0, y0, x3, y2, &screen.super, x0, y1,
+                    &pattern_white, &pattern_black);
 
   term_color_to_pattern(self, term_normal_background, &background);
 
-  video::screen.fill_rect(x0, y2, x3, y3, background);
+  raw_bitmap_fill_rect(&screen.super, x0, y2, x3, y3, background);
 }
 
 term* term_write(term* self, bool x) {
@@ -563,6 +567,7 @@ term* term_write(term* self, void* x) {
 }
 
 term* term_write(term* self, native_string x) {
+
   unicode_char buf[2];
 
   buf[1] = '\0';
@@ -571,7 +576,6 @@ term* term_write(term* self, native_string x) {
     buf[0] = CAST(uint8, *x++);
     term_write(self, buf);
   }
-
   return self;
 }
 
@@ -583,6 +587,45 @@ term* term_write(term* self, unicode_string x) {
   term_write(self, x, n);
 
   return self;
+}
+
+term* term_write(term* self, native_char x) {
+  native_char buf[2];
+
+  buf[0] = x;
+  buf[1] = '\0';
+
+  return term_write(cout, buf);
+}
+
+
+void debug_write(uint32 x) {
+  const int max_digits = 10;  // 2^32 contains 10 decimal digits
+  native_char buf[max_digits + 1];
+  native_string str = buf + max_digits;
+
+  *str = '\0';
+
+  if (x == 0)
+    *--str = '0';
+  else {
+    while (x != 0) {
+      uint32 x10 = x / 10;
+      *--str = '0' + (x - x10 * 10);
+      x = x10;
+    }
+  }
+
+  debug_write(str);
+}
+
+void debug_write(native_string str) {
+  const int OUT_PORT = 0XE9;
+  while (*str != '\0') {
+    outb(*str++, OUT_PORT);
+  }
+  outb('\n', OUT_PORT);
+  outb('\r', OUT_PORT);
 }
 
 //-----------------------------------------------------------------------------

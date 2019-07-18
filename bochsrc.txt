@@ -1,0 +1,2 @@
+ata0-master: type=disk, path="mimosa-build/floppy.img", cylinders=615, heads=6, spt=17
+boot: disk

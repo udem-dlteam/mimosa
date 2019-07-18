@@ -3,7 +3,7 @@ mkdir -p /mnt/tmp
 mkfs.msdos -C mimosa-build/floppy.img 1440 -R 2 -v 
 mount mimosa-build/floppy.img /mnt/tmp
 
-cp mimosa-build/boot.sys /mnt/tmp/BOOT.SYS
+cp mimosa-build/boot.bin /mnt/tmp/BOOT.SYS
 
 
 umount /mnt/tmp

@@ -13,6 +13,7 @@
 #include "pic.h"
 #include "apic.h"
 #include "term.h"
+#include "rtlib.h"
 
 //-----------------------------------------------------------------------------
 
@@ -338,6 +339,18 @@ void unhandled_interrupt(int num) {
   term_write(cout, "\033[41m unhandled interrupt ");
   term_write(cout, num);
   term_write(cout, " \033[0m");
+}
+
+void interrupt_handle(interrupt_data data) {
+  term_write(cout, "INT NO:");
+  term_write(cout, data.int_no);
+  term_write(cout, " EIP=");
+  term_write(cout, (void*) data.eip);
+  term_write(cout, " INT ARG: ");
+  term_write(cout, data.error_code);
+  term_write(cout, "\n\r");
+
+  fatal_error("CPU exception occured :<(");
 }
 
 //-----------------------------------------------------------------------------

@@ -10,3 +10,5 @@ gdb\.txt
 \.gdb_history
 
 mimosa-build/
+
+*.scratch

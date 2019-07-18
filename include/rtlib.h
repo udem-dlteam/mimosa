@@ -49,6 +49,8 @@ void __do_global_dtors ();
 extern "C"
 void __rtlib_entry ();
 
+void __rtlib_setup();
+
 int main ();
 
 //-----------------------------------------------------------------------------

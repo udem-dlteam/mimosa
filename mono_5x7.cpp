@@ -73423,9 +73423,10 @@ static uint32 mono_5x7_char_end[] =
 , 7325
 };
 
-static raw_bitmap_in_memory mono_5x7_raw_bitmap (mono_5x7_pixels, 7328, 7, 1);
+static raw_bitmap_in_memory mono_5x7_raw_bitmap =
+    new_raw_bitmap_in_memory(mono_5x7_pixels, 7328, 7, 1);
 
 font_c create_mono_5x7() {
   return new_font(5, 7, 65536, mono_5x7_char_map, mono_5x7_char_end,
-                  &mono_5x7_raw_bitmap);
+                  &mono_5x7_raw_bitmap.super);
 }

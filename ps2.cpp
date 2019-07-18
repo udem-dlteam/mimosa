@@ -15,6 +15,7 @@
 #include "time.h"
 #include "video.h"
 #include "term.h"
+#include "rtlib.h"
 #include "thread.h"
 
 //-----------------------------------------------------------------------------
@@ -161,16 +162,16 @@ static volatile int circular_buffer_lo = 0;
 static volatile int circular_buffer_hi = 0;
 static condvar* circular_buffer_cv;
 
-static void keypress (uint8 ch)
-{
+static void keypress(uint8 ch) {
   int next_hi = (circular_buffer_hi + 1) % BUFFER_SIZE;
 
-  if (next_hi != circular_buffer_lo)
-    {
-      circular_buffer[circular_buffer_hi] = ch;
-      circular_buffer_hi = next_hi;
-      circular_buffer_cv->mutexless_signal ();
-    }
+  if (next_hi != circular_buffer_lo) {
+    circular_buffer[circular_buffer_hi] = ch;
+    circular_buffer_hi = next_hi;
+    circular_buffer_cv->mutexless_signal();
+  }
+
+  term_write(cout, CAST(native_char, ch));
 }
 
 unicode_char getchar ()
@@ -191,31 +192,32 @@ unicode_char getchar ()
   return result;
 }
 
-static void process_keyboard_data (uint8 data)
-{
-  if (data >= KBD_SCANCODE_ESC
-      && data <= KBD_SCANCODE_F12)
-    {
-      uint16 code;
-      if (PRESSED(KBD_SCANCODE_LSHIFT)
-          || PRESSED(KBD_SCANCODE_RSHIFT))
-        code = keycode_table[data].with_shift;
-      else if (PRESSED(KBD_SCANCODE_CTRL))
-        code = keycode_table[data].with_ctrl;
-      else if (PRESSED(KBD_SCANCODE_ALT))
-        code = keycode_table[data].with_alt;
-      else
-        code = keycode_table[data].normal;
-      keymap[data >> 5] |= (1 << (data & 0x1f));
-      if (code != DEAD)
-        keypress (code & 0xff);
+static void process_keyboard_data(uint8 data) {
+
+  if (data >= KBD_SCANCODE_ESC && data <= KBD_SCANCODE_F12) {
+    uint16 code;
+
+    if (PRESSED(KBD_SCANCODE_LSHIFT) || PRESSED(KBD_SCANCODE_RSHIFT)) {
+      code = keycode_table[data].with_shift;
+    } else if (PRESSED(KBD_SCANCODE_CTRL)) {
+      code = keycode_table[data].with_ctrl;
+    } else if (PRESSED(KBD_SCANCODE_ALT)) {
+      code = keycode_table[data].with_alt;
+    } else {
+      code = keycode_table[data].normal;
     }
-  else if (data >= (KBD_SCANCODE_ESC|0x80)
-           && data <= (KBD_SCANCODE_F12|0x80))
-    {
-      data &= 0x7f;
-      keymap[data >> 5] &= ~(1 << (data & 0x1f));
+
+    keymap[data >> 5] |= (1 << (data & 0x1f));
+
+    if (code != DEAD) {
+      keypress(code & 0xff);
     }
+
+  } else if (data >= (KBD_SCANCODE_ESC | 0x80) &&
+             data <= (KBD_SCANCODE_F12 | 0x80)) {
+    data &= 0x7f;
+    keymap[data >> 5] &= ~(1 << (data & 0x1f));
+  }
 }
 
 #ifdef USE_IRQ1_FOR_KEYBOARD
@@ -282,7 +284,7 @@ static void process_mouse_data (uint8 data)
   if (b1 & (1<<4)) dx -= 256;
   if (b1 & (1<<5)) dy -= 256;
 
-  video::screen.move_mouse (dx, -dy);
+  video_move_mouse(&screen, dx, -dy);
 }
 
 #ifdef USE_IRQ12_FOR_MOUSE
