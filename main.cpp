@@ -32,7 +32,7 @@ int main() {
   term_write(tty, "Video.cpp is in C!\n");
 
   for (;;) {
-    debug_write("M");
+    // debug_write("M");
     thread::yield();
   }
 
