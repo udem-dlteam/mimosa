@@ -483,17 +483,51 @@ found_file:
   movw %ax, %es
   movw %es:(%bx), %ax # cluster is now in ax
 
-
-
   movl $0x03, %eax # this is dirty; needs to be fixed  
 
-  call get_next_cluster
-  call cluster_to_lba
+  movl $KERNEL_START, %ebx # set the destination address
+
+read_loop:
+  cmpl $0x0FFFFFF8, %eax  # compare the cluster with the end tag
+  jge start_kernel # if cluster is geq end tag: done reading
+
+  pushl %eax # save the cluster
+  call cluster_to_lba # get the lba (eax is now LBA)
   
-  debug_a:
-    jmp debug_a
+  xorl %ecx, %ecx
+  movb nb_sectors_per_cluster, %cl # prepare the counter
+  sector_loop:
+    # eax is the LBA to read
+    # ebx is the place to write the kernel
+
+    call read_sector
+
+    pushl %eax
+    pushl %ebx
+    movw $progress_dot, %si
+    call print_string
+    popl %ebx
+    popl %eax
+
+    # Update the write pos
+    addw nb_bytes_per_sector, %bx
+    # Repeat until cluster is done
+    decw %cx
+    jnz sector_loop
+
+  popl %eax  # get the cluster
+  call get_next_cluster # fetch the next cluster number
+
+  jmp read_loop
 
   start_kernel:
+    pushl %eax
+    pushl %ebx
+    movw $loading_os_message, %si
+    call print_string
+    popl %ebx
+    popl %eax
+
     ljmp  $(KERNEL_START>>4),$0  # jump to "KERNEL_START" (which must be < 1MB)
 
 # ----------------------------------------------------------------------------------------------------------
@@ -520,7 +554,7 @@ get_next_cluster:
 
   andl $0x0FFFFFFFF, %eax # mask the four topmost bits
   xorl %edx, %edx
-  movl $16, %ebx
+  movl $128, %ebx
   divl %ebx   # eax contains the LBA to read (without the FAT offset)
   #             edx contains the offset in bytes of the next cluster
 

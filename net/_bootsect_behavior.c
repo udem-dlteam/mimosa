@@ -79,7 +79,7 @@ int main() {
 
     uint32 cluster = (entry_one->DIR_FstClusHI << 16) + entry_one->DIR_FstClusLO;
 
-    while (cluster < 0xFFFFFF8) {
+    while (0xFFFFFF8 > cluster) {
         int lba_to_read = cluster_to_lba(cluster);
 
         for (int lba = lba_to_read; lba < lba_to_read + 8; ++lba) {
