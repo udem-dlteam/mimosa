@@ -38,25 +38,55 @@ oem_name:
 nb_bytes_per_sector:
   .word 0x0200    # bytes per sector (512 bytes)
 nb_sectors_per_cluster:
-  .byte 0x20      # sector per allocation unit -> sector/cluster
+  .byte 0x08      # sector per allocation unit -> sector/cluster
 nb_reserved_sectors:  
-  .word 0x02      # reserved sectors for booting (2 to get an extended boot sector)
+  .word 32      # reserved sectors for booting (32 to get an extended boot sector (also FAT 32 compatible))
 nb_of_fats:
   .byte 0x02      # number of FATs (usually 2)
 nb_root_dir_entries:
-  .word 0xE0      # number of root dir entries (224)
-nb_logical_sectors:
-  .word 0x0b40    # number of logical sectors
+  .word 0x00      # number of root dir entries (0 for FAT 32)
+old_nb_logical_sectors:
+  .word 0x00    # number of logical sectors on old devices
 media_descriptor:
-  .byte 0xF0      # media descriptor byte (f0h: floppy, f8h: disk drive)
-nb_sectors_per_fat: 
-  .word 0x09    # sectors per fat
+  .byte 0xF8      # media descriptor byte (f0h: floppy, f8h: disk drive)
+old_nb_sectors_per_fat: 
+  .word 0x00    # sectors per fat (0 For FAT32)
 nb_sectors_per_track:
   .word 0x012     # sectors per track (cylinder)
 nb_heads:
   .word 0x02 # number of heads
 nb_hidden_sectors:
   .long 0x00 # number of hidden sectors
+# --------------------------------------------------------------------------
+# FAT 32 EBP
+# --------------------------------------------------------------------------
+nb_logical_sectors:
+  .byte 0x00
+  .byte 0x00
+  .byte 0x40
+  .byte 0x00
+nb_sectors_per_fat:
+  .byte 0xF8
+  .byte 0x0F
+  .byte 0x00
+  .byte 0x00
+mirror_flags:
+  .word 0x00                                                                   # TODO
+fs_version:
+  .byte 0x00
+  .byte 0x00
+  .byte 0x02
+  .byte 0x00
+first_cluster_root_dir:
+  .long 0x02
+fat_32_fs_region:
+  .word 0x02      # We use 0x02 because 0x01 is the extended bootsector
+backup_bootsec:
+  .word 0xFFFF    # (none)
+reserved_data:
+  .long 0x00
+  .long 0x00
+  .long 0x00
 drive:            # Extended block, supposed to be only for FAT 16
   .byte 0xAA      # logical drive number
 clean_fs:
@@ -70,7 +100,7 @@ drive_lbl:
   .byte 0
   .byte 0 # drive label (11 char)
 fs_label:
-  .ascii "FAT12   " # file system type (FAT 12 here, 8 chars long)
+  .ascii "FAT32   " # file system type (FAT 12 here, 8 chars long)
 # ------------------------------------------------------------------------------
 after_header:
 
@@ -257,10 +287,10 @@ code_end:
 # partition 1
 .byte 0x80                   # boot flag (0x00: inactive, 0x80: active)
 .byte 0x00, 0x01, 0x00       # Start of partition address
-.byte 0x01                   # system flag
+.byte 0x0C                   # system flag (xFAT32, LBA access)
 .byte 0x01, 0x12, 0x4F       # End of partition address CHS : 79 1 18
 .long 0x00                   # Start sector relative to disk
-.long 0xB40                  # number of sectors in partition
+.long 4088                  # number of sectors in partition
 
 # partition 2
 .byte 0x00                   # boot flag (0x00: inactive, 0x80: active)
@@ -365,7 +395,7 @@ load_os:
 
   # Calculating the start of the root dir
   movb nb_of_fats, %al
-  mulw nb_sectors_per_fat
+  mull nb_sectors_per_fat
   shll $16, %edx             # set the high part
   movw %ax, %dx
   addw nb_hidden_sectors, %dx
@@ -427,10 +457,20 @@ next_sector:
   incl %eax # we analysed a sector, go to the next one
   jmp next_sector
 
+
+ # Protect from errors
+jmp failure_routine
 found_file:
   # At this point, bx contains the start of the root dir entry.
   # We want to read the cluster number, so we can look up the FAT and
   # finally read the file... The cluster is a word at offset 0x1A
+
+  pushl %eax
+  pushl %ebx
+  movw $found_file_message, %si
+  call print_string
+  popl %ebx
+  popl %eax
 
   addw $0x1A, %bx
   xorw %ax, %ax
@@ -517,6 +557,10 @@ found_file:
 # ----------------------------------------------------------------------------------------------------------
 # Extended bootloader string and messages
 # ----------------------------------------------------------------------------------------------------------
+
+found_file_message:
+  .ascii "\n\rFound the OS file"
+  .byte 0
 
 a_20_succes_message:
   .ascii "\n\rA20 line enabled."
