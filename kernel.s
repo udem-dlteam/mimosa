@@ -16,44 +16,6 @@ kernel_entry:  # this is the kernel's entry point
   .code16  # at this point the processor is in 16 bit real mode
            # and %cs is equal to (KERNEL_START>>4)
 
-  call  test_a20     # check if A20 line is already enabled
-  jz    set_video_mode
-
-  movw  $0x64,%dx    # try to enable A20 line with the keyboard controller
-  movb  $0xd1,%al
-  outb  %al,%dx
-  movb  $3,%al
-  movw  $0x60,%dx
-  outb  %al,%dx
-
-  call  test_a20
-  jz    set_video_mode
-
-  movw  $0x92,%dx    # try to enable A20 line with the "fast A20 gate"
-  inb   %dx,%al
-  orb   $0x02,%al
-  andb  $0xfe,%al
-  outb  %al,%dx
-
-  call  test_a20
-  jz    set_video_mode
-  int $0x19
-
-test_a20:
-  # Test if the A20 line is disabled.  On return the Z flag is set if
-  # the A20 line is enabled and cleared if it is disabled.  We test it
-  # repeatedly because some hardware takes some time to enable the A20
-
-  xorw  %cx,%cx 
-test_a20_loop:
-  movb  $0,SCRATCH_BOT
-  movw  $0xffff,%ax
-  movw  %ax,%es
-  movb  %al,%es:SCRATCH_BOT+0x10
-  testb %al,SCRATCH_BOT
-  loopnz test_a20_loop
-  ret
-
 set_video_mode:
 
 # Setup an appropriate video mode.
@@ -773,166 +735,125 @@ start_of_32bit_protected_mode:
 # Interrupt handlers.
 
 int0_intr:
-  pushl $0
-  call  show_intr
-  jmp   end_intr
+  cli
+  pushl $0x00
+  pushl $0x00
+  jmp int_handle_common_stub
 
 int1_intr:
-  pushl $1
-  call  show_intr
-  jmp   end_intr
+  cli
+  pushl $0x00 # INT ARG
+  pushl $0x01 # INT NO
+  jmp int_handle_common_stub
 
 int2_intr:
-  pushl $2
-  call  show_intr
-  jmp   end_intr
+  cli
+  pushl $0x00 # INT ARG
+  pushl $0x02 # INT NO
+  jmp int_handle_common_stub
 
 int3_intr:
-  pushl $3
-  call  show_intr
-  jmp   end_intr
+  cli
+  pushl $0x00 # INT ARG
+  pushl $0x03 # INT NO
+  jmp int_handle_common_stub
 
 int4_intr:
-  pushl $4
-  call  show_intr
-  jmp   end_intr
+  cli
+  pushl $0x00 # INT ARG
+  pushl $0x04 # INT NO
+  jmp int_handle_common_stub
 
 int5_intr:
-  pushl $5
-  call  show_intr
-  jmp   end_intr
+  cli
+  pushl $0x00 # INT ARG
+  pushl $0x05 # INT NO
+  jmp int_handle_common_stub
 
 int6_intr:
-  pushl $6
-  call  show_intr
-  jmp   end_intr
+  cli
+  pushl $0x00 # INT ARG
+  pushl $0x06 # INT NO
+  jmp int_handle_common_stub
 
 int7_intr:
-  pushl $7
-  call  show_intr
-  jmp   end_intr
+  cli
+  pushl $0x00 # INT ARG
+  pushl $0x07 # INT NO
+  jmp int_handle_common_stub
 
 int8_intr:
-  pushl $8
-  call  show_intr
-  jmp   end_intr
+  cli
+  # This interrupts pushes a real error code
+  pushl $0x08 # INT NO
+  jmp int_handle_common_stub
 
 int9_intr:
-  pushl $9
-  call  show_intr
-  jmp   end_intr
+  cli
+  pushl $0x00 # INT ARG
+  pushl $0x09 # INT NO
+  jmp int_handle_common_stub
 
 int10_intr:
-  pushl $10
-  call  show_intr
-  jmp   end_intr
+  cli
+  # This interrupts pushes a real error code
+  pushl $0x0A # INT NO
+  jmp int_handle_common_stub
 
 int11_intr:
-  pushl $11
-  call  show_intr
-  jmp   end_intr
+  cli
+  # This interrupts pushes a real error code
+  pushl $0x0B # INT NO
+  jmp int_handle_common_stub
 
 int12_intr:
-  pushl $12
-  call  show_intr
-  jmp   end_intr
+  cli
+  # This interrupts pushes a real error code
+  pushl $0x0C # INT NO
+  jmp int_handle_common_stub
 
 int13_intr:
-  pushl $13
-  call  show_intr
-  jmp   end_intr
+  cli
+  # This interrupts pushes a real error code
+  pushl $0x0D # INT NO
+  jmp int_handle_common_stub
 
 int14_intr:
-  pushl $14
-  call  show_intr
-  jmp   end_intr
+  cli
+  # This interrupts pushes a real error code
+  pushl $0x0E # INT NO
+  jmp int_handle_common_stub
 
 int15_intr:
-  pushl $15
-  call  show_intr
-  jmp   end_intr
+  cli
+  pushl $0xA0 # INT ARG
+  pushl $0x0F # INT NO
+  jmp int_handle_common_stub
 
 unhandled_intr:
-  pushl $99
-  call  show_intr
+  cli
+  pushl $0xA0 # INT ARG
+  pushl $99   # INT NO
 
-end_intr:
-  addl  $4,%esp
-  movl  4(%esp),%eax
-here:
-  jmp   here
-  iret
+int_handle_common_stub:
+    pusha
 
-show_intr:
-  pushl %eax
-  pushl %ebx
-  pushl %ecx
-  pushl %edx
+    movw %ds, %ax
+    pushl %eax
 
-  movb  $'I',%al
-  outb  %al,$0xe9
+    cld
 
-  movb  $'N',%al
-  outb  %al,$0xe9
+    .globl interrupt_handle
+    call interrupt_handle
 
-  movb  $'T',%al
-  outb  %al,$0xe9
+    popl %eax
+    popa
 
-  movb  $' ',%al
-  outb  %al,$0xe9
+    # Clean the stack
+    addl $8, %esp
 
-  movl  20(%esp),%eax
-  movb  $10,%bl
-  divb  %bl
-  addb  $'0',%al
-  outb  %al,$0xe9
-
-  movb  %ah,%al
-  addb  $'0',%al
-  outb  %al,$0xe9
-
-  movb  $' ',%al
-  outb  %al,$0xe9
-
-  movb  $'e',%al
-  outb  %al,$0xe9
-
-  movb  $'i',%al
-  outb  %al,$0xe9
-
-  movb  $'p',%al
-  outb  %al,$0xe9
-
-  movb  $'=',%al
-  outb  %al,$0xe9
-
-  movl  $8,%ecx
-  movl  24(%esp),%ebx
-1:roll  $4,%ebx
-  movl  %ebx,%eax
-  andb  $0xf,%al
-  addb  $'0',%al
-  cmpb  $'0'+10,%al
-  jb    2f
-  addb  $'a'-('0'+10),%al
-2:outb  %al,$0xe9
-  loop  1b
-
-  movb  $'\n',%al
-  outb  %al,$0xe9
-
-  movl  20(%esp),%eax
-  pushl %eax
-
-  .globl unhandled_interrupt
-
-  call unhandled_interrupt
-
-  popl  %edx
-  popl  %ecx
-  popl  %ebx
-  popl  %eax
-  ret
+    sti
+    iret
 
 #------------------------------------------------------------------------------
 
@@ -942,336 +863,144 @@ irq0_intr:
 
   .globl irq0
 
-  pushl %eax
-  pushl %ebx
-  pushl %ecx
-  pushl %edx
-  pushl %esi
-  pushl %edi
-  pushl %ebp
+  pusha
   call  irq0
-  popl  %ebp
-  popl  %edi
-  popl  %esi
-  popl  %edx
-  popl  %ecx
-  popl  %ebx
-  popl  %eax
+  popa
   iret
 
 irq1_intr:
 
   .globl irq1
 
-  pushl %eax
-  pushl %ebx
-  pushl %ecx
-  pushl %edx
-  pushl %esi
-  pushl %edi
-  pushl %ebp
+  pusha
   call  irq1
-  popl  %ebp
-  popl  %edi
-  popl  %esi
-  popl  %edx
-  popl  %ecx
-  popl  %ebx
-  popl  %eax
+  popa
   iret
 
 irq2_intr:
 
   .globl irq2
 
-  pushl %eax
-  pushl %ebx
-  pushl %ecx
-  pushl %edx
-  pushl %esi
-  pushl %edi
-  pushl %ebp
+  pusha
   call  irq2
-  popl  %ebp
-  popl  %edi
-  popl  %esi
-  popl  %edx
-  popl  %ecx
-  popl  %ebx
-  popl  %eax
+  popa
   iret
 
 irq3_intr:
 
   .globl irq3
 
-  pushl %eax
-  pushl %ebx
-  pushl %ecx
-  pushl %edx
-  pushl %esi
-  pushl %edi
-  pushl %ebp
+  pusha
   call  irq3
-  popl  %ebp
-  popl  %edi
-  popl  %esi
-  popl  %edx
-  popl  %ecx
-  popl  %ebx
-  popl  %eax
+  popa
   iret
 
 irq4_intr:
 
   .globl irq4
 
-  pushl %eax
-  pushl %ebx
-  pushl %ecx
-  pushl %edx
-  pushl %esi
-  pushl %edi
-  pushl %ebp
+  pusha
   call  irq4
-  popl  %ebp
-  popl  %edi
-  popl  %esi
-  popl  %edx
-  popl  %ecx
-  popl  %ebx
-  popl  %eax
+  popa
   iret
 
 irq5_intr:
 
   .globl irq5
 
-  pushl %eax
-  pushl %ebx
-  pushl %ecx
-  pushl %edx
-  pushl %esi
-  pushl %edi
-  pushl %ebp
+ pusha
   call  irq5
-  popl  %ebp
-  popl  %edi
-  popl  %esi
-  popl  %edx
-  popl  %ecx
-  popl  %ebx
-  popl  %eax
+  popa
   iret
 
 irq6_intr:
 
   .globl irq6
 
-  pushl %eax
-  pushl %ebx
-  pushl %ecx
-  pushl %edx
-  pushl %esi
-  pushl %edi
-  pushl %ebp
+  pusha
   call  irq6
-  popl  %ebp
-  popl  %edi
-  popl  %esi
-  popl  %edx
-  popl  %ecx
-  popl  %ebx
-  popl  %eax
+  popa
   iret
 
 irq7_intr:
 
   .globl irq7
 
-  pushl %eax
-  pushl %ebx
-  pushl %ecx
-  pushl %edx
-  pushl %esi
-  pushl %edi
-  pushl %ebp
+  pusha
   call  irq7
-  popl  %ebp
-  popl  %edi
-  popl  %esi
-  popl  %edx
-  popl  %ecx
-  popl  %ebx
-  popl  %eax
+  popa
   iret
 
 irq8_intr:
 
   .globl irq8
 
-  pushl %eax
-  pushl %ebx
-  pushl %ecx
-  pushl %edx
-  pushl %esi
-  pushl %edi
-  pushl %ebp
+ pusha
   call  irq8
-  popl  %ebp
-  popl  %edi
-  popl  %esi
-  popl  %edx
-  popl  %ecx
-  popl  %ebx
-  popl  %eax
+  popa
   iret
 
 irq9_intr:
 
   .globl irq9
 
-  pushl %eax
-  pushl %ebx
-  pushl %ecx
-  pushl %edx
-  pushl %esi
-  pushl %edi
-  pushl %ebp
+  pusha
   call  irq9
-  popl  %ebp
-  popl  %edi
-  popl  %esi
-  popl  %edx
-  popl  %ecx
-  popl  %ebx
-  popl  %eax
+  popa
   iret
 
 irq10_intr:
 
   .globl irq10
 
-  pushl %eax
-  pushl %ebx
-  pushl %ecx
-  pushl %edx
-  pushl %esi
-  pushl %edi
-  pushl %ebp
+ pusha
   call  irq10
-  popl  %ebp
-  popl  %edi
-  popl  %esi
-  popl  %edx
-  popl  %ecx
-  popl  %ebx
-  popl  %eax
+  popa
   iret
 
 irq11_intr:
 
   .globl irq11
 
-  pushl %eax
-  pushl %ebx
-  pushl %ecx
-  pushl %edx
-  pushl %esi
-  pushl %edi
-  pushl %ebp
+  pusha
   call  irq11
-  popl  %ebp
-  popl  %edi
-  popl  %esi
-  popl  %edx
-  popl  %ecx
-  popl  %ebx
-  popl  %eax
+  popa
   iret
 
 irq12_intr:
 
   .globl irq12
 
-  pushl %eax
-  pushl %ebx
-  pushl %ecx
-  pushl %edx
-  pushl %esi
-  pushl %edi
-  pushl %ebp
+  pusha
   call  irq12
-  popl  %ebp
-  popl  %edi
-  popl  %esi
-  popl  %edx
-  popl  %ecx
-  popl  %ebx
-  popl  %eax
+  popa
   iret
 
 irq13_intr:
 
   .globl irq13
 
-  pushl %eax
-  pushl %ebx
-  pushl %ecx
-  pushl %edx
-  pushl %esi
-  pushl %edi
-  pushl %ebp
+  pusha
   call  irq13
-  popl  %ebp
-  popl  %edi
-  popl  %esi
-  popl  %edx
-  popl  %ecx
-  popl  %ebx
-  popl  %eax
+  popa
   iret
 
 irq14_intr:
 
   .globl irq14
 
-  pushl %eax
-  pushl %ebx
-  pushl %ecx
-  pushl %edx
-  pushl %esi
-  pushl %edi
-  pushl %ebp
+  pusha
   call  irq14
-  popl  %ebp
-  popl  %edi
-  popl  %esi
-  popl  %edx
-  popl  %ecx
-  popl  %ebx
-  popl  %eax
+  popa
   iret
 
 irq15_intr:
 
   .globl irq15
 
-  pushl %eax
-  pushl %ebx
-  pushl %ecx
-  pushl %edx
-  pushl %esi
-  pushl %edi
-  pushl %ebp
+  pusha
   call  irq15
-  popl  %ebp
-  popl  %edi
-  popl  %esi
-  popl  %edx
-  popl  %ecx
-  popl  %ebx
-  popl  %eax
+  popa
   iret
 
 APIC_timer_intr:
@@ -1320,23 +1049,44 @@ sys_intr:
 
   .globl sys_irq
 
-  pushl %eax
-  pushl %ebx
-  pushl %ecx
-  pushl %edx
-  pushl %esi
-  pushl %edi
-  pushl %ebp
-  call  sys_irq
-  popl  %ebp
-  popl  %edi
-  popl  %esi
-  popl  %edx
-  popl  %ecx
-  popl  %ebx
-  popl  %eax
-  iret
+  cli
+  pusha
+  # make sure the C code does not affect ESP
+  pushl %esp
 
+  movb $'S', %al
+  outb %al, $0xE9;
+
+  movb $'Y', %al
+  outb %al, $0xE9;
+
+  movb $'S', %al
+  outb %al, $0xE9;
+
+  movb $' ', %al
+  outb %al, $0xE9;
+
+  movb $'I', %al
+  outb %al, $0xE9;
+
+  movb $'N', %al
+  outb %al, $0xE9;
+
+  movb $'T', %al
+  outb %al, $0xE9;
+
+  movb $'\n', %al
+  outb %al, $0xE9;
+
+  movb $'\r', %al
+  outb %al, $0xE9;
+
+  call  sys_irq
+  popl  %esp
+  popa
+  sti
+
+  iret
 #------------------------------------------------------------------------------
 
 # Video mode information.

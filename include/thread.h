@@ -1,6 +1,6 @@
 // file: "thread.h"
 
-// Copyright (c) 2001 by Marc Feeley and Université de Montréal, All
+// Copyright (c) 2001 by Marc Feeley and Universitï¿½ de Montrï¿½al, All
 // Rights Reserved.
 //
 // Revision History
@@ -19,23 +19,25 @@
 
 #ifdef CHECK_ASSERTIONS
 
-#define ASSERT_INTERRUPTS_DISABLED() \
-do { \
-     if (eflags_reg () & (1<<9)) \
-       { \
-         cout << __FILE__ << ":" << __LINE__ \
-              << ", failed ASSERT_INTERRUPTS_DISABLED\n"; \
-       } \
-   } while (0)
+#define ASSERT_INTERRUPTS_DISABLED()                      \
+  do {                                                    \
+    if ((eflags_reg() & (1 << 9)) != 0) {                 \
+      debug_write(__FILE__);                              \
+      debug_write(":");                                   \
+      debug_write(__LINE__);                              \
+      fatal_error("FAILED ASSERT_INTERRUPTS_DISABLED\n"); \
+    }                                                     \
+  } while (0)
 
-#define ASSERT_INTERRUPTS_ENABLED() \
-do { \
-     if ((eflags_reg () & (1<<9)) == 0) \
-       { \
-         cout << __FILE__ << ":" << __LINE__ \
-              << ", failed ASSERT_INTERRUPTS_ENABLED\n"; \
-       } \
-   } while (0)
+#define ASSERT_INTERRUPTS_ENABLED()                      \
+  do {                                                   \
+    if ((eflags_reg() & (1 << 9)) != 1) {                \
+      debug_write(__FILE__);                             \
+      debug_write(":");                                  \
+      debug_write(__LINE__);                             \
+      fatal_error("FAILED ASSERT_INTERRUPTS_ENABLED\n"); \
+    }                                                    \
+  } while (0)
 
 #else
 
@@ -68,7 +70,7 @@ do { \
 do {                                                                          \
      ASSERT_INTERRUPTS_DISABLED ();                                           \
      __asm__ __volatile__                                                     \
-       ("pushal                                                            \n \
+       ("pusha                                                             \n \
          pushl %1               # The fourth parameter of the receiver fn  \n \
          lea   -16(%%esp),%%eax # The third parameter of the receiver fn   \n \
          pushl %%eax                                                       \n \
@@ -76,9 +78,10 @@ do {                                                                          \
          pushl %%cs             #  as expected by the ``iret'' instruction \n \
          call  %P0              #  so that ``iret'' can restore the context\n \
          addl  $8,%%esp         # Remove the third and fourth parameter    \n \
-         popal"                                                               \
+         popa                                                              \n \
+         sti"                                                                 \
         :                                                                     \
-        : "m" (receiver), "g" (data)                                          \
+        : "i" (receiver), "g" (data)                                          \
         : );                                                             \
    } while (0)
 
@@ -123,6 +126,7 @@ do {                                                                          \
      ASSERT_INTERRUPTS_DISABLED ();                                           \
      __asm__ __volatile__                                                     \
        ("movl  %0,%%esp  # Restore the stack pointer                       \n \
+         movl  %0,%%esp  # Restore the stack pointer                       \n \
          iret            # Return from the ``call'' in ``save_context''"      \
         :                                                                     \
         : "g" (sp));                                                          \
@@ -147,11 +151,11 @@ do {                                                                          \
 
 #endif
 
-//-----------------------------------------------------------------------------
+          //-----------------------------------------------------------------------------
 
-// Available thread priorities.
+          // Available thread priorities.
 
-typedef int priority;
+          typedef int priority;
 
 #define low_priority    0
 #define normal_priority 100
@@ -423,70 +427,6 @@ class thread : public wait_mutex_sleep_node
 
 //-----------------------------------------------------------------------------
 
-// "scheduler" class declaration.
-
-class scheduler
-  {
-  public:
-
-    static void setup (void_fn continuation); // initializes the scheduler
-
-    static void stats ();///////////////
-
-    static void register_mutex (mutex* m);
-    static void register_condvar (condvar* c);
-
-  protected:
-
-    static void reschedule_thread (thread* t); // makes thread "t" runnable
-    static void yield_if_necessary (); // yields to a higher priority thread if there is one
-    static void run_thread (); // begins the thread's execution
-    static void resume_next_thread (); // resumes the next runnable thread
-
-    // transfers the current thread to the tail of the queue of
-    // runnable threads and resumes the thread at the head of the
-    // queue of runnable threads
-    static void switch_to_next_thread (uint32 cs,
-                                       uint32 eflags,
-                                       uint32* sp,
-                                       void* dummy);
-
-    // transfers the current thread to the tail of the given wait
-    // queue and resumes the thread at the head of the queue of
-    // runnable threads
-    static void suspend_on_wait_queue (uint32 cs,
-                                       uint32 eflags,
-                                       uint32* sp,
-                                       void* q);
-
-    // transfers the current thread to the sleep queue and resumes the
-    // thread at the head of the queue of runnable threads
-    static void suspend_on_sleep_queue (uint32 cs,
-                                        uint32 eflags,
-                                        uint32* sp,
-                                        void* dummy);
-
-    static void setup_timer ();     // initializes the interval timer
-    static void set_timer (time t, time now); // sets the timer to time "t"
-    static void timer_elapsed ();   // called when the interval timer expires
-
-    static wait_queue* readyq;            // the ready queue
-    static sleep_queue* sleepq;           // the sleep queue
-    static thread* the_primordial_thread; // the primordial thread
-    static thread* current_thread;        // the current thread
-
-    friend class mutex;
-    friend class condvar;
-    friend class thread;
-    friend void sys_irq ();////////////
-#ifdef USE_PIT_FOR_TIMER
-    friend void irq0 ();
-#endif
-#ifdef USE_APIC_FOR_TIMER
-    friend void APIC_timer_irq ();
-#endif
-  };
-
 //-----------------------------------------------------------------------------
 
 #if 0
@@ -675,6 +615,61 @@ int pthread_cond_destroy (pthread_cond_t* cond);
 #undef BEFORE
 
 //-----------------------------------------------------------------------------
+
+
+//-----------------------------------------------------------------------------
+// C REWRITE
+//-----------------------------------------------------------------------------
+
+
+void sched_setup(void_fn cont);
+
+void sched_stats();
+
+void sched_reg_mutex(mutex* m);
+
+void sched_reg_condvar(condvar* c);
+
+void _sched_reschedule_thread(thread* t);
+
+void _sched_yield_if_necessary();
+
+void _sched_run_thread();
+
+void _sched_switch_to_next_thread(uint32 cs, uint32 eflags, uint32* sp,
+                                  void* dummy);
+
+void _sched_suspend_on_wait_queue(uint32 cs, uint32 eflags, uint32* sp,
+                                  void* dummy);
+
+void _sched_suspend_on_sleep_queue(uint32 cs, uint32 eflags, uint32* sp,
+                                   void* dummy);
+
+void _sched_setup_timer();
+
+void _sched_set_timer(time t, time now);
+
+void _sched_timer_elapsed();
+
+void _sched_resume_next_thread();
+
+void sys_irq(void* esp);
+#ifdef USE_PIT_FOR_TIMER
+void irq0();
+#endif
+#ifdef USE_APIC_FOR_TIMER
+void APIC_timer_irq();
+#endif
+
+//-----------------------------------------------------------------------
+// Static declarations
+//-----------------------------------------------------------------------
+
+extern wait_queue* readyq;
+extern sleep_queue* sleepq;
+extern thread* sched_primordial_thread;
+extern thread* sched_current_thread;
+
 
 #endif
 

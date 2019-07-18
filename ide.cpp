@@ -1,6 +1,6 @@
 // file: "ide.cpp"
 
-// Copyright (c) 2001 by Marc Feeley and Université de Montréal, All
+// Copyright (c) 2001 by Marc Feeley and Universitï¿½ de Montrï¿½al, All
 // Rights Reserved.
 //
 // Revision History
@@ -379,7 +379,7 @@ static void setup_ide_device (ide_controller* ctrl, ide_device* dev, uint8 id)
   if (ident[63] & (1<<0))
     cout << "  Multiword DMA mode 0 is supported\n";
 
-  cout << "  Maximum queue depth ­ 1 = " << (ident[75]&31) << "\n";
+  cout << "  Maximum queue depth ï¿½ 1 = " << (ident[75]&31) << "\n";
 
   if (ident[80] & (1<<5))
     cout << "  supports ATA/ATAPI-5\n";

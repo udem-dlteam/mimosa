@@ -1,6 +1,6 @@
 // file: "rtlib.cpp"
 
-// Copyright (c) 2001 by Marc Feeley and Université de Montréal, All
+// Copyright (c) 2001 by Marc Feeley and Universitï¿½ de Montrï¿½al, All
 // Rights Reserved.
 //
 // Revision History
@@ -17,18 +17,31 @@
 #include "ps2.h"
 #include "term.h"
 #include "thread.h"
+#include "mono_5x7.h"
+#include "mono_6x9.h"
+#include "video.h"
 
-static void __rtlib_setup (); // forward declaration
+void __rtlib_setup (); // forward declaration
+
+font_c font_mono_5x7;
+font_c font_mono_6x9;
+term term_console;
+video screen;
+
+raw_bitmap_vtable _raw_bitmap_vtable;
+raw_bitmap_vtable _raw_bitmap_in_memory_vtable;
+raw_bitmap_vtable _video_vtable;
+
+static bitmap_word mouse_bitmap[MOUSE_WIDTH_IN_BITMAP_WORDS * MOUSE_HEIGHT * 4];
+
+raw_bitmap_in_memory mouse_save;
 
 //-----------------------------------------------------------------------------
 
 void fatal_error (native_string msg)
 {
-  disable_interrupts ();
-
-  while (*msg != '\0')
-    outb (*msg++, 0xe9); // under "bochs" this sends the message to the console
-
+  __asm__ __volatile__ ("cli" : : : "memory");
+  debug_write(msg);
   for (;;) ; // freeze execution
 
   // ** NEVER REACHED ** (this function never returns)
@@ -193,6 +206,35 @@ void __do_global_ctors ()
     for (nptrs = 0; __CTOR_LIST__[nptrs + 1] != 0; nptrs++);
   for (i = nptrs; i >= 1; i--)
     __CTOR_LIST__[i] ();
+  // Video VTables
+  _video_vtable.hide_mouse = video_hide_mouse;
+  _video_vtable.show_mouse = video_show_mouse;
+  _video_vtable._select_layer = video_select_layer;
+
+  _raw_bitmap_in_memory_vtable.hide_mouse = raw_bitmap_in_memory_hide_mouse;
+  _raw_bitmap_in_memory_vtable.show_mouse = raw_bitmap_in_memory_show_mouse;
+  _raw_bitmap_in_memory_vtable._select_layer = _raw_bitmap_in_memory_select_layer;
+
+  _raw_bitmap_vtable.hide_mouse = raw_bitmap_hide_mouse;
+  _raw_bitmap_vtable.show_mouse = raw_bitmap_show_mouse;
+  _raw_bitmap_vtable._select_layer = _raw_bitmap_select_layer;
+  
+  // Screen
+  screen = new_video(18);
+
+  raw_bitmap_fill_rect(&screen.super, 0, 0, screen.super._width,
+                       screen.super._height, &pattern_gray50);
+
+  mouse_save = new_raw_bitmap_in_memory(
+    mouse_bitmap, MOUSE_WIDTH_IN_BITMAP_WORDS << LOG2_BITMAP_WORD_WIDTH,
+    MOUSE_HEIGHT, 4);
+
+  // Create the fonts that might be used
+  font_mono_5x7 = create_mono_5x7();
+  font_mono_6x9 = create_mono_6x9();
+
+  // Create the console terminal
+  term_console = new_term(0, 0, 80, 30, &font_mono_6x9, L"console", true);
 }
 
 void __do_global_dtors ()
@@ -225,8 +267,7 @@ void __rtlib_entry ()
 
   __do_global_ctors ();
 
-  scheduler::setup (&__rtlib_setup);
-
+  sched_setup (&__rtlib_setup);  
   // ** NEVER REACHED ** (this function never returns)
 }
 
@@ -251,58 +292,67 @@ static void identify_cpu ()
 #define SHOW_CPU_INFO
 #ifdef SHOW_CPU_INFO
 
-  cout << "CPU is " << vendor
-       << " family=" << ((processor >> 8) & 0xf)
-       << " model=" << ((processor >> 4) & 0xf)
-       << " stepping=" << (processor & 0xf) << "\n";
+  term_write(cout, "CPU is ");
+  term_write(cout, vendor);
+  term_write(cout, " family=");
+  term_write(cout, ((processor >> 8) & 0xf));
+  term_write(cout, " model=");
+  term_write(cout, ((processor >> 4) & 0xf));
+  term_write(cout, " stepping=");
+  term_write(cout, (processor & 0xf));
+  term_write(cout, "\n");
 
   // For meaning of these values check:
   //   http://grafi.ii.pw.edu.pl/gbm/x86/cpuid.html
 
-  if (features & HAS_FPU)       cout << "  has Floating Point Unit\n";
-  if (features & HAS_VME)       cout << "  has V86 Mode Extensions\n";
-  if (features & HAS_DE)        cout << "  has Debug Extensions\n";
-  if (features & HAS_PSE)       cout << "  has Page Size Extensions\n";
-  if (features & HAS_TSC)       cout << "  has Time Stamp Counter\n";
-  if (features & HAS_MSR)       cout << "  has Model Specific Registers\n";
-  if (features & HAS_PAE)       cout << "  has Physical Address Extensions\n";
-  if (features & HAS_MCE)       cout << "  has Machine Check Exception\n";
-  if (features & HAS_CX8)       cout << "  has CMPXCHG8B instruction\n";
-  if (features & HAS_APIC)      cout << "  has Local APIC\n";
-  if (features & HAS_SEP)       cout << "  has Fast system call\n";
-  if (features & HAS_MTRR)      cout << "  has Memory Type Range Registers\n";
-  if (features & HAS_PGE)       cout << "  has Page Global Enable\n";
-  if (features & HAS_MCA)       cout << "  has Machine Check Architecture\n";
-  if (features & HAS_CMOV)      cout << "  has Conditional MOVe\n";
-  if (features & HAS_PAT)       cout << "  has Page Attribute Table\n";
-  if (features & HAS_PSE36)     cout << "  has 36 bit Page Size Extensions\n";
-  if (features & HAS_PSN)       cout << "  has Processor Serial Number\n";
-  if (features & HAS_CFLSH)     cout << "  has Cache Flush\n";
-  if (features & HAS_DTES)      cout << "  has Debug Trace Store\n";
-  if (features & HAS_ACPI)      cout << "  has ACPI support\n";
-  if (features & HAS_MMX)       cout << "  has MultiMedia Extensions\n";
-  if (features & HAS_FXSR)      cout << "  has FXSAVE and FXRSTOR\n";
-  if (features & HAS_SSE)       cout << "  has SSE instructions\n";
-  if (features & HAS_SSE2)      cout << "  has SSE2 instructions\n";
-  if (features & HAS_SELFSNOOP) cout << "  has Self Snoop\n";
-  if (features & HAS_ACC)       cout << "  has Automatic clock control\n";
-  if (features & HAS_IA64)      cout << "  has IA64 instructions\n";
+  if (features & HAS_FPU)       term_write(cout,"  has Floating Point Unit\n");
+  if (features & HAS_VME)       term_write(cout,"  has V86 Mode Extensions\n");
+  if (features & HAS_DE)        term_write(cout,"  has Debug Extensions\n");
+  if (features & HAS_PSE)       term_write(cout,"  has Page Size Extensions\n");
+  if (features & HAS_TSC)       term_write(cout,"  has Time Stamp Counter\n");
+  if (features & HAS_MSR)       term_write(cout,"  has Model Specific Registers\n");
+  if (features & HAS_PAE)       term_write(cout,"  has Physical Address Extensions\n");
+  if (features & HAS_MCE)       term_write(cout,"  has Machine Check Exception\n");
+  if (features & HAS_CX8)       term_write(cout,"  has CMPXCHG8B instruction\n");
+  if (features & HAS_APIC)      term_write(cout,"  has Local APIC\n");
+  if (features & HAS_SEP)       term_write(cout,"  has Fast system call\n");
+  if (features & HAS_MTRR)      term_write(cout,"  has Memory Type Range Registers\n");
+  if (features & HAS_PGE)       term_write(cout,"  has Page Global Enable\n");
+  if (features & HAS_MCA)       term_write(cout,"  has Machine Check Architecture\n");
+  if (features & HAS_CMOV)      term_write(cout,"  has Conditional MOVe\n");
+  if (features & HAS_PAT)       term_write(cout,"  has Page Attribute Table\n");
+  if (features & HAS_PSE36)     term_write(cout,"  has 36 bit Page Size Extensions\n");
+  if (features & HAS_PSN)       term_write(cout,"  has Processor Serial Number\n");
+  if (features & HAS_CFLSH)     term_write(cout,"  has Cache Flush\n");
+  if (features & HAS_DTES)      term_write(cout,"  has Debug Trace Store\n");
+  if (features & HAS_ACPI)      term_write(cout,"  has ACPI support\n");
+  if (features & HAS_MMX)       term_write(cout,"  has MultiMedia Extensions\n");
+  if (features & HAS_FXSR)      term_write(cout,"  has FXSAVE and FXRSTOR\n");
+  if (features & HAS_SSE)       term_write(cout,"  has SSE instructions\n");
+  if (features & HAS_SSE2)      term_write(cout,"  has SSE2 instructions\n");
+  if (features & HAS_SELFSNOOP) term_write(cout,"  has Self Snoop\n");
+  if (features & HAS_ACC)       term_write(cout,"  has Automatic clock control\n");
+  if (features & HAS_IA64)      term_write(cout,"  has IA64 instructions\n");
 
 #ifdef USE_TSC_FOR_TIME
-
-  cout << "CPU clock = " << _tsc_counts_per_sec << " Hz\n";
+  
+  term_write(cout, "CPU clock = ");
+  term_write(cout, _tsc_counts_per_sec);
+  term_write(cout, " Hz\n");
 
 #ifdef USE_APIC_FOR_TIMER
 
-  cout << "CPU/bus clock multiplier = " << _cpu_bus_multiplier.num;
+  term_write(cout, "CPU/bus clock multiplier = ");
+  term_write(cout, _cpu_bus_multiplier.num);
 
-  if (_cpu_bus_multiplier.den == 1)
-    cout << "\n";
-  else
-    {
-      cout << "/" << _cpu_bus_multiplier.den << " is not an integer!\n";
-      fatal_error ("CPU/bus clock multiplier is not an integer\n");
-    }
+  if (_cpu_bus_multiplier.den == 1) {
+    term_write(cout, "\n\r");
+  } else {
+    term_write(cout, "/");
+    term_write(cout, _cpu_bus_multiplier.den);
+    term_write(cout, " is not an integer!\n");
+    fatal_error("CPU/bus clock multiplier is not an integer\n");
+  }
 
 #endif
 #endif
@@ -316,35 +366,41 @@ class idle_thread : public thread
     idle_thread ();
 
   protected:
-
     virtual void run ();
   };
 
-idle_thread::idle_thread ()
+idle_thread::idle_thread()
 {
 }
 
-void idle_thread::run ()
-{
-  for (;;)
-    thread::yield ();
+void idle_thread::run() {
+  for (;;) {
+    // debug_write("I");
+    thread::yield();
+  }
 }
 
-static void __rtlib_setup ()
-{
-  cout << "Initializing " << "\033[46m" << OS_NAME << "\033[0m\n\n";
+extern "C" void a_sti();
+
+void __rtlib_setup ()
+{ 
+  enable_interrupts();
+  term_write(cout, "Initializing ");
+  term_write(cout, "\033[46m");
+  term_write(cout, OS_NAME);
+  term_write(cout, "\033[0m\n\n");
 
   identify_cpu ();
+  setup_ps2 ();
 
-  //setup_ps2 ();
+  (new idle_thread)->start (); // need an idle thread to prevent deadlocks
 
-  //enable_interrupts ();
-
-  //  (new idle_thread)->start (); // need an idle thread to prevent deadlocks
-
-  //setup_disk ();
-  //setup_ide ();
-  //setup_fs ();
+  term_write(cout, "Loading up disks...\n");
+  setup_disk ();
+  term_write(cout, "Loading up IDE controllers...\n");
+  setup_ide ();
+  // term_write(cout, "Loading up the file system...\n");
+  // setup_fs ();
   //setup_net ();
 
   main ();

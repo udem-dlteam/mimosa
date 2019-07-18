@@ -1,6 +1,6 @@
 // file: "net.cpp"
 
-// Copyright (c) 2001 by Marc Feeley and Université de Montréal, All
+// Copyright (c) 2001 by Marc Feeley and Universitï¿½ de Montrï¿½al, All
 // Rights Reserved.
 //
 // Revision History
@@ -481,14 +481,28 @@ void reset_stats ()
 }
 
 void print_stats (uint32 usecs)
-{
-  cout << usecs << " usecs, polls=" << stats.nb_polls
-       << ", received: ARP=" << stats.nb_ARP
-       << " ICMP=" << stats.nb_ICMP
-       << " IGMP=" << stats.nb_IGMP
-       << " IP=" << stats.nb_IP
-       << " other=" << stats.nb_other
-       << "\n";
+{ 
+
+  term_write(cout, usecs);
+  term_write(cout, " usecs, polls=");
+  term_write(cout, stats.nb_polls);
+  
+  term_write(cout, ", received: ARP=");
+  term_write(cout, stats.nb_ARP);
+
+  term_write(cout, " ICMP=");
+  term_write(cout, stats.nb_ICMP);
+
+  term_write(cout, " IGMP=");
+  term_write(cout, stats.nb_IGMP);
+
+  term_write(cout, " IP=");
+  term_write(cout, stats.nb_IP);
+
+  term_write(cout, " other=");
+  term_write(cout, stats.nb_other);
+
+  term_write(cout, "\n");
 }
 
 void exec_node (int node_id)
@@ -498,9 +512,11 @@ void exec_node (int node_id)
 
   gettimeofday (&last, NULL);
 
-  term window (0, 420, 80, 3, &font::mono_6x9, L"window");
+  term_c window = new_term(0, 420, 80, 3, &font::mono_6x9, L"window", true);
 
-  cout << "This is " << nodes[node_id].name << "\n";
+  term_write(cout, "This is ");
+  term_write(cout, nodes[node_id].name );
+  term_write(cout, "\n");
 
   reset_stats ();
 
@@ -727,7 +743,7 @@ extern "C" void console_putc (int c)
   native_char str[2];
   str[0] = c;
   str[1] = '\0';
-  cout << str;
+  term_write(cout, str);
 }
 
 extern "C" int console_ischar ()
@@ -741,11 +757,11 @@ void setup_net ()
 {
   if (!eth_probe ())
     {
-      cout << "No adapter found\n";
+      term_write(cout, "No adaptoer found\n");
       return;
     }
 
-  cout << "Adapter found\n";
+  term_write(cout, "Adapter found\n");
 
   int node_id = find_node_id_from_node_addr (nic.node_addr);
 
@@ -754,8 +770,8 @@ void setup_net ()
       exec_node (node_id);
       return;
     }
-
-  cout << "Unknown node!\n";
+    
+  term_write(cout, "Unknown node!\n");
 }
 
 //-----------------------------------------------------------------------------

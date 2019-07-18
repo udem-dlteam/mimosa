@@ -1,6 +1,6 @@
 // file: "rtlib.h"
 
-// Copyright (c) 2001 by Marc Feeley and Université de Montréal, All
+// Copyright (c) 2001 by Marc Feeley and Universitï¿½ de Montrï¿½al, All
 // Rights Reserved.
 //
 // Revision History
@@ -49,8 +49,12 @@ void __do_global_dtors ();
 extern "C"
 void __rtlib_entry ();
 
+void __rtlib_setup();
+
 int main ();
 
+//-----------------------------------------------------------------------------
+// Global objects
 //-----------------------------------------------------------------------------
 
 #endif

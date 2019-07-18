@@ -1,6 +1,6 @@
 // file: "video.h"
 
-// Copyright (c) 2001 by Marc Feeley and Université de Montréal, All
+// Copyright (c) 2001 by Marc Feeley and Universitï¿½ de Montrï¿½al, All
 // Rights Reserved.
 //
 // Revision History
@@ -50,7 +50,9 @@
 // 640 by 480 and where byte 0 is at physical address 0xa0000.
 
 #define BITMAP_WORD_SELECT(b8,b16) b8 // how many bits per word
-
+#define MOUSE_WIDTH  8
+#define MOUSE_WIDTH_IN_BITMAP_WORDS ((MOUSE_WIDTH+BITMAP_WORD_WIDTH-1) >> LOG2_BITMAP_WORD_WIDTH)
+#define MOUSE_HEIGHT 12
 #define LOG2_BITMAP_WORD_WIDTH BITMAP_WORD_SELECT(3,4) // log2(word width)
 #define BITMAP_WORD_WIDTH BITMAP_WORD_SELECT(8,16)
 typedef BITMAP_WORD_SELECT(uint8,uint16) bitmap_word;
@@ -59,187 +61,170 @@ typedef BITMAP_WORD_SELECT(uint32,uint64) bitmap_quad_word; // to be able to
                                                             // at a time
 
 //-----------------------------------------------------------------------------
+// Pattern
 
-// "pattern" class declaration.
+typedef struct pattern {
+  bitmap_word* _words;
+  int _height;
+  int _depth;
+} pattern;
 
-class pattern
-  {
-  public:
+pattern new_pattern(bitmap_word* words, int height, int depth);
 
-    pattern (bitmap_word* words, int height, int depth);
-
-    bitmap_word get_word (int y, int layer);
-
-    static pattern black;
-    static pattern gray25;
-    static pattern gray50;
-    static pattern gray75;
-    static pattern white;
-    static pattern red;
-    static pattern green;
-    static pattern yellow;
-    static pattern blue;
-    static pattern magenta;
-    static pattern cyan;
-
-  protected:
-
-    bitmap_word* _words;
-    int _height;
-    int _depth;
-  };
+bitmap_word pattern_get_word(pattern* self, int y, int layer);
 
 //-----------------------------------------------------------------------------
 
-// "raw_bitmap" class declaration.
+//-----------------------------------------------------------------------------
+// raw_bitmap
 
-class raw_bitmap
-  {
-  public:
+typedef struct raw_bitmap_vtable {
+  void (* hide_mouse)(void* self);
+  void (* show_mouse)(void* self);
+  bitmap_word* (* _select_layer)(void* self, int layer);
+} raw_bitmap_vtable;
 
-    void bitblt (int x,
-                 int y,
-                 int x_end,
-                 int y_end,
-                 raw_bitmap* src,
-                 int src_x,
-                 int src_y,
-                 pattern* foreground,
-                 pattern* background);
+typedef struct raw_bitmap {
+  raw_bitmap_vtable* vtable;
+  int _width;
+  int _height;
+  int _depth;
+} raw_bitmap_c;
 
-    void fill_rect (int x,
-                    int y,
-                    int x_end,
-                    int y_end,
-                    pattern* foreground);
+void raw_bitmap_bitblt(raw_bitmap* self, int x, int y, int x_end, int y_end,
+                            raw_bitmap* src, int src_x, int src_y,
+                            pattern* foreground, pattern* background);
 
-    void frame_rect (int x,
-                     int y,
-                     int x_end,
-                     int y_end,
-                     int border,
-                     pattern* foreground);
+void raw_bitmap_fill_rect(raw_bitmap* self, int x, int y, int x_end,
+                          int y_end, pattern* foreground);
 
-    void invert_rect (int x, int y, int x_end, int y_end);
+void raw_bitmap_frame_rect(raw_bitmap* self, int x, int y, int x_end,
+                           int y_end, int border, pattern* foreground);
 
-    virtual void hide_mouse () = 0;
-    virtual void show_mouse () = 0;
+void raw_bitmap_show_mouse(void* self);
 
-  protected:
+void raw_bitmap_hide_mouse(void* self);
 
-    virtual bitmap_word* select_layer (int layer) = 0;
+bitmap_word* _raw_bitmap_select_layer(void* self, int layer);
 
-    int _width;  // width in pixels, must be a multiple of BITMAP_WORD_WIDTH
-    int _height; // height in pixels
-    int _depth;  // number of bits per pixel
-  };
+void raw_bitmap_invert_rect(raw_bitmap* self, int x, int y, int x_end, int y_end);
 
 //-----------------------------------------------------------------------------
 
-// "raw_bitmap_in_memory" class declaration.
+//-----------------------------------------------------------------------------
+// raw_bitmap_in_memory
 
-class raw_bitmap_in_memory : public raw_bitmap
-  {
-  public:
+typedef struct raw_bitmap_in_memory {
+  raw_bitmap super;
+  bitmap_word* _start;
+} raw_bitmap_in_memory;
 
-    raw_bitmap_in_memory (bitmap_word* start,
-                          int width,
-                          int height,
-                          int depth);
+raw_bitmap_in_memory new_raw_bitmap_in_memory(bitmap_word* start, int width,
+                                                int height, int depth);
 
-    virtual void hide_mouse ();
-    virtual void show_mouse ();
+void raw_bitmap_in_memory_hide_mouse(void* self);
 
-  protected:
+void raw_bitmap_in_memory_show_mouse(void* self);
 
-    virtual bitmap_word* select_layer (int layer);
-
-    bitmap_word* _start;
-  };
+bitmap_word* _raw_bitmap_in_memory_select_layer(void* self, int layer);
 
 //-----------------------------------------------------------------------------
 
-// "video" class declaration.
+//-----------------------------------------------------------------------------
+// video
 
-class video : public raw_bitmap
-  {
-  public:
+typedef struct video {
+  raw_bitmap super;
+  int _mode;
+  bitmap_word* _start;
+  int _mouse_x;
+  int _mouse_y;
+  int _mouse_hides;
+} video;
 
-    video (int mode);
+video new_video(int mode);
 
-    static video screen;
-    static raw_bitmap_in_memory mouse_save;
+void video_move_mouse(video* self, int dx, int dy);
 
-    void move_mouse (int dx, int dy);
+void video_hide_mouse(void* self);
 
-    virtual void hide_mouse ();
-    virtual void show_mouse ();
+void video_show_mouse(void* self);
 
-  protected:
+bitmap_word* video_select_layer(void* self, int layer);
 
-    virtual bitmap_word* select_layer (int layer);
+void video_get_mouse_rect(video* self, int* width, int* height);
 
-    void get_mouse_rect (int* width, int* height);
-    void draw_mouse ();
-
-    int _mode;
-    bitmap_word* _start;
-
-    int _mouse_x;
-    int _mouse_y;
-    int _mouse_hides;
-  };
-
+void video_draw_mouse(video* self);
 //-----------------------------------------------------------------------------
 
-// "font" class declaration.
 
-class font
-  {
-  public:
 
-    font (int max_width,
-          int height,
-          int nb_chars,
-          uint16* char_map,
-          uint32* char_end,
-          raw_bitmap* raw);
+//-----------------------------------------------------------------------------
+// Font
+typedef struct font_c {
+  int _max_width;
+  int _height;
+  int _nb_chars;
+  uint16* _char_map;
+  uint32* _char_end;
+  raw_bitmap* _raw;
+} font_c;
 
-    int get_max_width ();
+font_c new_font(int max_width, int height, int nb_chars, uint16* char_map,
+                uint32* char_end, raw_bitmap* raw);
 
-    int get_height ();
+int font_get_max_width(font_c* self);
 
-    int draw_text (raw_bitmap* dst,
-                   int x,
-                   int y,
-                   unicode_char* text,
-                   int count,
-                   pattern* foreground,
+int font_get_height(font_c* self);
+
+int font_draw_text(font_c* self, raw_bitmap* dst, int x, int y,
+                   unicode_char* text, int count, pattern* foreground,
                    pattern* background);
 
-    int draw_string (raw_bitmap* dst,
-                     int x,
-                     int y,
-                     unicode_string str,
-                     pattern* foreground,
+int font_draw_string(font_c* self, raw_bitmap* dst, int x, int y,
+                     unicode_string str, pattern* foreground,
                      pattern* background);
 
-    static font mono_5x7;
-    static font mono_6x9;
+void _font_get_char_data(font_c* self, unicode_char c, int& start, int& width);
+//-----------------------------------------------------------------------------
 
-  protected:
 
-    void get_char_data (unicode_char c, int& start, int& width);
 
-    int _max_width;
-    int _height;
-    int _nb_chars;
-    uint16* _char_map;
-    uint32* _char_end;
-    raw_bitmap* _raw;
-  };
+
 
 //-----------------------------------------------------------------------------
+// Extern declarations for statics
+extern pattern pattern_black;
+extern pattern pattern_gray25;
+extern pattern pattern_gray50;
+extern pattern pattern_gray75;
+extern pattern pattern_white;
+extern pattern pattern_red;
+extern pattern pattern_green;
+extern pattern pattern_yellow;
+extern pattern pattern_blue;
+extern pattern pattern_magenta;
+extern pattern pattern_cyan;
+
+extern font_c font_mono_5x7;
+extern font_c font_mono_6x9;
+
+extern video screen;
+extern raw_bitmap_in_memory mouse_save;
+
+/*
+raw_bitmap_in_memory video::mouse_save
+  (mouse_bitmap,
+   MOUSE_WIDTH_IN_BITMAP_WORDS << LOG2_BITMAP_WORD_WIDTH,
+   MOUSE_HEIGHT,
+   4);
+
+video video::screen (18);
+*/
+
+extern raw_bitmap_vtable _raw_bitmap_vtable;
+extern raw_bitmap_vtable _raw_bitmap_in_memory_vtable;
+extern raw_bitmap_vtable _video_vtable;
 
 #endif
 
