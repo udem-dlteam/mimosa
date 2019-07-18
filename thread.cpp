@@ -85,7 +85,7 @@ bool mutex::lock_or_timeout (time timeout)
       wait_queue_remove (current);
       wait_queue_insert (current, this);
       debug_write("LN 91");
-      save_context (_sched_suspend_on_wait_queue, NULL);
+      save_context (_sched_suspend_on_sleep_queue, NULL);
 
       enable_interrupts ();
 
@@ -369,8 +369,7 @@ void thread::sleep(int64 timeout_nsecs) {
 
   wait_queue_remove(current);
 
-  debug_write("LN 403");
-  save_context(_sched_suspend_on_wait_queue, NULL);
+  save_context(_sched_suspend_on_sleep_queue, NULL);
 
   enable_interrupts();
 #endif
