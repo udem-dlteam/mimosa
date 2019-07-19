@@ -399,8 +399,8 @@ void __rtlib_setup ()
   setup_disk ();
   term_write(cout, "Loading up IDE controllers...\n");
   setup_ide ();
-  // term_write(cout, "Loading up the file system...\n");
-  // setup_fs ();
+  term_write(cout, "Loading up the file system...\n");
+  setup_fs ();
   //setup_net ();
 
   main ();
