@@ -418,96 +418,91 @@ typedef struct Master_Boot_Record_struct
 
 //-----------------------------------------------------------------------------
 
-void disk_add_all_partitions ()
-{
-  uint32 index = 0;
-  disk* d;
+  void disk_add_all_partitions() {
+    uint32 index = 0;
+    disk* d;
 
-  while ((d = disk_find (index)) != NULL)
-    {
-      if (d->partition_type == 0 // whole disk
-          || d->partition_type == 5) // extended partition
-        {
-          Master_Boot_Record mbr;
-          uint32 i;
-          uint32 max_LBA_when_using_BIOS_CHS = disk_max_BIOS_CHS_to_LBA (d);
-          disk* part;
+    while ((d = disk_find(index)) != NULL) {
+      if (d->partition_type == 0      // whole disk
+          || d->partition_type == 5)  // extended partition
+      {
+        Master_Boot_Record mbr;
+        uint32 i;
+        uint32 max_LBA_when_using_BIOS_CHS = disk_max_BIOS_CHS_to_LBA(d);
+        disk* part;
 
-          if (!ERROR(disk_read_sectors (d, 0, &mbr, 1)))
-            {
-              for (i=0; i<4; i++)
-                {
-                  partition_table_entry* p = &mbr.partition_table[i];
-                  uint8 type;
-                  uint32 start_LBA;
-                  uint32 end_LBA;
-                  uint32 nb_sectors;
+        if (!ERROR(disk_read_sectors(d, 0, &mbr, 1))) {
+          for (i = 0; i < 4; i++) {
+            partition_table_entry* p = &mbr.partition_table[i];
+            uint8 type;
+            uint32 start_LBA;
+            uint32 end_LBA;
+            uint32 nb_sectors;
 
-                  type = p->type;
+            type = p->type;
 
-                  if (type == 0)
-                    continue;
+            if (type == 0) continue;
 
-                  start_LBA = d->partition_start + as_uint32(p->start_LBA);
-                  nb_sectors = as_uint32(p->nb_sectors);
-                  end_LBA = start_LBA + nb_sectors - 1;
+            start_LBA = d->partition_start + as_uint32(p->start_LBA);
+            nb_sectors = as_uint32(p->nb_sectors);
+            end_LBA = start_LBA + nb_sectors - 1;
 
-                  if ((p->active_flag & 0x7f) != 0)
-                    {
+            if ((p->active_flag & 0x7f) != 0) {
 #ifdef SHOW_DISK_INFO
-                      cout << "*** incorrect active_flag\n";
+              cout << "*** incorrect active_flag\n";
 #endif
-                      continue;
-                    }
-
-                  if (((start_LBA < max_LBA_when_using_BIOS_CHS)
-                       ? start_LBA
-                       : max_LBA_when_using_BIOS_CHS)
-                      != disk_BIOS_CHS_to_LBA (d, p->start_BIOS_CHS))
-                    {
-#ifdef SHOW_DISK_INFO
-                      cout << "*** start CHS inconsistent with start_LBA (start CHS = " << disk_BIOS_CHS_to_LBA (d, p->start_BIOS_CHS) << " start_LBA = " << start_LBA << ")\n";
-#endif
-                      continue;
-                    }
-
-                  if (((end_LBA < max_LBA_when_using_BIOS_CHS)
-                       ? end_LBA
-                       : max_LBA_when_using_BIOS_CHS)
-                      != disk_BIOS_CHS_to_LBA (d, p->end_BIOS_CHS))
-                    {
-#ifdef SHOW_DISK_INFO
-                      cout << "*** end CHS inconsistent with nb_sectors (end CHS =" << disk_BIOS_CHS_to_LBA (d, p->end_BIOS_CHS) << " end_LBA = " << end_LBA << ")\n";
-#endif
-                      continue;
-                    }
-
-                  if (start_LBA < d->partition_start
-                      || end_LBA >= d->partition_start + d->partition_length)
-                    {
-#ifdef SHOW_DISK_INFO
-                      cout << "*** partition exceeds disk or containing partition bounds\n";
-#endif
-                      continue;
-                    }
-
-                  part = disk_alloc ();
-
-                  if (part == NULL)
-                    continue;
-
-                  /////something like this would be better but bombs: *part = *d;
-
-                  part->kind = d->kind;
-                  part->log2_sector_size = d->log2_sector_size;
-                  part->partition_type = type;
-                  part->partition_path = d->partition_path * 10 + i + 1;
-                  part->partition_start = start_LBA;
-                  part->partition_length = nb_sectors;
-                  part->_.ide.dev = d->_.ide.dev;
-                }
+              continue;
             }
+
+            if (((start_LBA < max_LBA_when_using_BIOS_CHS)
+                     ? start_LBA
+                     : max_LBA_when_using_BIOS_CHS) !=
+                disk_BIOS_CHS_to_LBA(d, p->start_BIOS_CHS)) {
+#ifdef SHOW_DISK_INFO
+              cout << "*** start CHS inconsistent with start_LBA (start CHS = "
+                   << disk_BIOS_CHS_to_LBA(d, p->start_BIOS_CHS)
+                   << " start_LBA = " << start_LBA << ")\n";
+#endif
+              continue;
+            }
+
+            if (((end_LBA < max_LBA_when_using_BIOS_CHS)
+                     ? end_LBA
+                     : max_LBA_when_using_BIOS_CHS) !=
+                disk_BIOS_CHS_to_LBA(d, p->end_BIOS_CHS)) {
+#ifdef SHOW_DISK_INFO
+              cout << "*** end CHS inconsistent with nb_sectors (end CHS ="
+                   << disk_BIOS_CHS_to_LBA(d, p->end_BIOS_CHS)
+                   << " end_LBA = " << end_LBA << ")\n";
+#endif
+              continue;
+            }
+
+            if (start_LBA < d->partition_start ||
+                end_LBA >= d->partition_start + d->partition_length) {
+#ifdef SHOW_DISK_INFO
+              cout << "*** partition exceeds disk or containing partition "
+                      "bounds\n";
+#endif
+              continue;
+            }
+
+            part = disk_alloc();
+
+            if (part == NULL) continue;
+
+            /////something like this would be better but bombs: *part = *d;
+
+            part->kind = d->kind;
+            part->log2_sector_size = d->log2_sector_size;
+            part->partition_type = type;
+            part->partition_path = d->partition_path * 10 + i + 1;
+            part->partition_start = start_LBA;
+            part->partition_length = nb_sectors;
+            part->_.ide.dev = d->_.ide.dev;
+          }
         }
+      }
       index++;
     }
 }
