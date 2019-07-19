@@ -133,8 +133,21 @@ typedef struct FAT_directory_entry_struct
       }
 
       case FAT32_FS: {
-        for(;;)
-          term_write(cout, "open_root_dir for FAT32 unimplemented\n");
+        f->fs = fs;
+        f->current_cluster = 2;
+        f->current_section_start = fs->_.FAT121632.first_data_sector;
+        f->current_section_length = fs->_.FAT121632.root_directory_sectors
+                                    << fs->_.FAT121632.log2_bps;
+
+#ifdef SHOW_DISK_INFO
+        term_write(cout, "FAT32 ROOT DIR [sector] start=");
+        term_write(cout, fs->_.FAT121632.first_data_sector);
+#endif
+        f->current_section_pos = 0;
+        f->current_pos = 0;
+        f->length = f->current_section_length;
+        f->mode = S_IFDIR;
+        break;
       }
 
       default:
@@ -208,8 +221,9 @@ error_code open_file (native_string path, file** result)
   file_system* fs;
   file* f;
 
-  if (fs_mod.nb_mounted_fs == 0)
+  if (fs_mod.nb_mounted_fs == 0) {
     return FNF_ERROR;
+  }
 
   fs = fs_mod.mounted_fs[0];
 
@@ -224,11 +238,26 @@ error_code open_file (native_string path, file** result)
         native_char normalized_path[NAME_MAX+1];
         native_string p = normalized_path;
 
-        if (ERROR(err = normalize_path (path, normalized_path)))
+        if (ERROR(err = normalize_path(path, normalized_path))) {
+#ifdef SHOW_DISK_INFO
+          term_write(cout, "Failed to normalize the path\n\r");
+#endif
           return err;
+        }
 
-        if (ERROR(err = open_root_dir (fs, &f)))
+        if (ERROR(err = open_root_dir(fs, &f))) {
+#ifdef SHOW_DISK_INFO
+          term_write(cout, "Error loading the root dir: ");
+          term_write(cout, err);
+          term_writeline(cout);
+#endif
           return err;
+        }
+
+#ifdef SHOW_DISK_INFO
+        term_write(cout, "\n\rOpened the root dir..."); term_writeline(cout);
+        term_write(cout, "Normalized name: '"); term_write(cout, normalized_path); term_write(cout, "'\n\r");
+#endif
 
         for (;;)
           {
@@ -696,7 +725,11 @@ static error_code mount_FAT121632 (disk* d, file_system** result)
 }
 
 static error_code mount_partition(disk* d) {
-  term_write(cout, "IN MOUNT PART\n\r");
+
+  #ifdef SHOW_DISK_INFO
+    term_write(cout, "IN MOUNT PART\n\r");
+  #endif
+
   file_system* fs = NULL;
   error_code err;
 

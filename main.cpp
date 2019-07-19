@@ -43,6 +43,20 @@ int main() {
     term_write(tty, "Disk found!");
   }
 
+  file** file;
+  error_code code = open_file("TEST.TXT", file);
+
+  if(code == 0) {
+    term_write(tty, "Opened kernel file without error\n\r");
+  } else {
+    term_write(tty, "Failed to open the file :<(\n\r");
+  }
+
+  term_write(tty, "File current cluster (expected 3): ");
+  term_write(tty, file[0]->current_cluster);
+  term_writeline(tty);
+
+  
 
   for (;;) {
     // debug_write("M");
