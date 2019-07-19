@@ -18,25 +18,32 @@
 
 //-----------------------------------------------------------------------------
 
+typedef void (*user_task)(uint32 println_addr);
 
-class program_thread : public thread
-  {
-  public:
+class program_thread : public thread {
+ public:
+  program_thread(user_task task);
 
-    program_thread (void_fn task);
+ protected:
+  user_task _task;
+  virtual void run();
+};
 
-  protected:
-    void_fn _task;
-    virtual void run ();
-  };
+extern "C" void println(uint32 str) {
+  // for(;;);
+  term_write(cout, str);
+  term_writeline(cout);
+}
 
-program_thread::program_thread(void_fn task)
-{
+program_thread::program_thread(user_task task) {
   _task = task;
 }
 
 void program_thread::run() {
-  _task();
+  term_write(cout, "Calling task with print fn: ");
+  term_write(cout, (void*)&println);
+  term_writeline(cout);
+  _task(CAST(uint32, &println));
 }
 
 int main() {
@@ -105,7 +112,7 @@ int main() {
 
   read_file(code_file, buff, 512);
 
-  program_thread* test = new program_thread((void_fn) buff);
+  program_thread* test = new program_thread((user_task) buff);
   test->start();
     
 

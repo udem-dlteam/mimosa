@@ -14,3 +14,5 @@ mimosa-build/
 *.scratch
 
 \.code-workspace
+
+*.o
