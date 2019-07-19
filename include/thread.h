@@ -420,6 +420,8 @@ class thread : public wait_mutex_sleep_node
     condvar _joiners; // threads waiting for this thread to terminate
     volatile bool _terminated; // the thread's termination flag
 
+    uint32* _code;
+
     friend class mutex;
     friend class condvar;
     friend class scheduler;

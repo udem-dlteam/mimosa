@@ -31,18 +31,32 @@ class program_thread : public thread {
 
 extern "C" void println(uint32 str) {
   // for(;;);
-  term_write(cout, str);
+
+  thread* current = thread::self();
+  uint32 base = (uint32)current->_code;
+
+  term_write(cout, "Addressed passed: ");
+  term_write(cout, (void*)str);
+  term_writeline(cout);
+
+  str += base;
+
+  term_write(cout, "Addressed calculated: ");
+  term_write(cout, (void*)str);
+  term_writeline(cout);
+
+  native_string a_str = (char*)str;
+  term_write(cout, a_str);
+
   term_writeline(cout);
 }
 
 program_thread::program_thread(user_task task) {
+  _code = (uint32*) task;
   _task = task;
 }
 
 void program_thread::run() {
-  term_write(cout, "Calling task with print fn: ");
-  term_write(cout, (void*)&println);
-  term_writeline(cout);
   _task(CAST(uint32, &println));
 }
 
