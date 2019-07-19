@@ -413,6 +413,8 @@ find_file:
     jnz root_dir_read_loop_sectors_in_cluster_loop
   # At this point, we need to search the scratch area for all the directory entries
   # A cluster is 8 sectors. A sectors is 512 byte, each entry is 32 bytes. 
+  # Cleanup
+  xorw %ax, %ax
   # Calculate how many entries we need to explore
   movb nb_sectors_per_cluster, %al
   mulw nb_bytes_per_sector # AX contains the current result
