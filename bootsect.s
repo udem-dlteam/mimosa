@@ -12,7 +12,6 @@ INT10_TTY_OUTPUT_FN = 0xE       # BIOS int 0x10 function for "teletype output"
 INT16_READ_KEYBOARD_FN = 0      # BIOS int 0x16 function for "read keyboard"
 STACK_TOP = 0x10000             # location of stack top
 SCRATCH = 0x1000                # location of scratch area
-BSCRATCH = 0x40000                # location of scratch area
 EXTENDED_MEM = 0x7E00           # location of the extended boot sector (0x7C00 + 512)
 ROOT_DIR_ENTRY_SIZE = 32        # the size for a root directory entry size
 # ------------------------------------------------------------------------------
@@ -178,11 +177,7 @@ read_sector:
 # 0) to %ebx.
 # CF = 1 if an error reading the sector occured
 # This function MUST be in the first sector of the bootsector(s)
-  pushw %es
-  pushl %eax
-  pushl %ebx
-  pushl %ecx
-  pushl %edx
+  pusha
 
   movl  %eax,%edx               # edx contains LDA
   shrl  $16,%edx                # dx contains LDA
@@ -206,11 +201,7 @@ read_sector:
   int   $0x13                   # Call the read
   jc cannot_load
 
-  popl  %edx
-  popl  %ecx
-  popl  %ebx
-  popl  %eax
-  popw  %es
+  popa
 
   ret
 
@@ -322,9 +313,6 @@ code_end:
 # ---------------------------------------------------------------------------------------
 # ---------------------------------------------------------------------------------------
 # ---------------------------------------------------------------------------------------
-
-fat_begin_lba:
-  .long 0x00
 
 extended_code_start:
 
