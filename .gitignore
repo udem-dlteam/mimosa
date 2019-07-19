@@ -12,3 +12,5 @@ gdb\.txt
 mimosa-build/
 
 *.scratch
+
+\.code-workspace

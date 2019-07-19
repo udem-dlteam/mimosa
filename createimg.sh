@@ -1,6 +1,6 @@
 #!/bin/bash
 mkdir -p /mnt/tmp
-mkfs.msdos -C mimosa-build/floppy.img 1440 -R 2 -v 
+mkfs.fat -C mimosa-build/floppy.img $((2 * 1024 * 1024)) -v -F 32
 mount mimosa-build/floppy.img /mnt/tmp
 
 cp mimosa-build/boot.bin /mnt/tmp/BOOT.SYS
