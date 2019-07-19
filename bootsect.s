@@ -14,6 +14,8 @@ STACK_TOP = 0x10000             # location of stack top
 SCRATCH = 0x1000                # location of scratch area
 EXTENDED_MEM = 0x7E00           # location of the extended boot sector (0x7C00 + 512)
 ROOT_DIR_ENTRY_SIZE = 32        # the size for a root directory entry size
+ROOT_DIR_ENTRY_CLUSTER_HI_OFFSET = 0x14 # the root directory entry offset for the hi part of the cluster no
+ROOT_DIR_ENTRY_CLUSTER_LO_OFFSET = 0x1A # the root directory entry offset for the lo part of the cluster no
 # ------------------------------------------------------------------------------
 
 .globl bootsect_entry
@@ -30,7 +32,6 @@ code_start:
 # This header will make the boot sector look like the one for an MSDOS floppy.
 
 jmp after_header  # jump after the header block
-  .byte 0x00        # nop
 oem_name:
   .ascii "MIMOSA"
   .byte 0
@@ -38,25 +39,49 @@ oem_name:
 nb_bytes_per_sector:
   .word 0x0200    # bytes per sector (512 bytes)
 nb_sectors_per_cluster:
-  .byte 0x20      # sector per allocation unit -> sector/cluster
+  .byte 0x08      # sector per allocation unit -> sector/cluster
 nb_reserved_sectors:  
-  .word 0x02      # reserved sectors for booting (2 to get an extended boot sector)
+  .word 32      # reserved sectors for booting (32 to get an extended boot sector (also FAT 32 compatible))
 nb_of_fats:
   .byte 0x02      # number of FATs (usually 2)
 nb_root_dir_entries:
-  .word 0xE0      # number of root dir entries (224)
-nb_logical_sectors:
-  .word 0x0b40    # number of logical sectors
+  .word 0x00      # number of root dir entries (0 for FAT 32)
+old_nb_logical_sectors:
+  .word 0x00    # number of logical sectors on old devices
 media_descriptor:
-  .byte 0xF0      # media descriptor byte (f0h: floppy, f8h: disk drive)
-nb_sectors_per_fat: 
-  .word 0x09    # sectors per fat
+  .byte 0xF8      # media descriptor byte (f0h: floppy, f8h: disk drive)
+old_nb_sectors_per_fat: 
+  .word 0x00    # sectors per fat (0 For FAT32)
 nb_sectors_per_track:
   .word 0x012     # sectors per track (cylinder)
 nb_heads:
   .word 0x02 # number of heads
 nb_hidden_sectors:
   .long 0x00 # number of hidden sectors
+# --------------------------------------------------------------------------
+# FAT 32 EBP
+# --------------------------------------------------------------------------
+nb_logical_sectors:
+  .long 4194304
+nb_sectors_per_fat:
+  .long 4088
+mirror_flags:
+  .word 0x00                                                                   # TODO
+fs_version:
+  .byte 0x00
+  .byte 0x00
+  .byte 0x02
+  .byte 0x00
+first_cluster_root_dir:
+  .long 0x02
+fat_32_fs_region:
+  .word 0x02      # We use 0x02 because 0x01 is the extended bootsector
+backup_bootsec:
+  .word 0xFFFF    # (none)
+reserved_data:
+  .long 0x00
+  .long 0x00
+  .long 0x00
 drive:            # Extended block, supposed to be only for FAT 16
   .byte 0xAA      # logical drive number
 clean_fs:
@@ -70,7 +95,7 @@ drive_lbl:
   .byte 0
   .byte 0 # drive label (11 char)
 fs_label:
-  .ascii "FAT12   " # file system type (FAT 12 here, 8 chars long)
+  .ascii "FAT32   " # file system type (FAT 12 here, 8 chars long)
 # ------------------------------------------------------------------------------
 after_header:
 
@@ -108,9 +133,6 @@ after_header:
   
   xorb %ch, %ch
   movw %cx, nb_sectors_per_track # the number of cylinder is useless for the LDA to CHS conversion
-
-  # Little OS name printing...
-
   
   # ------------------------------------------------------------------------------
   # Load the extended bootsector into the RAM
@@ -140,10 +162,9 @@ after_header:
                            # dx contains the number of bytes extra
   movw %ax, nb_root_sectors
 
-  # Cleanup
-  xor %ax, %ax
-  xor %dx, %dx
-
+  # ------------------------------------------------------------------------------
+  # Leave the common bootsector and jump to the extended bootsector
+  # ------------------------------------------------------------------------------
   jmp extended_code_start
 
 
@@ -153,10 +174,7 @@ read_sector:
 # 0) to %ebx.
 # CF = 1 if an error reading the sector occured
 # This function MUST be in the first sector of the bootsector(s)
-  pushw %es
-  pushl %eax
-  pushl %ebx
-  pushl %ecx
+  pusha
 
   movl  %eax,%edx               # edx contains LDA
   shrl  $16,%edx                # dx contains LDA
@@ -180,10 +198,7 @@ read_sector:
   int   $0x13                   # Call the read
   jc cannot_load
 
-  popl  %ecx
-  popl  %ebx
-  popl  %eax
-  popw  %es
+  popa
 
   ret
 
@@ -206,12 +221,14 @@ failure_routine:
   popl %ebx
   popl %eax
 
+  xorb %ah, %ah          # Make sure it's on read key
   int $0x16
+  
   ljmp  $0xf000,$0xfff0  # jump to 0xffff0 (the CPU starts there when reset)
 
 nb_root_sectors:
   .long 0x00000 # number of sectors in the root directory
-root_dir_sector:
+cluster_begin_lba:
   .long 0x00    # default value on floppy is 19; should be read correctly
 
 any_key_reboot_msg:
@@ -244,7 +261,6 @@ print_string:
   test  %al,%al
   jnz   print_string_loop
   ret
-
 # ------------------------------------------------------------------------------
 # MBR data
 # ------------------------------------------------------------------------------
@@ -255,10 +271,10 @@ code_end:
 # partition 1
 .byte 0x80                   # boot flag (0x00: inactive, 0x80: active)
 .byte 0x00, 0x01, 0x00       # Start of partition address
-.byte 0x01                   # system flag
+.byte 0x0C                   # system flag (xFAT32, LBA access)
 .byte 0x01, 0x12, 0x4F       # End of partition address CHS : 79 1 18
 .long 0x00                   # Start sector relative to disk
-.long 0xB40                  # number of sectors in partition
+.long 4194304                   # number of sectors in partition
 
 # partition 2
 .byte 0x00                   # boot flag (0x00: inactive, 0x80: active)
@@ -295,9 +311,6 @@ code_end:
 # ---------------------------------------------------------------------------------------
 
 extended_code_start:
-
-  pushl %eax
-  pushl %ebx
 
   # Enable A20 line
 
@@ -347,179 +360,213 @@ a_20_failure:
   jmp failure_routine  
 
 load_os:
-
   xorw %ax, %ax
   movw %ax, %es # A20 messes with it
 
-  movw $a_20_succes_message, %si
-  call print_string
-
-  movw $loading_os_message, %si
-  call print_string
-
-  popl %ebx
-  popl %eax
-
-
+  # ----------------------------------------
+  # Setup fat values
+  # ----------------------------------------
+  
   # Calculating the start of the root dir
   movb nb_of_fats, %al
-  mulw nb_sectors_per_fat
-  shll $16, %edx             # set the high part
+  mull nb_sectors_per_fat
+  shll $16, %edx             # set the high part (modified from the mul)
   movw %ax, %dx
   addw nb_hidden_sectors, %dx
   addw nb_reserved_sectors, %dx
   # edx now contains the sector of the root directory
-  movl %edx, root_dir_sector # save it
+  movl %edx, cluster_begin_lba # save it
 
   # We can now read the root directory to find the file we want
   # each sector read will contain 16 entries. Only the 11 first bytes are interesting to us
   # cx will contain the number of sectors read 
 
-  xorl  %ecx, %ecx
+  # TODO: Find the cluster from the root directory
+  movl first_cluster_root_dir, %eax # The base cluster is in the EPB
 
-  movl root_dir_sector, %eax
+find_file:
+  root_dir_read_loop:
+  cmpl $0x0FFFFFF8, %eax  # compare the cluster with the end tag
+  jge failure_routine # if cluster is geq end tag: done reading: no correct entry
 
-next_sector:
-
-  # Are we done?
-  cmp nb_root_sectors, %eax
-  jc cannot_load
+  pushl %eax # save the cluster
+  call cluster_to_lba # get the lba (eax is now LBA)
   
-  movl  $SCRATCH, %ebx # write to scratch
-  # Read sector edits es; save it
-  call  read_sector
-  # retry?
-  jc    cannot_load
-  # At scratch we now have a sector of the table
-
-  check_entry:
-    
-    movw $11, %cx # The name is 11 bytes long
-    movw $kernel_name, %si # load the comparison pointer into si
-    movw %bx, %di           # load the name pointer into di
-
-    check_entry_loop:
-    # compare the bytes at the pointer
-    movb (%si), %dh
-    movb (%di), %dl
-    cmp  %dl, %dh
-    
-    jnz check_entry_no_match # the zero flag is set if there is equality
-
-    # next character
-    incw %si
-    incw %di  
-
-    decw %cx
-    jz found_file           # if 0, jump to found file; we read all the characters without fault
-    jmp check_entry_loop    # next character
-
-    check_entry_no_match:
-
-    addw $ROOT_DIR_ENTRY_SIZE, %bx   # move on to the next one
-    cmp  nb_bytes_per_sector, %bx
-    jc check_entry_done               # we read all the entries
-    jmp check_entry # we did not read all the entries, continue
-
-  check_entry_done:  
-  incl %eax # we analysed a sector, go to the next one
-  jmp next_sector
-
-found_file:
-  # At this point, bx contains the start of the root dir entry.
-  # We want to read the cluster number, so we can look up the FAT and
-  # finally read the file... The cluster is a word at offset 0x1A
-
-  addw $0x1A, %bx
-  xorw %ax, %ax
-  movw %ax, %es
-  movw %es:(%bx), %ax # cluster is now in ax
-  pushw %ax # this is dirty; needs to be fixed
-
-  # Fat offset:
-  xorl %eax, %eax           # clean the upper part
-  movw nb_reserved_sectors, %ax
-  addw nb_hidden_sectors,   %ax # eax is now the reading address
-
-  movl $SCRATCH, %ebx       # the destination address is now ebx
-
-  movw nb_sectors_per_fat, %cx # numbers of sectors to read
-
-  read_next_fat:
-
-  call read_sector               # read a single sector
-  incl %eax                      # get ready to read the next one
-  addw nb_bytes_per_sector, %bx  # update the offset
-  decw %cx                       # decrement cx. if cx is NOT zero, jump to read_next_fat
-  jnz read_next_fat        
-
-  # FAT loaded, looking for the file. We write it at KERNEL_START.
-  xorl %eax, %eax                # make sure it's reset
   xorl %ecx, %ecx
+  movb nb_sectors_per_cluster, %cl # prepare the counter
+  movl $SCRATCH, %ebx # We write the cluster to scratch
+  root_dir_read_loop_sectors_in_cluster_loop:
+    # eax is the LBA to read
+    # ebx is the place to write the kernel
 
-  movl $KERNEL_START, %ebx       # we are going to write there
+    call read_sector
+    # Update the write pos
+    pushl %eax  # protected the LBA
+    xorl %eax, %eax
+    movw nb_bytes_per_sector, %ax
+    addl %eax, %ebx
+    popl %eax  # eax contains the LBA again
 
-  popw %cx                       # cx now contains the cluster
+    # Repeat until cluster is done
+    incl %eax # move to the next block
+    decw %cx  # one less block to read
+    jnz root_dir_read_loop_sectors_in_cluster_loop
+  # At this point, we need to search the scratch area for all the directory entries
+  # A cluster is 8 sectors. A sectors is 512 byte, each entry is 32 bytes. 
+  # Cleanup
+  xorw %ax, %ax
+  # Calculate how many entries we need to explore
+  movb nb_sectors_per_cluster, %al
+  mulw nb_bytes_per_sector # AX contains the current result
+  movw $ROOT_DIR_ENTRY_SIZE, %cx
+  divw %cx
+  # AX nw contains the number of entries to scan
+  movw %ax, %cx # Counter to when to stop
+  movw $SCRATCH, %bx # load the address (a word is enough for the scratch area)
+scan_next_dir_entry:
+  pushw %cx # save the entry counter
 
-  read_file_sector:
+  movw $11, %cx # The name is 11 bytes long
+  movw $kernel_name, %si  # load the comparison pointer into si
+  movw %bx, %di           # load the name pointer into di
 
-  pushl %eax
-  pushl %ebx
+  check_entry_loop:
+  # compare the bytes at the pointer
+  movb (%si), %dh
+  movb (%di), %dl
+  cmp  %dl, %dh
 
-  movw $progress_dot, %si
-  call print_string
+  jnz check_entry_no_match # the zero flag is set if there is equality
 
-  popl %ebx
-  popl %eax
+  # next character
+  incw %si
+  incw %di  
 
-  movw %cx, %ax                  # sector to read is the cluster
-  addw root_dir_sector, %ax      # next, add the offset in sectors of the root dir
-  addw nb_root_sectors, %ax      # plus the length of the root dir
-  subw $2,              %ax      # magic!
+  decw %cx                # One less character to read
+  jnz check_entry_loop    # next character
+                          # IF we did NOT jump, there is match
+  # ----------------------------------------------------------
+  # FILE MATCH
+  # ----------------------------------------------------------
+  popw %cx # Dump that register from the stack (counter for entries)
+  popl %eax # eax contains the current cluster (not important)
+  xorl %eax, %eax
 
-  # Read the first sector in the right memory spot
-  call read_sector
+  pushl %ebx # Save the start for the low offset
 
-  movw nb_bytes_per_sector, %ax
-  addl %eax, %ebx # we filled the first 512 byte spot, move on
+  addw $ROOT_DIR_ENTRY_CLUSTER_HI_OFFSET, %bx
+  movw %ax, %es # clear the segment
+  movw %es:(%bx), %ax # hi cluster is now in ax
+  shll $0x10, %eax # shift the hi part in place
 
-  # Now we need to lookup the FAT to figure out where is the next sector to read
-  movl $SCRATCH, %edx          
+  popl %ebx # Restore the start
+  addw $ROOT_DIR_ENTRY_CLUSTER_LO_OFFSET, %bx
+  movw %es:(%bx), %ax # lo cluster is now in ax
 
-  movw %cx, %si                  # get ready to read the fat entry
-  shrw $1 , %si                  # get half of %si
-  addw %cx, %si                  # si is now 1.5 time cx (the offset)
+  jmp load_file # eax now contains the file start cluster
+  # ----------------------------------------------------------
+  # END OF FILE MATCH
+  # ----------------------------------------------------------
+  check_entry_no_match:
 
-  addw %si, %dx                  # addr = base_addr + offset
-  movw %dx, %si
-  movw %ds:(%si), %dx            # read from mem into dx
+  popw %cx # Get the entry counter back
+  decw %cx
+  addw $ROOT_DIR_ENTRY_SIZE, %bx # Move on to the next entry
+  jnz scan_next_dir_entry
 
-  testw $0x0001, %cx                  # check if current cluster is odd
-  jnz next_cluster_is_odd
-  andw $0x0FFF, %dx
-  jmp read_cluster_done
+
+  # Nothing in this cluster, move on to the next one
+  popl %eax  # get the cluster
+  call get_next_cluster # fetch the next cluster number
+  jmp root_dir_read_loop
+
+load_file:
+  movl $KERNEL_START, %ebx # set the destination address
+read_loop:
+  cmpl $0x0FFFFFF8, %eax  # compare the cluster with the end tag
+  jge start_kernel # if cluster is geq end tag: done reading
+
+  pushl %eax # save the cluster
+  call cluster_to_lba # get the lba (eax is now LBA)
   
-  next_cluster_is_odd:
-  shrw $4, %dx
+  xorl %ecx, %ecx
+  movb nb_sectors_per_cluster, %cl # prepare the counter
+  sectors_in_cluster_loop:
+    # eax is the LBA to read
+    # ebx is the place to write the kernel
 
-  read_cluster_done:
-  movw %dx, %cx                  # set the current cluster
-  cmpw $0xFF8, %cx               # if FAT is geq than the last block sym, we are done
-  je start_kernel
-  jl read_file_sector
+    call read_sector
+
+    pushl %eax
+    pushl %ebx
+    movw $progress_dot, %si
+    call print_string
+    popl %ebx
+    popl %eax
+
+    # Update the write pos
+    pushl %eax  # protected the LBA
+    xorl %eax, %eax
+    movw nb_bytes_per_sector, %ax
+    addl %eax, %ebx
+    popl %eax  # eax contains the LBA again
+
+    # Repeat until cluster is done
+    incl %eax # move to the next block
+    decw %cx  # one less block to read
+    jnz sectors_in_cluster_loop
+
+  popl %eax  # get the cluster
+  call get_next_cluster # fetch the next cluster number
+
+  jmp read_loop
 
   start_kernel:
+    cli
     ljmp  $(KERNEL_START>>4),$0  # jump to "KERNEL_START" (which must be < 1MB)
 
+# ----------------------------------------------------------------------------------------------------------
+# Functions
+# ----------------------------------------------------------------------------------------------------------
+cluster_to_lba:
+  # Set the cluster into eax and eax will be set
+  # to the LBA address that corresponds to the cluster
+  subl $2, %eax
+  shll $3, %eax
+  addl cluster_begin_lba, %eax
+  ret
+
+get_next_cluster:
+  
+  pushl %ebx     # save registers that are affected
+  pushl %edx
+
+  andl $0x0FFFFFFFF, %eax # mask the four topmost bits
+  xorl %edx, %edx
+  movl $128, %ebx
+  divl %ebx   # eax contains the LBA to read (without the FAT offset)
+  #             edx contains the offset in bytes of the next cluster
+
+  # Load the FAT into the scratch area
+  # FAT starts after reserved and hidden sectors, simply add those sectors
+  addw nb_reserved_sectors, %ax
+  addw nb_hidden_sectors,   %ax
+  # EAX contains the correct offset
+
+  movl $SCRATCH, %ebx
+  call read_sector
+  # Correct FAT is loaded into the FAT, edx is the offset
+
+  movl (%ebx, %edx, 4), %eax # read from mem into eax.
+  # At this point, eax will contain the next cluster
+
+  popl %edx
+  popl %ebx
+  ret
 
 # ----------------------------------------------------------------------------------------------------------
 # Extended bootloader string and messages
 # ----------------------------------------------------------------------------------------------------------
-
-a_20_succes_message:
-  .ascii "\n\rA20 line enabled."
-  .byte 0
-
 a_20_failure_message:
   .ascii "\n\rFailure to load the A20 line."
   .byte 0
@@ -527,10 +574,6 @@ a_20_failure_message:
 progress_dot:
   .ascii "."
   .byte 0
-
-loading_os_message:
-.ascii "\n\rLoading the operating system..."
-.byte 0
 
 extended_bootsector_loaded:
 .ascii "\n\rBoot code correctly loaded."
