@@ -486,7 +486,6 @@ found_file:
   movl $0x03, %eax # this is dirty; needs to be fixed  
 
   movl $KERNEL_START, %ebx # set the destination address
-
 read_loop:
   cmpl $0x0FFFFFF8, %eax  # compare the cluster with the end tag
   jge start_kernel # if cluster is geq end tag: done reading
@@ -510,8 +509,11 @@ read_loop:
     popl %eax
 
     # Update the write pos
-    addw nb_bytes_per_sector, %bx
+    xorl %eax, %eax
+    movw nb_bytes_per_sector, %eax
+    addl %eax, %ebx
     # Repeat until cluster is done
+    incl %eax
     decw %cx
     jnz sector_loop
 
@@ -521,13 +523,6 @@ read_loop:
   jmp read_loop
 
   start_kernel:
-    pushl %eax
-    pushl %ebx
-    movw $loading_os_message, %si
-    call print_string
-    popl %ebx
-    popl %eax
-
     ljmp  $(KERNEL_START>>4),$0  # jump to "KERNEL_START" (which must be < 1MB)
 
 # ----------------------------------------------------------------------------------------------------------
@@ -567,7 +562,6 @@ get_next_cluster:
   movl $SCRATCH, %ebx
   call read_sector
   # Correct FAT is loaded into the FAT, edx is the offset
-  movl $SCRATCH, %ebx
 
   movl (%ebx, %edx, 4), %eax # read from mem into eax.
   # At this point, eax will contain the next cluster
