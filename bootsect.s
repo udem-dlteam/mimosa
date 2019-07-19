@@ -14,6 +14,8 @@ STACK_TOP = 0x10000             # location of stack top
 SCRATCH = 0x1000                # location of scratch area
 EXTENDED_MEM = 0x7E00           # location of the extended boot sector (0x7C00 + 512)
 ROOT_DIR_ENTRY_SIZE = 32        # the size for a root directory entry size
+ROOT_DIR_ENTRY_CLUSTER_HI_OFFSET = 0x14 # the root directory entry offset for the hi part of the cluster no
+ROOT_DIR_ENTRY_CLUSTER_LO_OFFSET = 0x1A # the root directory entry offset for the lo part of the cluster no
 # ------------------------------------------------------------------------------
 
 .globl bootsect_entry
@@ -388,8 +390,113 @@ load_os:
   # cx will contain the number of sectors read 
 
   # TODO: Find the cluster from the root directory
-  movl $0x03, %eax  
+  movl first_cluster_root_dir, %eax # The base cluster is in the EPB
 
+find_file:
+  root_dir_read_loop:
+  cmpl $0x0FFFFFF8, %eax  # compare the cluster with the end tag
+  jge failure_routine # if cluster is geq end tag: done reading: no correct entry
+
+  pushl %eax # save the cluster
+  call cluster_to_lba # get the lba (eax is now LBA)
+  
+  xorl %ecx, %ecx
+  movb nb_sectors_per_cluster, %cl # prepare the counter
+  movl $SCRATCH, %ebx # We write the cluster to scratch
+  root_dir_read_loop_sectors_in_cluster_loop:
+    # eax is the LBA to read
+    # ebx is the place to write the kernel
+
+    call read_sector
+
+    pushl %eax
+    pushl %ebx
+    movw $progress_dot, %si
+    call print_string
+    popl %ebx
+    popl %eax
+
+    # Update the write pos
+    pushl %eax  # protected the LBA
+    xorl %eax, %eax
+    movw nb_bytes_per_sector, %ax
+    addl %eax, %ebx
+    popl %eax  # eax contains the LBA again
+
+    # Repeat until cluster is done
+    incl %eax # move to the next block
+    decw %cx  # one less block to read
+    jnz root_dir_read_loop_sectors_in_cluster_loop
+  # At this point, we need to search the scratch area for all the directory entries
+  # A cluster is 8 sectors. A sectors is 512 byte, each entry is 32 bytes.
+  xorl %eax, %eax
+  xorl %ecx, %ecx
+  movb nb_sectors_per_cluster, %al
+  mulw nb_bytes_per_sector # AX contains the current result
+  movw $ROOT_DIR_ENTRY_SIZE, %cx
+  divw %cx
+  # AX nw contains the number of entries to scan
+  movw %ax, %cx # Counter to when to stop
+  movw $SCRATCH, %bx # load the address (a word is enough for the scratch area)
+scan_next_dir_entry:
+  pushw %cx # save the entry counter
+
+  movw $11, %cx # The name is 11 bytes long
+  movw $kernel_name, %si  # load the comparison pointer into si
+  movw %bx, %di           # load the name pointer into di
+
+  check_entry_loop:
+  # compare the bytes at the pointer
+  movb (%si), %dh
+  movb (%di), %dl
+  cmp  %dl, %dh
+
+  jnz check_entry_no_match # the zero flag is set if there is equality
+
+  # next character
+  incw %si
+  incw %di  
+
+  decw %cx                # One less character to read
+  jnz check_entry_loop    # next character
+                          # IF we did NOT jump, there is match
+  # ----------------------------------------------------------
+  # FILE MATCH
+  # ----------------------------------------------------------
+  popw %cx # Dump that register from the stack (counter for entries)
+  popl %eax # eax contains the current cluster (not important)
+  xorl %eax, %eax
+
+  pushl %ebx # Save the start for the low offset
+
+  addw $ROOT_DIR_ENTRY_CLUSTER_HI_OFFSET, %bx
+  movw %ax, %es # clear the segment
+  movw %es:(%bx), %ax # hi cluster is now in ax
+  shll $0x10, %eax # shift the hi part in place
+
+  popl %ebx # Restore the start
+  addw $ROOT_DIR_ENTRY_CLUSTER_LO_OFFSET, %bx
+  movw %es:(%bx), %ax # lo cluster is now in ax
+
+  jmp load_file # eax now contains the file start cluster
+  # ----------------------------------------------------------
+  # END OF FILE MATCH
+  # ----------------------------------------------------------
+  check_entry_no_match:
+
+  popw %cx # Get the entry counter back
+  decw %cx
+  addw $ROOT_DIR_ENTRY_SIZE, %bx # Move on to the next entry
+  jnz scan_next_dir_entry
+
+
+  # Nothing in this cluster, move on to the next one
+  popl %eax  # get the cluster
+  call get_next_cluster # fetch the next cluster number
+
+  jmp root_dir_read_loop
+
+load_file:
   movl $KERNEL_START, %ebx # set the destination address
 read_loop:
   cmpl $0x0FFFFFF8, %eax  # compare the cluster with the end tag
