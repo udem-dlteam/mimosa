@@ -62,10 +62,7 @@ nb_hidden_sectors:
 # FAT 32 EBP
 # --------------------------------------------------------------------------
 nb_logical_sectors:
-  .byte 0x00
-  .byte 0x00
-  .byte 0x40
-  .byte 0x00
+  .long 4194304
 nb_sectors_per_fat:
   .long 4088
 mirror_flags:
@@ -290,7 +287,7 @@ code_end:
 .byte 0x0C                   # system flag (xFAT32, LBA access)
 .byte 0x01, 0x12, 0x4F       # End of partition address CHS : 79 1 18
 .long 0x00                   # Start sector relative to disk
-.long 4088                  # number of sectors in partition
+.long 4194304                   # number of sectors in partition
 
 # partition 2
 .byte 0x00                   # boot flag (0x00: inactive, 0x80: active)
