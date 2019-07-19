@@ -63,6 +63,7 @@ void term_hide_cursor(term* self);    //#!
 void term_toggle_cursor(term* self);  //#!
 void term_scroll_up(term* self);      //#!
 
+term* term_writeline(term* self);
 term* term_write(term* self, native_char x);\
 term* term_write(term* self, bool x);
 term* term_write(term* self, int8 x);

@@ -474,8 +474,15 @@ void term_scroll_up(term* self) {
   raw_bitmap_fill_rect(&screen.super, x0, y2, x3, y3, background);
 }
 
+static const native_string TRUE_STR = "TRUE";
+static const native_string FALSE_STR = "FALSE";
+
 term* term_write(term* self, bool x) {
-  return term_write(self, x ? L"TRUE" : L"FALSE");
+  if (x) {
+    return term_write(self, TRUE_STR);
+  } else {
+    return term_write(self, FALSE_STR);
+  }
 }
 
 term* term_write(term* self, int8 x) {
@@ -564,6 +571,10 @@ term* term_write(term* self, void* x) {
   *--str = '0';
 
   return term_write(self, str);
+}
+
+term* term_writeline(term* self) {
+  return term_write(self, "\n\r");
 }
 
 term* term_write(term* self, native_string x) {
