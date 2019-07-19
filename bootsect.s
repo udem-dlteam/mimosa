@@ -261,7 +261,6 @@ print_string:
   test  %al,%al
   jnz   print_string_loop
   ret
-
 # ------------------------------------------------------------------------------
 # MBR data
 # ------------------------------------------------------------------------------
@@ -361,13 +360,6 @@ a_20_failure:
   jmp failure_routine  
 
 load_os:
-
-  movw $a_20_succes_message, %si
-  call print_string
-
-  movw $loading_os_message, %si
-  call print_string
-
   xorw %ax, %ax
   movw %ax, %es # A20 messes with it
 
@@ -408,14 +400,6 @@ find_file:
     # ebx is the place to write the kernel
 
     call read_sector
-
-    pushl %eax
-    pushl %ebx
-    movw $progress_dot, %si
-    call print_string
-    popl %ebx
-    popl %eax
-
     # Update the write pos
     pushl %eax  # protected the LBA
     xorl %eax, %eax
@@ -428,9 +412,8 @@ find_file:
     decw %cx  # one less block to read
     jnz root_dir_read_loop_sectors_in_cluster_loop
   # At this point, we need to search the scratch area for all the directory entries
-  # A cluster is 8 sectors. A sectors is 512 byte, each entry is 32 bytes.
-  xorl %eax, %eax
-  xorl %ecx, %ecx
+  # A cluster is 8 sectors. A sectors is 512 byte, each entry is 32 bytes. 
+  # Calculate how many entries we need to explore
   movb nb_sectors_per_cluster, %al
   mulw nb_bytes_per_sector # AX contains the current result
   movw $ROOT_DIR_ENTRY_SIZE, %cx
@@ -493,7 +476,6 @@ scan_next_dir_entry:
   # Nothing in this cluster, move on to the next one
   popl %eax  # get the cluster
   call get_next_cluster # fetch the next cluster number
-
   jmp root_dir_read_loop
 
 load_file:
@@ -544,25 +526,18 @@ read_loop:
 # ----------------------------------------------------------------------------------------------------------
 # Functions
 # ----------------------------------------------------------------------------------------------------------
-
 cluster_to_lba:
   # Set the cluster into eax and eax will be set
   # to the LBA address that corresponds to the cluster
-  pushl %edx
-
-  decl %eax
-  decl %eax # sub two
+  subl $2, %eax
   shll $3, %eax
   addl cluster_begin_lba, %eax
-
-  popl %edx
   ret
 
 get_next_cluster:
   
   pushl %ebx     # save registers that are affected
   pushl %edx
-
 
   andl $0x0FFFFFFFF, %eax # mask the four topmost bits
   xorl %edx, %edx
@@ -590,15 +565,6 @@ get_next_cluster:
 # ----------------------------------------------------------------------------------------------------------
 # Extended bootloader string and messages
 # ----------------------------------------------------------------------------------------------------------
-
-found_file_message:
-  .ascii "\n\rFound the OS file"
-  .byte 0
-
-a_20_succes_message:
-  .ascii "\n\rA20 line enabled."
-  .byte 0
-
 a_20_failure_message:
   .ascii "\n\rFailure to load the A20 line."
   .byte 0
@@ -606,10 +572,6 @@ a_20_failure_message:
 progress_dot:
   .ascii "."
   .byte 0
-
-loading_os_message:
-.ascii "\n\rLoading the operating system..."
-.byte 0
 
 extended_bootsector_loaded:
 .ascii "\n\rBoot code correctly loaded."
