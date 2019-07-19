@@ -12,6 +12,8 @@
 #include "term.h"
 #include "thread.h"
 #include "time.h"
+#include "disk.h"
+#include "fs.h"
 #include "ps2.h"
 
 //-----------------------------------------------------------------------------
@@ -31,10 +33,23 @@ int main() {
 
   term_write(tty, "Video.cpp is in C!\n");
 
+
+  disk* main_dsk = disk_find(0x00);
+
+
+  if(NULL == main_dsk) {
+    term_write(tty, "No disk!");
+  } else {
+    term_write(tty, "Disk found!");
+  }
+
+
   for (;;) {
     // debug_write("M");
     thread::yield();
   }
+
+
 
   return 0;
 }

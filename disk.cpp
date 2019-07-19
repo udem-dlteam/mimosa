@@ -234,83 +234,6 @@ error_code disk_cache_block_release(cache_block* block) {
 
 //-----------------------------------------------------------------------------
 
-// Table of partition types, for debugging.
-
-static const struct {
-  uint8 type;
-  native_string name;
-} partition_type_table[] = {{0x01, "Primary DOS 12-bit FAT"},
-                            {0x02, "Xenix / file system"},
-                            {0x03, "Xenix /usr file system"},
-                            {0x04, "Primary DOS 16-bit FAT"},
-                            {0x05, "Extended DOS"},
-                            {0x06, "Primary big DOS >32Mb"},
-                            {0x07, "OS/2 HPFS, NTFS, QNX or Advanced Unix"},
-                            {0x08, "AIX boot partition"},
-                            {0x09, "AIX file system partition or Coherent"},
-                            {0x0A, "OS/2 Boot Manager or Coherent"},
-                            {0x0B, "DOS or Windows 95 with 32-bit FAT"},
-                            {0x0C, "DOS or Windows 95 with 32-bit FAT, LBA"},
-                            {0x0E, "Primary big DOS >32Mb LBA"},
-                            {0x0F, "Extended DOS, LBA"},
-                            {0x10, "OPUS"},
-                            {0x11, "DOS 12-bit FAT Hidden Partition"},
-                            {0x12, "Compaq Configuration Partition"},
-                            {0x14, "DOS 16-bit FAT <32Mb Hidden"},
-                            {0x16, "DOS 16-bit FAT >=32Mb Hidden"},
-                            {0x17, "OS/2 HPFS Hidden"},
-                            {0x18, "AST Windows swap file"},
-                            {0x19, "Willowtech Photon coS"},
-                            {0x1B, "WIN95 OSR2 32-bit FAT Hidden"},
-                            {0x1C, "WIN95 OSR2 32-bit FAT, LBA, Hidden"},
-                            {0x1E, "FAT95 Hidden"},
-                            {0x20, "Willowsoft Overture File system"},
-                            {0x21, "FSo2 Oxygen File system"},
-                            {0x22, "Extended Oxygen File system"},
-                            {0x24, "NEC DOS 3.x"},
-                            {0x38, "THEOS ver 3.2 2Gb Partition"},
-                            {0x39, "THEOS ver 4 Spanned Partition"},
-                            {0x3A, "THEOS ver 4 4Gb Partition"},
-                            {0x3B, "THEOS ver 4 Extended Partition"},
-                            {0x3C, "Partition magic Recovery Partition"},
-                            {0x40, "VENIX 286"},
-                            {0x42, "SFS (Secure File System)"},
-                            {0x50, "Disk manager"},
-                            {0x51, "Disk manager"},
-                            {0x52, "CP/M or Microport SysV/AT"},
-                            {0x56, "GoldenBow VFeature"},
-                            {0x61, "Speedstor"},
-                            {0x63, "ISC Unix, System V/386, GNU HURD or Mach"},
-                            {0x64, "Novell Netware 2.xx"},
-                            {0x65, "Novell Netware 3.xx"},
-                            {0x70, "DiskSecure Multi-Boot"},
-                            {0x75, "IBM PCIX"},
-                            {0x80, "Minix 1.1 -> 1.4a"},
-                            {0x81, "Minix 1.4b -> 1.5.10"},
-                            {0x82, "Linux Swap"},
-                            {0x83, "Linux File system"},
-                            {0x84, "OS/2 type 04 hidden DOS C:"},
-                            {0x93, "Amoeba File system"},
-                            {0x94, "Amoeba Bad Block Table"},
-                            {0xA5, "FreeBSD/NetBSD/386BSD"},
-                            {0xA6, "OpenBSD"},
-                            {0xA7, "NEXTSTEP"},
-                            {0xB7, "BSDI BSD/386 File system"},
-                            {0xB8, "BSDI BSD/386 swap"},
-                            {0xC1, "DR-DOS 6.0 secured 12-bit FAT partition"},
-                            {0xC4, "DR-DOS 6.0 secured 16-bit FAT partition"},
-                            {0xC6, "DR-DOS 6.0 secured Huge partition"},
-                            {0xC7, "Syrinx"},
-                            {0xDB, "Concurrent CPM, C.DOS, CTOS"},
-                            {0xE1, "Speed"},
-                            {0xE3, "Speed"},
-                            {0xE4, "Speed"},
-                            {0xF1, "Speed"},
-                            {0xF2, "DOS 3.3+ Secondary"},
-                            {0xF4, "Speed"},
-                            {0xFE, "LANstep"},
-                            {0xFF, "Xenix Bad Block Table"}};
-
 static native_string partition_name_from_type(uint8 type) {
   uint32 i;
 
@@ -401,6 +324,8 @@ void disk_add_all_partitions() {
 
           if (type == 0) continue;
 
+          bool only_lba = partition_type_table[type].lba;
+
           start_LBA = d->partition_start + as_uint32(p->start_LBA);
           nb_sectors = as_uint32(p->nb_sectors);
           end_LBA = start_LBA + nb_sectors - 1;
@@ -412,35 +337,38 @@ void disk_add_all_partitions() {
             continue;
           }
 
-          if (((start_LBA < max_LBA_when_using_BIOS_CHS)
-                   ? start_LBA
-                   : max_LBA_when_using_BIOS_CHS) !=
-              disk_BIOS_CHS_to_LBA(d, p->start_BIOS_CHS)) {
+          if (!only_lba) {
+            // CHS fields for LBA partitions are possibly erronous and should not be read
+            if (((start_LBA < max_LBA_when_using_BIOS_CHS)
+                     ? start_LBA
+                     : max_LBA_when_using_BIOS_CHS) !=
+                disk_BIOS_CHS_to_LBA(d, p->start_BIOS_CHS)) {
 #ifdef SHOW_DISK_INFO
-            term_write(
-                cout,
-                "*** start CHS inconsistent with start_LBA (start CHS = ");
-            term_write(cout, disk_BIOS_CHS_to_LBA(d, p->start_BIOS_CHS));
-            term_write(cout, " start_LBA = ");
-            term_write(cout, start_LBA);
-            term_write(cout, ")\n");
+              term_write(
+                  cout,
+                  "*** start CHS inconsistent with start_LBA (start CHS = ");
+              term_write(cout, disk_BIOS_CHS_to_LBA(d, p->start_BIOS_CHS));
+              term_write(cout, " start_LBA = ");
+              term_write(cout, start_LBA);
+              term_write(cout, ")\n");
 #endif
-            continue;
-          }
+              continue;
+            }
 
-          if (((end_LBA < max_LBA_when_using_BIOS_CHS)
-                   ? end_LBA
-                   : max_LBA_when_using_BIOS_CHS) !=
-              disk_BIOS_CHS_to_LBA(d, p->end_BIOS_CHS)) {
+            if (((end_LBA < max_LBA_when_using_BIOS_CHS)
+                     ? end_LBA
+                     : max_LBA_when_using_BIOS_CHS) !=
+                disk_BIOS_CHS_to_LBA(d, p->end_BIOS_CHS)) {
 #ifdef SHOW_DISK_INFO
-            term_write(cout,
-                       "*** end CHS inconsistent with nb_sectors (end CHS =");
-            term_write(cout, disk_BIOS_CHS_to_LBA(d, p->end_BIOS_CHS));
-            term_write(cout, " end_LBA = ");
-            term_write(cout, end_LBA);
-            term_write(cout, ")\n");
+              term_write(cout,
+                         "*** end CHS inconsistent with nb_sectors (end CHS =");
+              term_write(cout, disk_BIOS_CHS_to_LBA(d, p->end_BIOS_CHS));
+              term_write(cout, " end_LBA = ");
+              term_write(cout, end_LBA);
+              term_write(cout, ")\n");
 #endif
-            continue;
+              continue;
+            }
           }
 
           if (start_LBA < d->partition_start ||

@@ -32,6 +32,7 @@ code_start:
 # This header will make the boot sector look like the one for an MSDOS floppy.
 
 jmp after_header  # jump after the header block
+.byte 0x00
 oem_name:
   .ascii "MIMOSA"
   .byte 0

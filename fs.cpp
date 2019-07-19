@@ -111,26 +111,20 @@ typedef struct FAT_directory_entry_struct
     uint8 DIR_FileSize[4];
   } FAT_directory_entry;
 
-static error_code open_root_dir (file_system* fs, file** result)
-{
-  file* f = CAST(file*, kmalloc (sizeof (file)));
+  static error_code open_root_dir(file_system* fs, file** result) {
+    file* f = CAST(file*, kmalloc(sizeof(file)));
 
-  if (f == NULL)
-    return MEM_ERROR;
+    if (f == NULL) return MEM_ERROR;
 
-  switch (fs->kind)
-    {
-    case FAT12_FS:
-    case FAT16_FS:
-      {
+    switch (fs->kind) {
+      case FAT12_FS:
+      case FAT16_FS: {
         f->fs = fs;
-        f->current_cluster = 1; // so that EOC is detected at end of dir
-        f->current_section_start =
-          fs->_.FAT121632.first_data_sector
-          - fs->_.FAT121632.root_directory_sectors;
-        f->current_section_length =
-          fs->_.FAT121632.root_directory_sectors
-          << fs->_.FAT121632.log2_bps;
+        f->current_cluster = 1;  // so that EOC is detected at end of dir
+        f->current_section_start = fs->_.FAT121632.first_data_sector -
+                                   fs->_.FAT121632.root_directory_sectors;
+        f->current_section_length = fs->_.FAT121632.root_directory_sectors
+                                    << fs->_.FAT121632.log2_bps;
         f->current_section_pos = 0;
         f->current_pos = 0;
         f->length = f->current_section_length;
@@ -138,27 +132,27 @@ static error_code open_root_dir (file_system* fs, file** result)
         break;
       }
 
-    case FAT32_FS:
-      term_write(cout, "open_root_dir for FAT32 unimplemented\n");
+      case FAT32_FS: {
+        for(;;)
+          term_write(cout, "open_root_dir for FAT32 unimplemented\n");
+      }
 
-    default:
-      kfree (f);
-      return UNIMPL_ERROR;
+      default:
+        kfree(f);
+        return UNIMPL_ERROR;
     }
 
-  *result = f;
+    *result = f;
 
-  return NO_ERROR;
-}
+    return NO_ERROR;
+  }
 
-static error_code normalize_path (native_string path, native_string new_path)
-{
-  uint32 i = 0;
+  static error_code normalize_path(native_string path, native_string new_path) {
+    uint32 i = 0;
 
-  new_path[i++] = '/';
+    new_path[i++] = '/';
 
-  while (path[0] != '\0')
-    {
+    while (path[0] != '\0') {
       if (path[0] == '/')
         {
           i = 1;
@@ -565,6 +559,7 @@ static error_code mount_FAT121632 (disk* d, file_system** result)
 
   p = CAST(BIOS_Parameter_Block*,cb->buf);
 
+
   bps = as_uint16(p->BPB_BytsPerSec);
   log2_bps = log2 (bps);
 
@@ -579,137 +574,100 @@ static error_code mount_FAT121632 (disk* d, file_system** result)
 
   expecting_FAT32 = (FAT_size == 0);
 
-  if ((1 << log2_bps) != bps
-      || log2_bps < 9
-      || log2_bps > 12)
-    {
-      term_write(cout, "bytes per sector is not a power of 2 between 512 and 4096\n");
+#ifdef SHOW_DISK_INFO
+  term_write(cout, "Expected FAT32 = ");
+  term_write(cout, expecting_FAT32);
+  term_writeline(cout);
+#endif
+
+  if ((1 << log2_bps) != bps || log2_bps < 9 || log2_bps > 12) {
+    term_write(cout,
+               "bytes per sector is not a power of 2 between 512 and 4096: ");
+    term_write(cout, bps); term_writeline(cout);
+    err = UNKNOWN_ERROR;
+  } else if (d->log2_sector_size != log2_bps) {
+    term_write(cout, "BytsPerSec and disk's sector size are inconsistent\n");
+    err = UNKNOWN_ERROR;
+  } else if ((1 << log2_spc) != spc || log2_spc > 8) {
+    term_write(cout,
+               "sectors per cluster is not a power of 2 between 1 and 128\n");
+    err = UNKNOWN_ERROR;
+  } else if (expecting_FAT32) {
+    if (rec != 0) {
+      term_write(cout, "RootEntCnt is not 0\n");
       err = UNKNOWN_ERROR;
-    }
-  else if (d->log2_sector_size != log2_bps)
-    {
-      term_write(cout, "BytsPerSec and disk's sector size are inconsistent\n");
+    } else if (total_sectors16 != 0) {
+      term_write(cout, "TotSec16 is not 0\n");
       err = UNKNOWN_ERROR;
-    }
-  else if ((1 << log2_spc) != spc
-           || log2_spc > 8)
-    {
-      term_write(cout, "sectors per cluster is not a power of 2 between 1 and 128\n");
+    } else if (total_sectors == 0) {
+      term_write(cout, "TotSec32 is 0\n");
       err = UNKNOWN_ERROR;
+    } else {
+      FAT_size = as_uint32(p->_.FAT32.BPB_FATSz32);
+
+      if (FAT_size == 0) {
+        term_write(cout, "FATSz32 is 0\n");
+        err = UNKNOWN_ERROR;
+      }
     }
-  else if (expecting_FAT32)
-    {
-      if (rec != 0)
-        {
-          term_write(cout, "RootEntCnt is not 0\n");
-          err = UNKNOWN_ERROR;
-        }
-      else if (total_sectors16 != 0)
-        {
-          term_write(cout, "TotSec16 is not 0\n");
-          err = UNKNOWN_ERROR;
-        }
-      else if (total_sectors == 0)
-        {
-          term_write(cout, "TotSec32 is 0\n");
-          err = UNKNOWN_ERROR;
-        }
-      else
-        {
-          FAT_size = as_uint32(p->_.FAT32.BPB_FATSz32);
-
-          if (FAT_size == 0)
-            {
-              term_write(cout, "FATSz32 is 0\n");
-              err = UNKNOWN_ERROR;
-            }
-        }
+  } else {
+    if (rec == 0) {
+      term_write(cout, "RootEntCnt is 0\n");
+      err = UNKNOWN_ERROR;
+    } else if (total_sectors == 0) {
+      if (total_sectors16 == 0) {
+        term_write(cout, "TotSec16 and TotSec32 are 0\n");
+        err = UNKNOWN_ERROR;
+      } else
+        total_sectors = total_sectors16;
+    } else {
+      if (total_sectors16 != 0 && total_sectors16 != total_sectors) {
+        term_write(cout, "TotSec16 != TotSec32\n");
+        err = UNKNOWN_ERROR;
+      }
     }
-  else
-    {
-      if (rec == 0)
-        {
-          term_write(cout, "RootEntCnt is 0\n");
+  }
+
+  if (!ERROR(err)) {
+    root_directory_sectors =
+        (CAST(uint32, rec) * FAT_DIR_ENTRY_SIZE + (1 << log2_bps) - 1) >>
+        log2_bps;
+
+    first_data_sector = CAST(uint32, p->BPB_NumFATs) * FAT_size +
+                        as_uint16(p->BPB_RsvdSecCnt) + root_directory_sectors;
+
+    total_data_sectors = total_sectors - first_data_sector;
+
+    total_data_clusters = total_data_sectors >> log2_spc;
+
+    if (total_data_clusters < 65525) {
+      if (expecting_FAT32) {
+        term_write(cout, "volume is FAT12 or FAT16 but FATSz16 is 0\n");
+        err = UNKNOWN_ERROR;
+      } else if (total_data_clusters < 4085) {
+        if (d->partition_type != 1) {
+          term_write(cout, "partition type is not 1\n");
           err = UNKNOWN_ERROR;
-        }
-      else if (total_sectors == 0)
-        {
-          if (total_sectors16 == 0)
-            {
-              term_write(cout, "TotSec16 and TotSec32 are 0\n");
-              err = UNKNOWN_ERROR;
-            }
-          else
-            total_sectors = total_sectors16;
-        }
-      else
-        {
-          if (total_sectors16 != 0 && total_sectors16 != total_sectors)
-            {
-              term_write(cout, "TotSec16 != TotSec32\n");
-              err = UNKNOWN_ERROR;
-            }
-        }
+        } else
+          kind = FAT12_FS;
+      } else {
+        if (d->partition_type != 4 && d->partition_type != 6) {
+          term_write(cout, "partition type is not 4 or 6\n");
+          err = UNKNOWN_ERROR;
+        } else
+          kind = FAT16_FS;
+      }
+    } else {
+      if (!expecting_FAT32) {
+        term_write(cout, "volume is FAT32 but FATSz16 is not 0\n");
+        err = UNKNOWN_ERROR;
+      } else if (d->partition_type != 11 && d->partition_type != 12) {
+        term_write(cout, "partition type is not 11 nor 12\n");
+        err = UNKNOWN_ERROR;
+      } else
+        kind = FAT32_FS;
     }
-
-  if (!ERROR(err))
-    {
-      root_directory_sectors =
-        (CAST(uint32,rec) * FAT_DIR_ENTRY_SIZE + (1<<log2_bps) - 1)
-        >> log2_bps;
-
-      first_data_sector = CAST(uint32,p->BPB_NumFATs) * FAT_size
-                          + as_uint16(p->BPB_RsvdSecCnt)
-                          + root_directory_sectors;
-
-      total_data_sectors = total_sectors - first_data_sector;
-
-      total_data_clusters = total_data_sectors >> log2_spc;
-
-      if (total_data_clusters < 65525)
-        {
-          if (expecting_FAT32)
-            {
-              term_write(cout,"volume is FAT12 or FAT16 but FATSz16 is 0\n");
-              err = UNKNOWN_ERROR;
-            }
-          else if (total_data_clusters < 4085)
-            {
-              if (d->partition_type != 1)
-                {
-                  term_write(cout, "partition type is not 1\n");
-                  err = UNKNOWN_ERROR;
-                }
-              else
-                kind = FAT12_FS;
-            }
-          else
-            {
-              if (d->partition_type != 4 && d->partition_type != 6)
-                {
-                  term_write(cout, "partition type is not 4 or 6\n");
-                  err = UNKNOWN_ERROR;
-                }
-              else
-                kind = FAT16_FS;
-            }
-        }
-      else
-        {
-          if (!expecting_FAT32)
-            {
-              term_write(cout, "volume is FAT32 but FATSz16 is not 0\n");
-              err = UNKNOWN_ERROR;
-            }
-          else if (d->partition_type != 11)
-            {
-              term_write(cout, "partition type is not 11\n");
-              err = UNKNOWN_ERROR;
-            }
-          else
-            kind = FAT32_FS;
-        }
-    }
+  }
 
   if (ERROR(err))
     disk_cache_block_release (cb); // ignore error
@@ -737,52 +695,61 @@ static error_code mount_FAT121632 (disk* d, file_system** result)
   return err;
 }
 
-static error_code mount_partition (disk* d)
-{
+static error_code mount_partition(disk* d) {
+  term_write(cout, "IN MOUNT PART\n\r");
   file_system* fs = NULL;
   error_code err;
 
-  switch (d->partition_type)
-    {
-    case 1: // Primary DOS 12-bit FAT
-    case 4: // Primary DOS 16-bit FAT
-    case 6: // Primary big DOS >32Mb
-      if (ERROR(err = mount_FAT121632 (d, &fs)))
+  switch (d->partition_type) {
+    case 1:  // Primary DOS 12-bit FAT
+    case 4:  // Primary DOS 16-bit FAT
+    case 6:  // Primary big DOS >32Mb
+    case 0x0C: // FAT32 LBA
+
+      if (ERROR(err = mount_FAT121632(d, &fs))) {
+        term_write(cout, "Failed to mount\n\r");
         return err;
-      break;
-    }
-
-    if (fs != NULL) {
-      if (fs_mod.nb_mounted_fs < MAX_NB_MOUNTED_FS) {
-        fs_mod.mounted_fs[fs_mod.nb_mounted_fs++] = fs;
-
-        term_write(cout, "Mouting partition ");
-
-        disk_print_id(d);
-
-        term_write(cout, " as ");
-
-        const char* kind;
-
-        switch (fs->kind) {
-          case FAT12_FS:
-            kind = "FAT12";
-            break;
-          case FAT16_FS:
-            kind = "FAT16";
-            break;
-          case FAT32_FS:
-            kind = "FAT32";
-            break;
-        }
-
-        term_write(term_write(cout, kind), "\n");
-
-        return NO_ERROR;
       }
-    }
 
-    return UNKNOWN_ERROR;
+      break;
+    default:
+      term_write(cout, "Unknown partition type: ");
+      term_write(cout, d->partition_type);
+      term_write(cout, "\n\r");
+      break;
+  }
+
+  if (fs != NULL) {
+    if (fs_mod.nb_mounted_fs < MAX_NB_MOUNTED_FS) {
+      fs_mod.mounted_fs[fs_mod.nb_mounted_fs++] = fs;
+
+      term_write(cout, "Mouting partition ");
+
+      disk_print_id(d);
+
+      term_write(cout, " as ");
+
+      const char* kind;
+
+      switch (fs->kind) {
+        case FAT12_FS:
+          kind = "FAT12";
+          break;
+        case FAT16_FS:
+          kind = "FAT16";
+          break;
+        case FAT32_FS:
+          kind = "FAT32";
+          break;
+      }
+
+      term_write(term_write(cout, kind), "\n");
+
+      return NO_ERROR;
+    }
+  }
+
+  return UNKNOWN_ERROR;
 }
 
 static void mount_all_partitions ()
