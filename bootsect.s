@@ -517,11 +517,12 @@ read_loop:
 
 cluster_to_lba:
   # Set the cluster into eax and eax will be set
+  # to the LBA address that corresponds to the cluster
   pushl %edx
 
   decl %eax
   decl %eax # sub two
-  mulb nb_sectors_per_cluster
+  shll $3, %eax
   addl cluster_begin_lba, %eax
 
   popl %edx
