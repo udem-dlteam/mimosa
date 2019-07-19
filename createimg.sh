@@ -3,6 +3,7 @@ mkdir -p /mnt/tmp
 mkfs.fat -C mimosa-build/floppy.img $((2 * 1024 * 1024)) -v -F 32
 mount mimosa-build/floppy.img /mnt/tmp
 
+cp test_programs/out/out.bin /mnt/tmp/OUT.BIN
 cp /home/syvon/Desktop/TEST.TXT /mnt/tmp/TEST.TXT
 cp mimosa-build/boot.bin /mnt/tmp/BOOT.SYS
 

@@ -18,6 +18,27 @@
 
 //-----------------------------------------------------------------------------
 
+
+class program_thread : public thread
+  {
+  public:
+
+    program_thread (void_fn task);
+
+  protected:
+    void_fn _task;
+    virtual void run ();
+  };
+
+program_thread::program_thread(void_fn task)
+{
+  _task = task;
+}
+
+void program_thread::run() {
+  _task();
+}
+
 int main() {
   term* tty = &new_term(0, 320, 80, 10, &font_mono_6x9, L"tty", true);
 
@@ -43,20 +64,50 @@ int main() {
     term_write(tty, "Disk found!");
   }
 
-  file** file;
-  error_code code = open_file("TEST.TXT", file);
+  file** files;
+  error_code code = open_file("TEST.TXT", files);
 
   if(code == 0) {
-    term_write(tty, "Opened kernel file without error\n\r");
+    term_write(tty, "Opened text file without error\n\r");
   } else {
     term_write(tty, "Failed to open the file :<(\n\r");
   }
 
+  file* test_file = files[0];
+
   term_write(tty, "File current cluster (expected 3): ");
-  term_write(tty, file[0]->current_cluster);
+  term_write(tty, test_file->current_cluster);
   term_writeline(tty);
 
-  
+
+  uint8 buff[512 * 8];
+
+  read_file(test_file, buff, 512);
+
+  term_write(tty, "File has been read."); term_writeline(tty);
+
+  term_write(tty, "File contents: \n\r");
+  for(int i = 0; i < 5; ++i) term_writeline(tty);
+
+  term_write(tty, (native_string) buff);
+
+  term_write(tty, "Attempting to run a program from the disk..\n\r");
+
+  code = open_file("OUT.BIN", files);
+
+  if(code == 0) {
+    term_write(tty, "Opened code file without error\n\r");
+  } else {
+    term_write(tty, "Failed to open the file :<(\n\r");
+  }
+
+  file* code_file = files[0];
+
+  read_file(code_file, buff, 512);
+
+  program_thread* test = new program_thread((void_fn) buff);
+  test->start();
+    
 
   for (;;) {
     // debug_write("M");
