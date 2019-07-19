@@ -510,7 +510,7 @@ read_loop:
 
     # Update the write pos
     xorl %eax, %eax
-    movw nb_bytes_per_sector, %eax
+    movw nb_bytes_per_sector, %ax
     addl %eax, %ebx
     # Repeat until cluster is done
     incl %eax
@@ -523,6 +523,7 @@ read_loop:
   jmp read_loop
 
   start_kernel:
+    cli
     ljmp  $(KERNEL_START>>4),$0  # jump to "KERNEL_START" (which must be < 1MB)
 
 # ----------------------------------------------------------------------------------------------------------
