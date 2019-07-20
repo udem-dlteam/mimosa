@@ -240,8 +240,7 @@ typedef struct FAT_directory_entry_struct
   return NO_ERROR;
 }
 
-error_code open_file (native_string path, file** result)
-{
+error_code open_file(native_string path, file** result) {
   file_system* fs;
   file* f;
 
@@ -251,120 +250,124 @@ error_code open_file (native_string path, file** result)
 
   fs = fs_mod.mounted_fs[0];
 
-  switch (fs->kind)
-    {
+  switch (fs->kind) {
     case FAT12_FS:
     case FAT16_FS:
-    case FAT32_FS:
-      {
-        FAT_directory_entry de;
-        error_code err;
-        native_char normalized_path[NAME_MAX+1];
-        native_string p = normalized_path;
+    case FAT32_FS: {
+      FAT_directory_entry de;
+      error_code err;
+      native_char normalized_path[NAME_MAX + 1];
+      native_string p = normalized_path;
 
-        if (ERROR(err = normalize_path(path, normalized_path))) {
+      if (ERROR(err = normalize_path(path, normalized_path))) {
 #ifdef SHOW_DISK_INFO
-          term_write(cout, "Failed to normalize the path\n\r");
+        term_write(cout, "Failed to normalize the path\n\r");
 #endif
-          return err;
+        return err;
+      }
+
+      if (ERROR(err = open_root_dir(fs, &f))) {
+#ifdef SHOW_DISK_INFO
+        term_write(cout, "Error loading the root dir: ");
+        term_write(cout, err);
+        term_writeline(cout);
+#endif
+        return err;
+      }
+
+#ifdef SHOW_DISK_INFO
+      term_write(cout, "\n\rOpened the root dir...");
+      term_writeline(cout);
+      term_write(cout, "Normalized name: '");
+      term_write(cout, normalized_path);
+      term_write(cout, "'\n\r");
+#endif
+
+      for (;;) {
+        uint8 name[FAT_NAME_LENGTH];
+        uint32 i;
+
+        if (*p != '\0' && (*p++ != '/' || !S_ISDIR(f->mode))) {
+          close_file(f);  // ignore error
+          return FNF_ERROR;
         }
 
-        if (ERROR(err = open_root_dir(fs, &f))) {
-#ifdef SHOW_DISK_INFO
-          term_write(cout, "Error loading the root dir: ");
-          term_write(cout, err);
-          term_writeline(cout);
-#endif
-          return err;
+        if (*p == '\0') break;
+
+        i = 0;
+
+        while (*p != '\0' && *p != '.' && *p != '/') {
+          if (i < 8) name[i] = *p;
+          i++;
+          p++;
         }
 
-#ifdef SHOW_DISK_INFO
-        term_write(cout, "\n\rOpened the root dir..."); term_writeline(cout);
-        term_write(cout, "Normalized name: '"); term_write(cout, normalized_path); term_write(cout, "'\n\r");
-#endif
+        while (i < 8) name[i++] = ' ';
 
-        for (;;) {
-          uint8 name[FAT_NAME_LENGTH];
-          uint32 i;
+        i = 0;
 
-          if (*p != '\0' && (*p++ != '/' || !S_ISDIR(f->mode))) {
-            close_file(f);  // ignore error
-            return FNF_ERROR;
-          }
-
-          if (*p == '\0') break;
-
-          i = 0;
-
-          while (*p != '\0' && *p != '.' && *p != '/') {
-            if (i < 8) name[i] = *p;
+        if (*p == '.') {
+          p++;
+          while (*p != '\0' && *p != '/') {
+            if (i < 3) name[8 + i] = *p;
             i++;
             p++;
           }
-
-          while (i < 8) name[i++] = ' ';
-
-          i = 0;
-
-          if (*p == '.') {
-            p++;
-            while (*p != '\0' && *p != '/') {
-              if (i < 3) name[8 + i] = *p;
-              i++;
-              p++;
-            }
-          }
-
-          while (i < 3) name[8 + i++] = ' ';
-
-          while ((err = read_file(f, &de, sizeof(de))) == sizeof(de)) {
-            if (de.DIR_Name[0] == 0) break;
-            if (de.DIR_Name[0] != 0xe5 &&
-                (de.DIR_Attr & FAT_ATTR_HIDDEN) == 0 &&
-                (de.DIR_Attr & FAT_ATTR_VOLUME_ID) == 0) {
-              for (i = 0; i < FAT_NAME_LENGTH; i++)
-                if (de.DIR_Name[i] != name[i]) break;
-
-              if (i == FAT_NAME_LENGTH) {
-                if (ERROR(err = close_file(f))) return err;
-                f = CAST(file*, kmalloc(sizeof(file)));
-                if (f == NULL) return MEM_ERROR;
-                f->fs = fs;
-                f->current_cluster =
-                    (CAST(uint32, as_uint16(de.DIR_FstClusHI)) << 16) +
-                    as_uint16(de.DIR_FstClusLO);
-                f->current_section_start =
-                    fs->_.FAT121632.first_data_sector +
-                    ((f->current_cluster - 2) << fs->_.FAT121632.log2_spc);
-                f->current_section_length =
-                    1 << (fs->_.FAT121632.log2_bps + fs->_.FAT121632.log2_spc);
-                f->current_section_pos = 0;
-                f->current_pos = 0;
-                f->length = as_uint32(de.DIR_FileSize);
-                if (de.DIR_Attr & FAT_ATTR_DIRECTORY)
-                  f->mode = S_IFDIR;
-                else
-                  f->mode = S_IFREG;
-                goto found;
-              }
-            }
-          }
-
-          close_file(f);  // ignore error
-
-          if (ERROR(err)) return err;
-
-          return FNF_ERROR;
-
-        found:;
         }
 
-        break;
+        while (i < 3) name[8 + i++] = ' ';
+
+        while ((err = read_file(f, &de, sizeof(de))) == sizeof(de)) {
+          if (de.DIR_Name[0] == 0) break;
+          // Only verify the file if it's readable
+          if (de.DIR_Name[0] != 0xe5 && (de.DIR_Attr & FAT_ATTR_HIDDEN) == 0 &&
+              (de.DIR_Attr & FAT_ATTR_VOLUME_ID) == 0) {
+            // Compare the names
+            for (i = 0; i < FAT_NAME_LENGTH; i++) {
+              if (de.DIR_Name[i] != name[i]) break;
+            }
+
+            if (i == FAT_NAME_LENGTH) {
+              // All the characters have been compared successfuly
+              if (ERROR(err = close_file(f))) return err;
+              f = CAST(file*, kmalloc(sizeof(file)));
+              if (f == NULL) return MEM_ERROR;
+              f->fs = fs;
+              f->current_cluster =
+                  (CAST(uint32, as_uint16(de.DIR_FstClusHI)) << 16) +
+                  as_uint16(de.DIR_FstClusLO);
+              f->current_section_start =
+                  fs->_.FAT121632.first_data_sector +
+                  ((f->current_cluster - 2) << fs->_.FAT121632.log2_spc);
+              f->current_section_length =
+                  1 << (fs->_.FAT121632.log2_bps + fs->_.FAT121632.log2_spc);
+              f->current_section_pos = 0;
+              f->current_pos = 0;
+              f->length = as_uint32(de.DIR_FileSize);
+              if (de.DIR_Attr & FAT_ATTR_DIRECTORY)
+                f->mode = S_IFDIR;
+              else
+                f->mode = S_IFREG;
+              goto found;
+            }
+          }
+        }
+
+        close_file(f);  // ignore error
+
+        if (ERROR(err)) return err;
+
+        return FNF_ERROR;
+
+      found:;
+      }
+
+      break;
     }
 
     default:
       return UNIMPL_ERROR;
-    }
+  }
 
   *result = f;
 
@@ -475,91 +478,76 @@ static error_code next_FAT_section (file* f)
   return NO_ERROR;
 }
 
-error_code read_file (file* f, void* buf, uint32 count)
-{
-  if (count > 0)
-    {
-      file_system* fs = f->fs;
-      error_code err;
+error_code read_file(file* f, void* buf, uint32 count) {
+  if (count > 0) {
+    file_system* fs = f->fs;
+    error_code err;
 
-      switch (fs->kind)
-        {
-        case FAT12_FS:
-        case FAT16_FS:
-        case FAT32_FS:
-          {
-            uint32 n;
-            uint8* p;
+    switch (fs->kind) {
+      case FAT12_FS:
+      case FAT16_FS:
+      case FAT32_FS: {
+        uint32 n;
+        uint8* p;
 
-            if (!S_ISDIR(f->mode))
-              {
-                uint32 left = f->length - f->current_pos;
-                if (count > left)
-                  count = left;
-              }
-
-            n = count;
-            p = CAST(uint8*,buf);
-
-            while (n > 0)
-              {
-                uint32 left1;
-                uint32 left2;
-
-                if (f->current_section_pos >= f->current_section_length)
-                  if (ERROR(err = next_FAT_section (f)))
-                    {
-                      if (err != EOF_ERROR)
-                        return err;
-                      break;
-                    }
-
-                left1 = f->current_section_length - f->current_section_pos;
-
-                if (left1 > n)
-                  left1 = n;
-
-                while (left1 > 0)
-                  {
-                    cache_block* cb;
-
-                    if (ERROR(err = disk_cache_block_acquire
-                                      (fs->_.FAT121632.d,
-                                       f->current_section_start
-                                       + (f->current_section_pos
-                                          >> DISK_LOG2_BLOCK_SIZE),
-                                       &cb)))
-                      return err;
-
-                    left2 = (1<<DISK_LOG2_BLOCK_SIZE)
-                            - (f->current_section_pos
-                               & ~(~0U<<DISK_LOG2_BLOCK_SIZE));
-
-                    if (left2 > left1)
-                      left2 = left1;
-
-                    memcpy (p,
-                            cb->buf + (f->current_section_pos
-                                       & ~(~0U<<DISK_LOG2_BLOCK_SIZE)),
-                            left2);
-
-                    if (ERROR(err = disk_cache_block_release (cb)))
-                      return err;
-
-                    left1 -= left2;
-                    f->current_section_pos += left2;
-                    f->current_pos += left2;
-                    n -= left2;
-                  }
-              }
-
-            return count - n;
-          }
-
-        default:
-          return UNIMPL_ERROR;
+        if (!S_ISDIR(f->mode)) {
+          uint32 left = f->length - f->current_pos;
+          if (count > left) count = left;
         }
+
+        n = count;
+        p = CAST(uint8*, buf);
+
+        while (n > 0) {
+          uint32 left1;
+          uint32 left2;
+
+          if (f->current_section_pos >= f->current_section_length)
+            if (ERROR(err = next_FAT_section(f))) {
+              if (err != EOF_ERROR) return err;
+              break;
+            }
+
+          left1 = f->current_section_length - f->current_section_pos;
+
+          if (left1 > n) left1 = n;
+
+          while (left1 > 0) {
+            cache_block* cb;
+
+            if (ERROR(err = disk_cache_block_acquire(
+                          fs->_.FAT121632.d,
+                          f->current_section_start +
+                              (f->current_section_pos >> DISK_LOG2_BLOCK_SIZE),
+                          &cb)))
+              return err;
+
+            left2 = (1 << DISK_LOG2_BLOCK_SIZE) -
+                    (f->current_section_pos & ~(~0U << DISK_LOG2_BLOCK_SIZE));
+
+            if (left2 > left1) left2 = left1;
+
+            memcpy(p,
+                   cb->buf + (f->current_section_pos &
+                              ~(~0U << DISK_LOG2_BLOCK_SIZE)),
+                   left2);
+
+            if (ERROR(err = disk_cache_block_release(cb))) return err;
+
+            left1 -= left2;
+            f->current_section_pos += left2;
+            f->current_pos += left2;
+            n -= left2;
+          }
+        }
+
+        return count - n;
+      }
+
+      default:
+        return UNIMPL_ERROR;
     }
+  }
 
   return 0;
 }
