@@ -82,7 +82,7 @@ do {                                                                          \
          sti"                                                                 \
         :                                                                     \
         : "i" (receiver), "g" (data)                                          \
-        : );                                                             \
+        : "memory");                                                          \
    } while (0)
 
 #else
