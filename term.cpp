@@ -658,11 +658,15 @@ uint8 strcmp(native_string a, native_string b, uint32 sz) {
 }
 
 uint8 strcmp(native_string a, native_string b) {
-  uint32 a_len, b_len, min;
-  a_len = strlen(a);
-  b_len = strlen(b);
-  // thats stupid, should just stop when not eq
-  return a_len == b_len && strcmp(a, b, a_len);
+  while (*a == *b) {
+    if (*a == '\0') {
+      break;
+    } else {
+      a++;
+      b++;
+    }
+  }
+  return *a == *b;
 }
 
 const int max_sz = 2056;
@@ -711,10 +715,15 @@ void term_run(term* term) {
       } else {
         term_write(term, "\r\n Failed to open the program.\r\n");
       }
-    } else if (strcmp(line, CAT_CMD)) {
+    } else if (strcmp(line, CAT_CMD, 3)) {
       native_string file_name = &line[4];
-      file* prog;
-      if (NO_ERROR == open_file(file_name, &prog)) {
+      file* f;
+      if (NO_ERROR == open_file(file_name, &f)) {
+        // need free... lets use the static buff
+        read_file(f, buff, 2056);
+        term_writeline(term);
+        term_write(term, CAST(native_string, buff));
+        term_writeline(term);
       } else {
         term_write(term, "\r\n Failed to read the file.\r\n");
       }
