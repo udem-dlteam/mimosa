@@ -10,6 +10,8 @@
 
 #include "term.h"
 #include "thread.h"
+#include "ps2.h"
+#include "fs.h"
 
 //-----------------------------------------------------------------------------
 
@@ -606,7 +608,7 @@ term* term_write(term* self, native_char x) {
   buf[0] = x;
   buf[1] = '\0';
 
-  return term_write(cout, buf);
+  return term_write(self, buf);
 }
 
 
@@ -637,6 +639,80 @@ void debug_write(native_string str) {
   }
   outb('\n', OUT_PORT);
   outb('\r', OUT_PORT);
+}
+
+const native_string LS_CMD = "ls";
+const native_string EXEC_CMD = "exec";
+
+uint32 strlen(native_string str) {
+  int i;
+  for(i = 0; str[i] != '\0'; ++i);
+  return i;
+}
+
+uint8 strcmp(native_string a, native_string b, uint32 sz) {
+  int i = 0;
+  for(i = 0; i < sz && a[i] == b[i]; ++i);
+  return i == sz;
+}
+
+uint8 strcmp(native_string a, native_string b) {
+  uint32 a_len, b_len, min;
+  a_len = strlen(a);
+  b_len = strlen(b);
+  // thats stupid, should just stop when not eq
+  return a_len == b_len && strcmp(a, b, a_len);
+}
+
+const int max_sz = 2056;
+native_char buff[max_sz];
+
+native_string readline(term* term, uint32* len) { 
+  native_char c;
+  for(*len = 0;'\r' != (c = buff[*len] = getchar()); *len += 1) {
+    term_write(term, c);
+  }
+  buff[*len] = '\0';
+  return buff;
+}
+
+void term_run(term* term) {
+  for (;;) {
+    term_write(term, ">");
+
+    uint32 i = 0;
+    native_string line = readline(term, &i);
+    debug_write(line);
+
+    // Find and exec command
+    // Hopefully there is no ls*** command lol
+    if (strcmp(line, LS_CMD)) {
+      term_writeline(term);
+      DIR* root_dir = opendir("/");
+      dirent* entry;
+
+      while (NULL != (entry = readdir(root_dir))) {
+        term_write(term, "---> ");
+        term_write(term, entry->d_name);
+        term_writeline(term);
+      }
+
+      closedir(root_dir);
+    } else if (strcmp(line, EXEC_CMD, 4)) {
+      native_string file_name = &line[5];
+
+      file* prog;
+      if (NO_ERROR == open_file(file_name, &prog)) {
+        term_write(term, "\r\n Starting program ");
+        term_write(term, file_name);
+        term_writeline(term);
+      } else {
+        term_write(term, "\r\n Failed to open the program.\r\n");
+      }
+    } else {
+      term_write(term, "\r\nUnknown command\r\n");
+    }
+  }
 }
 
 //-----------------------------------------------------------------------------

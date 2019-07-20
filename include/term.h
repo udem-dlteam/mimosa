@@ -81,6 +81,8 @@ term* term_write(term* self, unicode_string x);
 void debug_write(uint32 x);
 void debug_write(native_string x);
 
+void term_run(term* term);
+
 //-----------------------------------------------------------------------------
 
 //-----------------------------------------------------------------------------

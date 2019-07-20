@@ -395,12 +395,12 @@ void __rtlib_setup ()
 
   (new idle_thread)->start (); // need an idle thread to prevent deadlocks
 
-  // term_write(cout, "Loading up disks...\n");
-  // setup_disk ();
-  // term_write(cout, "Loading up IDE controllers...\n");
-  // setup_ide ();
-  // term_write(cout, "Loading up the file system...\n");
-  // setup_fs ();
+  term_write(cout, "Loading up disks...\n");
+  setup_disk ();
+  term_write(cout, "Loading up IDE controllers...\n");
+  setup_ide ();
+  term_write(cout, "Loading up the file system...\n");
+  setup_fs ();
   //setup_net ();
 
   main ();
