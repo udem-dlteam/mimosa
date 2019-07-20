@@ -59,20 +59,17 @@ nb_heads:
   .word 0x02 # number of heads
 nb_hidden_sectors:
   .long 0x00 # number of hidden sectors
+nb_logical_sectors:
+  .long 4194304
 # --------------------------------------------------------------------------
 # FAT 32 EBP
 # --------------------------------------------------------------------------
-nb_logical_sectors:
-  .long 4194304
 nb_sectors_per_fat:
   .long 4088
 mirror_flags:
   .word 0x00                                                                   # TODO
 fs_version:
-  .byte 0x00
-  .byte 0x00
-  .byte 0x02
-  .byte 0x00
+  .word 0x00
 first_cluster_root_dir:
   .long 0x02
 fat_32_fs_region:
