@@ -18,46 +18,26 @@
 
 //-----------------------------------------------------------------------------
 
-typedef void (*user_task)(uint32 println_addr);
-
-class program_thread : public thread {
- public:
-  program_thread(user_task task);
-
- protected:
-  user_task _task;
-  virtual void run();
-};
-
 extern "C" void println(uint32 str) {
   // for(;;);
 
-  thread* current = thread::self();
-  uint32 base = (uint32)current->_code;
+  // thread* current = thread::self();
+  // uint32 base = (uint32)current->_code;
 
-  term_write(cout, "Addressed passed: ");
-  term_write(cout, (void*)str);
-  term_writeline(cout);
+  // term_write(cout, "Addressed passed: ");
+  // term_write(cout, (void*)str);
+  // term_writeline(cout);
 
-  str += base;
+  // str += base;
 
-  term_write(cout, "Addressed calculated: ");
-  term_write(cout, (void*)str);
-  term_writeline(cout);
+  // term_write(cout, "Addressed calculated: ");
+  // term_write(cout, (void*)str);
+  // term_writeline(cout);
 
-  native_string a_str = (char*)str;
-  term_write(cout, a_str);
+  // native_string a_str = (char*)str;
+  // term_write(cout, a_str);
 
-  term_writeline(cout);
-}
-
-program_thread::program_thread(user_task task) {
-  _code = (uint32*) task;
-  _task = task;
-}
-
-void program_thread::run() {
-  _task(CAST(uint32, &println));
+  // term_writeline(cout);
 }
 
 int main() {

@@ -13,6 +13,7 @@
 #include "pic.h"
 #include "apic.h"
 #include "pit.h"
+#include "fs.h"
 #include "intr.h"
 #include "time.h"
 #include "rtlib.h"
@@ -322,10 +323,10 @@ thread::~thread ()
 }
 
 thread* thread::start() {
-  // disable_interrupts ();
+  disable_interrupts ();
   _sched_reschedule_thread(this);
   _sched_yield_if_necessary();
-  // enable_interrupts ();
+  enable_interrupts ();
   return this;
 }
 
@@ -778,6 +779,34 @@ void _sched_timer_elapsed() {
       save_context(_sched_switch_to_next_thread, NULL);
       // cout << "F";
     }
+}
+
+program_thread::program_thread(void_fn code) {
+  _code = code;
+}
+
+void program_thread::run() {
+  debug_write("Running program thread");
+  _code();
+}
+
+int sched_start_task(void* task_file_ptr) {
+  // TODO:
+  // The program thread needs to be aware of what its doing
+  file* task_file = CAST(file*, task_file_ptr);
+  uint8* code = (uint8*)kmalloc(sizeof(uint8) * 512);  
+
+  read_file(task_file, code, 512);
+  // if (err == 0) {
+  program_thread* task = new program_thread(CAST(void_fn, code));
+  task->start();
+  // } else {
+  // term_write(cout, "Problem executing the file: ");
+  // term_write(cout, err);
+  // term_writeline(cout);
+  // }
+
+  return 0;
 }
 
 wait_queue* readyq;

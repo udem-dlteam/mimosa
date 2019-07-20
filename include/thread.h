@@ -420,16 +420,23 @@ class thread : public wait_mutex_sleep_node
     condvar _joiners; // threads waiting for this thread to terminate
     volatile bool _terminated; // the thread's termination flag
 
-    uint32* _code;
-
     friend class mutex;
     friend class condvar;
     friend class scheduler;
   };
 
-//-----------------------------------------------------------------------------
+  class program_thread : public thread {
+   public:
+    program_thread(void_fn code);
 
-//-----------------------------------------------------------------------------
+   protected:
+    virtual void run();
+    void_fn _code;
+  };
+
+  //-----------------------------------------------------------------------------
+
+  //-----------------------------------------------------------------------------
 
 #if 0
 
@@ -616,21 +623,22 @@ int pthread_cond_destroy (pthread_cond_t* cond);
 #undef NAMESPACE_PREFIX
 #undef BEFORE
 
-//-----------------------------------------------------------------------------
+  //-----------------------------------------------------------------------------
 
+  //-----------------------------------------------------------------------------
+  // C REWRITE
+  //-----------------------------------------------------------------------------
 
-//-----------------------------------------------------------------------------
-// C REWRITE
-//-----------------------------------------------------------------------------
-
-
-void sched_setup(void_fn cont);
+  void
+  sched_setup(void_fn cont);
 
 void sched_stats();
 
 void sched_reg_mutex(mutex* m);
 
 void sched_reg_condvar(condvar* c);
+
+int sched_start_task(void* task_file);
 
 void _sched_reschedule_thread(thread* t);
 
@@ -654,6 +662,8 @@ void _sched_set_timer(time t, time now);
 void _sched_timer_elapsed();
 
 void _sched_resume_next_thread();
+
+
 
 void sys_irq(void* esp);
 #ifdef USE_PIT_FOR_TIMER

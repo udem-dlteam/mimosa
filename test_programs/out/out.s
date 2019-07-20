@@ -1,16 +1,16 @@
 .code32
 start_of_program:
-    popl %eax
-    popl %eax
-#debug_a:
-#   jmp debug_a
-    movl %eax, %ebx
-
-    movl $out_msg, %eax
-
-    pushl %eax
-    call *%ebx
-    popl %eax
+#    popl %eax
+#    popl %eax
+##debug_a:
+##   jmp debug_a
+#    movl %eax, %ebx
+#
+#    movl $out_msg, %eax
+#
+#    pushl %eax
+#    call *%ebx
+#    popl %eax
 
 pop_loop:
     movb $'O', %al

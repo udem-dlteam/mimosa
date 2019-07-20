@@ -643,6 +643,7 @@ void debug_write(native_string str) {
 
 const native_string LS_CMD = "ls";
 const native_string EXEC_CMD = "exec";
+const native_string CAT_CMD = "cat";
 
 uint32 strlen(native_string str) {
   int i;
@@ -706,8 +707,16 @@ void term_run(term* term) {
         term_write(term, "\r\n Starting program ");
         term_write(term, file_name);
         term_writeline(term);
+        sched_start_task(prog);
       } else {
         term_write(term, "\r\n Failed to open the program.\r\n");
+      }
+    } else if (strcmp(line, CAT_CMD)) {
+      native_string file_name = &line[4];
+      file* prog;
+      if (NO_ERROR == open_file(file_name, &prog)) {
+      } else {
+        term_write(term, "\r\n Failed to read the file.\r\n");
       }
     } else {
       term_write(term, "\r\nUnknown command\r\n");
