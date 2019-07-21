@@ -10,8 +10,8 @@ DEFS = -DINCLUDE_EEPRO100
 #DEFS = -DINCLUDE_TULIP
 #DEFS = -DINCLUDE_TULIP -DINCLUDE_EEPRO100 
 
-GCC = gcc-3.4 -m32 -Wno-write-strings -ggdb 
-GPP = g++-3.4 -m32 -Wno-write-strings -ggdb
+GCC = gcc-3.4 -m32 -Wno-write-strings -ggdb3
+GPP = g++-3.4 -m32 -Wno-write-strings -ggdb3
 
 SPECIAL_OPTIONS =
 
@@ -28,7 +28,7 @@ build:
 	mkdir -p mimosa-build
 	tar cf - . | ssh administrator@localhost -p 10022 "rm -rf mimosa-build;mkdir mimosa-build;cd mimosa-build;tar xf -;make clean;make";ssh administrator@localhost -p 10022 "cat mimosa-build/floppy" > mimosa-build/floppy
 	ssh administrator@localhost -p 10022 "cat mimosa-build/bootsect.bin" > mimosa-build/bootsect.bin
-	ssh administrator@localhost -p 10022 "cat mimosa-build/kernel.bin"   > mimosa-build/boot.bin
+	ssh administrator@localhost -p 10022 "cat mimosa-build/kernel.bin"   > mimosa-build/kernel.elf
 	hexdump -C -n 512 mimosa-build/bootsect.bin
 
 create-img:
@@ -48,7 +48,11 @@ create-img:
 	chmod 777 mimosa-build/floppy.img
 
 run:
-	qemu-system-x86_64 -s -m 4096 -hda mimosa-build/floppy.img -debugcon stdio
+	qemu-system-i386 -m 4096 -hda mimosa-build/floppy.img
+
+debug:
+	qemu-system-i386 -s -S -m 4096 -hda mimosa-build/floppy.img -debugcon stdio
+
 
 mf:
 	make clean
@@ -67,7 +71,7 @@ floppy: bootsect.bin kernel.bin
 	rm -f tmp1.tmp tmp2.tmp tmp3.tmp tmp4.tmp
 
 kernel.bin: $(KERNEL_OBJECTS)
-	ld --script=script.ld $(KERNEL_OBJECTS) -o $*.bin -Ttext $(KERNEL_START) --omagic --entry=kernel_entry --oformat binary -Map kernel.map
+	ld --script=script.ld $(KERNEL_OBJECTS) -o $*.bin -Ttext $(KERNEL_START) --omagic --entry=kernel_entry --oformat elf32-i386 -Map kernel.map
 
 kernel.bss:
 	cat kernel.map | grep '\.bss ' | grep -v '\.o' | sed 's/.*0x/0x/'
