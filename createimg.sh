@@ -5,6 +5,7 @@ mount mimosa-build/floppy.img /mnt/tmp
 
 objcopy -O binary mimosa-build/kernel.elf mimosa-build/boot.bin
 cp test_programs/out/out.bin /mnt/tmp/OUT.BIN
+cp test_programs/function_call/func.bin /mnt/tmp/FN.BIN
 cp /home/syvon/Desktop/TEST.TXT /mnt/tmp/TEST.TXT
 cp mimosa-build/boot.bin /mnt/tmp/BOOT.SYS
 
