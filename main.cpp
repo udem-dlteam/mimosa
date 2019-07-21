@@ -40,62 +40,29 @@ extern "C" void println(uint32 str) {
   // term_writeline(cout);
 }
 
+void _user_print_int(int i) {
+  term_write(cout, "User print:");
+  term_write(cout, i);
+  term_writeline(cout);
+}
+
+void __attribute__((optimize("O0"))) _user_print_str(char* str) {
+  // Correct the pointer address:
+  thread* curr = thread::self();
+  str += curr->code();
+  term_write(cout, "User print str: \r\n");
+  term_write(cout, str);
+  term_writeline(cout);
+}
+
 int main() {
+
+  user_func_table* table = (user_func_table*) 0x1F000;
+  table->print_int = _user_print_int;
+  table->print_str = _user_print_str;
+
   term* tty = &new_term(0, 320, 80, 10, &font_mono_6x9, L"tty", true);
   term_run(tty);
-  // disk* main_dsk = disk_find(0x00);
-
-
-  // if(NULL == main_dsk) {
-  //   term_write(tty, "No disk!");
-  // } else {
-  //   term_write(tty, "Disk found!");
-  // }
-
-  // file** files;
-  // error_code code = open_file("TEST.TXT", files);
-
-  // if(code == 0) {
-  //   term_write(tty, "Opened text file without error\n\r");
-  // } else {
-  //   term_write(tty, "Failed to open the file :<(\n\r");
-  // }
-
-  // file* test_file = files[0];
-
-  // term_write(tty, "File current cluster (expected 3): ");
-  // term_write(tty, test_file->current_cluster);
-  // term_writeline(tty);
-
-
-  // uint8 buff[512 * 8];
-
-  // read_file(test_file, buff, 512);
-
-  // term_write(tty, "File has been read."); term_writeline(tty);
-
-  // term_write(tty, "File contents: \n\r");
-  // for(int i = 0; i < 5; ++i) term_writeline(tty);
-
-  // term_write(tty, (native_string) buff);
-
-  // term_write(tty, "Attempting to run a program from the disk..\n\r");
-
-  // code = open_file("OUT.BIN", files);
-
-  // if(code == 0) {
-  //   term_write(tty, "Opened code file without error\n\r");
-  // } else {
-  //   term_write(tty, "Failed to open the file :<(\n\r");
-  // }
-
-  // file* code_file = files[0];
-
-  // read_file(code_file, buff, 512);
-
-  // program_thread* test = new program_thread((user_task) buff);
-  // test->start();
-
   return 0;
 }
 

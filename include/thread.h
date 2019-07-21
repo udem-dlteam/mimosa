@@ -17,6 +17,15 @@
 
 //-----------------------------------------------------------------------------
 
+typedef struct user_func_table {
+  void (*print_int)(int i);
+  void (*print_str)(char* str);
+} user_func_table;
+
+
+
+//-----------------------------------------------------------------------------
+
 #ifdef CHECK_ASSERTIONS
 
 #define ASSERT_INTERRUPTS_DISABLED()                      \
@@ -376,7 +385,7 @@ class thread : public wait_mutex_sleep_node
     static void sleep (int64 timeout_nsecs); // sleep relative to now
 
     virtual char* name ();/////
-
+    virtual uint32 code();
   protected:
 
     // The inherited "wait queue" part of wait_mutex_sleep_node
@@ -428,6 +437,9 @@ class thread : public wait_mutex_sleep_node
   class program_thread : public thread {
    public:
     program_thread(void_fn code);
+
+    char* name ();/////
+    uint32 code();
 
    protected:
     virtual void run();

@@ -436,6 +436,18 @@ void _sched_resume_next_thread() {
     restore_context(current->_sp); // never returns
   }
 
+  for(int i = 0; i < 100000; ++i) {
+    ; // Waste time
+  }
+
+  if (current != NULL) {
+    sched_current_thread = current;
+    time now = current_time_no_interlock();
+    current->_end_of_quantum = add_time(now, current->_quantum);
+    _sched_set_timer(current->_end_of_quantum, now);
+    restore_context(current->_sp); // never returns
+  }
+
   fatal_error("Deadlock detected");
 }
 
@@ -781,8 +793,17 @@ void _sched_timer_elapsed() {
     }
 }
 
+uint32 thread::code() {
+  int i = 5;
+  return 0;
+}
+
 program_thread::program_thread(void_fn code) {
   _code = code;
+}
+
+native_string program_thread::name() {
+  return "Program thread";
 }
 
 void program_thread::run() {
@@ -790,13 +811,18 @@ void program_thread::run() {
   _code();
 }
 
+uint32 program_thread::code() {
+  return CAST(uint32,_code);
+}
+
 int sched_start_task(void* task_file_ptr) {
   // TODO:
   // The program thread needs to be aware of what its doing
   file* task_file = CAST(file*, task_file_ptr);
-  uint8* code = (uint8*)kmalloc(sizeof(uint8) * 512);  
+  uint32 len = task_file->length;
+  uint8* code = (uint8*)kmalloc(sizeof(uint8) * 1024 * 10);  
 
-  read_file(task_file, code, 512);
+  read_file(task_file, code, 1024 * 10);
   // if (err == 0) {
   program_thread* task = new program_thread(CAST(void_fn, code));
   task->start();

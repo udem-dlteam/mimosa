@@ -351,8 +351,9 @@ void interrupt_handle(interrupt_data data) {
   term_write(cout, "\n\r");
 
   fatal_error("CPU exception occured :<(");
-
-  raw_bitmap_fill_rect((raw_bitmap*)&screen, 0, 0, 640, 490, &pattern_red);
+#ifdef RED_PANIC_SCREEN
+  raw_bitmap_fill_rect((raw_bitmap*)&screen, 0, 0, 640, 480, &pattern_red);
+#endif
 }
 
 //-----------------------------------------------------------------------------
