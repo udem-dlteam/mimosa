@@ -13,6 +13,7 @@
 #include "pic.h"
 #include "apic.h"
 #include "pit.h"
+#include "fs.h"
 #include "intr.h"
 #include "time.h"
 #include "rtlib.h"
@@ -21,6 +22,8 @@
 //-----------------------------------------------------------------------------
 
 // "mutex" class implementation.
+
+const uint32 GAMBIT_START = 0x1000000;
 
 mutex::mutex ()
 {
@@ -322,10 +325,10 @@ thread::~thread ()
 }
 
 thread* thread::start() {
-  // disable_interrupts ();
+  disable_interrupts ();
   _sched_reschedule_thread(this);
   _sched_yield_if_necessary();
-  // enable_interrupts ();
+  enable_interrupts ();
   return this;
 }
 
@@ -426,6 +429,18 @@ void _sched_resume_next_thread() {
   ASSERT_INTERRUPTS_DISABLED();  // Interrupts should be disabled at this point
 
   thread* current = wait_queue_head(readyq);
+
+  if (current != NULL) {
+    sched_current_thread = current;
+    time now = current_time_no_interlock();
+    current->_end_of_quantum = add_time(now, current->_quantum);
+    _sched_set_timer(current->_end_of_quantum, now);
+    restore_context(current->_sp); // never returns
+  }
+
+  for(int i = 0; i < 100000; ++i) {
+    ; // Waste time
+  }
 
   if (current != NULL) {
     sched_current_thread = current;
@@ -778,6 +793,48 @@ void _sched_timer_elapsed() {
       save_context(_sched_switch_to_next_thread, NULL);
       // cout << "F";
     }
+}
+
+uint32 thread::code() {
+  int i = 5;
+  return 0;
+}
+
+program_thread::program_thread(void_fn code) {
+  _code = code;
+}
+
+native_string program_thread::name() {
+  return "Program thread";
+}
+
+void program_thread::run() {
+  debug_write("Running program thread");
+  _code();
+}
+
+uint32 program_thread::code() {
+  return CAST(uint32,_code);
+}
+
+int sched_start_task(void* task_file_ptr) {
+  // TODO:
+  // The program thread needs to be aware of what its doing
+  file* task_file = CAST(file*, task_file_ptr);
+  uint32 len = task_file->length;
+  uint8* code = (uint8*)kmalloc(sizeof(uint8) * 1024 * 10);  
+
+  read_file(task_file, code, 1024 * 10);
+  // if (err == 0) {
+  program_thread* task = new program_thread(CAST(void_fn, code));
+  task->start();
+  // } else {
+  // term_write(cout, "Problem executing the file: ");
+  // term_write(cout, err);
+  // term_writeline(cout);
+  // }
+
+  return 0;
 }
 
 wait_queue* readyq;

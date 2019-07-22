@@ -1,3 +1,4 @@
+
 // file: "fs.cpp"
 
 // Copyright (c) 2001 by Marc Feeley and Universit� de Montr�al, All
@@ -32,51 +33,47 @@ static fs_module fs_mod;
 // (BPB).  The BPB describes the format of the file system if it is
 // FAT12, FAT16 or FAT32.
 
-typedef struct BIOS_Parameter_Block_struct
-  {
-    uint8 BS_jmpBoot[3];
-    uint8 BS_OEMName[8];
-    uint8 BPB_BytsPerSec[2]; // 512, 1024, 2048 or 4096
-    uint8 BPB_SecPerClus; // 1, 2, 4, 8, 16, 32, 64 or 128
-    uint8 BPB_RsvdSecCnt[2]; // 1 for FAT12 and FAT16, typically 32 for FAT32
-    uint8 BPB_NumFATs; // should be 2
-    uint8 BPB_RootEntCnt[2];
-    uint8 BPB_TotSec16[2];
-    uint8 BPB_Media;
-    uint8 BPB_FATSz16[2];
-    uint8 BPB_SecPerTrk[2];
-    uint8 BPB_NumHeads[2];
-    uint8 BPB_HiddSec[4];
-    uint8 BPB_TotSec32[4];
-    union
-      {
-        struct
-          {
-            uint8 BS_DrvNum;
-            uint8 BS_Reserved1;
-            uint8 BS_BootSig;
-            uint8 BS_VolID[4];
-            uint8 BS_VolLab[11];
-            uint8 BS_FilSysType[8];
-          } FAT1216;
-        struct
-          {
-            uint8 BPB_FATSz32[4];
-            uint8 BPB_ExtFlags[2];
-            uint8 BPB_FSVer[2];
-            uint8 BPB_RootClus[4];
-            uint8 BPB_FSInfo[2];
-            uint8 BPB_BkBootSec[2];
-            uint8 BPB_Reserved[12];
-            uint8 BS_DrvNum;
-            uint8 BS_Reserved1;
-            uint8 BS_BootSig;
-            uint8 BS_VolID[4];
-            uint8 BS_VolLab[11];
-            uint8 BS_FilSysType[8];
-         } FAT32;
-      } _;
-  } BIOS_Parameter_Block;
+typedef struct BIOS_Parameter_Block_struct {
+  uint8 BS_jmpBoot[3];
+  uint8 BS_OEMName[8];
+  uint8 BPB_BytsPerSec[2];  // 512, 1024, 2048 or 4096
+  uint8 BPB_SecPerClus;     // 1, 2, 4, 8, 16, 32, 64 or 128
+  uint8 BPB_RsvdSecCnt[2];  // 1 for FAT12 and FAT16, typically 32 for FAT32
+  uint8 BPB_NumFATs;        // should be 2
+  uint8 BPB_RootEntCnt[2];
+  uint8 BPB_TotSec16[2];
+  uint8 BPB_Media;
+  uint8 BPB_FATSz16[2];
+  uint8 BPB_SecPerTrk[2];
+  uint8 BPB_NumHeads[2];
+  uint8 BPB_HiddSec[4];
+  uint8 BPB_TotSec32[4];
+  union {
+    struct {
+      uint8 BS_DrvNum;
+      uint8 BS_Reserved1;
+      uint8 BS_BootSig;
+      uint8 BS_VolID[4];
+      uint8 BS_VolLab[11];
+      uint8 BS_FilSysType[8];
+    } FAT1216;
+    struct {
+      uint8 BPB_FATSz32[4];
+      uint8 BPB_ExtFlags[2];
+      uint8 BPB_FSVer[2];
+      uint8 BPB_RootClus[4];
+      uint8 BPB_FSInfo[2];
+      uint8 BPB_BkBootSec[2];
+      uint8 BPB_Reserved[12];
+      uint8 BS_DrvNum;
+      uint8 BS_Reserved1;
+      uint8 BS_BootSig;
+      uint8 BS_VolID[4];
+      uint8 BS_VolLab[11];
+      uint8 BS_FilSysType[8];
+    } FAT32;
+  } _;
+} BIOS_Parameter_Block;
 
 //-----------------------------------------------------------------------------
 
@@ -111,26 +108,23 @@ typedef struct FAT_directory_entry_struct
     uint8 DIR_FileSize[4];
   } FAT_directory_entry;
 
-static error_code open_root_dir (file_system* fs, file** result)
-{
-  file* f = CAST(file*, kmalloc (sizeof (file)));
+  static error_code open_root_dir(file_system* fs, file** result) {
+    file* f = CAST(file*, kmalloc(sizeof(file)));
 
-  if (f == NULL)
-    return MEM_ERROR;
+    if (f == NULL) return MEM_ERROR;
 
-  switch (fs->kind)
-    {
-    case FAT12_FS:
-    case FAT16_FS:
-      {
+    switch (fs->kind) {
+      case FAT12_FS:
+      case FAT16_FS: {
+#ifdef SHOW_DISK_INFO
+        term_write(cout, "Opening FAT12/FAT16\n\r");
+#endif
         f->fs = fs;
-        f->current_cluster = 1; // so that EOC is detected at end of dir
-        f->current_section_start =
-          fs->_.FAT121632.first_data_sector
-          - fs->_.FAT121632.root_directory_sectors;
-        f->current_section_length =
-          fs->_.FAT121632.root_directory_sectors
-          << fs->_.FAT121632.log2_bps;
+        f->current_cluster = 1;  // so that EOC is detected at end of dir
+        f->current_section_start = fs->_.FAT121632.first_data_sector -
+                                   fs->_.FAT121632.root_directory_sectors;
+        f->current_section_length = fs->_.FAT121632.root_directory_sectors
+                                    << fs->_.FAT121632.log2_bps;
         f->current_section_pos = 0;
         f->current_pos = 0;
         f->length = f->current_section_length;
@@ -138,27 +132,64 @@ static error_code open_root_dir (file_system* fs, file** result)
         break;
       }
 
-    case FAT32_FS:
-      term_write(cout, "open_root_dir for FAT32 unimplemented\n");
+      case FAT32_FS: {
+#ifdef SHOW_DISK_INFO
+        term_write(cout, "Loading FAT32 root dir\n\r");
+#endif
 
-    default:
-      kfree (f);
-      return UNIMPL_ERROR;
+        BIOS_Parameter_Block* p;
+        cache_block* cb;
+        disk* d = fs->_.FAT121632.d;
+        error_code err;
+
+        if (ERROR(err = disk_cache_block_acquire(d, 0, &cb))) return err;
+
+        p = CAST(BIOS_Parameter_Block*, cb->buf);
+
+        f->fs = fs;
+        f->current_cluster = as_uint32(p->_.FAT32.BPB_RootClus);
+
+#ifdef SHOW_DISK_INFO
+        term_write(cout, "Root cluster is: ");
+        term_write(cout, as_uint32(p->_.FAT32.BPB_RootClus));
+        term_writeline(cout);
+#endif
+
+        f->current_section_start = fs->_.FAT121632.first_data_sector;
+
+        // Length is not there
+        f->current_section_length = as_uint16(p->BPB_BytsPerSec) *
+                                    p->BPB_SecPerClus;
+
+#ifdef SHOW_DISK_INFO
+        term_write(cout, "FAT32 ROOT DIR [sector] start=");
+        term_write(cout, fs->_.FAT121632.first_data_sector);
+#endif
+        f->current_section_pos = 0;
+        f->current_pos = 0;
+        // Length of the root dir is the number of bytes per cluster times the nb of
+        // clus. Leaving unimplemented for now.
+        f->length = f->current_section_length;
+        f->mode = S_IFDIR;
+        break;
+      }
+
+      default:
+        kfree(f);
+        return UNIMPL_ERROR;
     }
 
-  *result = f;
+    *result = f;
 
-  return NO_ERROR;
-}
+    return NO_ERROR;
+  }
 
-static error_code normalize_path (native_string path, native_string new_path)
-{
-  uint32 i = 0;
+  static error_code normalize_path(native_string path, native_string new_path) {
+    uint32 i = 0;
 
-  new_path[i++] = '/';
+    new_path[i++] = '/';
 
-  while (path[0] != '\0')
-    {
+    while (path[0] != '\0') {
       if (path[0] == '/')
         {
           i = 1;
@@ -209,136 +240,134 @@ static error_code normalize_path (native_string path, native_string new_path)
   return NO_ERROR;
 }
 
-error_code open_file (native_string path, file** result)
-{
+error_code open_file(native_string path, file** result) {
   file_system* fs;
   file* f;
 
-  if (fs_mod.nb_mounted_fs == 0)
+  if (fs_mod.nb_mounted_fs == 0) {
     return FNF_ERROR;
+  }
 
   fs = fs_mod.mounted_fs[0];
 
-  switch (fs->kind)
-    {
+  switch (fs->kind) {
     case FAT12_FS:
     case FAT16_FS:
-    case FAT32_FS:
-      {
-        FAT_directory_entry de;
-        error_code err;
-        native_char normalized_path[NAME_MAX+1];
-        native_string p = normalized_path;
+    case FAT32_FS: {
+      FAT_directory_entry de;
+      error_code err;
+      native_char normalized_path[NAME_MAX + 1];
+      native_string p = normalized_path;
 
-        if (ERROR(err = normalize_path (path, normalized_path)))
-          return err;
-
-        if (ERROR(err = open_root_dir (fs, &f)))
-          return err;
-
-        for (;;)
-          {
-            uint8 name[FAT_NAME_LENGTH];
-            uint32 i;
-
-            if (*p != '\0'
-                && (*p++ != '/' || !S_ISDIR(f->mode)))
-              {
-                close_file (f); // ignore error
-                return FNF_ERROR;
-              }
-
-            if (*p == '\0')
-              break;
-
-            i = 0;
-
-            while (*p != '\0' && *p != '.' && *p != '/')
-              {
-                if (i < 8)
-                  name[i] = *p;
-                i++;
-                p++;
-              }
-
-            while (i < 8)
-              name[i++] = ' ';
-
-            i = 0;
-
-            if (*p == '.')
-              {
-                p++;
-                while (*p != '\0' && *p != '/')
-                  {
-                    if (i < 3)
-                      name[8+i] = *p;
-                    i++;
-                    p++;
-                  }
-              }
-
-            while (i < 3)
-              name[8+i++] = ' ';
-
-            while ((err = read_file (f, &de, sizeof (de))) == sizeof (de))
-              {
-                if (de.DIR_Name[0] == 0)
-                  break;
-                if (de.DIR_Name[0] != 0xe5
-                    && (de.DIR_Attr & FAT_ATTR_HIDDEN) == 0
-                    && (de.DIR_Attr & FAT_ATTR_VOLUME_ID) == 0)
-                  {
-                    for (i=0; i<FAT_NAME_LENGTH; i++)
-                      if (de.DIR_Name[i] != name[i])
-                        break;
-
-                    if (i == FAT_NAME_LENGTH)
-                      {
-                        if (ERROR(err = close_file (f)))
-                          return err;
-                        f = CAST(file*, kmalloc (sizeof (file)));
-                        if (f == NULL)
-                          return MEM_ERROR;
-                        f->fs = fs;
-                        f->current_cluster =
-                          (CAST(uint32,as_uint16(de.DIR_FstClusHI))<<16)
-                          + as_uint16(de.DIR_FstClusLO);
-                        f->current_section_start =
-                          fs->_.FAT121632.first_data_sector
-                          + ((f->current_cluster - 2)
-                             << fs->_.FAT121632.log2_spc);
-                        f->current_section_length =
-                          1 << (fs->_.FAT121632.log2_bps
-                                + fs->_.FAT121632.log2_spc);
-                        f->current_section_pos = 0;
-                        f->current_pos = 0;
-                        f->length = as_uint32(de.DIR_FileSize);
-                        if (de.DIR_Attr & FAT_ATTR_DIRECTORY)
-                          f->mode = S_IFDIR;
-                        else
-                          f->mode = S_IFREG;
-                        goto found;
-                      }
-                  }
-              }
-
-            close_file (f); // ignore error
-
-            if (ERROR(err))
-              return err;
-
-            return FNF_ERROR;
-
-          found:;
-          }
-
-        break;
+      if (ERROR(err = normalize_path(path, normalized_path))) {
+#ifdef SHOW_DISK_INFO
+        term_write(cout, "Failed to normalize the path\n\r");
+#endif
+        return err;
       }
+
+      if (ERROR(err = open_root_dir(fs, &f))) {
+#ifdef SHOW_DISK_INFO
+        term_write(cout, "Error loading the root dir: ");
+        term_write(cout, err);
+        term_writeline(cout);
+#endif
+        return err;
+      }
+
+#ifdef SHOW_DISK_INFO
+      term_write(cout, "\n\rOpened the root dir...");
+      term_writeline(cout);
+      term_write(cout, "Normalized name: '");
+      term_write(cout, normalized_path);
+      term_write(cout, "'\n\r");
+#endif
+
+      for (;;) {
+        uint8 name[FAT_NAME_LENGTH];
+        uint32 i;
+
+        if (*p != '\0' && (*p++ != '/' || !S_ISDIR(f->mode))) {
+          close_file(f);  // ignore error
+          return FNF_ERROR;
+        }
+
+        if (*p == '\0') break;
+
+        i = 0;
+
+        while (*p != '\0' && *p != '.' && *p != '/') {
+          if (i < 8) name[i] = *p;
+          i++;
+          p++;
+        }
+
+        while (i < 8) name[i++] = ' ';
+
+        i = 0;
+
+        if (*p == '.') {
+          p++;
+          while (*p != '\0' && *p != '/') {
+            if (i < 3) name[8 + i] = *p;
+            i++;
+            p++;
+          }
+        }
+
+        while (i < 3) name[8 + i++] = ' ';
+
+        while ((err = read_file(f, &de, sizeof(de))) == sizeof(de)) {
+          if (de.DIR_Name[0] == 0) break;
+          // Only verify the file if it's readable
+          if (de.DIR_Name[0] != 0xe5 && (de.DIR_Attr & FAT_ATTR_HIDDEN) == 0 &&
+              (de.DIR_Attr & FAT_ATTR_VOLUME_ID) == 0) {
+            // Compare the names
+            for (i = 0; i < FAT_NAME_LENGTH; i++) {
+              if (de.DIR_Name[i] != name[i]) break;
+            }
+
+            if (i == FAT_NAME_LENGTH) {
+              // All the characters have been compared successfuly
+              if (ERROR(err = close_file(f))) return err;
+              f = CAST(file*, kmalloc(sizeof(file)));
+              if (f == NULL) return MEM_ERROR;
+              f->fs = fs;
+              f->current_cluster =
+                  (CAST(uint32, as_uint16(de.DIR_FstClusHI)) << 16) +
+                  as_uint16(de.DIR_FstClusLO);
+              f->current_section_start =
+                  fs->_.FAT121632.first_data_sector +
+                  ((f->current_cluster - 2) << fs->_.FAT121632.log2_spc);
+              f->current_section_length =
+                  1 << (fs->_.FAT121632.log2_bps + fs->_.FAT121632.log2_spc);
+              f->current_section_pos = 0;
+              f->current_pos = 0;
+              f->length = as_uint32(de.DIR_FileSize);
+              if (de.DIR_Attr & FAT_ATTR_DIRECTORY)
+                f->mode = S_IFDIR;
+              else
+                f->mode = S_IFREG;
+              goto found;
+            }
+          }
+        }
+
+        close_file(f);  // ignore error
+
+        if (ERROR(err)) return err;
+
+        return FNF_ERROR;
+
+      found:;
+      }
+
+      break;
+    }
 
     default:
       return UNIMPL_ERROR;
-    }
+  }
 
   *result = f;
 
@@ -449,91 +478,76 @@ static error_code next_FAT_section (file* f)
   return NO_ERROR;
 }
 
-error_code read_file (file* f, void* buf, uint32 count)
-{
-  if (count > 0)
-    {
-      file_system* fs = f->fs;
-      error_code err;
+error_code read_file(file* f, void* buf, uint32 count) {
+  if (count > 0) {
+    file_system* fs = f->fs;
+    error_code err;
 
-      switch (fs->kind)
-        {
-        case FAT12_FS:
-        case FAT16_FS:
-        case FAT32_FS:
-          {
-            uint32 n;
-            uint8* p;
+    switch (fs->kind) {
+      case FAT12_FS:
+      case FAT16_FS:
+      case FAT32_FS: {
+        uint32 n;
+        uint8* p;
 
-            if (!S_ISDIR(f->mode))
-              {
-                uint32 left = f->length - f->current_pos;
-                if (count > left)
-                  count = left;
-              }
-
-            n = count;
-            p = CAST(uint8*,buf);
-
-            while (n > 0)
-              {
-                uint32 left1;
-                uint32 left2;
-
-                if (f->current_section_pos >= f->current_section_length)
-                  if (ERROR(err = next_FAT_section (f)))
-                    {
-                      if (err != EOF_ERROR)
-                        return err;
-                      break;
-                    }
-
-                left1 = f->current_section_length - f->current_section_pos;
-
-                if (left1 > n)
-                  left1 = n;
-
-                while (left1 > 0)
-                  {
-                    cache_block* cb;
-
-                    if (ERROR(err = disk_cache_block_acquire
-                                      (fs->_.FAT121632.d,
-                                       f->current_section_start
-                                       + (f->current_section_pos
-                                          >> DISK_LOG2_BLOCK_SIZE),
-                                       &cb)))
-                      return err;
-
-                    left2 = (1<<DISK_LOG2_BLOCK_SIZE)
-                            - (f->current_section_pos
-                               & ~(~0U<<DISK_LOG2_BLOCK_SIZE));
-
-                    if (left2 > left1)
-                      left2 = left1;
-
-                    memcpy (p,
-                            cb->buf + (f->current_section_pos
-                                       & ~(~0U<<DISK_LOG2_BLOCK_SIZE)),
-                            left2);
-
-                    if (ERROR(err = disk_cache_block_release (cb)))
-                      return err;
-
-                    left1 -= left2;
-                    f->current_section_pos += left2;
-                    f->current_pos += left2;
-                    n -= left2;
-                  }
-              }
-
-            return count - n;
-          }
-
-        default:
-          return UNIMPL_ERROR;
+        if (!S_ISDIR(f->mode)) {
+          uint32 left = f->length - f->current_pos;
+          if (count > left) count = left;
         }
+
+        n = count;
+        p = CAST(uint8*, buf);
+
+        while (n > 0) {
+          uint32 left1;
+          uint32 left2;
+
+          if (f->current_section_pos >= f->current_section_length)
+            if (ERROR(err = next_FAT_section(f))) {
+              if (err != EOF_ERROR) return err;
+              break;
+            }
+
+          left1 = f->current_section_length - f->current_section_pos;
+
+          if (left1 > n) left1 = n;
+
+          while (left1 > 0) {
+            cache_block* cb;
+
+            if (ERROR(err = disk_cache_block_acquire(
+                          fs->_.FAT121632.d,
+                          f->current_section_start +
+                              (f->current_section_pos >> DISK_LOG2_BLOCK_SIZE),
+                          &cb)))
+              return err;
+
+            left2 = (1 << DISK_LOG2_BLOCK_SIZE) -
+                    (f->current_section_pos & ~(~0U << DISK_LOG2_BLOCK_SIZE));
+
+            if (left2 > left1) left2 = left1;
+
+            memcpy(p,
+                   cb->buf + (f->current_section_pos &
+                              ~(~0U << DISK_LOG2_BLOCK_SIZE)),
+                   left2);
+
+            if (ERROR(err = disk_cache_block_release(cb))) return err;
+
+            left1 -= left2;
+            f->current_section_pos += left2;
+            f->current_pos += left2;
+            n -= left2;
+          }
+        }
+
+        return count - n;
+      }
+
+      default:
+        return UNIMPL_ERROR;
     }
+  }
 
   return 0;
 }
@@ -565,6 +579,7 @@ static error_code mount_FAT121632 (disk* d, file_system** result)
 
   p = CAST(BIOS_Parameter_Block*,cb->buf);
 
+
   bps = as_uint16(p->BPB_BytsPerSec);
   log2_bps = log2 (bps);
 
@@ -579,137 +594,100 @@ static error_code mount_FAT121632 (disk* d, file_system** result)
 
   expecting_FAT32 = (FAT_size == 0);
 
-  if ((1 << log2_bps) != bps
-      || log2_bps < 9
-      || log2_bps > 12)
-    {
-      term_write(cout, "bytes per sector is not a power of 2 between 512 and 4096\n");
+#ifdef SHOW_DISK_INFO
+  term_write(cout, "Expected FAT32 = ");
+  term_write(cout, expecting_FAT32);
+  term_writeline(cout);
+#endif
+
+  if ((1 << log2_bps) != bps || log2_bps < 9 || log2_bps > 12) {
+    term_write(cout,
+               "bytes per sector is not a power of 2 between 512 and 4096: ");
+    term_write(cout, bps); term_writeline(cout);
+    err = UNKNOWN_ERROR;
+  } else if (d->log2_sector_size != log2_bps) {
+    term_write(cout, "BytsPerSec and disk's sector size are inconsistent\n");
+    err = UNKNOWN_ERROR;
+  } else if ((1 << log2_spc) != spc || log2_spc > 8) {
+    term_write(cout,
+               "sectors per cluster is not a power of 2 between 1 and 128\n");
+    err = UNKNOWN_ERROR;
+  } else if (expecting_FAT32) {
+    if (rec != 0) {
+      term_write(cout, "RootEntCnt is not 0\n");
       err = UNKNOWN_ERROR;
-    }
-  else if (d->log2_sector_size != log2_bps)
-    {
-      term_write(cout, "BytsPerSec and disk's sector size are inconsistent\n");
+    } else if (total_sectors16 != 0) {
+      term_write(cout, "TotSec16 is not 0\n");
       err = UNKNOWN_ERROR;
-    }
-  else if ((1 << log2_spc) != spc
-           || log2_spc > 8)
-    {
-      term_write(cout, "sectors per cluster is not a power of 2 between 1 and 128\n");
+    } else if (total_sectors == 0) {
+      term_write(cout, "TotSec32 is 0\n");
       err = UNKNOWN_ERROR;
+    } else {
+      FAT_size = as_uint32(p->_.FAT32.BPB_FATSz32);
+
+      if (FAT_size == 0) {
+        term_write(cout, "FATSz32 is 0\n");
+        err = UNKNOWN_ERROR;
+      }
     }
-  else if (expecting_FAT32)
-    {
-      if (rec != 0)
-        {
-          term_write(cout, "RootEntCnt is not 0\n");
-          err = UNKNOWN_ERROR;
-        }
-      else if (total_sectors16 != 0)
-        {
-          term_write(cout, "TotSec16 is not 0\n");
-          err = UNKNOWN_ERROR;
-        }
-      else if (total_sectors == 0)
-        {
-          term_write(cout, "TotSec32 is 0\n");
-          err = UNKNOWN_ERROR;
-        }
-      else
-        {
-          FAT_size = as_uint32(p->_.FAT32.BPB_FATSz32);
-
-          if (FAT_size == 0)
-            {
-              term_write(cout, "FATSz32 is 0\n");
-              err = UNKNOWN_ERROR;
-            }
-        }
+  } else {
+    if (rec == 0) {
+      term_write(cout, "RootEntCnt is 0\n");
+      err = UNKNOWN_ERROR;
+    } else if (total_sectors == 0) {
+      if (total_sectors16 == 0) {
+        term_write(cout, "TotSec16 and TotSec32 are 0\n");
+        err = UNKNOWN_ERROR;
+      } else
+        total_sectors = total_sectors16;
+    } else {
+      if (total_sectors16 != 0 && total_sectors16 != total_sectors) {
+        term_write(cout, "TotSec16 != TotSec32\n");
+        err = UNKNOWN_ERROR;
+      }
     }
-  else
-    {
-      if (rec == 0)
-        {
-          term_write(cout, "RootEntCnt is 0\n");
+  }
+
+  if (!ERROR(err)) {
+    root_directory_sectors =
+        (CAST(uint32, rec) * FAT_DIR_ENTRY_SIZE + (1 << log2_bps) - 1) >>
+        log2_bps;
+
+    first_data_sector = CAST(uint32, p->BPB_NumFATs) * FAT_size +
+                        as_uint16(p->BPB_RsvdSecCnt) + root_directory_sectors;
+
+    total_data_sectors = total_sectors - first_data_sector;
+
+    total_data_clusters = total_data_sectors >> log2_spc;
+
+    if (total_data_clusters < 65525) {
+      if (expecting_FAT32) {
+        term_write(cout, "volume is FAT12 or FAT16 but FATSz16 is 0\n");
+        err = UNKNOWN_ERROR;
+      } else if (total_data_clusters < 4085) {
+        if (d->partition_type != 1) {
+          term_write(cout, "partition type is not 1\n");
           err = UNKNOWN_ERROR;
-        }
-      else if (total_sectors == 0)
-        {
-          if (total_sectors16 == 0)
-            {
-              term_write(cout, "TotSec16 and TotSec32 are 0\n");
-              err = UNKNOWN_ERROR;
-            }
-          else
-            total_sectors = total_sectors16;
-        }
-      else
-        {
-          if (total_sectors16 != 0 && total_sectors16 != total_sectors)
-            {
-              term_write(cout, "TotSec16 != TotSec32\n");
-              err = UNKNOWN_ERROR;
-            }
-        }
+        } else
+          kind = FAT12_FS;
+      } else {
+        if (d->partition_type != 4 && d->partition_type != 6) {
+          term_write(cout, "partition type is not 4 or 6\n");
+          err = UNKNOWN_ERROR;
+        } else
+          kind = FAT16_FS;
+      }
+    } else {
+      if (!expecting_FAT32) {
+        term_write(cout, "volume is FAT32 but FATSz16 is not 0\n");
+        err = UNKNOWN_ERROR;
+      } else if (d->partition_type != 11 && d->partition_type != 12) {
+        term_write(cout, "partition type is not 11 nor 12\n");
+        err = UNKNOWN_ERROR;
+      } else
+        kind = FAT32_FS;
     }
-
-  if (!ERROR(err))
-    {
-      root_directory_sectors =
-        (CAST(uint32,rec) * FAT_DIR_ENTRY_SIZE + (1<<log2_bps) - 1)
-        >> log2_bps;
-
-      first_data_sector = CAST(uint32,p->BPB_NumFATs) * FAT_size
-                          + as_uint16(p->BPB_RsvdSecCnt)
-                          + root_directory_sectors;
-
-      total_data_sectors = total_sectors - first_data_sector;
-
-      total_data_clusters = total_data_sectors >> log2_spc;
-
-      if (total_data_clusters < 65525)
-        {
-          if (expecting_FAT32)
-            {
-              term_write(cout,"volume is FAT12 or FAT16 but FATSz16 is 0\n");
-              err = UNKNOWN_ERROR;
-            }
-          else if (total_data_clusters < 4085)
-            {
-              if (d->partition_type != 1)
-                {
-                  term_write(cout, "partition type is not 1\n");
-                  err = UNKNOWN_ERROR;
-                }
-              else
-                kind = FAT12_FS;
-            }
-          else
-            {
-              if (d->partition_type != 4 && d->partition_type != 6)
-                {
-                  term_write(cout, "partition type is not 4 or 6\n");
-                  err = UNKNOWN_ERROR;
-                }
-              else
-                kind = FAT16_FS;
-            }
-        }
-      else
-        {
-          if (!expecting_FAT32)
-            {
-              term_write(cout, "volume is FAT32 but FATSz16 is not 0\n");
-              err = UNKNOWN_ERROR;
-            }
-          else if (d->partition_type != 11)
-            {
-              term_write(cout, "partition type is not 11\n");
-              err = UNKNOWN_ERROR;
-            }
-          else
-            kind = FAT32_FS;
-        }
-    }
+  }
 
   if (ERROR(err))
     disk_cache_block_release (cb); // ignore error
@@ -737,52 +715,65 @@ static error_code mount_FAT121632 (disk* d, file_system** result)
   return err;
 }
 
-static error_code mount_partition (disk* d)
-{
+static error_code mount_partition(disk* d) {
+
+  #ifdef SHOW_DISK_INFO
+    term_write(cout, "IN MOUNT PART\n\r");
+  #endif
+
   file_system* fs = NULL;
   error_code err;
 
-  switch (d->partition_type)
-    {
-    case 1: // Primary DOS 12-bit FAT
-    case 4: // Primary DOS 16-bit FAT
-    case 6: // Primary big DOS >32Mb
-      if (ERROR(err = mount_FAT121632 (d, &fs)))
+  switch (d->partition_type) {
+    case 1:  // Primary DOS 12-bit FAT
+    case 4:  // Primary DOS 16-bit FAT
+    case 6:  // Primary big DOS >32Mb
+    case 0x0C: // FAT32 LBA
+
+      if (ERROR(err = mount_FAT121632(d, &fs))) {
+        term_write(cout, "Failed to mount\n\r");
         return err;
-      break;
-    }
-
-    if (fs != NULL) {
-      if (fs_mod.nb_mounted_fs < MAX_NB_MOUNTED_FS) {
-        fs_mod.mounted_fs[fs_mod.nb_mounted_fs++] = fs;
-
-        term_write(cout, "Mouting partition ");
-
-        disk_print_id(d);
-
-        term_write(cout, " as ");
-
-        const char* kind;
-
-        switch (fs->kind) {
-          case FAT12_FS:
-            kind = "FAT12";
-            break;
-          case FAT16_FS:
-            kind = "FAT16";
-            break;
-          case FAT32_FS:
-            kind = "FAT32";
-            break;
-        }
-
-        term_write(term_write(cout, kind), "\n");
-
-        return NO_ERROR;
       }
-    }
 
-    return UNKNOWN_ERROR;
+      break;
+    default:
+      term_write(cout, "Unknown partition type: ");
+      term_write(cout, d->partition_type);
+      term_write(cout, "\n\r");
+      break;
+  }
+
+  if (fs != NULL) {
+    if (fs_mod.nb_mounted_fs < MAX_NB_MOUNTED_FS) {
+      fs_mod.mounted_fs[fs_mod.nb_mounted_fs++] = fs;
+
+      term_write(cout, "Mouting partition ");
+
+      disk_print_id(d);
+
+      term_write(cout, " as ");
+
+      const char* kind;
+
+      switch (fs->kind) {
+        case FAT12_FS:
+          kind = "FAT12";
+          break;
+        case FAT16_FS:
+          kind = "FAT16";
+          break;
+        case FAT32_FS:
+          kind = "FAT32";
+          break;
+      }
+
+      term_write(term_write(cout, kind), "\n");
+
+      return NO_ERROR;
+    }
+  }
+
+  return UNKNOWN_ERROR;
 }
 
 static void mount_all_partitions ()

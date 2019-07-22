@@ -169,25 +169,24 @@ static void keypress(uint8 ch) {
     circular_buffer[circular_buffer_hi] = ch;
     circular_buffer_hi = next_hi;
     circular_buffer_cv->mutexless_signal();
+  } else {
+    // Buffer full... Trashing
   }
-
-  term_write(cout, CAST(native_char, ch));
 }
 
-unicode_char getchar ()
-{
-  disable_interrupts ();
+unicode_char getchar() {
+  disable_interrupts();
 
-  while (circular_buffer_lo == circular_buffer_hi)
-    circular_buffer_cv->mutexless_wait ();
+  while (circular_buffer_lo == circular_buffer_hi) {
+    circular_buffer_cv->mutexless_wait();
+  }
 
   unicode_char result = circular_buffer[circular_buffer_lo];
 
   circular_buffer_lo = (circular_buffer_lo + 1) % BUFFER_SIZE;
 
-  circular_buffer_cv->mutexless_signal ();
-
-  enable_interrupts ();
+  circular_buffer_cv->mutexless_signal();
+  enable_interrupts();
 
   return result;
 }

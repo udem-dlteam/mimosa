@@ -10,6 +10,8 @@
 
 #include "term.h"
 #include "thread.h"
+#include "ps2.h"
+#include "fs.h"
 
 //-----------------------------------------------------------------------------
 
@@ -474,8 +476,15 @@ void term_scroll_up(term* self) {
   raw_bitmap_fill_rect(&screen.super, x0, y2, x3, y3, background);
 }
 
+static const native_string TRUE_STR = "TRUE";
+static const native_string FALSE_STR = "FALSE";
+
 term* term_write(term* self, bool x) {
-  return term_write(self, x ? L"TRUE" : L"FALSE");
+  if (x) {
+    return term_write(self, TRUE_STR);
+  } else {
+    return term_write(self, FALSE_STR);
+  }
 }
 
 term* term_write(term* self, int8 x) {
@@ -566,6 +575,10 @@ term* term_write(term* self, void* x) {
   return term_write(self, str);
 }
 
+term* term_writeline(term* self) {
+  return term_write(self, "\n\r");
+}
+
 term* term_write(term* self, native_string x) {
 
   unicode_char buf[2];
@@ -595,7 +608,7 @@ term* term_write(term* self, native_char x) {
   buf[0] = x;
   buf[1] = '\0';
 
-  return term_write(cout, buf);
+  return term_write(self, buf);
 }
 
 
@@ -626,6 +639,98 @@ void debug_write(native_string str) {
   }
   outb('\n', OUT_PORT);
   outb('\r', OUT_PORT);
+}
+
+const native_string LS_CMD = "ls";
+const native_string EXEC_CMD = "exec";
+const native_string CAT_CMD = "cat";
+
+uint32 strlen(native_string str) {
+  int i;
+  for(i = 0; str[i] != '\0'; ++i);
+  return i;
+}
+
+uint8 strcmp(native_string a, native_string b, uint32 sz) {
+  int i = 0;
+  for(i = 0; i < sz && a[i] == b[i]; ++i);
+  return i == sz;
+}
+
+uint8 strcmp(native_string a, native_string b) {
+  while (*a == *b) {
+    if (*a == '\0') {
+      break;
+    } else {
+      a++;
+      b++;
+    }
+  }
+  return *a == *b;
+}
+
+const int max_sz = 2056;
+native_char buff[max_sz];
+
+native_string readline(term* term, uint32* len) { 
+  native_char c;
+  for(*len = 0;'\r' != (c = buff[*len] = getchar()); *len += 1) {
+    term_write(term, c);
+  }
+  buff[*len] = '\0';
+  return buff;
+}
+
+void term_run(term* term) {
+  for (;;) {
+    term_write(term, ">");
+
+    uint32 i = 0;
+    native_string line = readline(term, &i);
+    debug_write(line);
+
+    // Find and exec command
+    // Hopefully there is no ls*** command lol
+    if (strcmp(line, LS_CMD)) {
+      term_writeline(term);
+      DIR* root_dir = opendir("/");
+      dirent* entry;
+
+      while (NULL != (entry = readdir(root_dir))) {
+        term_write(term, "---> ");
+        term_write(term, entry->d_name);
+        term_writeline(term);
+      }
+
+      closedir(root_dir);
+    } else if (strcmp(line, EXEC_CMD, 4)) {
+      native_string file_name = &line[5];
+
+      file* prog;
+      if (NO_ERROR == open_file(file_name, &prog)) {
+        term_write(term, "\r\n Starting program ");
+        term_write(term, file_name);
+        term_writeline(term);
+        sched_start_task(prog);
+      } else {
+        term_write(term, "\r\n Failed to open the program.\r\n");
+      }
+    } else if (strcmp(line, CAT_CMD, 3)) {
+      native_string file_name = &line[4];
+      file* f;
+      if (NO_ERROR == open_file(file_name, &f)) {
+        // need free... lets use the static buff
+        read_file(f, buff, 2056);
+        term_writeline(term);
+        term_write(term, CAST(native_string, buff));
+        term_writeline(term);
+      } else {
+        term_write(term, "\r\n Failed to read the file.\r\n");
+      }
+    } else {
+      term_write(term, "\r\nUnknown command\r\n");
+    }
+  }
 }
 
 //-----------------------------------------------------------------------------

@@ -1,18 +1,24 @@
 #!/bin/bash
 mkdir -p /mnt/tmp
-mkfs.fat -C mimosa-build/floppy.img $((2 * 1024 * 1024)) -v -F 32
+
+
+if [ ! -f empty_usb.img ]; then
+    tar -pxvzf empty_usb.tar.gz
+fi
+
+cp empty_usb.img mimosa-build/floppy.img
 mount mimosa-build/floppy.img /mnt/tmp
 
-cp mimosa-build/boot.bin /mnt/tmp/BOOT.SYS
+cp mimosa-build/kernel.bin /mnt/tmp/BOOT.SYS
 
+ls -al /mnt/tmp # List all the files in the img
 
 umount /mnt/tmp
 rm -rf /mnt/tmp
 
 # Write the bootsector
-
 hexdump -C -n 512 mimosa-build/floppy.img
-
 dd if=mimosa-build/bootsect.bin of=mimosa-build/floppy.img bs=512 count=2 conv=notrunc
+
 
 chmod 777 mimosa-build/floppy.img

@@ -17,6 +17,16 @@
 
 //-----------------------------------------------------------------------------
 
+typedef struct user_func_table {
+  void (*print_int)(int i);
+  void (*print_str)(char* str);
+  void (*print_int_ptr)(int* i);
+} user_func_table;
+
+
+
+//-----------------------------------------------------------------------------
+
 #ifdef CHECK_ASSERTIONS
 
 #define ASSERT_INTERRUPTS_DISABLED()                      \
@@ -82,7 +92,7 @@ do {                                                                          \
          sti"                                                                 \
         :                                                                     \
         : "i" (receiver), "g" (data)                                          \
-        : );                                                             \
+        : "memory");                                                          \
    } while (0)
 
 #else
@@ -376,7 +386,7 @@ class thread : public wait_mutex_sleep_node
     static void sleep (int64 timeout_nsecs); // sleep relative to now
 
     virtual char* name ();/////
-
+    virtual uint32 code();
   protected:
 
     // The inherited "wait queue" part of wait_mutex_sleep_node
@@ -425,9 +435,21 @@ class thread : public wait_mutex_sleep_node
     friend class scheduler;
   };
 
-//-----------------------------------------------------------------------------
+  class program_thread : public thread {
+   public:
+    program_thread(void_fn code);
 
-//-----------------------------------------------------------------------------
+    char* name ();/////
+    uint32 code();
+
+   protected:
+    virtual void run();
+    void_fn _code;
+  };
+
+  //-----------------------------------------------------------------------------
+
+  //-----------------------------------------------------------------------------
 
 #if 0
 
@@ -614,21 +636,22 @@ int pthread_cond_destroy (pthread_cond_t* cond);
 #undef NAMESPACE_PREFIX
 #undef BEFORE
 
-//-----------------------------------------------------------------------------
+  //-----------------------------------------------------------------------------
 
+  //-----------------------------------------------------------------------------
+  // C REWRITE
+  //-----------------------------------------------------------------------------
 
-//-----------------------------------------------------------------------------
-// C REWRITE
-//-----------------------------------------------------------------------------
-
-
-void sched_setup(void_fn cont);
+  void
+  sched_setup(void_fn cont);
 
 void sched_stats();
 
 void sched_reg_mutex(mutex* m);
 
 void sched_reg_condvar(condvar* c);
+
+int sched_start_task(void* task_file);
 
 void _sched_reschedule_thread(thread* t);
 
@@ -652,6 +675,8 @@ void _sched_set_timer(time t, time now);
 void _sched_timer_elapsed();
 
 void _sched_resume_next_thread();
+
+
 
 void sys_irq(void* esp);
 #ifdef USE_PIT_FOR_TIMER

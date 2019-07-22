@@ -407,7 +407,7 @@ void __rtlib_setup ()
 
   __do_global_dtors ();
 
-  fatal_error ("system termination");
+  fatal_error ("System termination");
 }
 
 //-----------------------------------------------------------------------------
