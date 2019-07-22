@@ -16,3 +16,5 @@ mimosa-build/
 \.code-workspace
 
 *.o
+
+*.img
