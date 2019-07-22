@@ -14,6 +14,7 @@
 #include "time.h"
 #include "disk.h"
 #include "fs.h"
+#include "fat32.h"
 #include "ps2.h"
 
 //-----------------------------------------------------------------------------
@@ -71,6 +72,10 @@ int main() {
   table->print_int_ptr = _user_print_int_ptr;
 
   term* tty = &new_term(0, 320, 80, 10, &font_mono_6x9, L"tty", true);
+
+  term_write(tty, "Fat32 int: ");
+  term_write(tty, fat_32_get_int());
+
   term_run(tty);
   return 0;
 }

@@ -3,7 +3,7 @@
 OS_NAME = "\"MIMOSA version 1.2\""
 KERNEL_START = 0x20000
 
-KERNEL_OBJECTS = kernel.o main.o fs.o ide.o disk.o thread.o time.o ps2.o term.o video.o intr.o rtlib.o $(NETWORK_OBJECTS)
+KERNEL_OBJECTS = kernel.o main.o fs.o ide.o disk.o thread.o time.o ps2.o term.o video.o intr.o rtlib.o fat32.o $(NETWORK_OBJECTS)
 NETWORK_OBJECTS =
 #NETWORK_OBJECTS = eepro100.o tulip.o timer2.o misc.o pci.o config.o net.o
 DEFS = -DINCLUDE_EEPRO100 
@@ -15,9 +15,9 @@ GPP = g++-3.4 -m32 -Wno-write-strings -ggdb3
 
 SPECIAL_OPTIONS =
 
-GCC_OPTIONS = $(SPECIAL_OPTIONS) $(DEFS) -DOS_NAME=$(OS_NAME) -DKERNEL_START=$(KERNEL_START) -fomit-frame-pointer -fno-strict-aliasing -Wall -O3 -nostdinc -nostdinc++ -Iinclude
+GCC_OPTIONS = $(SPECIAL_OPTIONS) $(DEFS) -DOS_NAME=$(OS_NAME) -DKERNEL_START=$(KERNEL_START) -fomit-frame-pointer -fno-strict-aliasing -Wall -O3 -nostdinc -Iinclude
 
-GPP_OPTIONS = $(GCC_OPTIONS) -fno-rtti -fno-builtin -fno-exceptions
+GPP_OPTIONS = $(GCC_OPTIONS) -fno-rtti -fno-builtin -fno-exceptions -nostdinc++
 
 .SUFFIXES:
 .SUFFIXES: .h .s .c .cpp .o .asm .bin .map .d
@@ -31,8 +31,12 @@ build:
 	ssh administrator@localhost -p 10022 "cat mimosa-build/kernel.bin"   > mimosa-build/kernel.bin
 	ssh administrator@localhost -p 10022 "cat mimosa-build/kernel.elf"   > mimosa-build/kernel.elf
 
+createimg:
+	ssh administrator@localhost -p 10022 "sudo mimosa-build/createimg.sh";
+	ssh administrator@localhost -p 10022 "cat mimosa-build/floppy.img" > mimosa-build/floppy.img
+
 run:
-	qemu-system-i386 -m 4096 -hda mimosa-build/floppy.img
+	qemu-system-i386 -s -m 4096 -hda mimosa-build/floppy.img -debugcon stdio
 
 debug:
 	qemu-system-i386 -s -S -m 4096 -hda mimosa-build/floppy.img -debugcon stdio
@@ -78,7 +82,6 @@ bootsect.bin: bootsect.o
 
 clean:
 	rm -rf mimosa-build
-	ssh administrator@localhost -p 10022 "rm -rf mimosa-build;"
 	rm -f *.o *.asm *.bin *.tmp *.d
 
 # dependencies:
@@ -107,7 +110,7 @@ intr.o: intr.cpp include/intr.h include/general.h include/asm.h \
 main.o: main.cpp include/general.h include/term.h include/video.h \
 	include/thread.h include/intr.h include/asm.h \
 	include/pic.h include/apic.h include/time.h include/pit.h \
-	include/queue.h include/ps2.h
+	include/queue.h include/ps2.h include/fat32.h
 misc.o: misc.c etherboot.h osdep.h include/asm.h include/general.h
 net.o: net.cpp include/net.h include/general.h include/rtlib.h \
 	include/term.h include/video.h include/time.h include/asm.h \
@@ -134,3 +137,4 @@ tulip.o: tulip.c etherboot.h osdep.h include/asm.h include/general.h \
 	nic.h pci.h cards.h
 video.o: video.cpp include/video.h include/general.h include/asm.h \
 	include/vga.h include/term.h mono_5x7.cpp mono_6x9.cpp
+fat32.o: fat32.cpp include/fat32.h include/general.h

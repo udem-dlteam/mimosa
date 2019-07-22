@@ -38,9 +38,9 @@ oem_name:
   .byte 0
   .byte 0 # OEM name 8 characters (two spaces to get to 8)
 nb_bytes_per_sector:
-  .word 0x0200    # bytes per sector (512 bytes)
+  .word 512    # bytes per sector (512 bytes)
 nb_sectors_per_cluster:
-  .byte 0x08      # sector per allocation unit -> sector/cluster
+  .byte 0x01      # sector per allocation unit -> sector/cluster
 nb_reserved_sectors:  
   .word 32      # reserved sectors for booting (32 to get an extended boot sector (also FAT 32 compatible))
 nb_of_fats:
@@ -60,12 +60,12 @@ nb_heads:
 nb_hidden_sectors:
   .long 0x00 # number of hidden sectors
 nb_logical_sectors:
-  .long 4194304
+  .long 65536
 # --------------------------------------------------------------------------
 # FAT 32 EBP
 # --------------------------------------------------------------------------
 nb_sectors_per_fat:
-  .long 4088
+  .long 504
 mirror_flags:
   .word 0x00                                                                   # TODO
 fs_version:
@@ -81,7 +81,7 @@ reserved_data:
   .long 0x00
   .long 0x00
 drive:            # Extended block, supposed to be only for FAT 16
-  .byte 0xAA      # logical drive number
+  .byte 0x80      # logical drive number
 clean_fs:
   .byte 0x01      # reserved
 extended_bpb_sig:
@@ -268,11 +268,11 @@ code_end:
 
 # partition 1
 .byte 0x80                   # boot flag (0x00: inactive, 0x80: active)
-.byte 0x00, 0x01, 0x00       # Start of partition address
+.byte 0x00, 0x00, 0x00       # Start of partition address
 .byte 0x0C                   # system flag (xFAT32, LBA access)
-.byte 0x01, 0x12, 0x4F       # End of partition address CHS : 79 1 18
+.byte 0x00, 0x00, 0x00       # End of partition address CHS : 79 1 18
 .long 0x00                   # Start sector relative to disk
-.long 4194304                   # number of sectors in partition
+.long 65536                # number of sectors in partition
 
 # partition 2
 .byte 0x00                   # boot flag (0x00: inactive, 0x80: active)
@@ -407,7 +407,7 @@ find_file:
 
     # Repeat until cluster is done
     incl %eax # move to the next block
-    decw %cx  # one less block to read
+    decb %cl  # one less block to read
     jnz root_dir_read_loop_sectors_in_cluster_loop
   # At this point, we need to search the scratch area for all the directory entries
   # A cluster is 8 sectors. A sectors is 512 byte, each entry is 32 bytes. 
@@ -445,7 +445,7 @@ scan_next_dir_entry:
                           # IF we did NOT jump, there is match
   # ----------------------------------------------------------
   # FILE MATCH
-  # ----------------------------------------------------------
+  # ----------------------------------------------------------  
   popw %cx # Dump that register from the stack (counter for entries)
   popl %eax # eax contains the current cluster (not important)
   xorl %eax, %eax
@@ -511,7 +511,7 @@ read_loop:
 
     # Repeat until cluster is done
     incl %eax # move to the next block
-    decw %cx  # one less block to read
+    decb %cl  # one less block to read
     jnz sectors_in_cluster_loop
 
   popl %eax  # get the cluster
@@ -529,9 +529,16 @@ read_loop:
 cluster_to_lba:
   # Set the cluster into eax and eax will be set
   # to the LBA address that corresponds to the cluster
+  pushl %edx
+
+  xorl %edx, %edx
+
   subl $2, %eax
-  shll $3, %eax
+  movb nb_sectors_per_cluster, %dl # It kinda sucks that sectors per cluster is stored as an integer
+  mull %edx                        # and not just a power of two. It would be faster and easier
   addl cluster_begin_lba, %eax
+  
+  popl %edx
   ret
 
 get_next_cluster:
@@ -540,10 +547,15 @@ get_next_cluster:
   pushl %edx
 
   andl $0x0FFFFFFFF, %eax # mask the four topmost bits
+  xorl %ebx, %ebx
   xorl %edx, %edx
-  movl $128, %ebx
+  # We want to get the next sector to read to get the correct FAT entry.
+  # There are 512 bytes in a sector (usually). 4 bytes per entry. We divide
+  # the nb of bytes per sector by 4 to get the correct division factor.
+  movw nb_bytes_per_sector, %bx 
+  shrw $2, %bx # div by 4
   divl %ebx   # eax contains the LBA to read (without the FAT offset)
-  #             edx contains the offset in bytes of the next cluster
+  #             edx contains the offset in entries of 4 bytes of the next cluster
 
   # Load the FAT into the scratch area
   # FAT starts after reserved and hidden sectors, simply add those sectors
