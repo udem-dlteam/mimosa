@@ -22,37 +22,20 @@ GPP_OPTIONS = $(GCC_OPTIONS) -fno-rtti -fno-builtin -fno-exceptions
 .SUFFIXES:
 .SUFFIXES: .h .s .c .cpp .o .asm .bin .map .d
 
-all: floppy
+all: bin_files
 
 build:
 	mkdir -p mimosa-build
-	tar cf - . | ssh administrator@localhost -p 10022 "rm -rf mimosa-build;mkdir mimosa-build;cd mimosa-build;tar xf -;make clean;make";ssh administrator@localhost -p 10022 "cat mimosa-build/floppy" > mimosa-build/floppy
+	tar --exclude='*.img' -cf  - .  | ssh administrator@localhost -p 10022 "rm -rf mimosa-build;mkdir mimosa-build;cd mimosa-build;tar xf -;make clean;make"
 	ssh administrator@localhost -p 10022 "cat mimosa-build/bootsect.bin" > mimosa-build/bootsect.bin
-	ssh administrator@localhost -p 10022 "cat mimosa-build/kernel.bin"   > mimosa-build/kernel.elf
-	hexdump -C -n 512 mimosa-build/bootsect.bin
-
-create-img:
-	# Write the OS into the FS
-	mkdir -p /mnt/tmp
-	cp blank_drive.img mimosa-build/floppy.img
-	mount mimosa-build/floppy.img /mnt/tmp
-
-	cp mimosa-build/boot.bin /mnt/tmp/BOOT.SYS
-
-
-	umount /mnt/tmp
-	rm -rf /mnt/tmp
-
-	# Write the bootsector
-	dd if=mimosa-build/bootsect.bin of=mimosa-build/floppy.img conv=notrunc
-	chmod 777 mimosa-build/floppy.img
+	ssh administrator@localhost -p 10022 "cat mimosa-build/kernel.bin"   > mimosa-build/kernel.bin
+	ssh administrator@localhost -p 10022 "cat mimosa-build/kernel.elf"   > mimosa-build/kernel.elf
 
 run:
 	qemu-system-i386 -m 4096 -hda mimosa-build/floppy.img
 
 debug:
 	qemu-system-i386 -s -S -m 4096 -hda mimosa-build/floppy.img -debugcon stdio
-
 
 mf:
 	make clean
@@ -62,16 +45,12 @@ mf:
 	mv makefile makefile.old
 	mv mf makefile
 
-floppy: bootsect.bin kernel.bin
-	dd if=bootsect.bin of=tmp1.tmp bs=512 count=1
-	dd if=blank_floppy of=tmp2.tmp bs=512 count=32 skip=1
-	dd if=/dev/zero of=tmp3.tmp bs=512 count=2880
-	cat tmp1.tmp tmp2.tmp kernel.bin tmp3.tmp > tmp4.tmp
-	dd if=tmp4.tmp of=floppy bs=512 count=2880
-	rm -f tmp1.tmp tmp2.tmp tmp3.tmp tmp4.tmp
+bin_files: bootsect.bin kernel.bin
 
 kernel.bin: $(KERNEL_OBJECTS)
 	ld --script=script.ld $(KERNEL_OBJECTS) -o $*.bin -Ttext $(KERNEL_START) --omagic --entry=kernel_entry --oformat elf32-i386 -Map kernel.map
+	cp kernel.bin kernel.elf
+	objcopy -O binary kernel.elf kernel.bin
 
 kernel.bss:
 	cat kernel.map | grep '\.bss ' | grep -v '\.o' | sed 's/.*0x/0x/'

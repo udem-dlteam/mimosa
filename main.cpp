@@ -40,16 +40,24 @@ extern "C" void println(uint32 str) {
   // term_writeline(cout);
 }
 
-void _user_print_int(int i) {
+void __attribute__((optimize("O0"))) _user_print_int(int i) {
   term_write(cout, "User print:");
   term_write(cout, i);
+  term_writeline(cout);
+}
+
+void __attribute__((optimize("O0"))) _user_print_int_ptr(int* i) {
+  term_write(cout, "User print int ptr:");
+  thread* curr = thread::self();
+  //i += curr->code();
+  term_write(cout, *i);
   term_writeline(cout);
 }
 
 void __attribute__((optimize("O0"))) _user_print_str(char* str) {
   // Correct the pointer address:
   thread* curr = thread::self();
-  str += curr->code();
+  // str += curr->code();
   term_write(cout, "User print str: \r\n");
   term_write(cout, str);
   term_writeline(cout);
@@ -60,6 +68,7 @@ int main() {
   user_func_table* table = (user_func_table*) 0x1F000;
   table->print_int = _user_print_int;
   table->print_str = _user_print_str;
+  table->print_int_ptr = _user_print_int_ptr;
 
   term* tty = &new_term(0, 320, 80, 10, &font_mono_6x9, L"tty", true);
   term_run(tty);
