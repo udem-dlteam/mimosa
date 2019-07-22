@@ -1,6 +1,11 @@
 #!/bin/bash
 mkdir -p /mnt/tmp
 
+
+if [ ! -f empty_usb.img ]; then
+    tar -pxvzf empty_usb.tar.gz
+fi
+
 cp empty_usb.img mimosa-build/floppy.img
 mount mimosa-build/floppy.img /mnt/tmp
 
@@ -13,7 +18,7 @@ rm -rf /mnt/tmp
 
 # Write the bootsector
 hexdump -C -n 512 mimosa-build/floppy.img
-
 dd if=mimosa-build/bootsect.bin of=mimosa-build/floppy.img bs=512 count=2 conv=notrunc
+
 
 chmod 777 mimosa-build/floppy.img
