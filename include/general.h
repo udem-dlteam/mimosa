@@ -113,7 +113,7 @@ typedef int32 error_code;
 //#define SHOW_CPU_INFO
 //#define SHOW_IDE_INFO
 #define SHOW_DISK_INFO
-//#define CHECK_ASSERTIONS
+// #define CHECK_ASSERTIONS
 // #define RED_PANIC_SCREEN
 //-----------------------------------------------------------------------------
 

@@ -1,6 +1,6 @@
 // file: "ide.h"
 
-// Copyright (c) 2001 by Marc Feeley and Université de Montréal, All
+// Copyright (c) 2001 by Marc Feeley and Universitï¿½ de Montrï¿½al, All
 // Rights Reserved.
 //
 // Revision History
@@ -144,15 +144,15 @@ typedef struct ide_controller_struct
     condvar* cmd_queue_condvar;
   } ide_controller;
 
-error_code ide_read_sectors
-  (ide_device* dev,
-   uint32 sector_pos,
-   void* buf,
-   uint32 count);
+  error_code ide_read_sectors(ide_device* dev, uint32 sector_pos, void* buf,
+                              uint32 count);
 
-void setup_ide ();
+  error_code ide_write_sectors(ide_device* dev, uint32 sector_pos, void* buf,
+                               uint32 count);
 
-//-----------------------------------------------------------------------------
+  void setup_ide();
+
+  //-----------------------------------------------------------------------------
 
 #endif
 

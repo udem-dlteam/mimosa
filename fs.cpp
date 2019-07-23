@@ -449,6 +449,32 @@ error_code read_file(file* f, void* buf, uint32 count) {
   return 0;
 }
 
+error_code create_file(native_string path) {
+  file_system* fs;
+  file* f;
+
+  if (fs_mod.nb_mounted_fs == 0) {
+    return FNF_ERROR;
+  }
+
+  fs = fs_mod.mounted_fs[0];
+
+  disk* d = fs->_.FAT121632.d;
+  ide_device* ide = d->_.ide.dev;
+
+  uint8 buff[512];
+
+  for(int i = 0; i < 512; ++i) {
+    if(i & 1) {
+      buff[i] = 0xAA;
+    } else {
+      buff[i] = 0xBB;
+    }
+  }
+
+  ide_write_sectors(ide, 3, buff, 1);
+}
+
 static error_code mount_FAT121632 (disk* d, file_system** result)
 {
   file_system* fs;

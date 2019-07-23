@@ -20,17 +20,10 @@
 
 // IDE controller ports and IRQs.
 
-static const struct
-  {
-    uint16 base;
-    uint16 irq;
-  } ide_controller_map[] =
-{
-  { 0x1f0, 14 },
-  { 0x170, 15 },
-  { 0x1e8, 12 },
-  { 0x168, 10 }
-};
+static const struct {
+  uint16 base;
+  uint16 irq;
+} ide_controller_map[] = {{0x1f0, 14}, {0x170, 15}, {0x1e8, 12}, {0x168, 10}};
 
 //-----------------------------------------------------------------------------
 
@@ -87,8 +80,10 @@ void ide_cmd_queue_free (ide_cmd_queue_entry* entry)
     }
 }
 
-void ide_irq (ide_controller* ctrl)
-{
+void ide_irq(ide_controller* ctrl) {
+
+  debug_write("[IDE_IRQ] IN");
+
   uint8 s;
   uint32 i;
   ide_cmd_queue_entry* entry;
@@ -96,41 +91,75 @@ void ide_irq (ide_controller* ctrl)
   uint16 base;
   uint16* p;
 
-  entry = &ctrl->cmd_queue[0]; // We only handle one operation at a time
+  entry = &ctrl->cmd_queue[0];  // We only handle one operation at a time
   dev = entry->dev;
   base = ide_controller_map[ctrl->id].base;
-  p = CAST(uint16*,entry->_.read_sectors.buf);
 
-  s = inb (base + IDE_STATUS_REG);
+  cmd_type type = entry->cmd;
 
-  if (s & IDE_STATUS_ERR)
-    {
-#if 0
-      uint8 err = inb (base + IDE_ERROR_REG);
-      cout << "***ERROR***\n";
-      if (err & IDE_ERROR_BBK)   cout << "Bad block mark detected in sector's ID field\n";
-      if (err & IDE_ERROR_UNC)   cout << "Uncorrectable data error encountered\n";
-      if (err & IDE_ERROR_IDNF)  cout << "Requested sector's ID field not found\n";
-      if (err & IDE_ERROR_ABRT)  cout << "Command aborted (status error or invalid cmd)\n";
-      if (err & IDE_ERROR_TK0NF) cout << "Track 0 not found during recalibrate command\n";
-      if (err & IDE_ERROR_AMNF)  cout << "Data address mark not found after ID field\n";
+  if (type == cmd_read_sectors) {
+    p = CAST(uint16*, entry->_.read_sectors.buf);
+  } else if (type == cmd_write_sectors) {
+    p = CAST(uint16*, entry->_.write_sectors.buf);
+  } else {
+    fatal_error("[IDE.CPP] Unknown command type...");
+  }
+
+  s = inb(base + IDE_STATUS_REG);
+
+  if (s & IDE_STATUS_ERR) {
+#ifdef SHOW_DISK_INFO
+    uint8 err = inb(base + IDE_ERROR_REG);
+
+    term_write(cout, "***IDE ERROR***\n");
+
+    if (err & IDE_ERROR_BBK)
+      term_write(cout, "Bad block mark detected in sector's ID field\n");
+    if (err & IDE_ERROR_UNC)
+      term_write(cout, "Uncorrectable data error encountered\n");
+    if (err & IDE_ERROR_IDNF)
+      term_write(cout, "Requested sector's ID field not found\n");
+    if (err & IDE_ERROR_ABRT)
+      term_write(cout, "Command aborted (status error or invalid cmd)\n");
+    if (err & IDE_ERROR_TK0NF)
+      term_write(cout, "Track 0 not found during recalibrate command\n");
+    if (err & IDE_ERROR_AMNF)
+      term_write(cout, "Data address mark not found after ID field\n");
 #endif
 
+    if (type == cmd_read_sectors) {
       entry->_.read_sectors.err = UNKNOWN_ERROR;
+    } else if (type == cmd_write_sectors) {
+      entry->_.write_sectors.err = UNKNOWN_ERROR;
+      fatal_error("[IDE.CPP] Unknown command type...");
     }
-  else
-    {
-      for (i=entry->_.read_sectors.count<<(IDE_LOG2_SECTOR_SIZE-1); i>0; i--)
-        *p++ = inw (base + IDE_DATA_REG);
+  } else if(type == cmd_read_sectors) {
+    for (i = entry->_.read_sectors.count << (IDE_LOG2_SECTOR_SIZE - 1); i > 0;
+         i--)
+      *p++ = inw(base + IDE_DATA_REG);
 
-      if (inb (base + IDE_ALT_STATUS_REG) & IDE_STATUS_DRQ)
-        entry->_.read_sectors.err = UNKNOWN_ERROR;
-      else
-        entry->_.read_sectors.err = NO_ERROR;
+    if (inb(base + IDE_ALT_STATUS_REG) & IDE_STATUS_DRQ)
+      entry->_.read_sectors.err = UNKNOWN_ERROR;
+    else
+      entry->_.read_sectors.err = NO_ERROR;
+  } else if (type == cmd_write_sectors) {
+    
+    debug_write("[IDE_IRQ] WRITE...");
+
+    for (i = entry->_.write_sectors.count << (IDE_LOG2_SECTOR_SIZE - 1); i > 0;
+         i--) {
+      outw(*p++, base + IDE_DATA_REG);
     }
 
-  entry->done->mutexless_signal ();
-  ide_cmd_queue_free (entry);
+    if (inb(base + IDE_ALT_STATUS_REG) & IDE_STATUS_DRQ) {
+      entry->_.write_sectors.err = UNKNOWN_ERROR;
+    } else {
+      entry->_.write_sectors.err = NO_ERROR;
+    }
+  }
+
+  entry->done->mutexless_signal();
+  ide_cmd_queue_free(entry);
 }
 
 #ifdef USE_IRQ14_FOR_IDE0
@@ -208,6 +237,68 @@ error_code ide_read_sectors
 
       enable_interrupts ();
     }
+
+  return err;
+}
+
+error_code ide_write_sectors(ide_device* dev, uint32 lba, void* buf,
+                             uint32 count) {
+  debug_write("[IDE WRT SEC] START");
+
+  error_code err = NO_ERROR;
+
+  ASSERT_INTERRUPTS_ENABLED();  // Interrupts should be enabled at this point
+
+  if (count > 0) {
+    ide_controller* ctrl = dev->ctrl;
+    uint16 base = ide_controller_map[ctrl->id].base;
+    ide_cmd_queue_entry* entry;
+
+    disable_interrupts();
+
+    entry = ide_cmd_queue_alloc(dev);
+
+    if (count > 256) count = 256;
+
+    entry->cmd = cmd_write_sectors;
+    entry->_.write_sectors.buf = buf;
+    entry->_.write_sectors.count = count;
+
+    outb(IDE_DEV_HEAD_LBA | IDE_DEV_HEAD_DEV(dev->id) | (lba >> 24),
+         base + IDE_DEV_HEAD_REG);
+    outb(count, base + IDE_SECT_COUNT_REG);
+    outb(lba, base + IDE_SECT_NUM_REG);
+    outb((lba >> 8), base + IDE_CYL_LO_REG);
+    outb((lba >> 16), base + IDE_CYL_HI_REG);
+    outb(IDE_WRITE_SECTORS_CMD, base + IDE_COMMAND_REG);
+
+    debug_write("Writing...");
+
+    uint16* p = CAST(uint16*, entry->_.write_sectors.buf);
+    int i =0;
+    for (i = entry->_.write_sectors.count << (IDE_LOG2_SECTOR_SIZE - 1); i > 0;
+         i--) {
+      outw(*p++, base + IDE_DATA_REG);
+    }
+
+    if (inb(base + IDE_ALT_STATUS_REG) & IDE_STATUS_DRQ) {
+      entry->_.write_sectors.err = UNKNOWN_ERROR;
+    } else {
+      entry->_.write_sectors.err = NO_ERROR;
+    }
+
+    debug_write("Finished writing...");
+  
+    debug_write("[IDE WRT SEC] WAIT");
+    entry->done->mutexless_wait();
+    debug_write("[IDE WRT SEC] NO WAIT");
+
+    err = entry->_.write_sectors.err;
+
+    ide_cmd_queue_free(entry);
+
+    enable_interrupts();
+  }
 
   return err;
 }

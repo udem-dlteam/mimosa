@@ -71,6 +71,10 @@ int main() {
   table->print_str = _user_print_str;
   table->print_int_ptr = _user_print_int_ptr;
 
+  debug_write("[START] Write to floppy");
+  create_file(NULL);
+  debug_write("[END  ] Write to floppy");
+
   term* tty = &new_term(0, 320, 80, 10, &font_mono_6x9, L"tty", true);
   term_run(tty);
   return 0;
