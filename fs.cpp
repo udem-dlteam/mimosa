@@ -295,7 +295,7 @@ static error_code next_FAT_section(file* f) {
   uint32 cluster;
   cache_block* cb;
   error_code err;
-  
+
   if (fs->kind == FAT12_FS) {
     debug_write("Reading the next FAT12 section");
     offset = n + (n >> 1);
@@ -332,10 +332,8 @@ static error_code next_FAT_section(file* f) {
     if (cluster >= 0xff8) return EOF_ERROR;
   } else {
     if (fs->kind == FAT16_FS) {
-      debug_write("Reading FAT16 FAT section");
       offset = n * 2;
     } else {
-      debug_write("Reading FAT32 FAT section");
       offset = n * 4;
     }
 
