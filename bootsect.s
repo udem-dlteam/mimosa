@@ -521,7 +521,6 @@ read_loop:
 
   start_kernel:
     cli
-    jmp start_kernel
     ljmp  $(KERNEL_START>>4),$0  # jump to "KERNEL_START" (which must be < 1MB)
 
 # ----------------------------------------------------------------------------------------------------------

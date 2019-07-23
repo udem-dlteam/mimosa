@@ -65,14 +65,20 @@ void __attribute__((optimize("O0"))) _user_print_str(char* str) {
 }
 
 int main() {
-
-  user_func_table* table = (user_func_table*) 0x1F000;
-  table->print_int = _user_print_int;
-  table->print_str = _user_print_str;
-  table->print_int_ptr = _user_print_int_ptr;
-
   term* tty = &new_term(0, 320, 80, 10, &font_mono_6x9, L"tty", true);
-  term_run(tty);
+  // term_run(tty);
+  native_string file_name = "GSI.EXE";
+
+  file* prog;
+  if (NO_ERROR == open_file(file_name, &prog)) {
+    term_write(tty, "\r\n Starting program ");
+    term_write(tty, file_name);
+    term_writeline(tty);
+    sched_start_task(prog);
+  } else {
+    term_write(tty, "\r\n Failed to open the program.\r\n");
+  }
+  
   return 0;
 }
 

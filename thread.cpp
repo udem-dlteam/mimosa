@@ -829,9 +829,12 @@ int sched_start_task(void* task_file_ptr) {
   // The program thread needs to be aware of what its doing
   file* task_file = CAST(file*, task_file_ptr);
   uint32 len = task_file->length;
-  uint8* code = (uint8*)kmalloc(sizeof(uint8) * 1024 * 10);  
+  uint8* code = (uint8*)kmalloc(sizeof(uint8) * len);  
 
-  read_file(task_file, code, 1024 * 10);
+  debug_write("File length: ");
+  debug_write(len);
+
+  read_file(task_file, code, len);
   // if (err == 0) {
   program_thread* task = new program_thread(CAST(libc_startup_fn, code));
   task->start();
