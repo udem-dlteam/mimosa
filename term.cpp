@@ -611,6 +611,7 @@ term* term_write(term* self, native_char x) {
   return term_write(self, buf);
 }
 
+const int OUT_PORT = 0XE9;
 
 void debug_write(uint32 x) {
   const int max_digits = 10;  // 2^32 contains 10 decimal digits
@@ -632,8 +633,13 @@ void debug_write(uint32 x) {
   debug_write(str);
 }
 
+void debug_write(native_char c) {
+  outb(c, OUT_PORT);
+  outb('\n', OUT_PORT);
+  outb('\r', OUT_PORT);
+}
+
 void debug_write(native_string str) {
-  const int OUT_PORT = 0XE9;
   while (*str != '\0') {
     outb(*str++, OUT_PORT);
   }

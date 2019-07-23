@@ -21,9 +21,7 @@
 //
 
 #define DISK_IDE 0
-
 #define MAX_NB_DISKS 32
-
 #define DISK_LOG2_BLOCK_SIZE 9
 
 const struct {

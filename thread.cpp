@@ -19,13 +19,9 @@
 #include "rtlib.h"
 #include "term.h"
 
-extern void libc_init(void);
-
 //-----------------------------------------------------------------------------
 
 // "mutex" class implementation.
-
-const uint32 GAMBIT_START = 0x1000000;
 
 mutex::mutex ()
 {
@@ -815,7 +811,6 @@ void program_thread::run() {
   int argc = 1;
   static char* argv[] = {"app", NULL};
   static char* env[] = {NULL};
-  libc_init();
   _code(argc, argv, env);
 }
 
@@ -829,13 +824,23 @@ int sched_start_task(void* task_file_ptr) {
   // The program thread needs to be aware of what its doing
   file* task_file = CAST(file*, task_file_ptr);
   uint32 len = task_file->length;
-  uint8* code = (uint8*)kmalloc(sizeof(uint8) * len);  
+  uint8* code = (uint8*)GAMBIT_START;
 
   debug_write("File length: ");
   debug_write(len);
 
-  read_file(task_file, code, len);
-  // if (err == 0) {
+  uint32 i;
+
+  error_code err;
+  for (i = 0; i < len; i += 512) {
+    if (ERROR(err = read_file(task_file, code + i, 512))) {
+      fatal_error("ERR");
+    }
+  }
+
+  term_write(cout,"File loaded. Starting program at: ");
+  term_write(cout, code);
+
   program_thread* task = new program_thread(CAST(libc_startup_fn, code));
   task->start();
   // } else {

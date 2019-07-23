@@ -251,10 +251,13 @@ typedef struct FAT_directory_entry_struct
               f->current_section_pos = 0;
               f->current_pos = 0;
               f->length = as_uint32(de.DIR_FileSize);
-              if (de.DIR_Attr & FAT_ATTR_DIRECTORY)
+
+              if (de.DIR_Attr & FAT_ATTR_DIRECTORY) {
                 f->mode = S_IFDIR;
-              else
+              } else {
                 f->mode = S_IFREG;
+              }
+
               goto found;
             }
           }

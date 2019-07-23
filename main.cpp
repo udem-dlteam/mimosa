@@ -16,6 +16,7 @@
 #include "fs.h"
 #include "fat32.h"
 #include "ps2.h"
+#include "rtlib.h"
 
 //-----------------------------------------------------------------------------
 
@@ -64,20 +65,61 @@ void __attribute__((optimize("O0"))) _user_print_str(char* str) {
   term_writeline(cout);
 }
 
+
+extern void libc_init(void);
+
 int main() {
+  libc_init();
+
   term* tty = &new_term(0, 320, 80, 10, &font_mono_6x9, L"tty", true);
   // term_run(tty);
-  native_string file_name = "GSI.EXE";
 
-  file* prog;
-  if (NO_ERROR == open_file(file_name, &prog)) {
-    term_write(tty, "\r\n Starting program ");
-    term_write(tty, file_name);
-    term_writeline(tty);
-    sched_start_task(prog);
-  } else {
-    term_write(tty, "\r\n Failed to open the program.\r\n");
+  {
+    native_string file_name = "COPYPA.TXT";
+    file* f;
+    if (NO_ERROR == open_file(file_name, &f)) {
+      // need free... lets use the static buff
+
+      uint8* buff = (uint8*) GAMBIT_START;
+
+      debug_write("[COPYPASTA] File length:");
+      debug_write(f->length);
+      debug_write(f->current_cluster);
+      debug_write(f->current_section_length);
+      debug_write(f->current_section_pos);
+      debug_write(f->current_section_start);
+      
+      error_code err;
+
+      if (ERROR(err = read_file(f, buff, f->length))) {
+        term_write(tty, "ERROR WHILE READING:\n");
+        term_write(tty, err);
+        fatal_error("ERR");
+      }
+      term_writeline(tty);
+      term_write(tty, CAST(native_string, buff + f->length - 200));
+      term_writeline(tty);
+    } else {
+      term_write(tty, "\r\n Failed to read the file.\r\n");
+    }
   }
+
+  {
+    native_string file_name = "GSI.EXE";
+
+    file* prog;
+    if (NO_ERROR == open_file(file_name, &prog)) {
+      term_write(tty, "\r\n Starting program ");
+      term_write(tty, file_name);
+      term_writeline(tty);
+      sched_start_task(prog);
+    } else {
+      term_write(tty, "\r\n Failed to open the program.\r\n");
+    }
+  }
+
+  // Never exit, but never do anything either
+  for(;;) thread::yield();
   
   return 0;
 }

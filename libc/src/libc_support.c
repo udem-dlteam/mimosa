@@ -6,7 +6,7 @@
 
 void libc_wr_char(int fd, char c) {
   // write(fd, &c, 1);
-  term_write(cout, c);
+  debug_write(c);
 }
 
 void libc_wr_string(int fd, const char *s) {

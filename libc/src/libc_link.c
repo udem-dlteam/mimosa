@@ -11,6 +11,8 @@
 
 void libc_init(void) {
 
+  debug_write("LIBC init start");
+
   /* dirent.h */
   LIBC_LINK._opendir = opendir;
   LIBC_LINK._readdir = readdir;
@@ -105,4 +107,7 @@ void libc_init(void) {
   libc_init_string();
   libc_init_time();
   libc_init_unistd();
+
+  
+  debug_write("LIBC init end");
 }
