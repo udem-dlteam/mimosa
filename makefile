@@ -3,7 +3,7 @@
 OS_NAME = "\"MIMOSA version 1.2\""
 KERNEL_START = 0x20000
 
-KERNEL_OBJECTS = kernel.o main.o fs.o ide.o disk.o thread.o chrono.o ps2.o term.o video.o intr.o rtlib.o fat32.o $(NETWORK_OBJECTS)
+KERNEL_OBJECTS = libc/libc.o kernel.o main.o fs.o ide.o disk.o thread.o chrono.o ps2.o term.o video.o intr.o rtlib.o fat32.o $(NETWORK_OBJECTS)
 NETWORK_OBJECTS =
 #NETWORK_OBJECTS = eepro100.o tulip.o timer2.o misc.o pci.o config.o net.o
 DEFS = -DINCLUDE_EEPRO100 
@@ -15,7 +15,7 @@ GPP = g++-3.4 -m32 -Wno-write-strings -ggdb3
 
 SPECIAL_OPTIONS =
 
-GCC_OPTIONS = $(SPECIAL_OPTIONS) $(DEFS) -DOS_NAME=$(OS_NAME) -DKERNEL_START=$(KERNEL_START) -fomit-frame-pointer -fno-strict-aliasing -Wall -O3 -nostdinc -Iinclude
+GCC_OPTIONS = $(SPECIAL_OPTIONS) $(DEFS) -DOS_NAME=$(OS_NAME) -DKERNEL_START=$(KERNEL_START) -fomit-frame-pointer -fno-strict-aliasing -Wall -O3 -nostdinc -Iinclude -Ilibc
 
 GPP_OPTIONS = $(GCC_OPTIONS) -fno-rtti -fno-builtin -fno-exceptions -nostdinc++
 
@@ -72,10 +72,10 @@ bootsect.bin: bootsect.o
 	ld $*.o -o $*.bin -Ttext 0x7c00 --omagic --entry=bootsect_entry --oformat binary -Map bootsect.map
 
 .cpp.o:
-	$(GPP) $(GPP_OPTIONS) -c $*.cpp
+	$(GPP) $(GPP_OPTIONS) -c -o $*.o $*.cpp
 
 .c.o:
-	$(GCC) $(GCC_OPTIONS) -c $*.c
+	$(GCC) $(GCC_OPTIONS) -c -o $*.o $*.c
 
 .s.o: kernel.bin
 	as --defsym OS_NAME=$(OS_NAME) --defsym KERNEL_START=$(KERNEL_START) --defsym KERNEL_SIZE=`cat kernel.bin | wc --bytes | sed -e "s/ //g"` -o $*.o $*.s
@@ -138,3 +138,5 @@ tulip.o: tulip.c etherboot.h osdep.h include/asm.h include/general.h \
 video.o: video.cpp include/video.h include/general.h include/asm.h \
 	include/vga.h include/term.h mono_5x7.cpp mono_6x9.cpp
 fat32.o: fat32.cpp include/fat32.h include/general.h
+
+libc/libc.o: libc/libc.cpp libc/include/libc_link.h libc/src/libc_support.c libc/include/dirent.h libc/include/errno.h libc/include/math.h libc/include/setjmp.h libc/include/stdio.h libc/include/stdlib.h libc/include/string.h libc/include/time.h libc/include/unistd.h libc/src/libc_link.c libc/src/dirent.c libc/src/errno.c libc/src/math.c libc/src/setjmp.c libc/src/stdio.c libc/src/stdlib.c libc/src/string.c libc/src/time.c libc/src/unistd.c

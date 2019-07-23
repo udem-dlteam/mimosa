@@ -14,6 +14,7 @@ echo "Mounting..."
 mount -t vfat ~/mimosa-build/floppy.img /mnt/tmp -o loop
 
 cp ~/mimosa-build/kernel.bin /mnt/tmp/BOOT.SYS
+# cp ~/mimosa-build/gsi.exe /mnt/tmp/gsi.exe
 
 ls -al /mnt/tmp # List all the files in the img
 

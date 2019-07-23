@@ -19,6 +19,8 @@
 #include "rtlib.h"
 #include "term.h"
 
+extern void libc_init(void);
+
 //-----------------------------------------------------------------------------
 
 // "mutex" class implementation.
@@ -800,7 +802,7 @@ uint32 thread::code() {
   return 0;
 }
 
-program_thread::program_thread(void_fn code) {
+program_thread::program_thread(libc_startup_fn code) {
   _code = code;
 }
 
@@ -810,12 +812,17 @@ native_string program_thread::name() {
 
 void program_thread::run() {
   debug_write("Running program thread");
-  _code();
+  int argc = 1;
+  static char* argv[] = {"app", NULL};
+  static char* env[] = {NULL};
+  libc_init();
+  _code(argc, argv, env);
 }
 
 uint32 program_thread::code() {
   return CAST(uint32,_code);
 }
+
 
 int sched_start_task(void* task_file_ptr) {
   // TODO:
@@ -826,7 +833,7 @@ int sched_start_task(void* task_file_ptr) {
 
   read_file(task_file, code, 1024 * 10);
   // if (err == 0) {
-  program_thread* task = new program_thread(CAST(void_fn, code));
+  program_thread* task = new program_thread(CAST(libc_startup_fn, code));
   task->start();
   // } else {
   // term_write(cout, "Problem executing the file: ");

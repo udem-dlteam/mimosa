@@ -366,11 +366,11 @@ class condvar : public wait_queue
 
 // "thread" class declaration.
 
-typedef void (*void_fn) ();
+  typedef void (*void_fn)();
+  typedef int (*libc_startup_fn)(int argc, char* argv[], char* env[]);
 
-class thread : public wait_mutex_sleep_node
-  {
-  public:
+  class thread : public wait_mutex_sleep_node {
+   public:
 
     // constructs a thread that will call "run"
     thread ();
@@ -437,14 +437,14 @@ class thread : public wait_mutex_sleep_node
 
   class program_thread : public thread {
    public:
-    program_thread(void_fn code);
+    program_thread(libc_startup_fn code);
 
     char* name ();/////
     uint32 code();
 
    protected:
     virtual void run();
-    void_fn _code;
+    libc_startup_fn _code;
   };
 
   //-----------------------------------------------------------------------------

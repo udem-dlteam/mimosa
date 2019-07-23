@@ -115,6 +115,7 @@ typedef int32 error_code;
 #define SHOW_DISK_INFO
 //#define CHECK_ASSERTIONS
 // #define RED_PANIC_SCREEN
+#define ENABLE_LIBC_TRACE
 //-----------------------------------------------------------------------------
 
 #endif

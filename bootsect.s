@@ -521,6 +521,7 @@ read_loop:
 
   start_kernel:
     cli
+    jmp start_kernel
     ljmp  $(KERNEL_START>>4),$0  # jump to "KERNEL_START" (which must be < 1MB)
 
 # ----------------------------------------------------------------------------------------------------------
@@ -535,8 +536,8 @@ cluster_to_lba:
 
   subl $2, %eax
   movb nb_sectors_per_cluster, %dl # It kinda sucks that sectors per cluster is stored as an integer
-  mull %edx                        # and not just a power of two. It would be faster and easier
-  addl cluster_begin_lba, %eax
+  mull %edx                        # and not just a power of two. It would be faster and easier to only
+  addl cluster_begin_lba, %eax     # do some shifts
   
   popl %edx
   ret

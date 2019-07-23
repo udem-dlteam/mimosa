@@ -16,6 +16,14 @@ kernel_entry:  # this is the kernel's entry point
   .code16  # at this point the processor is in 16 bit real mode
            # and %cs is equal to (KERNEL_START>>4)
 
+  .byte 0xAA
+  .byte 0xDD
+
+  pushl %eax
+  movb $'D', %al
+  out %al, $0xe9
+  popl %eax
+
 set_video_mode:
 
 # Setup an appropriate video mode.
@@ -250,6 +258,11 @@ SYST_SEG_SEL = (SYST_SEGMENT<<3)+(GDT<<2)+PL_0
 DATA_SEG_SEL = (DATA_SEGMENT<<3)+(GDT<<2)+PL_0
 CODE_SEG_SEL = (CODE_SEGMENT<<3)+(GDT<<2)+PL_0
 
+pushl %eax
+movb $'A', %al
+out %al, $0xe9
+popl %eax
+
 #------------------------------------------------------------------------------
 
 init_segs:
@@ -299,6 +312,11 @@ init_idt:
   movl  %ebx,%es:-4(%bp)
   subw  $8,%bp
   jne   1b
+
+pushl %eax
+movb $'B', %al
+out %al, $0xe9
+popl %eax
 
 # initialize the IDT entries for INT0 to INT15, IRQ0 to IRQ15, and
 # the APIC timer and spurious interrupts
@@ -688,6 +706,11 @@ switch_to_32bit_protected_mode:
   movl  %cr0,%eax  # turn on protected mode
   orb   $1,%al
   movl  %eax,%cr0
+
+  pushl %eax
+movb $'C', %al
+out %al, $0xe9
+popl %eax
 
   jmp   prefetch_queue_cleared  # this jump clears the prefetch queue
 
