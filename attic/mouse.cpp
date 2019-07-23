@@ -11,7 +11,7 @@
 #include "mouse.h"
 #include "asm.h"
 #include "kbd.h"
-#include "time.h"
+#include "chrono.h"
 #include "video.h"
 #include "term.h"
 

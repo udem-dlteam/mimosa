@@ -11,7 +11,7 @@
 #include "general.h"
 #include "term.h"
 #include "thread.h"
-#include "time.h"
+#include "chrono.h"
 #include "disk.h"
 #include "fs.h"
 #include "fat32.h"

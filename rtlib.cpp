@@ -10,7 +10,7 @@
 
 #include "rtlib.h"
 #include "intr.h"
-#include "time.h"
+#include "chrono.h"
 #include "ide.h"
 #include "disk.h"
 #include "fs.h"

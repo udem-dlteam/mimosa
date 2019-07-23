@@ -1,6 +1,6 @@
 // file: "main.cpp"
 
-// Copyright (c) 2001 by Marc Feeley and Université de Montréal, All
+// Copyright (c) 2001 by Marc Feeley and Universitï¿½ de Montrï¿½al, All
 // Rights Reserved.
 //
 // Revision History
@@ -13,7 +13,7 @@
 #include "general.h"
 #include "term.h"
 #include "apic.h"
-#include "time.h"
+#include "chrono.h"
 #include "asm.h"
 #include "intr.h"
 #include "thread.h"
@@ -996,9 +996,9 @@ ECh: Identify Drive
   uint32 c = c_tv.tv_usec - b_tv.tv_usec
              + (c_tv.tv_sec - b_tv.tv_sec) * 1000000;
 
-  cout << "boucle 1: " << 800 * 1000000 / a << " caractères / seconde\n";
-  cout << "boucle 2: " << 800 * 1000000 / b << " caractères / seconde\n";
-  cout << "boucle 3: " << 800 * 1000000 / c << " caractères / seconde\n";
+  cout << "boucle 1: " << 800 * 1000000 / a << " caractï¿½res / seconde\n";
+  cout << "boucle 2: " << 800 * 1000000 / b << " caractï¿½res / seconde\n";
+  cout << "boucle 3: " << 800 * 1000000 / c << " caractï¿½res / seconde\n";
 
   thread1* t1 = new (thread_allocator::pool) thread1;
   thread2* t2 = new (thread_allocator::pool) thread2;
@@ -1161,7 +1161,7 @@ ECh: Identify Drive
 
 // file: "main.cpp"
 
-// Copyright (c) 2001 by Marc Feeley and Université de Montréal, All
+// Copyright (c) 2001 by Marc Feeley and Universitï¿½ de Montrï¿½al, All
 // Rights Reserved.
 //
 // Revision History
@@ -1173,7 +1173,7 @@ ECh: Identify Drive
 #include "term.h"
 #include "fifo.h"
 #include "thread.h"
-#include "time.h"
+#include "chrono.h"
 #include "ps2.h"
 
 //-----------------------------------------------------------------------------

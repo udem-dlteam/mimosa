@@ -12,7 +12,7 @@
 #include "ps2.h"
 #include "intr.h"
 #include "asm.h"
-#include "time.h"
+#include "chrono.h"
 #include "video.h"
 #include "term.h"
 #include "rtlib.h"

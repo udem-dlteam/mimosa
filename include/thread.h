@@ -13,7 +13,7 @@
 
 #include "general.h"
 #include "intr.h"
-#include "time.h"
+#include "chrono.h"
 
 //-----------------------------------------------------------------------------
 

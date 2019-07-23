@@ -15,7 +15,7 @@
 #include "pit.h"
 #include "fs.h"
 #include "intr.h"
-#include "time.h"
+#include "chrono.h"
 #include "rtlib.h"
 #include "term.h"
 
