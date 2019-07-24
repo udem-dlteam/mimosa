@@ -340,8 +340,7 @@ static error_code next_FAT_section(file* f) {
       offset = n * 4;
     }
 
-    sector_pos =
-        fs->_.FAT121632.reserved_sectors + (offset >> fs->_.FAT121632.log2_bps);
+    sector_pos = fs->_.FAT121632.reserved_sectors + (offset >> fs->_.FAT121632.log2_bps);
 
     offset &= ~(~0U << fs->_.FAT121632.log2_bps);
 
@@ -365,14 +364,15 @@ static error_code next_FAT_section(file* f) {
   }
 
   f->current_cluster = cluster;
-  f->current_section_length =
-      1 << (fs->_.FAT121632.log2_bps + fs->_.FAT121632.log2_spc);
+  f->current_section_length = 1 << (fs->_.FAT121632.log2_bps + fs->_.FAT121632.log2_spc);
+  f->current_section_start = ((cluster - 2) << fs->_.FAT121632.log2_spc) + fs->_.FAT121632.first_data_sector;
+
   f->current_section_pos = 0;
 
   return NO_ERROR;
 }
 
-error_code read_file(file* f, void* buf, uint32 count) {
+error_code __attribute__((optimize("O0"))) read_file(file* f, void* buf, uint32 count) {
   if (count > 0) {
     file_system* fs = f->fs;
     error_code err;
@@ -397,11 +397,15 @@ error_code read_file(file* f, void* buf, uint32 count) {
           uint32 left1;
           uint32 left2;
 
-          if (f->current_section_pos >= f->current_section_length)
+          if (f->current_section_pos >= f->current_section_length) {
             if (ERROR(err = next_FAT_section(f))) {
               if (err != EOF_ERROR) return err;
               break;
             }
+          }
+
+          // debug_write("Reading cluster:");
+          // debug_write(f->current_cluster);
 
           left1 = f->current_section_length - f->current_section_pos;
 
@@ -409,23 +413,19 @@ error_code read_file(file* f, void* buf, uint32 count) {
 
           while (left1 > 0) {
             cache_block* cb;
-
             if (ERROR(err = disk_cache_block_acquire(
                           fs->_.FAT121632.d,
-                          f->current_section_start +
-                              (f->current_section_pos >> DISK_LOG2_BLOCK_SIZE),
-                          &cb)))
+                          f->current_section_start + (f->current_section_pos >> DISK_LOG2_BLOCK_SIZE),
+                          &cb))) {
               return err;
+            }
 
             left2 = (1 << DISK_LOG2_BLOCK_SIZE) -
                     (f->current_section_pos & ~(~0U << DISK_LOG2_BLOCK_SIZE));
 
             if (left2 > left1) left2 = left1;
 
-            memcpy(p,
-                   cb->buf + (f->current_section_pos &
-                              ~(~0U << DISK_LOG2_BLOCK_SIZE)),
-                   left2);
+            memcpy(p, cb->buf + (f->current_section_pos & ~(~0U << DISK_LOG2_BLOCK_SIZE)), left2);
 
             if (ERROR(err = disk_cache_block_release(cb))) return err;
 
@@ -433,6 +433,7 @@ error_code read_file(file* f, void* buf, uint32 count) {
             f->current_section_pos += left2;
             f->current_pos += left2;
             n -= left2;
+            p += left2; // We read chars, skip to the next part
           }
         }
 

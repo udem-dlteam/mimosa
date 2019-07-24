@@ -17,8 +17,7 @@
 
 //-----------------------------------------------------------------------------
 
-
-const uint32 GAMBIT_START = 0x1000000;
+const uint32 GAMBIT_START = 0x100000;
 
 typedef struct user_func_table {
   void (*print_int)(int i);

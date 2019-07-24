@@ -162,8 +162,7 @@ void operator delete[] (void* obj)
   operator delete (obj);
 }
 
-extern "C"
-void* memcpy (void* dest, const void* src, size_t n)
+extern "C" void* memcpy (void* dest, const void* src, size_t n)
 {
   uint8* d = CAST(uint8*,dest);
   uint8* s = CAST(uint8*,src);

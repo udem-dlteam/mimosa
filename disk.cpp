@@ -89,8 +89,9 @@ error_code disk_read_sectors(disk* d, uint32 sector_pos, void* buf,
   return UNKNOWN_ERROR;
 }
 
-error_code disk_cache_block_acquire(disk* d, uint32 sector_pos,
+error_code __attribute__((optimize("O0"))) disk_cache_block_acquire(disk* d, uint32 sector_pos,
                                     cache_block** block) {
+
   error_code err;
   cache_block* cb = NULL;
   cache_block_deq* LRU_deq;

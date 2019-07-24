@@ -80,7 +80,7 @@ int main() {
     if (NO_ERROR == open_file(file_name, &f)) {
       // need free... lets use the static buff
 
-      uint8* buff = (uint8*) GAMBIT_START;
+      uint8* buff = (uint8*) kmalloc(f->length * sizeof(char));
 
       debug_write("[COPYPASTA] File length:");
       debug_write(f->length);
@@ -90,33 +90,36 @@ int main() {
       debug_write(f->current_section_start);
       
       error_code err;
-
+      debug_write("Starting to read the file...");
       if (ERROR(err = read_file(f, buff, f->length))) {
         term_write(tty, "ERROR WHILE READING:\n");
         term_write(tty, err);
         fatal_error("ERR");
       }
-      term_writeline(tty);
-      term_write(tty, CAST(native_string, buff + f->length - 200));
-      term_writeline(tty);
+      debug_write("Done writing... printing soon");
+
+      term_write(tty, '---\n\r');
+      term_write(tty, CAST(native_string, buff));
+      term_write(tty, "!");
+      term_write(tty, "\n\r----");
     } else {
       term_write(tty, "\r\n Failed to read the file.\r\n");
     }
   }
 
-  {
-    native_string file_name = "GSI.EXE";
+  // {
+  //   native_string file_name = "GSI.EXE";
 
-    file* prog;
-    if (NO_ERROR == open_file(file_name, &prog)) {
-      term_write(tty, "\r\n Starting program ");
-      term_write(tty, file_name);
-      term_writeline(tty);
-      sched_start_task(prog);
-    } else {
-      term_write(tty, "\r\n Failed to open the program.\r\n");
-    }
-  }
+  //   file* prog;
+  //   if (NO_ERROR == open_file(file_name, &prog)) {
+  //     term_write(tty, "\r\n Starting program ");
+  //     term_write(tty, file_name);
+  //     term_writeline(tty);
+  //     sched_start_task(prog);
+  //   } else {
+  //     term_write(tty, "\r\n Failed to open the program.\r\n");
+  //   }
+  // }
 
   // Never exit, but never do anything either
   for(;;) thread::yield();
