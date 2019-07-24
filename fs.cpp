@@ -372,7 +372,7 @@ static error_code next_FAT_section(file* f) {
   return NO_ERROR;
 }
 
-error_code __attribute__((optimize("O0"))) read_file(file* f, void* buf, uint32 count) {
+error_code read_file(file* f, void* buf, uint32 count) {
   if (count > 0) {
     file_system* fs = f->fs;
     error_code err;

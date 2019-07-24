@@ -2,6 +2,7 @@
 #include "term.h"
 #include "ps2.h"
 
+#define USE_MIMOSA
 #ifdef USE_MIMOSA
 
 void libc_wr_char(int fd, char c) {
@@ -17,12 +18,7 @@ void libc_wr_string(int fd, const char *s) {
 }
 
 int libc_rd_char(int fd) {
-  // char c;
-  // if (read(fd, &c, 1) == 1)
-  //   return c;
-  char c = getchar();
-  libc_wr_char(0, c);
-  return c;
+  return readline();
 }
 
 #else

@@ -156,8 +156,10 @@ static uint32 keymap[4] = { 0, 0, 0, 0 };
 #define PRESSED(code) (keymap[(code) >> 5] & (1 << ((code) & 0x1f)))
 
 #define BUFFER_SIZE 16
+#define LINE_BUFFER_SIZE (1 << 11)
 
 static volatile native_char circular_buffer[BUFFER_SIZE];
+static volatile native_char line_buffer[LINE_BUFFER_SIZE];
 static volatile int circular_buffer_lo = 0;
 static volatile int circular_buffer_hi = 0;
 static condvar* circular_buffer_cv;
@@ -190,6 +192,57 @@ native_char getchar() {
 
   return result;
 }
+
+volatile bool buffer_flush = false;
+volatile uint16 buffer_flush_pos = 0;
+volatile uint16 buffer_write_pos = 0;
+
+#pragma GCC push_options
+#pragma GCC optimize ("O0")
+
+native_char __attribute__((optimize("O0"))) readline() {
+  term* io = cout;  // maybe get it from the running thread...
+
+  char read[2];
+  read[1] = '\0';
+  while (1) {
+    if (buffer_flush) {
+      if (buffer_flush_pos < buffer_write_pos) {
+        char to_return = line_buffer[buffer_flush_pos++];
+        return to_return;
+      } else {
+        buffer_flush = false;
+        buffer_flush_pos = buffer_write_pos = 0;
+      }
+    }
+
+    char c = read[0] = getchar();
+
+    if (IS_VISIBLE_CHAR(c)) {
+      term_write(io, c);
+      line_buffer[buffer_write_pos++] = c;
+    } else if (IS_NEWLINE(c)) {
+      // The newline terminates the input
+      term_write(io, "\n\r");
+      line_buffer[buffer_write_pos++] = '\n';
+      line_buffer[buffer_write_pos + 1] = '\0';
+      buffer_flush = true;
+    } else if (ASCII_BACKSPACE == c) {
+      // Don't overrun the Gambit term.
+      if (buffer_write_pos > 0) {
+        term_write(io, c);
+        term_write(io, ' ');
+        term_write(io, c);
+        line_buffer[--buffer_write_pos] = ' ';
+      }
+    } else {
+      debug_write("Dropping unknown char: ");
+      debug_write(read);
+    }
+  }
+}
+
+#pragma GCC pop_options
 
 static void process_keyboard_data(uint8 data) {
 

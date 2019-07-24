@@ -42,13 +42,13 @@ extern "C" void println(uint32 str) {
   // term_writeline(cout);
 }
 
-void __attribute__((optimize("O0"))) _user_print_int(int i) {
+void  _user_print_int(int i) {
   term_write(cout, "User print:");
   term_write(cout, i);
   term_writeline(cout);
 }
 
-void __attribute__((optimize("O0"))) _user_print_int_ptr(int* i) {
+void  _user_print_int_ptr(int* i) {
   term_write(cout, "User print int ptr:");
   thread* curr = thread::self();
   //i += curr->code();
@@ -56,7 +56,7 @@ void __attribute__((optimize("O0"))) _user_print_int_ptr(int* i) {
   term_writeline(cout);
 }
 
-void __attribute__((optimize("O0"))) _user_print_str(char* str) {
+void  _user_print_str(char* str) {
   // Correct the pointer address:
   thread* curr = thread::self();
   // str += curr->code();
