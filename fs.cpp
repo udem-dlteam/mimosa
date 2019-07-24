@@ -394,19 +394,14 @@ error_code read_file(file* f, void* buf, uint32 count) {
 
         while (n > 0) {
 
-          debug_write("Reading...");
-
           uint32 left1;
           uint32 left2;
 
           if (f->current_section_pos >= f->current_section_length) {
-            debug_write("Must get next FAT...");
             if (ERROR(err = next_FAT_section(f))) {
-              debug_write("Error while reading the fat...");
               if (err != EOF_ERROR) return err;
               break;
             }
-            debug_write("Next fat read");
           }
 
           // debug_write("Reading cluster:");
@@ -417,7 +412,6 @@ error_code read_file(file* f, void* buf, uint32 count) {
           if (left1 > n) left1 = n;
 
           while (left1 > 0) {
-            debug_write("[left1 > 0]");
 
             cache_block* cb;
             if (ERROR(err = disk_cache_block_acquire(
