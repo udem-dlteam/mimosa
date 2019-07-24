@@ -717,7 +717,7 @@ void term_run(term* term) {
         term_write(term, "\r\n Starting program ");
         term_write(term, file_name);
         term_writeline(term);
-        sched_start_task(prog);
+        // sched_start_task(prog);
       } else {
         term_write(term, "\r\n Failed to open the program.\r\n");
       }

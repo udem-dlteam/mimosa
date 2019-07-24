@@ -101,7 +101,7 @@ uint8 log2 (uint32 n)
 
 // For now, a simple linear allocator is used.  Memory is never reclaimed.
 
-static uint32 alloc_ptr = (1<<20); // start at 1MB
+static uint32 alloc_ptr = 0xB * (1<<20); // start at 1MB
 
 void* kmalloc (size_t size)
 {

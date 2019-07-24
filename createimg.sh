@@ -15,7 +15,7 @@ mount -t vfat ~/mimosa-build/floppy.img /mnt/tmp -o loop
 
 cp ~/mimosa-build/kernel.bin /mnt/tmp/BOOT.SYS
 cp ~/mimosa-build/gsi.exe    /mnt/tmp/gsi.exe
-cp ~/mimosa-build/copypa.txt /mnt/tmp/copypa.txt
+# cp ~/mimosa-build/copypa.txt /mnt/tmp/copypa.txt
 
 ls -al /mnt/tmp # List all the files in the img
 

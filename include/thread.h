@@ -653,8 +653,6 @@ void sched_reg_mutex(mutex* m);
 
 void sched_reg_condvar(condvar* c);
 
-int sched_start_task(void* task_file);
-
 void _sched_reschedule_thread(thread* t);
 
 void _sched_yield_if_necessary();

@@ -818,40 +818,6 @@ uint32 program_thread::code() {
   return CAST(uint32,_code);
 }
 
-
-int sched_start_task(void* task_file_ptr) {
-  // TODO:
-  // The program thread needs to be aware of what its doing
-  file* task_file = CAST(file*, task_file_ptr);
-  uint32 len = task_file->length;
-  uint8* code = (uint8*)GAMBIT_START;
-
-  debug_write("File length: ");
-  debug_write(len);
-
-  uint32 i;
-
-  error_code err;
-  for (i = 0; i < len; i += 512) {
-    if (ERROR(err = read_file(task_file, code + i, 512))) {
-      fatal_error("ERR");
-    }
-  }
-
-  term_write(cout,"File loaded. Starting program at: ");
-  term_write(cout, code);
-
-  program_thread* task = new program_thread(CAST(libc_startup_fn, code));
-  task->start();
-  // } else {
-  // term_write(cout, "Problem executing the file: ");
-  // term_write(cout, err);
-  // term_writeline(cout);
-  // }
-
-  return 0;
-}
-
 wait_queue* readyq;
 sleep_queue* sleepq;
 thread* sched_primordial_thread;
