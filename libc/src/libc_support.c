@@ -6,7 +6,6 @@
 
 void libc_wr_char(int fd, char c) {
   // write(fd, &c, 1);
-  debug_write("WR!");
   term_write(cout, (native_char) c);
 }
 
@@ -21,10 +20,9 @@ int libc_rd_char(int fd) {
   // char c;
   // if (read(fd, &c, 1) == 1)
   //   return c;
-
-  return getchar();
-
-  // return -1;
+  char c = getchar();
+  libc_wr_char(0, c);
+  return c;
 }
 
 #else

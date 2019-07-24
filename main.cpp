@@ -131,6 +131,12 @@ int main() {
 
       term_write(cout, "File loaded. Starting program at: ");
       term_write(cout, code);
+      
+      thread::sleep(1000);
+
+      for (int i = 0; i < 5; ++i) {
+        term_writeline(cout);
+      }
 
       program_thread* task = new program_thread(CAST(libc_startup_fn, code));
       task->start();
