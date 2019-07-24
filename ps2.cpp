@@ -200,7 +200,7 @@ volatile uint16 buffer_write_pos = 0;
 #pragma GCC push_options
 #pragma GCC optimize ("O0")
 
-native_char __attribute__((optimize("O0"))) readline() {
+native_char readline() {
   term* io = cout;  // maybe get it from the running thread...
 
   char read[2];
@@ -235,9 +235,12 @@ native_char __attribute__((optimize("O0"))) readline() {
         term_write(io, c);
         line_buffer[--buffer_write_pos] = ' ';
       }
+    } else if (IS_DEL(c)) {
+      // trash
     } else {
       debug_write("Dropping unknown char: ");
       debug_write(read);
+      debug_write((uint32)read[0]);
     }
   }
 }
@@ -253,8 +256,10 @@ static void process_keyboard_data(uint8 data) {
       code = keycode_table[data].with_shift;
     } else if (PRESSED(KBD_SCANCODE_CTRL)) {
       code = keycode_table[data].with_ctrl;
+      code = keycode_table[data].normal;
     } else if (PRESSED(KBD_SCANCODE_ALT)) {
       code = keycode_table[data].with_alt;
+      code = keycode_table[data].normal;
     } else {
       code = keycode_table[data].normal;
     }

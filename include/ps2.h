@@ -195,6 +195,7 @@
 
 #define IS_VISIBLE_CHAR(c) (((c) >= 0x20) && ((c) <= 0x7E))
 #define IS_NEWLINE(c) (((c) == '\r') || ((c) == '\n'))
+#define IS_DEL(c) ((c) == 127)
 #define ASCII_BACKSPACE 0x08
 
 void setup_ps2 ();

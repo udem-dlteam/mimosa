@@ -373,10 +373,7 @@ idle_thread::idle_thread()
 }
 
 void idle_thread::run() {
-  for (;;) {
-    // debug_write("I");
-    thread::yield();
-  }
+  for (;;) thread::yield();
 }
 
 extern "C" void a_sti();
