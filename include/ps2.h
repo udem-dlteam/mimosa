@@ -1,6 +1,6 @@
 // file: "ps2.h"
 
-// Copyright (c) 2001-2002 by Marc Feeley and Université de Montréal, All
+// Copyright (c) 2001-2002 by Marc Feeley and Universitï¿½ de Montrï¿½al, All
 // Rights Reserved.
 //
 // Revision History
@@ -194,7 +194,7 @@
 #define KBD_SCANCODE_MENU      0x5D // always prefixed with 0xE0
 
 void setup_ps2 ();
-unicode_char getchar ();
+native_char getchar ();
 
 //-----------------------------------------------------------------------------
 

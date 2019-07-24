@@ -157,7 +157,7 @@ static uint32 keymap[4] = { 0, 0, 0, 0 };
 
 #define BUFFER_SIZE 16
 
-static volatile unicode_char circular_buffer[BUFFER_SIZE];
+static volatile native_char circular_buffer[BUFFER_SIZE];
 static volatile int circular_buffer_lo = 0;
 static volatile int circular_buffer_hi = 0;
 static condvar* circular_buffer_cv;
@@ -174,14 +174,14 @@ static void keypress(uint8 ch) {
   }
 }
 
-unicode_char getchar() {
+native_char getchar() {
   disable_interrupts();
 
   while (circular_buffer_lo == circular_buffer_hi) {
     circular_buffer_cv->mutexless_wait();
   }
 
-  unicode_char result = circular_buffer[circular_buffer_lo];
+  native_char result = circular_buffer[circular_buffer_lo];
 
   circular_buffer_lo = (circular_buffer_lo + 1) % BUFFER_SIZE;
 
