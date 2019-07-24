@@ -812,6 +812,7 @@ void program_thread::run() {
   static char* argv[] = {"app", NULL};
   static char* env[] = {NULL};
   _code(argc, argv, env);
+  debug_write("End program thread");
 }
 
 uint32 program_thread::code() {
