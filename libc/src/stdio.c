@@ -95,9 +95,7 @@ size_t fread(void *__restrict __ptr, size_t __size,
 #ifdef USE_HOST_LIBC
 
 #undef fread
-
   return fread(__ptr, __size, __n, __stream);
-
 #else
 
   /* TODO: implement reading other files than stdin */
@@ -122,6 +120,8 @@ size_t fread(void *__restrict __ptr, size_t __size,
   } else {
     debug_write("Incorrect stream");
   }
+
+  return 1;
 
   debug_write("Returning: ");
   debug_write(i);

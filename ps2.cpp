@@ -214,7 +214,22 @@ getchar0_done:
   return result;
 }
 
-native_char getchar() { return CAST(native_char, getchar0(TRUE) & 0xFF); }
+native_char getchar() {
+  disable_interrupts();
+
+  while (circular_buffer_lo == circular_buffer_hi) {
+    circular_buffer_cv->mutexless_wait();
+  }
+
+  unicode_char result = circular_buffer[circular_buffer_lo];
+
+  circular_buffer_lo = (circular_buffer_lo + 1) % BUFFER_SIZE;
+
+  circular_buffer_cv->mutexless_signal();
+  enable_interrupts();
+
+  return result;
+}
 
 volatile bool buffer_flush = false;
 volatile uint16 buffer_flush_pos = 0;
