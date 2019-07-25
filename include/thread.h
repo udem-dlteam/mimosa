@@ -53,8 +53,17 @@ typedef struct user_func_table {
 
 #else
 
-#define ASSERT_INTERRUPTS_DISABLED()
-#define ASSERT_INTERRUPTS_ENABLED()
+#define ASSERT_INTERRUPTS_DISABLED()                \
+  do {                                              \
+    debug_write("Failed interrupt disabled at " +  \
+                __LINE__++ " in file " ++__FILE__); \
+  } while (0) 
+
+#define ASSERT_INTERRUPTS_ENABLED()                \
+  do {                                              \
+    debug_write("Failed interrupt enabled at " +  \
+                __LINE__++ " in file " ++__FILE__); \
+  } while (0) 
 
 #endif
 
