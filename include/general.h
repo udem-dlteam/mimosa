@@ -132,7 +132,7 @@ typedef int32 error_code;
   do {                              \
     debug_write("SURROUND IN ");    \
     debug_write(__FILE__);          \
-    debug_write(__LINE__);          \
+    debug_write(__LINE__ - 2);      \
     code;                           \
     debug_write("END SURROUND");    \
   } while (0)

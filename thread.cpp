@@ -326,7 +326,6 @@ thread* thread::start() {
   disable_interrupts ();
   _sched_reschedule_thread(this);
   _sched_yield_if_necessary();
-  enable_interrupts ();
   return this;
 }
 
