@@ -384,7 +384,7 @@ void idle_thread::run() {
   for (;;) thread::yield();
 }
 
-extern "C" void a_sti();
+extern void libc_init(void);
 
 void __rtlib_setup ()
 { 
@@ -399,6 +399,8 @@ void __rtlib_setup ()
 
   (new idle_thread)->start (); // need an idle thread to prevent deadlocks
 
+  term_write(cout, "Loading up LIBC\n");
+  libc_init();
   term_write(cout, "Loading up disks...\n");
   setup_disk ();
   term_write(cout, "Loading up IDE controllers...\n");
