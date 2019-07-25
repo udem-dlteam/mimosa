@@ -42,6 +42,14 @@ void fatal_error (native_string msg)
 {
   __asm__ __volatile__ ("cli" : : : "memory");
   debug_write(msg);
+
+  #ifdef RED_PANIC_SCREEN
+    raw_bitmap_fill_rect((raw_bitmap*)&screen, 0, 0, 640, 480, &pattern_red);
+
+    font_draw_string(&font_mono_6x9, &screen.super, 640 / 2, 480 / 2,
+                     CAST(unicode_string, msg), &pattern_white, &pattern_black);
+#endif
+  
   for (;;) ; // freeze execution
 
   // ** NEVER REACHED ** (this function never returns)

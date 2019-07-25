@@ -351,15 +351,15 @@ void thread::yield() {
 thread* thread::self() { return sched_current_thread; }
 
 void thread::sleep(int64 timeout_nsecs) {
-#if 0
-  if (timeout_nsecs > 0)
-    {
-      time timeout = add_time (current_time (),
-                               nanoseconds_to_time (timeout_nsecs));
-
-      while (less_time (current_time (), timeout))
-        yield ();
+#ifdef BUSY_WAIT_INSTEAD_OF_SLEEP
+#pragma GCC push_options
+#pragma GCC optimize("O0")
+  for (int i = 0; i < 1000000; ++i) {
+    for (int j = 0; j < timeout_nsecs; ++j) {
+      __asm__ __volatile__ ("NOP" : : : "memory");
     }
+  }
+#pragma pop_options
 #else
   disable_interrupts();
 
@@ -482,7 +482,7 @@ void APIC_timer_irq ()
 
   APIC_EOI = 0;
 
-  scheduler::timer_elapsed ();
+  _sched_timer_elapsed();
 }
 
 #endif

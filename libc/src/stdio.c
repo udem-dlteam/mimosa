@@ -1,5 +1,7 @@
 #include "include/libc_common.h"
 #include "include/stdio.h"
+#include "ps2.h"
+#include "general.h"
 
 #ifndef USE_LIBC_LINK
 
@@ -100,18 +102,33 @@ size_t fread(void *__restrict __ptr, size_t __size,
 
   /* TODO: implement reading other files than stdin */
 
+  int i = 0;
   if (__stream == &FILE_stdin) {
 
-    char *p = (char*)__ptr;
+    char *p = (char *)__ptr;
+    #if 0
     int n = __size * __n;
-
-    while (n > 0) {
-      *p++ = libc_rd_char(0);
-      n--;
+    while (i < n) {
+      int c = getchar0(FALSE);
+      if (c < 0) break;
+      *p++ = c;
+      i++;
     }
+    #else
+      debug_write("Calling getchar() in stdio");
+      *p++ = getchar();
+      i++;
+    #endif
+  } else {
+    debug_write("Incorrect stream");
   }
 
-  return __n;
+  debug_write("Returning: ");
+  debug_write(i);
+  debug_write(__size);
+  debug_write("Done returning...");
+
+  return i / __size;
 
 #endif
 #endif

@@ -59,6 +59,8 @@ int main() {
   //   }
   // }
 
+  // __asm__ __volatile__("int $6" : : : "memory");
+
   {
     native_string file_name = "GSI.EXE";
 

@@ -528,8 +528,22 @@ static void setup_ide_controller(ide_controller* ctrl, uint8 id) {
   candidates = 0;
 
   for (i = 0; i < IDE_DEVICES_PER_CONTROLLER; i++) {
+#ifdef SHOW_IDE_INFO
+    term_write(cout, "Device of controller no: ");
+    term_write(cout, i);
+    term_writeline(cout);
+#endif
+
     outb(IDE_DEV_HEAD_IBM | IDE_DEV_HEAD_DEV(i), base + IDE_DEV_HEAD_REG);
+#ifdef SHOW_IDE_INFO
+    term_write(cout, "[START] Sleeping 400 nsecs");
+#endif
+
     thread::sleep(400);  // 400 nsecs
+#ifdef SHOW_IDE_INFO
+    term_write(cout, "[STOP ] Sleeping 400 nsecs");
+#endif
+
     stat[i] = inb(base + IDE_STATUS_REG);
 
     if ((stat[i] & (IDE_STATUS_BSY | IDE_STATUS_DRDY | IDE_STATUS_DF |
@@ -538,8 +552,9 @@ static void setup_ide_controller(ide_controller* ctrl, uint8 id) {
          IDE_STATUS_DRQ)) {
       ctrl->device[i].kind = IDE_DEVICE_ATAPI;  // for now means the device
       candidates++;                             // is possibly present
-    } else
+    } else {
       ctrl->device[i].kind = IDE_DEVICE_ABSENT;
+    }
   }
 
   if (candidates > 0) {

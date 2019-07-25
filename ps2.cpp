@@ -164,41 +164,61 @@ static volatile int circular_buffer_lo = 0;
 static volatile int circular_buffer_hi = 0;
 static condvar* circular_buffer_cv;
 
+#pragma GCC push_options
+#pragma GCC optimize ("O0")
+
 static void keypress(uint8 ch) {
+  // debug_write("[START] Keypress");
+
   int next_hi = (circular_buffer_hi + 1) % BUFFER_SIZE;
 
   if (next_hi != circular_buffer_lo) {
     circular_buffer[circular_buffer_hi] = ch;
     circular_buffer_hi = next_hi;
     circular_buffer_cv->mutexless_signal();
-  } else {
-    // Buffer full... Trashing
   }
+
+  // debug_write("[STOP ] Keypress");
 }
 
-native_char getchar() {
+int getchar0(bool blocking) {
+
+  debug_write("[START] Get char!");
+
+  int result = -1;
+
   disable_interrupts();
 
-  while (circular_buffer_lo == circular_buffer_hi) {
-    circular_buffer_cv->mutexless_wait();
+  if (blocking) {
+    // debug_write("Blocking for some reason");
+    while (circular_buffer_lo == circular_buffer_hi) {
+      circular_buffer_cv->mutexless_wait();
+    }
+  } else if (circular_buffer_lo == circular_buffer_hi) {
+    // debug_write("Not blocking, goto!");
+    goto getchar0_done;
+  } else {
+    // debug_write("Else condition...");
   }
 
-  native_char result = circular_buffer[circular_buffer_lo];
+  // debug_write("Fetching result from the buffer");
 
+  result = circular_buffer[circular_buffer_lo];
   circular_buffer_lo = (circular_buffer_lo + 1) % BUFFER_SIZE;
-
   circular_buffer_cv->mutexless_signal();
+
+getchar0_done:
   enable_interrupts();
 
+  debug_write("[STOP] Get char!");
   return result;
 }
+
+native_char getchar() { return CAST(native_char, getchar0(TRUE) & 0xFF); }
 
 volatile bool buffer_flush = false;
 volatile uint16 buffer_flush_pos = 0;
 volatile uint16 buffer_write_pos = 0;
-
-#pragma GCC push_options
-#pragma GCC optimize ("O0")
 
 native_char readline() {
   term* io = cout;  // maybe get it from the running thread...
