@@ -59,7 +59,7 @@ typedef struct user_func_table {
     debug_write(__LINE__);                       \
     debug_write(__FILE__);                       \
     debug_write("----------------------------"); \
-    while (0)
+  } while (0)
 
 #define ASSERT_INTERRUPTS_ENABLED()              \
   do {                                           \
@@ -67,7 +67,7 @@ typedef struct user_func_table {
     debug_write(__LINE__);                       \
     debug_write(__FILE__);                       \
     debug_write("----------------------------"); \
-    while (0)
+  } while (0)
 
 #endif
 
