@@ -113,8 +113,11 @@ typedef int32 error_code;
 //#define SHOW_CPU_INFO
 // #define SHOW_IDE_INFO
 // #define SHOW_DISK_INFO
-//#define CHECK_ASSERTIONS
+// #define CHECK_ASSERTIONS
+// #define PRINT_ASSERTIONS
 #define RED_PANIC_SCREEN
+#define ENABLE_DEBUG_WRITE
+#define LOAD_GAMBIT
 
 // BUSY_WAIT_INSTEAD_OF_SLEEP uses a simple for loop
 // to perform sleep operations. This is bad, but it might
@@ -124,6 +127,15 @@ typedef int32 error_code;
 
 // #define ENABLE_LIBC_TRACE
 //-----------------------------------------------------------------------------
+
+#define __surround_with_debug(code) \
+  do {                              \
+    debug_write("SURROUND IN ");    \
+    debug_write(__FILE__);          \
+    debug_write(__LINE__);          \
+    code;                           \
+    debug_write("END SURROUND");    \
+  } while (0)
 
 #endif
 
