@@ -1,6 +1,6 @@
 // file: "ps2.h"
 
-// Copyright (c) 2001-2002 by Marc Feeley and Université de Montréal, All
+// Copyright (c) 2001-2002 by Marc Feeley and Universitï¿½ de Montrï¿½al, All
 // Rights Reserved.
 //
 // Revision History
@@ -193,8 +193,14 @@
 #define KBD_SCANCODE_RWINDOW   0x5C // always prefixed with 0xE0
 #define KBD_SCANCODE_MENU      0x5D // always prefixed with 0xE0
 
+#define IS_VISIBLE_CHAR(c) (((c) >= 0x20) && ((c) <= 0x7E))
+#define IS_NEWLINE(c) (((c) == '\r') || ((c) == '\n'))
+#define IS_DEL(c) ((c) == 127)
+#define ASCII_BACKSPACE 0x08
+
 void setup_ps2 ();
-unicode_char getchar ();
+native_char getchar ();
+char readline();
 
 //-----------------------------------------------------------------------------
 
