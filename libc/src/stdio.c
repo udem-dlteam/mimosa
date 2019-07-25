@@ -155,7 +155,7 @@ size_t fwrite(const void *__restrict __ptr, size_t __size,
 #endif
 }
 
-int fclose(FILE *__stream) {
+int fclose(FILE *__restrict __stream) {
 
 #ifdef USE_LIBC_LINK
 
@@ -180,7 +180,7 @@ int fclose(FILE *__stream) {
 #endif
 }
 
-int fflush(FILE *__stream) {
+int fflush(FILE *__restrict __stream) {
 
 #ifdef USE_LIBC_LINK
 
@@ -205,7 +205,7 @@ int fflush(FILE *__stream) {
 #endif
 }
 
-int fseek(FILE *__stream, long __off, int __whence) {
+int fseek(FILE *__restrict __stream, long __off, int __whence) {
 
 #ifdef USE_LIBC_LINK
 
@@ -230,7 +230,7 @@ int fseek(FILE *__stream, long __off, int __whence) {
 #endif
 }
 
-long ftell(FILE *__stream) {
+long ftell(FILE *__restrict __stream) {
 
 #ifdef USE_LIBC_LINK
 
@@ -255,7 +255,57 @@ long ftell(FILE *__stream) {
 #endif
 }
 
-void clearerr(FILE *__stream) {
+int ferror(FILE *__restrict __stream) {
+
+#ifdef USE_LIBC_LINK
+
+  return LIBC_LINK._ferror(__stream);
+
+#else
+
+  libc_trace("ferror");
+
+#ifdef USE_HOST_LIBC
+
+#undef ferror
+
+  return ferror(__stream);
+
+#else
+
+  /* TODO: implement */
+  return 0;
+
+#endif
+#endif
+}
+
+int feof(FILE *__restrict __stream) {
+
+#ifdef USE_LIBC_LINK
+
+  return LIBC_LINK._feof(__stream);
+
+#else
+
+  libc_trace("feof");
+
+#ifdef USE_HOST_LIBC
+
+#undef feof
+
+  return feof(__stream);
+
+#else
+
+  /* TODO: implement */
+  return 0;
+
+#endif
+#endif
+}
+
+void clearerr(FILE *__restrict __stream) {
 
 #ifdef USE_LIBC_LINK
 
@@ -279,26 +329,24 @@ void clearerr(FILE *__stream) {
 #endif
 }
 
-int ferror(FILE *__stream) {
-
+void setbuf (FILE *__restrict __stream, char *__restrict __buf) {
 #ifdef USE_LIBC_LINK
 
-  return LIBC_LINK._ferror(__stream);
+  return LIBC_LINK._setbuf(__stream, __buf);
 
 #else
 
-  libc_trace("ferror");
+  libc_trace("setbuf");
 
 #ifdef USE_HOST_LIBC
 
-#undef ferror
+#undef setbuf
 
-  return ferror(__stream);
+  setbuf(__stream, __buf);
 
 #else
 
   /* TODO: implement */
-  return 0;
 
 #endif
 #endif
@@ -333,12 +381,12 @@ int rename(const char *__oldpath, const char *__newpath) {
 
 typedef long longlong; /* fake it to avoid 64 bit operations */
 
-int fprintf_aux_char(FILE *__stream, char __c) {
+int fprintf_aux_char(FILE *__restrict __stream, char __c) {
   fwrite(&__c, 1, 1, __stream);
   return 1;
 }
 
-int fprintf_aux_string(FILE *__stream, const char *__str, int __precision) {
+int fprintf_aux_string(FILE *__restrict __stream, const char *__str, int __precision) {
   int n = 0;
   int len = 0;
   int i = 0;
@@ -348,7 +396,7 @@ int fprintf_aux_string(FILE *__stream, const char *__str, int __precision) {
   return n;
 }
 
-int fprintf_aux_longlong(FILE *__stream, longlong __num, int __base, int __precision) {
+int fprintf_aux_longlong(FILE *__restrict __stream, longlong __num, int __base, int __precision) {
 
 #define MAX_PRECISION 100
 
@@ -381,7 +429,7 @@ int fprintf_aux_longlong(FILE *__stream, longlong __num, int __base, int __preci
   return fprintf_aux_string(__stream, p, 0);
 }
 
-int fprintf_aux(FILE *__stream, const char **__format) {
+int fprintf_aux(FILE *__restrict __stream, const char **__format) {
 
 #define VA_LIST const char *
 #define VA_ARG(ap, type) (ap += sizeof(type), *(type*)(ap-sizeof(type)))
@@ -478,7 +526,7 @@ int fprintf_aux(FILE *__stream, const char **__format) {
 
 #endif
 
-int fprintf(FILE *__stream, const char *__format, ...) {
+int fprintf(FILE *__restrict __stream, const char *__format, ...) {
 
 #ifdef USE_LIBC_LINK
 
