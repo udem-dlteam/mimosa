@@ -194,7 +194,7 @@ int term_write(term* self, unicode_char* buf, int count) {
 
       while (i < end) {
         c = buf[i++];
-        if (c == 0x08 || c == 0x0a || c == 0x0d || c == 0x1b)  // special char?
+        if (c == 0x07 || c == 0x08 || c == 0x0a || c == 0x0d || c == 0x1b)  // special char?
         {
           i--;  // only process characters before the special character
           break;
@@ -233,9 +233,11 @@ int term_write(term* self, unicode_char* buf, int count) {
             {
               op = self->_cursor_row + 1;  // move cursor on same row
               arg = 1;                     // to leftmost column
-            } else if (c == 0x1b)          // ESC character?
+            } else if (c == 0x1b) {         // ESC character?
               self->_param_num = -1;
-            else {
+            } else if (c == 0x07) {
+              op = -999; // NOOP
+            } else {
               end = i - 1;  // special character processing is done
             }
             break;
@@ -267,19 +269,19 @@ int term_write(term* self, unicode_char* buf, int count) {
               self->_param_num = -2;
 
               if (c == 'A') {
-                op = 0;  // move cursor vertically
+                op = 0;  // move cursor vertically (up)
                 arg = -self->_param[0];
                 if (arg >= 0) arg = -1;
               } else if (c == 'B') {
-                op = 0;  // move cursor vertically
-                arg = -self->_param[0];
+                op = 0;  // move cursor vertically (down)
+                arg = self->_param[0];
                 if (arg <= 0) arg = 1;
               } else if (c == 'C') {
-                op = -1;  // move cursor horizontally
-                arg = -self->_param[0];
+                op = -1;  // move cursor horizontally (forward)
+                arg = self->_param[0];
                 if (arg <= 0) arg = 1;
               } else if (c == 'D') {
-                op = -1;  // move cursor horizontally
+                op = -1;  // move cursor horizontally (backward)
                 arg = -self->_param[0];
                 if (arg >= 0) arg = -1;
               } else if (c == 'H' || c == 'f') {
@@ -611,7 +613,7 @@ term* term_write(term* self, native_char x) {
   return term_write(self, buf);
 }
 
-const int OUT_PORT = 0XE9;
+static const int OUT_PORT = 0XE9;
 
 void debug_write(uint32 x) {
   const int max_digits = 10;  // 2^32 contains 10 decimal digits
@@ -675,68 +677,59 @@ uint8 strcmp(native_string a, native_string b) {
   return *a == *b;
 }
 
-const int max_sz = 2056;
-native_char buff[max_sz];
-
-native_string readline(term* term, uint32* len) { 
-  native_char c;
-  for(*len = 0;'\r' != (c = buff[*len] = getchar()); *len += 1) {
-    term_write(term, c);
-  }
-  buff[*len] = '\0';
-  return buff;
-}
+static const int max_sz = 2056;
+static native_char buff[max_sz];
 
 void term_run(term* term) {
-  for (;;) {
-    term_write(term, ">");
+  // for (;;) {
+  //   term_write(term, ">");
 
-    uint32 i = 0;
-    native_string line = readline(term, &i);
-    debug_write(line);
+  //   uint32 i = 0;
+  //   native_string line = readline(term, &i);
+  //   debug_write(line);
 
-    // Find and exec command
-    // Hopefully there is no ls*** command lol
-    if (strcmp(line, LS_CMD)) {
-      term_writeline(term);
-      DIR* root_dir = opendir("/");
-      dirent* entry;
+  //   // Find and exec command
+  //   // Hopefully there is no ls*** command lol
+  //   if (strcmp(line, LS_CMD)) {
+  //     term_writeline(term);
+  //     DIR* root_dir = opendir("/");
+  //     dirent* entry;
 
-      while (NULL != (entry = readdir(root_dir))) {
-        term_write(term, "---> ");
-        term_write(term, entry->d_name);
-        term_writeline(term);
-      }
+  //     while (NULL != (entry = readdir(root_dir))) {
+  //       term_write(term, "---> ");
+  //       term_write(term, entry->d_name);
+  //       term_writeline(term);
+  //     }
 
-      closedir(root_dir);
-    } else if (strcmp(line, EXEC_CMD, 4)) {
-      native_string file_name = &line[5];
+  //     closedir(root_dir);
+  //   } else if (strcmp(line, EXEC_CMD, 4)) {
+  //     native_string file_name = &line[5];
 
-      file* prog;
-      if (NO_ERROR == open_file(file_name, &prog)) {
-        term_write(term, "\r\n Starting program ");
-        term_write(term, file_name);
-        term_writeline(term);
-        // sched_start_task(prog);
-      } else {
-        term_write(term, "\r\n Failed to open the program.\r\n");
-      }
-    } else if (strcmp(line, CAT_CMD, 3)) {
-      native_string file_name = &line[4];
-      file* f;
-      if (NO_ERROR == open_file(file_name, &f)) {
-        // need free... lets use the static buff
-        read_file(f, buff, 2056);
-        term_writeline(term);
-        term_write(term, CAST(native_string, buff));
-        term_writeline(term);
-      } else {
-        term_write(term, "\r\n Failed to read the file.\r\n");
-      }
-    } else {
-      term_write(term, "\r\nUnknown command\r\n");
-    }
-  }
+  //     file* prog;
+  //     if (NO_ERROR == open_file(file_name, &prog)) {
+  //       term_write(term, "\r\n Starting program ");
+  //       term_write(term, file_name);
+  //       term_writeline(term);
+  //       // sched_start_task(prog);
+  //     } else {
+  //       term_write(term, "\r\n Failed to open the program.\r\n");
+  //     }
+  //   } else if (strcmp(line, CAT_CMD, 3)) {
+  //     native_string file_name = &line[4];
+  //     file* f;
+  //     if (NO_ERROR == open_file(file_name, &f)) {
+  //       // need free... lets use the static buff
+  //       read_file(f, buff, 2056);
+  //       term_writeline(term);
+  //       term_write(term, CAST(native_string, buff));
+  //       term_writeline(term);
+  //     } else {
+  //       term_write(term, "\r\n Failed to read the file.\r\n");
+  //     }
+  //   } else {
+  //     term_write(term, "\r\nUnknown command\r\n");
+  //   }
+  // }
 }
 
 //-----------------------------------------------------------------------------

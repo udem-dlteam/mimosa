@@ -6,6 +6,7 @@
 #include "include/stdio.h"
 #include "include/stdlib.h"
 #include "include/string.h"
+#include "include/termios.h"
 #include "include/time.h"
 #include "include/unistd.h"
 
@@ -61,8 +62,10 @@ void libc_init(void) {
   LIBC_LINK._fflush = fflush;
   LIBC_LINK._fseek = fseek;
   LIBC_LINK._ftell = ftell;
-  LIBC_LINK._clearerr = clearerr;
   LIBC_LINK._ferror = ferror;
+  LIBC_LINK._feof = feof;
+  LIBC_LINK._clearerr = clearerr;
+  LIBC_LINK._setbuf = setbuf;
   LIBC_LINK._rename = rename;
   LIBC_LINK._fprintf_aux = fprintf_aux;
 #if 0
@@ -84,6 +87,12 @@ void libc_init(void) {
   LIBC_LINK._memmove = memmove;
 #endif
 
+  /* termios.h */
+  LIBC_LINK._tcgetattr = tcgetattr;
+  LIBC_LINK._tcsetattr = tcsetattr;
+  LIBC_LINK._cfsetospeed = cfsetospeed;
+  LIBC_LINK._cfsetispeed = cfsetispeed;
+
   /* time.h */
   LIBC_LINK._clock = clock;
   LIBC_LINK._time = time;
@@ -102,6 +111,7 @@ void libc_init(void) {
   libc_init_stdio();
   libc_init_stdlib();
   libc_init_string();
+  libc_init_termios();
   libc_init_time();
   libc_init_unistd();
 }

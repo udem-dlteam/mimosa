@@ -11,6 +11,7 @@ void libc_wr_char(int fd, char c) {
 }
 
 void libc_wr_string(int fd, const char *s) {
+  // TODO: The file descriptor must be checked
   const char *p = s;
   while (*p != '\0') {
     libc_wr_char(fd, *p++);
