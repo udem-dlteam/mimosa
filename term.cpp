@@ -267,19 +267,19 @@ int term_write(term* self, unicode_char* buf, int count) {
               self->_param_num = -2;
 
               if (c == 'A') {
-                op = 0;  // move cursor vertically
+                op = 0;  // move cursor vertically (up)
                 arg = -self->_param[0];
                 if (arg >= 0) arg = -1;
               } else if (c == 'B') {
-                op = 0;  // move cursor vertically
-                arg = -self->_param[0];
+                op = 0;  // move cursor vertically (down)
+                arg = self->_param[0];
                 if (arg <= 0) arg = 1;
               } else if (c == 'C') {
-                op = -1;  // move cursor horizontally
-                arg = -self->_param[0];
+                op = -1;  // move cursor horizontally (forward)
+                arg = self->_param[0];
                 if (arg <= 0) arg = 1;
               } else if (c == 'D') {
-                op = -1;  // move cursor horizontally
+                op = -1;  // move cursor horizontally (backward)
                 arg = -self->_param[0];
                 if (arg >= 0) arg = -1;
               } else if (c == 'H' || c == 'f') {
