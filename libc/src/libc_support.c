@@ -7,10 +7,12 @@
 
 void libc_wr_char(int fd, char c) {
   // write(fd, &c, 1);
+  if(c == '\a') return; // The bell is not implemented... Skip (need to check the FD)
   term_write(cout, (native_char) c);
 }
 
 void libc_wr_string(int fd, const char *s) {
+  // TODO: The file descriptor must be checked
   const char *p = s;
   while (*p != '\0') {
     libc_wr_char(fd, *p++);
