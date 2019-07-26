@@ -290,6 +290,31 @@ error_code close_file (file* f)
   return NO_ERROR;
 }
 
+static error_code find_first_empty_FAT_cluster(file_system* fs, uint32* cluster) {
+
+  if(fs->kind != FAT32_FS) {
+    return UNIMPL_ERROR;
+  } else{
+    return fat_32_find_first_empty_cluster(fs, cluster);
+  }  
+}
+
+static error_code get_fat_link_value(file_system* fs, uint32 cluster, uint32* value) {
+   if(fs->kind != FAT32_FS) {
+    return UNIMPL_ERROR;
+  } else{
+    return fat_32_get_fat_link_value(fs, cluster, value);
+  }  
+}
+
+static error_code set_fat_link_value(file_system* fs, uint32 cluster, uint32 value) {
+   if(fs->kind != FAT32_FS) {
+    return UNIMPL_ERROR;
+  } else{
+    return fat_32_set_fat_link_value(fs, cluster, value);
+  }  
+}
+
 static error_code next_FAT_section(file* f) {
   file_system* fs = f->fs;
   uint32 n = f->current_cluster;
@@ -359,7 +384,7 @@ static error_code next_FAT_section(file* f) {
     } else {
       cluster = *CAST(uint16*, cb->buf + offset) & 0x0fffffff;
       if (ERROR(err = disk_cache_block_release(cb))) return err;
-      if (cluster >= 0x0ffffff8) return EOF_ERROR;
+      if (cluster >= FAT_32_EOF) return EOF_ERROR;
     }
   }
 
@@ -449,7 +474,7 @@ error_code read_file(file* f, void* buf, uint32 count) {
   return 0;
 }
 
-error_code create_file(native_string path) {
+error_code __attribute__((optimize("O0"))) create_file(native_string path, file** result) {
   file_system* fs;
   file* f;
 
@@ -458,21 +483,54 @@ error_code create_file(native_string path) {
   }
 
   fs = fs_mod.mounted_fs[0];
+  switch (fs->kind) {
+    case FAT12_FS:
+    case FAT16_FS:
+      fatal_error("Not supported");
+      break;
+    case FAT32_FS:
+      FAT_directory_entry de;
+      error_code err;
+      native_char normalized_path[NAME_MAX + 1];
+      native_string p = normalized_path;
 
-  disk* d = fs->_.FAT121632.d;
-  ide_device* ide = d->_.ide.dev;
+      if (ERROR(err = normalize_path(path, normalized_path))) {
+#ifdef SHOW_DISK_INFO
+        term_write(cout, "Failed to normalize the path\n\r");
+#endif
+        return err;
+      }
 
-  uint8 buff[512];
+      if (ERROR(err = open_root_dir(fs, &f))) {
+#ifdef SHOW_DISK_INFO
+        term_write(cout, "Error loading the root dir: ");
+        term_write(cout, err);
+        term_writeline(cout);
+#endif
+        return err;
+      }
 
-  for(int i = 0; i < 512; ++i) {
-    if(i & 1) {
-      buff[i] = 0xAA;
-    } else {
-      buff[i] = 0xBB;
-    }
+      uint32 entry_cluster = f->current_cluster;
+      uint32 entry_section_start = f->current_section_start;
+      uint32 entry_section_pos = f->current_section_pos;
+      uint32 section_length = f->current_section_length;
+
+      while ((err = read_file(f, &de, sizeof(de))) == sizeof(de)) {
+        // This means the entry is available
+        if (de.DIR_Name[0] == 0) break;
+        // Update the position with the information before
+        entry_cluster = f->current_cluster;
+        entry_section_start = f->current_section_start;
+        entry_section_pos = f->current_section_pos;
+        section_length = f->current_section_length;
+      }
+
+      // We got a position for the root entry, we need to find an available FAT
+
+
+
+      break;
   }
-
-  ide_write_sectors(ide, 3, buff, 1);
 }
 
 static error_code mount_FAT121632 (disk* d, file_system** result)

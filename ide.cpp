@@ -76,9 +76,6 @@ void ide_cmd_queue_free(ide_cmd_queue_entry* entry) {
 }
 
 void ide_irq(ide_controller* ctrl) {
-
-  debug_write("[IDE_IRQ] IN");
-
   uint8 s;
   uint32 i;
   ide_cmd_queue_entry* entry;
@@ -138,19 +135,7 @@ void ide_irq(ide_controller* ctrl) {
     else
       entry->_.read_sectors.err = NO_ERROR;
   } else if (type == cmd_write_sectors) {
-    
-    debug_write("[IDE_IRQ] WRITE...");
-
-    for (i = entry->_.write_sectors.count << (IDE_LOG2_SECTOR_SIZE - 1); i > 0;
-         i--) {
-      outw(*p++, base + IDE_DATA_REG);
-    }
-
-    if (inb(base + IDE_ALT_STATUS_REG) & IDE_STATUS_DRQ) {
-      entry->_.write_sectors.err = UNKNOWN_ERROR;
-    } else {
-      entry->_.write_sectors.err = NO_ERROR;
-    }
+    // Nothing, it's only a flush command
   }
 
   entry->done->mutexless_signal();
@@ -185,7 +170,7 @@ extern "C" void irq15() {
 
 #endif
 
-error_code ide_read_sectors(ide_device* dev, uint32 lba, void* buf,
+error_code __attribute__((optimize("O0"))) ide_read_sectors(ide_device* dev, uint32 lba, void* buf,
                             uint32 count) {
   error_code err = NO_ERROR;
 
@@ -214,7 +199,7 @@ error_code ide_read_sectors(ide_device* dev, uint32 lba, void* buf,
     outb((lba >> 16), base + IDE_CYL_HI_REG);
     outb(IDE_READ_SECTORS_CMD, base + IDE_COMMAND_REG);
 
-    entry->done->mutexless_wait();
+    __surround_with_debug_t("Reading wait", { entry->done->mutexless_wait(); });
 
     err = entry->_.read_sectors.err;
 
@@ -226,7 +211,7 @@ error_code ide_read_sectors(ide_device* dev, uint32 lba, void* buf,
   return err;
 }
 
-error_code ide_write_sectors(ide_device* dev, uint32 lba, void* buf,
+error_code __attribute__((optimize("O0"))) ide_write_sectors(ide_device* dev, uint32 lba, void* buf,
                              uint32 count) {
   debug_write("[IDE WRT SEC] START");
 
@@ -241,10 +226,10 @@ error_code ide_write_sectors(ide_device* dev, uint32 lba, void* buf,
 
     disable_interrupts();
 
-    entry = ide_cmd_queue_alloc(dev);
 
     if (count > 256) count = 256;
 
+    entry = ide_cmd_queue_alloc(dev);
     entry->cmd = cmd_write_sectors;
     entry->_.write_sectors.buf = buf;
     entry->_.write_sectors.count = count;
@@ -257,12 +242,9 @@ error_code ide_write_sectors(ide_device* dev, uint32 lba, void* buf,
     outb((lba >> 16), base + IDE_CYL_HI_REG);
     outb(IDE_WRITE_SECTORS_CMD, base + IDE_COMMAND_REG);
 
-    debug_write("Writing...");
-
     uint16* p = CAST(uint16*, entry->_.write_sectors.buf);
-    int i =0;
-    for (i = entry->_.write_sectors.count << (IDE_LOG2_SECTOR_SIZE - 1); i > 0;
-         i--) {
+
+    for (int i = entry->_.write_sectors.count << (IDE_LOG2_SECTOR_SIZE - 1); i > 0; i--) {
       outw(*p++, base + IDE_DATA_REG);
     }
 
@@ -272,11 +254,8 @@ error_code ide_write_sectors(ide_device* dev, uint32 lba, void* buf,
       entry->_.write_sectors.err = NO_ERROR;
     }
 
-    debug_write("Finished writing...");
-  
-    debug_write("[IDE WRT SEC] WAIT");
-    entry->done->mutexless_wait();
-    debug_write("[IDE WRT SEC] NO WAIT");
+    outb(IDE_FLUSH_CACHE_CMD, base + IDE_COMMAND_REG);
+    __surround_with_debug_t("WRT WAIT", {entry->done->mutexless_wait();});
 
     err = entry->_.write_sectors.err;
 
@@ -286,6 +265,32 @@ error_code ide_write_sectors(ide_device* dev, uint32 lba, void* buf,
   }
 
   return err;
+}
+
+error_code __attribute__((optimize("O0"))) ide_write(ide_device* dev, uint32 lba, uint32 wrt_offset, uint32 count, void* buff) {
+
+  uint32 sector_count;
+
+  if(count < 1) {
+    return NO_ERROR;
+  }
+
+  lba += wrt_offset / (1 << IDE_LOG2_SECTOR_SIZE);
+  wrt_offset = wrt_offset % (1 << IDE_LOG2_SECTOR_SIZE);
+  sector_count = count / (1 << IDE_LOG2_SECTOR_SIZE) + 1;
+
+  uint8* sect_buff = (uint8*)kmalloc(
+      sizeof(uint8) * (1 << IDE_LOG2_SECTOR_SIZE) * sector_count);
+  // No cache for now
+
+  // Read the sectors currently on the disk
+  ide_read_sectors(dev, lba, sect_buff, sector_count);
+  // Replace the content
+  memcpy(sect_buff + wrt_offset, buff, count);
+  // Rewrite the sectors
+  ide_write_sectors(dev, lba, sect_buff, sector_count);
+
+  kfree(sect_buff);
 }
 
 static void swap_and_trim (native_string dst, uint16* src, uint32 len)
@@ -368,6 +373,15 @@ static void setup_ide_device(ide_controller* ctrl, ide_device* dev, uint8 id) {
           (CAST(uint32, ident[58]) << 16) + ident[57];
     }
   }
+
+  term_write(cout, "  word 47 hi (should be 128) = ");
+  term_write(cout, (ident[47] >> 8));
+  term_writeline(cout);
+  term_write(cout,
+             "  Maximum number of sectors that shall be transferred per "
+             "interrupt on READ/WRITE MULTIPLE commands = ");
+  term_write(cout, (ident[47] & 0xff));
+  term_writeline(cout);
 
 #ifdef SHOW_IDE_INFO
 
