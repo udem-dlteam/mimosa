@@ -9,7 +9,6 @@
 /**
  * Source for writing 8250 UART drivers can be found at
  * https://en.wikibooks.org/wiki/Serial_Programming/8250_UART_Programming
- * 
  */
 void init_serial(int com_port) {
 
@@ -47,10 +46,14 @@ void init_serial(int com_port) {
    }
 }
 
-void _handle_interrupt(int com_index, uint8 iir) {
+void _handle_interrupt(uint16 port, uint8 com_index, uint8 iir) {
+#ifdef SHOW_UART_MESSAGES
   term_write(cout, "\n\rIRQ4 fired and COM ");
   term_write(cout, com_index);
+  term_write(cout, " on port ");
+  term_write(cout, port);
   term_write(cout, " got data\n\r");
+#endif
 
   uint8 cause = UART_IIR_GET_CAUSE(iir);
 
@@ -59,12 +62,13 @@ void _handle_interrupt(int com_index, uint8 iir) {
       break;
     case UART_IIR_TRANSMITTER_HOLDING_REG:
       break;
-    case UART_IIR_DATA_AVAIL:
-        term_write(cout, "DATA AVAIL!");
-      break;
     case UART_IIR_RCV_LINE:
       break;
+
+    case UART_IIR_DATA_AVAIL:
+     // timeout is available on new model. This means that we need to read data before the connection timeouts
     case UART_IIR_TIMEOUT:
+        term_write(cout, "DATA AVAIL!\n\r");
       break;
 
     default:
@@ -88,9 +92,9 @@ void irq3() {
   uint8 com4_iir = inb(COM4_PORT_BASE + UART_8250_IIR);
 
   if (UART_IIR_PENDING(com2_iir)) {
-    _handle_interrupt(2, com2_iir);
+    _handle_interrupt(COM2_PORT_BASE, 2, com2_iir);
   } else if (UART_IIR_PENDING(com4_iir)) {
-    _handle_interrupt(4, com4_iir);
+    _handle_interrupt(COM4_PORT_BASE, 4, com4_iir);
   } else {
     fatal_error("Misconfiguration of IRQ3.");
   }
@@ -108,16 +112,14 @@ void irq4() {
   uint8 com3_iir = inb(COM3_PORT_BASE + UART_8250_IIR);
 
   if (UART_IIR_PENDING(com1_iir)) {
-    _handle_interrupt(1, com1_iir);
+    _handle_interrupt(COM1_PORT_BASE, 1, com1_iir);
   } else if (UART_IIR_PENDING(com3_iir)) {
-    _handle_interrupt(3, com3_iir);
+    _handle_interrupt(COM3_PORT_BASE, 3, com3_iir);
   } else {
     fatal_error("Misconfiguration of IRQ4.");
   }
 }
 #endif
-
-
 
 void send_serial(int port, char* x) {
   while (*x != '\0') {

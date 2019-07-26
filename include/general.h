@@ -121,6 +121,7 @@ typedef int32 error_code;
 // #define SHOW_DISK_INFO
 // #define CHECK_ASSERTIONS
 // #define PRINT_ASSERTIONS
+#define SHOW_UART_MESSAGES
 #define RED_PANIC_SCREEN
 #define ENABLE_DEBUG_WRITE
 #define LOAD_GAMBIT
