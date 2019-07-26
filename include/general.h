@@ -102,6 +102,10 @@ typedef int32 error_code;
 #define USE_IRQ14_FOR_IDE0
 #define USE_IRQ15_FOR_IDE1
 
+// UART requires IRQ4 and IRQ3
+#define USE_IRQ3_FOR_UART
+#define USE_IRQ4_FOR_UART
+
 // A thread's context can be restored with an "iret" instruction or a
 // "ret" instruction.  For some unexplained reason the latest AMD
 // Athlon processors cause an "invalid TSS" exception when the "iret"
@@ -110,17 +114,18 @@ typedef int32 error_code;
 // #define USE_IRET_FOR_RESTORE_CONTEXT
 #define USE_RET_FOR_RESTORE_CONTEXT
 
-//#define SHOW_INTERRUPTS
+#define SHOW_INTERRUPTS
 //#define SHOW_TIMER_INTERRUPTS
 //#define SHOW_CPU_INFO
 // #define SHOW_IDE_INFO
 // #define SHOW_DISK_INFO
 // #define CHECK_ASSERTIONS
 // #define PRINT_ASSERTIONS
+#define SHOW_UART_MESSAGES
 #define RED_PANIC_SCREEN
 #define ENABLE_DEBUG_WRITE
 #define LOAD_GAMBIT
-// #define ENABLE_MOUSE
+#define ENABLE_MOUSE
 
 // BUSY_WAIT_INSTEAD_OF_SLEEP uses a simple for loop
 // to perform sleep operations. This is bad, but it might

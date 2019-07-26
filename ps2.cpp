@@ -314,7 +314,7 @@ static void process_keyboard_data(uint8 data) {
 void irq1 ()
 {
 #ifdef SHOW_INTERRUPTS
-  cout << "\033[41m irq1 \033[0m";
+  term_write(cout, "\033[41m irq1 \033[0m");
 #endif
 
   ACKNOWLEDGE_IRQ(1);
