@@ -29,12 +29,12 @@ int main() {
   //send_serial(COM1_PORT_BASE, "HELLO WORLD");
   //term_write(cout, "sent\n");
 
-  while(true){
-    native_char c = read_serial(COM1_PORT_BASE);
-    term_write(cout, (unsigned)c &0xff);
-    term_write(cout, "\r\n");
-    send_serial(COM1_PORT_BASE, "A\n");
-  }
+  // while(true){
+  //   native_char c = read_serial(COM1_PORT_BASE);
+  //   term_write(cout, (unsigned)c &0xff);
+  //   term_write(cout, "\r\n");
+  //   send_serial(COM1_PORT_BASE, "A\n");
+  // }
   
   term_write(cout, "Read");
   

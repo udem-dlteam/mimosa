@@ -26,10 +26,10 @@
 #define COM2_PORT_BASE 0x2f8
 #define COM2_IRQ 3
 /* COM3 */
-#define COM3_PORT_BASE 0x2e8 
+#define COM3_PORT_BASE 0x3e8 
 #define COM3_IRQ 4
  /* COM4 */
-#define COM4_PORT_BASE 0x3e8
+#define COM4_PORT_BASE 0x2e8
 #define COM4_IRQ 3
 
 #define UART_8250_RBR 0
@@ -55,6 +55,23 @@
 #define UART_8250_LSR_PE (1 << 2)
 #define UART_8250_LSR_OE (1 << 1)
 #define UART_8250_LSR_DR (1 << 0)
+
+#define UART_IIR_PENDING(x) (!((x) & (1 << 0)))
+#define UART_IIR_IS_64_BIT_FIFO(x) ((x) & (1 << 5))
+#define UART_IIR_GET_CAUSE(x) ((x & 0b1110) >> 1)
+#define UART_IIR_GET_FIFO_STATE(x) ((x & 0b11000000) >> 6)
+
+// Interrupt Identification Register (IIR) interrupt cause
+#define UART_IIR_MODEM 0
+#define UART_IIR_TRANSMITTER_HOLDING_REG 1
+#define UART_IIR_DATA_AVAIL 2
+#define UART_IIR_RCV_LINE 3
+#define UART_IIR_TIMEOUT 6
+// Interrupt Identification Register (IIR) FIFO status
+#define UART_IIR_FIFO_NO_FIFO 0
+#define UART_IIR_FIFO_RESERVED 1
+#define UART_IIR_FIFO_ENABLED_ERROR 2
+#define UART_IIR_FIFO_ENABLED 3
 
 //-----------------------------------------------------------------------------
 

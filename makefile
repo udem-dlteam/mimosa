@@ -36,7 +36,7 @@ createimg:
 	ssh administrator@localhost -p 10022 "cat mimosa-build/floppy.img" > mimosa-build/floppy.img
 
 run:
-	qemu-system-i386 -s -m 4096 -hda mimosa-build/floppy.img -serial tcp:127.0.0.1:4444,server,nowait
+	qemu-system-i386 -s -m 4096 -hda mimosa-build/floppy.img -serial tcp:localhost:4444,server,nowait
 
 debug:
 	qemu-system-i386 -s -S -m 4096 -hda mimosa-build/floppy.img -debugcon stdio
@@ -147,4 +147,4 @@ libc/libc.o: libc/libc.cpp libc/include/libc_link.h libc/src/libc_support.c \
 			 libc/src/setjmp.c libc/src/stdio.c libc/src/stdlib.c libc/src/string.c \
 			 libc/src/time.c libc/src/unistd.c libc/src/termios.c
 
-uart.o: uart.cpp include/uart.h include/asm.h
+uart.o: uart.cpp include/term.h include/general.h include/uart.h include/asm.h
