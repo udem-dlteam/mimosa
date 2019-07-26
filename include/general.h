@@ -120,6 +120,7 @@ typedef int32 error_code;
 #define RED_PANIC_SCREEN
 #define ENABLE_DEBUG_WRITE
 #define LOAD_GAMBIT
+// #define ENABLE_MOUSE
 
 // BUSY_WAIT_INSTEAD_OF_SLEEP uses a simple for loop
 // to perform sleep operations. This is bad, but it might

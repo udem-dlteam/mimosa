@@ -381,12 +381,14 @@ static void process_mouse_data (uint8 data)
 void irq12 ()
 {
 #ifdef SHOW_INTERRUPTS
-  cout << "\033[41m irq12 \033[0m";
+  term_write(cout, "\033[41m irq12 \033[0m");
 #endif
 
   ACKNOWLEDGE_IRQ(12);
 
-  process_mouse_data (inb (PS2_PORT_A));
+#ifdef ENABLE_MOUSE
+  process_mouse_data(inb(PS2_PORT_A));
+#endif
 }
 
 //-----------------------------------------------------------------------------
