@@ -58,7 +58,7 @@
 
 #define UART_IIR_PENDING(x) (!((x) & (1 << 0)))
 #define UART_IIR_IS_64_BIT_FIFO(x) ((x) & (1 << 5))
-#define UART_IIR_GET_CAUSE(x) ((x & 0b1110) >> 1)
+#define UART_IIR_GET_CAUSE(x) ((x & 0xE) >> 1)
 #define UART_IIR_GET_FIFO_STATE(x) ((x & 0b11000000) >> 6)
 
 // Interrupt Identification Register (IIR) interrupt cause

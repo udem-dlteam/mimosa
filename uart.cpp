@@ -47,7 +47,6 @@ void init_serial(int com_port) {
    }
 }
 
-
 void _handle_interrupt(int com_index, uint8 iir) {
   term_write(cout, "\n\rIRQ4 fired and COM ");
   term_write(cout, com_index);
