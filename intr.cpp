@@ -180,14 +180,15 @@ void irq2 ()
   ACKNOWLEDGE_IRQ(2);
 }
 
-void irq3 ()
-{
+#ifndef USE_IRQ3_FOR_UART
+void irq3() {
 #ifdef SHOW_INTERRUPTS
   term_write(cout, "\033[41m irq3 \033[0m");
 #endif
 
   ACKNOWLEDGE_IRQ(3);
 }
+#endif
 
 #ifndef USE_IRQ4_FOR_UART 
 

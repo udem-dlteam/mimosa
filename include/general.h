@@ -102,6 +102,10 @@ typedef int32 error_code;
 #define USE_IRQ14_FOR_IDE0
 #define USE_IRQ15_FOR_IDE1
 
+// UART requires IRQ4 and IRQ3
+#define USE_IRQ3_FOR_UART
+#define USE_IRQ4_FOR_UART
+
 // A thread's context can be restored with an "iret" instruction or a
 // "ret" instruction.  For some unexplained reason the latest AMD
 // Athlon processors cause an "invalid TSS" exception when the "iret"
