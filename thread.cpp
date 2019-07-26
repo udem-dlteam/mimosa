@@ -265,7 +265,7 @@ void condvar::mutexless_signal() {
 
 thread::thread ()
 {
-  static const int stack_size = 65536; // size of thread stacks in bytes
+  static const int stack_size = 65536 << 1; // size of thread stacks in bytes
 
   mutex_queue_init (this);
   sleep_queue_detach (this);
@@ -426,18 +426,6 @@ void _sched_resume_next_thread() {
   ASSERT_INTERRUPTS_DISABLED();  // Interrupts should be disabled at this point
 
   thread* current = wait_queue_head(readyq);
-
-  if (current != NULL) {
-    sched_current_thread = current;
-    time now = current_time_no_interlock();
-    current->_end_of_quantum = add_time(now, current->_quantum);
-    _sched_set_timer(current->_end_of_quantum, now);
-    restore_context(current->_sp); // never returns
-  }
-
-  for(int i = 0; i < 100000; ++i) {
-    ; // Waste time
-  }
 
   if (current != NULL) {
     sched_current_thread = current;

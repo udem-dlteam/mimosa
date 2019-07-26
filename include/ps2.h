@@ -199,7 +199,7 @@
 #define ASCII_BACKSPACE 0x08
 
 void setup_ps2 ();
-native_char getchar ();
+unicode_char getchar();
 int getchar0(bool blocking);
 char readline();
 

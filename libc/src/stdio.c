@@ -81,9 +81,8 @@ FILE *fdopen(int __fd, const char *__modes) {
 #endif
 }
 
-size_t fread(void *__restrict __ptr, size_t __size,
-             size_t __n, FILE *__restrict __stream) {
-
+size_t fread(void *__restrict __ptr, size_t __size, size_t __n,
+             FILE *__restrict __stream) {
 #ifdef USE_LIBC_LINK
 
   return LIBC_LINK._fread(__ptr, __size, __n, __stream);
@@ -102,34 +101,19 @@ size_t fread(void *__restrict __ptr, size_t __size,
 
   int i = 0;
   if (__stream == &FILE_stdin) {
-
     char *p = (char *)__ptr;
-    #if 0
-    int n = __size * __n;
+    int n = __n;
     while (i < n) {
       int c = getchar0(FALSE);
       if (c < 0) break;
       *p++ = c;
       i++;
     }
-    #else
-      debug_write("Calling getchar() in stdio");
-      *p++ = getchar();
-      i++;
-    #endif
   } else {
     debug_write("Incorrect stream");
   }
 
-  return 1;
-
-  debug_write("Returning: ");
-  debug_write(i);
-  debug_write(__size);
-  debug_write("Done returning...");
-
-  return i / __size;
-
+  return i;
 #endif
 #endif
 }

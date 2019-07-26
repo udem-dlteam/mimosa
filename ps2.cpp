@@ -158,7 +158,7 @@ static uint32 keymap[4] = { 0, 0, 0, 0 };
 #define BUFFER_SIZE 16
 #define LINE_BUFFER_SIZE (1 << 11)
 
-static volatile native_char circular_buffer[BUFFER_SIZE];
+static volatile unicode_char circular_buffer[BUFFER_SIZE];
 static volatile native_char line_buffer[LINE_BUFFER_SIZE];
 static volatile int circular_buffer_lo = 0;
 static volatile int circular_buffer_hi = 0;
@@ -182,8 +182,6 @@ static void keypress(uint8 ch) {
 }
 
 int getchar0(bool blocking) {
-
-  debug_write("[START] Get char!");
 
   int result = -1;
 
@@ -210,11 +208,10 @@ int getchar0(bool blocking) {
 getchar0_done:
   enable_interrupts();
 
-  debug_write("[STOP] Get char!");
   return result;
 }
 
-native_char getchar() {
+unicode_char getchar() {
   disable_interrupts();
 
   while (circular_buffer_lo == circular_buffer_hi) {
