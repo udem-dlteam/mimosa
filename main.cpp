@@ -17,6 +17,7 @@
 #include "fat32.h"
 #include "ps2.h"
 #include "rtlib.h"
+#include "uart.h"
 
 extern void libc_init(void);
 
@@ -59,45 +60,60 @@ int main() {
   //   }
   // }
 
-  {
-    native_string file_name = "GSI.EXE";
+//  {
+//    native_string file_name = "GSI.EXE";
+// 
+//    file* prog;
+//    if (NO_ERROR == open_file(file_name, &prog)) {
+//      term_write(tty, "\r\n Starting program ");
+//      term_write(tty, file_name);
+//      term_writeline(tty);
+// 
+//      // TODO:
+//      // The program thread needs to be aware of what its doing
+//      uint32 len = prog->length;
+//      uint8* code = (uint8*)GAMBIT_START;
+// 
+//      debug_write("File length: ");
+//      debug_write(len);
+// 
+//      error_code err;
+//      if (ERROR(err = read_file(prog, code, len))) {
+//        fatal_error("ERR");
+//      }
+// 
+//      term_write(cout, "File loaded. Starting program at: ");
+//      term_write(cout, code);
+//      
+//      thread::sleep(1000);
+// 
+//      for (int i = 0; i < 5; ++i) {
+//        term_writeline(cout);
+//      }
+// 
+//      program_thread* task = new program_thread(CAST(libc_startup_fn, code));
+//      task->start();
+// 
+//    } else {
+//      term_write(tty, "\r\n Failed to open the program.\r\n");
+//    }
+//  }
 
-    file* prog;
-    if (NO_ERROR == open_file(file_name, &prog)) {
-      term_write(tty, "\r\n Starting program ");
-      term_write(tty, file_name);
-      term_writeline(tty);
+  term_write(cout, "INIT SERIAL\n");
+  init_serial(COM1_PORT_BASE);
+  //term_write(cout, "sending serial test to COM1_PORT_BASE\n");
+  //send_serial(COM1_PORT_BASE, "HELLO WORLD");
+  //term_write(cout, "sent\n");
 
-      // TODO:
-      // The program thread needs to be aware of what its doing
-      uint32 len = prog->length;
-      uint8* code = (uint8*)GAMBIT_START;
-
-      debug_write("File length: ");
-      debug_write(len);
-
-      error_code err;
-      if (ERROR(err = read_file(prog, code, len))) {
-        fatal_error("ERR");
-      }
-
-      term_write(cout, "File loaded. Starting program at: ");
-      term_write(cout, code);
-      
-      thread::sleep(1000);
-
-      for (int i = 0; i < 5; ++i) {
-        term_writeline(cout);
-      }
-
-      program_thread* task = new program_thread(CAST(libc_startup_fn, code));
-      task->start();
-
-    } else {
-      term_write(tty, "\r\n Failed to open the program.\r\n");
-    }
+  while(true){
+    native_char c = read_serial(COM1_PORT_BASE);
+    term_write(cout, (unsigned)c &0xff);
+    term_write(cout, "\r\n");
+    send_serial(COM1_PORT_BASE, "A\n");
   }
-
+  
+  term_write(cout, "readed");
+  
   // Never exit, but never do anything either
   for(;;) thread::yield();
   

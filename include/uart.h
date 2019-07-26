@@ -23,6 +23,10 @@
 #define COM1_IRQ 4
 #define COM2_PORT_BASE 0x2f8
 #define COM2_IRQ 3
+#define COM3_PORT_BASE 0x2e8   /* COM3 */
+#define COM3_IRQ 4
+#define COM4_PORT_BASE 0x3e8   /* COM4 */
+#define COM4_IRQ 3
 
 #define UART_8250_RBR  0
 #define UART_8250_THR  0
@@ -49,6 +53,11 @@
 #define UART_8250_LSR_DR   (1<<0)
 
 //-----------------------------------------------------------------------------
+
+void init_serial(int port);
+void send_serial(int com, char *);
+int serial_received(int com_port);
+char read_serial(int com_port);
 
 #endif
 

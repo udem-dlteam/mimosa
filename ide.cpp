@@ -107,13 +107,13 @@ void ide_irq (ide_controller* ctrl)
     {
 #if 0
       uint8 err = inb (base + IDE_ERROR_REG);
-      cout << "***ERROR***\n";
-      if (err & IDE_ERROR_BBK)   cout << "Bad block mark detected in sector's ID field\n";
-      if (err & IDE_ERROR_UNC)   cout << "Uncorrectable data error encountered\n";
-      if (err & IDE_ERROR_IDNF)  cout << "Requested sector's ID field not found\n";
-      if (err & IDE_ERROR_ABRT)  cout << "Command aborted (status error or invalid cmd)\n";
-      if (err & IDE_ERROR_TK0NF) cout << "Track 0 not found during recalibrate command\n";
-      if (err & IDE_ERROR_AMNF)  cout << "Data address mark not found after ID field\n";
+      term_write(cout, "***ERROR***\n");
+      if (err & IDE_ERROR_BBK)   term_write(cout, "Bad block mark detected in sector's ID field\n");
+      if (err & IDE_ERROR_UNC)   term_write(cout, "Uncorrectable data error encountered\n");
+      if (err & IDE_ERROR_IDNF)  term_write(cout, "Requested sector's ID field not found\n");
+      if (err & IDE_ERROR_ABRT)  term_write(cout, "Command aborted (status error or invalid cmd)\n");
+      if (err & IDE_ERROR_TK0NF) term_write(cout, "Track 0 not found during recalibrate command\n");
+      if (err & IDE_ERROR_AMNF)  term_write(cout, "Data address mark not found after ID field\n");
 #endif
 
       entry->_.read_sectors.err = UNKNOWN_ERROR;
@@ -139,7 +139,7 @@ extern "C"
 void irq14 ()
 {
 #ifdef SHOW_INTERRUPTS
-  cout << "\033[41m irq14 \033[0m";
+  term_write(cout, "\033[41m irq14 \033[0m");
 #endif
 
   ACKNOWLEDGE_IRQ(14);
@@ -155,7 +155,7 @@ extern "C"
 void irq15 ()
 {
 #ifdef SHOW_INTERRUPTS
-  cout << "\033[41m irq15 \033[0m";
+  term_write(cout, "\033[41m irq15 \033[0m");
 #endif
 
   ACKNOWLEDGE_IRQ(15);
@@ -309,42 +309,42 @@ static void setup_ide_device (ide_controller* ctrl, ide_device* dev, uint8 id)
   if (dev->kind == IDE_DEVICE_ATA)
     {
       if ((ident[0] & (1<<15)) == 0)
-        cout << "  ATA device\n";
+        term_write(cout, "  ATA device\n");
     }
   else
     {
       if ((ident[0] & (3<<14)) == (2<<14))
-        cout << "  ATAPI device\n";
+        term_write(cout, "  ATAPI device\n");
     }
 
   if ((ident[0] & (1<<7)) == 1)
-    cout << "  removable media device\n";
+    term_write(cout, "  removable media device\n");
 
 #if 0
 
   if ((ident[0] & (1<<6)) == 1)
-    cout << "  not removable controller and/or device\n";
+    term_write(cout, "  not removable controller and/or device\n");
 
 #endif
 
   if ((ident[0] & (1<<2)) == 1)
-    cout << "  response incomplete\n";
+    term_write(cout, "  response incomplete\n");
 
   if (dev->kind == IDE_DEVICE_ATA)
     {
-      cout << "  Number of logical cylinders = " << ident[1] << "\n";
-      cout << "  Number of logical heads = " << ident[3] << "\n";
-      cout << "  Number of logical sectors per logical track = " << ident[6] << "\n";
+      term_write(cout, "  Number of logical cylinders = ") << ident[1] << "\n";
+      term_write(cout, "  Number of logical heads = ") << ident[3] << "\n";
+      term_write(cout, "  Number of logical sectors per logical track = ") << ident[6] << "\n";
     }
 
-  cout << "  Serial number = " << dev->serial_num << "\n";
-  cout << "  Firmware revision = " << dev->firmware_rev << "\n";
-  cout << "  Model number = " << dev->model_num << "\n";
+  term_write(cout, "  Serial number = ") << dev->serial_num << "\n";
+  term_write(cout, "  Firmware revision = ") << dev->firmware_rev << "\n";
+  term_write(cout, "  Model number = ") << dev->model_num << "\n";
 
 #if 0
 
-  cout << "  word 47 hi (should be 128) = " << (ident[47] >> 8) << "\n";
-  cout << "  Maximum number of sectors that shall be transferred per interrupt on READ/WRITE MULTIPLE commands = " << (ident[47] & 0xff) << "\n";
+  term_write(cout, "  word 47 hi (should be 128) = ") << (ident[47] >> 8) << "\n";
+  term_write(cout, "  Maximum number of sectors that shall be transferred per interrupt on READ/WRITE MULTIPLE commands = ") << (ident[47] & 0xff) << "\n";
 
 #endif
 
@@ -352,214 +352,214 @@ static void setup_ide_device (ide_controller* ctrl, ide_device* dev, uint8 id)
     {
       if (ident[53] & (1<<0))
         {
-          cout << "  Number of current logical cylinders = " << ident[54] << "\n";
-          cout << "  Number of current logical heads = " << ident[55] << "\n";
-          cout << "  Number of current logical sectors per track = " << ident[56] << "\n";
-          cout << "  Current capacity in sectors = " << (CAST(uint32,ident[58])<<16)+ident[57] << "\n";
+          term_write(cout, "  Number of current logical cylinders = ") << ident[54] << "\n";
+          term_write(cout, "  Number of current logical heads = ") << ident[55] << "\n";
+          term_write(cout, "  Number of current logical sectors per track = ") << ident[56] << "\n";
+          term_write(cout, "  Current capacity in sectors = ") << (CAST(uint32,ident[58])<<16)+ident[57] << "\n";
         }
 
-      cout << "  Total number of user addressable sectors (LBA mode only) = " << (CAST(uint32,ident[61])<<16)+ident[60] << "\n";
+      term_write(cout, "  Total number of user addressable sectors (LBA mode only) = ") << (CAST(uint32,ident[61])<<16)+ident[60] << "\n";
     }
 
   if (ident[63] & (1<<10))
-    cout << "  Multiword DMA mode 2 is selected\n";
+    term_write(cout, "  Multiword DMA mode 2 is selected\n");
 
   if (ident[63] & (1<<9))
-    cout << "  Multiword DMA mode 1 is selected\n";
+    term_write(cout, "  Multiword DMA mode 1 is selected\n");
 
   if (ident[63] & (1<<8))
-    cout << "  Multiword DMA mode 0 is selected\n";
+    term_write(cout, "  Multiword DMA mode 0 is selected\n");
 
   if (ident[63] & (1<<2))
-    cout << "  Multiword DMA mode 2 and below are supported\n";
+    term_write(cout, "  Multiword DMA mode 2 and below are supported\n");
 
   if (ident[63] & (1<<1))
-    cout << "  Multiword DMA mode 1 and below are supported\n";
+    term_write(cout, "  Multiword DMA mode 1 and below are supported\n");
 
   if (ident[63] & (1<<0))
-    cout << "  Multiword DMA mode 0 is supported\n";
+    term_write(cout, "  Multiword DMA mode 0 is supported\n");
 
-  cout << "  Maximum queue depth � 1 = " << (ident[75]&31) << "\n";
+  term_write(cout, "  Maximum queue depth � 1 = ") << (ident[75]&31) << "\n";
 
   if (ident[80] & (1<<5))
-    cout << "  supports ATA/ATAPI-5\n";
+    term_write(cout, "  supports ATA/ATAPI-5\n");
 
   if (ident[80] & (1<<4))
-    cout << "  supports ATA/ATAPI-4\n";
+    term_write(cout, "  supports ATA/ATAPI-4\n");
 
   if (ident[80] & (1<<3))
-    cout << "  supports ATA-3\n";
+    term_write(cout, "  supports ATA-3\n");
 
   if (ident[80] & (1<<2))
-    cout << "  supports ATA-2\n";
+    term_write(cout, "  supports ATA-2\n");
 
-  cout << "  Minor version number = " << ident[81] << "\n";
+  term_write(cout, "  Minor version number = ") << ident[81] << "\n";
 
-  cout << "  supports:";
+  term_write(cout, "  supports:");
 
   if (ident[82] & (1<<14))
-    cout << " NOP command,";
+    term_write(cout, " NOP command,");
 
   if (ident[82] & (1<<13))
-    cout << " READ BUFFER command,";
+    term_write(cout, " READ BUFFER command,");
 
   if (ident[82] & (1<<12))
-    cout << " WRITE BUFFER command,";
+    term_write(cout, " WRITE BUFFER command,");
 
   if (ident[82] & (1<<10))
-    cout << " Host Protected Area feature set,";
+    term_write(cout, " Host Protected Area feature set,");
 
   if (ident[82] & (1<<9))
-    cout << " DEVICE RESET command,";
+    term_write(cout, " DEVICE RESET command,");
 
   if (ident[82] & (1<<8))
-    cout << " SERVICE interrupt,";
+    term_write(cout, " SERVICE interrupt,");
 
   if (ident[82] & (1<<7))
-    cout << " release interrupt,";
+    term_write(cout, " release interrupt,");
 
   if (ident[82] & (1<<6))
-    cout << " look-ahead,";
+    term_write(cout, " look-ahead,");
 
   if (ident[82] & (1<<5))
-    cout << " write cache,";
+    term_write(cout, " write cache,");
 
   if (ident[82] & (1<<3))
-    cout << " Power Management feature set,";
+    term_write(cout, " Power Management feature set,");
 
   if (ident[82] & (1<<2))
-    cout << " Removable Media feature set,";
+    term_write(cout, " Removable Media feature set,");
 
   if (ident[82] & (1<<1))
-    cout << " Security Mode feature set,";
+    term_write(cout, " Security Mode feature set,");
 
   if (ident[82] & (1<<0))
-    cout << " SMART feature set,";
+    term_write(cout, " SMART feature set,");
 
   if (ident[83] & (1<<8))
-    cout << " SET MAX security extension,";
+    term_write(cout, " SET MAX security extension,");
 
   if (ident[83] & (1<<6))
-    cout << " SET FEATURES subcommand required to spinup after power-up,";
+    term_write(cout, " SET FEATURES subcommand required to spinup after power-up,");
 
   if (ident[83] & (1<<5))
-    cout << " Power-Up In Standby feature set,";
+    term_write(cout, " Power-Up In Standby feature set,");
 
   if (ident[83] & (1<<4))
-    cout << " Removable Media Status Notification feature set,";
+    term_write(cout, " Removable Media Status Notification feature set,");
 
   if (ident[83] & (1<<3))
-    cout << " Advanced Power Management feature set,";
+    term_write(cout, " Advanced Power Management feature set,");
 
   if (ident[83] & (1<<2))
-    cout << " CFA feature set,";
+    term_write(cout, " CFA feature set,");
 
   if (ident[83] & (1<<1))
-    cout << " READ/WRITE DMA QUEUED,";
+    term_write(cout, " READ/WRITE DMA QUEUED,");
 
   if (ident[83] & (1<<0))
-    cout << " DOWNLOAD MICROCODE command,";
+    term_write(cout, " DOWNLOAD MICROCODE command,");
 
-  cout << "\n";
+  term_write(cout, "\n");
 
-  cout << "  enabled:";
+  term_write(cout, "  enabled:");
 
   if (ident[85] & (1<<14))
-    cout << " NOP command,";
+    term_write(cout, " NOP command,");
 
   if (ident[85] & (1<<13))
-    cout << " READ BUFFER command,";
+    term_write(cout, " READ BUFFER command,");
 
   if (ident[85] & (1<<12))
-    cout << " WRITE BUFFER command,";
+    term_write(cout, " WRITE BUFFER command,");
 
   if (ident[85] & (1<<10))
-    cout << " Host Protected Area feature set,";
+    term_write(cout, " Host Protected Area feature set,");
 
   if (ident[85] & (1<<9))
-    cout << " DEVICE RESET command,";
+    term_write(cout, " DEVICE RESET command,");
 
   if (ident[85] & (1<<8))
-    cout << " SERVICE interrupt,";
+    term_write(cout, " SERVICE interrupt,");
 
   if (ident[85] & (1<<7))
-    cout << " release interrupt,";
+    term_write(cout, " release interrupt,");
 
   if (ident[85] & (1<<6))
-    cout << " look-ahead,";
+    term_write(cout, " look-ahead,");
 
   if (ident[85] & (1<<5))
-    cout << " write cache,";
+    term_write(cout, " write cache,");
 
   if (ident[85] & (1<<3))
-    cout << " Power Management feature set,";
+    term_write(cout, " Power Management feature set,");
 
   if (ident[85] & (1<<2))
-    cout << " Removable Media feature set,";
+    term_write(cout, " Removable Media feature set,");
 
   if (ident[85] & (1<<1))
-    cout << " Security Mode feature set,";
+    term_write(cout, " Security Mode feature set,");
 
   if (ident[85] & (1<<0))
-    cout << " SMART feature set,";
+    term_write(cout, " SMART feature set,");
 
   if (ident[86] & (1<<8))
-    cout << " SET MAX security extension,";
+    term_write(cout, " SET MAX security extension,");
 
   if (ident[86] & (1<<6))
-    cout << " SET FEATURES subcommand required to spin-up after power-up,";
+    term_write(cout, " SET FEATURES subcommand required to spin-up after power-up,");
 
   if (ident[86] & (1<<5))
-    cout << " Power-Up In Standby feature set,";
+    term_write(cout, " Power-Up In Standby feature set,");
 
   if (ident[86] & (1<<4))
-    cout << " Removable Media Status Notification feature set,";
+    term_write(cout, " Removable Media Status Notification feature set,");
 
   if (ident[86] & (1<<3))
-    cout << " Advanced Power Management feature set,";
+    term_write(cout, " Advanced Power Management feature set,");
 
   if (ident[86] & (1<<2))
-    cout << " CFA feature set,";
+    term_write(cout, " CFA feature set,");
 
   if (ident[86] & (1<<1))
-    cout << " READ/WRITE DMA QUEUED command,";
+    term_write(cout, " READ/WRITE DMA QUEUED command,");
 
   if (ident[86] & (1<<0))
-    cout << " DOWNLOAD MICROCODE command,";
+    term_write(cout, " DOWNLOAD MICROCODE command,");
 
-  cout << "\n";
+  term_write(cout, "\n");
 
   if (ident[53] & (1<<2))
     {
     if (ident[88] & (1<<12))
-        cout << "  Ultra DMA mode 4 is selected\n";
+      term_write(cout, "  Ultra DMA mode 4 is selected\n");
 
       if (ident[88] & (1<<11))
-        cout << "  Ultra DMA mode 3 is selected\n";
+        term_write(cout, "  Ultra DMA mode 3 is selected\n");
 
       if (ident[88] & (1<<10))
-        cout << "  Ultra DMA mode 2 is selected\n";
+        term_write(cout, "  Ultra DMA mode 2 is selected\n");
 
       if (ident[88] & (1<<9))
-        cout << "  Ultra DMA mode 1 is selected\n";
+        term_write(cout, "  Ultra DMA mode 1 is selected\n");
 
       if (ident[88] & (1<<8))
-        cout << "  Ultra DMA mode 0 is selected\n";
+        term_write(cout, "  Ultra DMA mode 0 is selected\n");
 
       if (ident[88] & (1<<4))
-        cout << "  Ultra DMA mode 4 and below are supported\n";
+        term_write(cout, "  Ultra DMA mode 4 and below are supported\n");
 
       if (ident[88] & (1<<3))
-        cout << "  Ultra DMA mode 3 and below are supported\n";
+        term_write(cout, "  Ultra DMA mode 3 and below are supported\n");
 
       if (ident[88] & (1<<2))
-        cout << "  Ultra DMA mode 2 and below are supported\n";
+        term_write(cout, "  Ultra DMA mode 2 and below are supported\n");
 
       if (ident[88] & (1<<1))
-        cout << "  Ultra DMA mode 1 and below are supported\n";
+        term_write(cout, "  Ultra DMA mode 1 and below are supported\n");
 
       if (ident[88] & (1<<0))
-        cout << "  Ultra DMA mode 0 is supported\n";
+        term_write(cout, "  Ultra DMA mode 0 is supported\n");
     }
 
 #endif
@@ -696,12 +696,15 @@ static void setup_ide_controller (ide_controller* ctrl, uint8 id)
 
       if (ctrl->device[i].kind != IDE_DEVICE_ABSENT)
         {
-          cout << "ide" << ctrl->id << "." << i;
+          term_write(cout, "ide");
+          term_write(cout, ctrl->id);
+          term_write(cout, ".");
+          term_write(cout,i);
 
           if (ctrl->device[i].kind == IDE_DEVICE_ATA)
-            cout << " is ATA\n";
+            term_write(cout, " is ATA\n");
           else
-            cout << " is ATAPI\n";
+            term_write(cout, " is ATAPI\n");
         }
 
 #endif
