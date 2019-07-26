@@ -1,5 +1,6 @@
 #include "fat32.h"
 #include "fs.h"
+#include "disk.h"
 #include "general.h"
 #include "rtlib.h"
 
@@ -119,12 +120,31 @@ error_code fat_32_get_fat_link_value(file_system* fs, uint32 cluster, uint32* va
 }
 
 error_code fat_32_set_fat_link_value(file_system* fs, uint32 cluster, uint32 value) {
+  BIOS_Parameter_Block* p;
+  disk* d = fs->_.FAT121632.d;
+  ide_device* dev = d->_.ide.dev;
   error_code err;
+  cache_block* cb;
+  uint16 cluster_per_sector = (1 << fs->_.FAT121632.log2_bps) >> 2;
 
-if(cluster < 2) {
+  if (cluster < 2) {
     fatal_error("Cannot inspect lower than the second cluster entry");
   }
 
+  if (ERROR(err = disk_cache_block_acquire(d, 0, &cb))) return err;
+  p = CAST(BIOS_Parameter_Block*, cb->buf);
+  if (ERROR(err = disk_cache_block_release(cb))) return err;
 
+  uint32 lba = (cluster / cluster_per_sector) + as_uint16(p->BPB_RsvdSecCnt);
+  uint32 offset_in_bytes = (cluster % cluster_per_sector) << 2;
+
+  uint8 wrt_buff[4];
+  
+  for(int i = 0; i < 4; ++i) {
+    wrt_buff[i] = to_uint8(value, i);
+  } 
+
+  ide_write(dev, lba, offset_in_bytes, 4, wrt_buff);
+  
   return err;
 }
