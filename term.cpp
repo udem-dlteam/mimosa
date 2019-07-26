@@ -194,7 +194,7 @@ int term_write(term* self, unicode_char* buf, int count) {
 
       while (i < end) {
         c = buf[i++];
-        if (c == 0x08 || c == 0x0a || c == 0x0d || c == 0x1b)  // special char?
+        if (c == 0x07 || c == 0x08 || c == 0x0a || c == 0x0d || c == 0x1b)  // special char?
         {
           i--;  // only process characters before the special character
           break;
@@ -233,9 +233,11 @@ int term_write(term* self, unicode_char* buf, int count) {
             {
               op = self->_cursor_row + 1;  // move cursor on same row
               arg = 1;                     // to leftmost column
-            } else if (c == 0x1b)          // ESC character?
+            } else if (c == 0x1b) {         // ESC character?
               self->_param_num = -1;
-            else {
+            } else if (c == 0x07) {
+              op = -999; // NOOP
+            } else {
               end = i - 1;  // special character processing is done
             }
             break;
