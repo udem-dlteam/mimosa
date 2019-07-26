@@ -85,6 +85,22 @@ void term_run(term* term);
 
 //-----------------------------------------------------------------------------
 
+#define __surround_with_debug(code) \
+  do {                              \
+    debug_write("SURROUND IN ");    \
+    debug_write(__FILE__);          \
+    debug_write(__LINE__ - 2);      \
+    code;                           \
+    debug_write("END SURROUND");    \
+  } while (0)
+
+#define __surround_with_debug_t(tag, code) \
+  do {                                     \
+    debug_write("[IN ] " tag);             \
+    code;                                  \
+    debug_write("[OUT] " tag);             \
+  } while (0)
+
 //-----------------------------------------------------------------------------
 // Static objects
 //-----------------------------------------------------------------------------

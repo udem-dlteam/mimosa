@@ -59,6 +59,8 @@ typedef int32 error_code;
 #define EOF_ERROR     (-4)
 #define UNKNOWN_ERROR (-5)
 
+#define NOP() do { __asm__ __volatile__ ("NOP" : : : "memory");} while(0)
+
 #define ERROR(x) ((x)<0)
 
 //-----------------------------------------------------------------------------
@@ -74,7 +76,7 @@ typedef int32 error_code;
 // #define USE_APIC_FOR_TIMER
 
 #ifdef USE_PIT_FOR_TIMER
-#define USE_PIT_1_BYTE_COUNT
+// #define USE_PIT_1_BYTE_COUNT
 #endif
 
 // For keeping track of elapsed time we can use the real-time clock
@@ -127,16 +129,6 @@ typedef int32 error_code;
 
 // #define ENABLE_LIBC_TRACE
 //-----------------------------------------------------------------------------
-
-#define __surround_with_debug(code) \
-  do {                              \
-    debug_write("SURROUND IN ");    \
-    debug_write(__FILE__);          \
-    debug_write(__LINE__ - 2);      \
-    code;                           \
-    debug_write("END SURROUND");    \
-  } while (0)
-
 #endif
 
 // Local Variables: //
