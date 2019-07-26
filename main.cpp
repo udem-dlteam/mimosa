@@ -19,10 +19,7 @@
 #include "rtlib.h"
 #include "uart.h"
 
-extern void libc_init(void);
-
 int main() {
-  libc_init();
 
   term* tty = &new_term(0, 320, 80, 10, &font_mono_6x9, L"tty", true);
   // term_run(tty);

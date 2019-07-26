@@ -145,6 +145,6 @@ libc/libc.o: libc/libc.cpp libc/include/libc_link.h libc/src/libc_support.c \
 			 libc/include/string.h libc/include/time.h libc/include/unistd.h \
 			 libc/src/libc_link.c libc/src/dirent.c libc/src/errno.c libc/src/math.c \
 			 libc/src/setjmp.c libc/src/stdio.c libc/src/stdlib.c libc/src/string.c \
-			 libc/src/time.c libc/src/unistd.c
+			 libc/src/time.c libc/src/unistd.c libc/src/termios.c
 
 uart.o: uart.cpp include/uart.h include/asm.h

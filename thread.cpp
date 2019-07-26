@@ -265,7 +265,7 @@ void condvar::mutexless_signal() {
 
 thread::thread ()
 {
-  static const int stack_size = 65536; // size of thread stacks in bytes
+  static const int stack_size = 65536 << 1; // size of thread stacks in bytes
 
   mutex_queue_init (this);
   sleep_queue_detach (this);
@@ -326,7 +326,6 @@ thread* thread::start() {
   disable_interrupts ();
   _sched_reschedule_thread(this);
   _sched_yield_if_necessary();
-  enable_interrupts ();
   return this;
 }
 
@@ -351,15 +350,15 @@ void thread::yield() {
 thread* thread::self() { return sched_current_thread; }
 
 void thread::sleep(int64 timeout_nsecs) {
-#if 0
-  if (timeout_nsecs > 0)
-    {
-      time timeout = add_time (current_time (),
-                               nanoseconds_to_time (timeout_nsecs));
-
-      while (less_time (current_time (), timeout))
-        yield ();
+#ifdef BUSY_WAIT_INSTEAD_OF_SLEEP
+#pragma GCC push_options
+#pragma GCC optimize("O0")
+  for (int i = 0; i < 1; ++i) {
+    for (int j = 0; j < timeout_nsecs; ++j) {
+      __asm__ __volatile__ ("NOP" : : : "memory");
     }
+  }
+#pragma pop_options
 #else
   disable_interrupts();
 
@@ -436,18 +435,6 @@ void _sched_resume_next_thread() {
     restore_context(current->_sp); // never returns
   }
 
-  for(int i = 0; i < 100000; ++i) {
-    ; // Waste time
-  }
-
-  if (current != NULL) {
-    sched_current_thread = current;
-    time now = current_time_no_interlock();
-    current->_end_of_quantum = add_time(now, current->_quantum);
-    _sched_set_timer(current->_end_of_quantum, now);
-    restore_context(current->_sp); // never returns
-  }
-
   fatal_error("Deadlock detected");
 }
 
@@ -482,7 +469,7 @@ void APIC_timer_irq ()
 
   APIC_EOI = 0;
 
-  scheduler::timer_elapsed ();
+  _sched_timer_elapsed();
 }
 
 #endif

@@ -59,8 +59,10 @@
 #define fflush REDIRECT_NAME(fflush)
 #define fseek REDIRECT_NAME(fseek)
 #define ftell REDIRECT_NAME(ftell)
-#define clearerr REDIRECT_NAME(clearerr)
 #define ferror REDIRECT_NAME(ferror)
+#define feof REDIRECT_NAME(ferror)
+#define clearerr REDIRECT_NAME(clearerr)
+#define setbuf REDIRECT_NAME(setbuf)
 #define rename REDIRECT_NAME(rename)
 #define fprintf REDIRECT_NAME(fprintf)
 #define printf REDIRECT_NAME(printf)
@@ -80,6 +82,12 @@
 /* string.h */
 #define memcpy REDIRECT_NAME(memcpy)
 #define memmove REDIRECT_NAME(memmove)
+
+/* termios.h */
+#define tcgetattr REDIRECT_NAME(tcgetattr)
+#define tcsetattr REDIRECT_NAME(tcsetattr)
+#define cfsetospeed REDIRECT_NAME(cfsetospeed)
+#define cfsetispeed REDIRECT_NAME(cfsetispeed)
 
 /* time.h */
 #define clock REDIRECT_NAME(clock)

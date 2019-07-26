@@ -13,6 +13,7 @@
 #include "include/stdio.h"
 #include "include/stdlib.h"
 #include "include/string.h"
+#include "include/termios.h"
 #include "include/time.h"
 #include "include/unistd.h"
 
@@ -25,5 +26,6 @@
 #include "src/stdio.c"
 #include "src/stdlib.c"
 #include "src/string.c"
+#include "src/termios.c"
 #include "src/time.c"
 #include "src/unistd.c"

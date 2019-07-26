@@ -10,6 +10,7 @@
 #include "include/stdio.h"
 #include "include/stdlib.h"
 #include "include/string.h"
+#include "include/termios.h"
 #include "include/time.h"
 #include "include/unistd.h"
 
@@ -63,14 +64,16 @@ struct libc_link {
                    size_t __n, FILE *__restrict __stream);
   size_t (*_fwrite)(const void *__restrict __ptr, size_t __size,
                     size_t __n, FILE *__restrict __stream);
-  int (*_fclose)(FILE *__stream);
-  int (*_fflush)(FILE *__stream);
-  int (*_fseek)(FILE *__stream, long __off, int __whence);
-  long (*_ftell)(FILE *__stream);
-  void (*_clearerr)(FILE *__stream);
-  int (*_ferror)(FILE *__stream);
+  int (*_fclose)(FILE *__restrict __stream);
+  int (*_fflush)(FILE *__restrict __stream);
+  int (*_fseek)(FILE *__restrict __stream, long __off, int __whence);
+  long (*_ftell)(FILE *__restrict __stream);
+  int (*_ferror)(FILE *__restrict __stream);
+  int (*_feof)(FILE *__restrict __stream);
+  void (*_clearerr)(FILE *__restrict __stream);
+  void (*_setbuf)(FILE *__restrict __stream, char *__restrict __buf);
   int (*_rename)(const char *__oldpath, const char *__newpath);
-  int (*_fprintf_aux)(FILE *__stream, const char **__format);
+  int (*_fprintf_aux)(FILE *__restrict __stream, const char **__format);
   FILE *_stdin;
   FILE *_stdout;
   FILE *_stderr;
@@ -88,6 +91,13 @@ struct libc_link {
                    size_t __n);
   void *(*_memmove)(void *__dest, const void *__src, size_t __n);
 #endif
+
+  /* termios.h */
+  int (*_tcgetattr)(int __fd, struct termios *__termios_p);
+  int (*_tcsetattr)(int __fd, int __optional_actions,
+                    const struct termios *__termios_p);
+  int (*_cfsetospeed)(struct termios *__termios_p, speed_t __speed);
+  int (*_cfsetispeed)(struct termios *__termios_p, speed_t __speed);
 
   /* time.h */
   clock_t (*_clock)(void);

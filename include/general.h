@@ -59,6 +59,8 @@ typedef int32 error_code;
 #define EOF_ERROR     (-4)
 #define UNKNOWN_ERROR (-5)
 
+#define NOP() do { __asm__ __volatile__ ("NOP" : : : "memory");} while(0)
+
 #define ERROR(x) ((x)<0)
 
 //-----------------------------------------------------------------------------
@@ -71,10 +73,10 @@ typedef int32 error_code;
 // that "bochs" does not implement the 1 byte mode.
 
 #define USE_PIT_FOR_TIMER
-//#define USE_APIC_FOR_TIMER
+// #define USE_APIC_FOR_TIMER
 
 #ifdef USE_PIT_FOR_TIMER
-//#define USE_PIT_1_BYTE_COUNT
+// #define USE_PIT_1_BYTE_COUNT
 #endif
 
 // For keeping track of elapsed time we can use the real-time clock
@@ -83,7 +85,7 @@ typedef int32 error_code;
 // the RTC IRQ8 interrupt and PIT IRQ0 interrupt to be used
 // simultaneously.
 
-//#define USE_IRQ8_FOR_TIME
+// #define USE_IRQ8_FOR_TIME
 #define USE_TSC_FOR_TIME
 
 #ifdef USE_IRQ8_FOR_TIME
@@ -111,13 +113,23 @@ typedef int32 error_code;
 #define SHOW_INTERRUPTS
 //#define SHOW_TIMER_INTERRUPTS
 //#define SHOW_CPU_INFO
-//#define SHOW_IDE_INFO
-#define SHOW_DISK_INFO
-//#define CHECK_ASSERTIONS
-// #define RED_PANIC_SCREEN
+// #define SHOW_IDE_INFO
+// #define SHOW_DISK_INFO
+// #define CHECK_ASSERTIONS
+// #define PRINT_ASSERTIONS
+#define RED_PANIC_SCREEN
+#define ENABLE_DEBUG_WRITE
+#define LOAD_GAMBIT
+// #define ENABLE_MOUSE
+
+// BUSY_WAIT_INSTEAD_OF_SLEEP uses a simple for loop
+// to perform sleep operations. This is bad, but it might
+// help to debug some timer problems
+// #define BUSY_WAIT_INSTEAD_OF_SLEEP
+
+
 // #define ENABLE_LIBC_TRACE
 //-----------------------------------------------------------------------------
-
 #endif
 
 // Local Variables: //
