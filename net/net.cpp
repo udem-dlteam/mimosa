@@ -11,7 +11,7 @@
 #include "net.h"
 #include "rtlib.h"
 #include "term.h"
-#include "time.h"
+#include "chrono.h"
 #include "thread.h"
 
 extern "C"

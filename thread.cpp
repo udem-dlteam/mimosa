@@ -15,15 +15,13 @@
 #include "pit.h"
 #include "fs.h"
 #include "intr.h"
-#include "time.h"
+#include "chrono.h"
 #include "rtlib.h"
 #include "term.h"
 
 //-----------------------------------------------------------------------------
 
 // "mutex" class implementation.
-
-const uint32 GAMBIT_START = 0x1000000;
 
 mutex::mutex ()
 {
@@ -267,7 +265,7 @@ void condvar::mutexless_signal() {
 
 thread::thread ()
 {
-  static const int stack_size = 65536; // size of thread stacks in bytes
+  static const int stack_size = 65536 << 1; // size of thread stacks in bytes
 
   mutex_queue_init (this);
   sleep_queue_detach (this);
@@ -328,7 +326,6 @@ thread* thread::start() {
   disable_interrupts ();
   _sched_reschedule_thread(this);
   _sched_yield_if_necessary();
-  enable_interrupts ();
   return this;
 }
 
@@ -353,15 +350,15 @@ void thread::yield() {
 thread* thread::self() { return sched_current_thread; }
 
 void thread::sleep(int64 timeout_nsecs) {
-#if 0
-  if (timeout_nsecs > 0)
-    {
-      time timeout = add_time (current_time (),
-                               nanoseconds_to_time (timeout_nsecs));
-
-      while (less_time (current_time (), timeout))
-        yield ();
+#ifdef BUSY_WAIT_INSTEAD_OF_SLEEP
+#pragma GCC push_options
+#pragma GCC optimize("O0")
+  for (int i = 0; i < 1; ++i) {
+    for (int j = 0; j < timeout_nsecs; ++j) {
+      __asm__ __volatile__ ("NOP" : : : "memory");
     }
+  }
+#pragma pop_options
 #else
   disable_interrupts();
 
@@ -438,18 +435,6 @@ void _sched_resume_next_thread() {
     restore_context(current->_sp); // never returns
   }
 
-  for(int i = 0; i < 100000; ++i) {
-    ; // Waste time
-  }
-
-  if (current != NULL) {
-    sched_current_thread = current;
-    time now = current_time_no_interlock();
-    current->_end_of_quantum = add_time(now, current->_quantum);
-    _sched_set_timer(current->_end_of_quantum, now);
-    restore_context(current->_sp); // never returns
-  }
-
   fatal_error("Deadlock detected");
 }
 
@@ -484,7 +469,7 @@ void APIC_timer_irq ()
 
   APIC_EOI = 0;
 
-  scheduler::timer_elapsed ();
+  _sched_timer_elapsed();
 }
 
 #endif
@@ -800,7 +785,7 @@ uint32 thread::code() {
   return 0;
 }
 
-program_thread::program_thread(void_fn code) {
+program_thread::program_thread(libc_startup_fn code) {
   _code = code;
 }
 
@@ -810,31 +795,15 @@ native_string program_thread::name() {
 
 void program_thread::run() {
   debug_write("Running program thread");
-  _code();
+  int argc = 1;
+  static char* argv[] = {"app", NULL};
+  static char* env[] = {NULL};
+  _code(argc, argv, env);
+  debug_write("End program thread");
 }
 
 uint32 program_thread::code() {
   return CAST(uint32,_code);
-}
-
-int sched_start_task(void* task_file_ptr) {
-  // TODO:
-  // The program thread needs to be aware of what its doing
-  file* task_file = CAST(file*, task_file_ptr);
-  uint32 len = task_file->length;
-  uint8* code = (uint8*)kmalloc(sizeof(uint8) * 1024 * 10);  
-
-  read_file(task_file, code, 1024 * 10);
-  // if (err == 0) {
-  program_thread* task = new program_thread(CAST(void_fn, code));
-  task->start();
-  // } else {
-  // term_write(cout, "Problem executing the file: ");
-  // term_write(cout, err);
-  // term_writeline(cout);
-  // }
-
-  return 0;
 }
 
 wait_queue* readyq;

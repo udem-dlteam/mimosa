@@ -251,10 +251,13 @@ typedef struct FAT_directory_entry_struct
               f->current_section_pos = 0;
               f->current_pos = 0;
               f->length = as_uint32(de.DIR_FileSize);
-              if (de.DIR_Attr & FAT_ATTR_DIRECTORY)
+
+              if (de.DIR_Attr & FAT_ATTR_DIRECTORY) {
                 f->mode = S_IFDIR;
-              else
+              } else {
                 f->mode = S_IFREG;
+              }
+
               goto found;
             }
           }
@@ -296,8 +299,6 @@ static error_code next_FAT_section(file* f) {
   cache_block* cb;
   error_code err;
 
-  debug_write("Reading the next FAT section");
-
   if (fs->kind == FAT12_FS) {
     debug_write("Reading the next FAT12 section");
     offset = n + (n >> 1);
@@ -334,15 +335,12 @@ static error_code next_FAT_section(file* f) {
     if (cluster >= 0xff8) return EOF_ERROR;
   } else {
     if (fs->kind == FAT16_FS) {
-      debug_write("Reading FAT16 FAT section");
       offset = n * 2;
     } else {
-      debug_write("Reading FAT32 FAT section");
       offset = n * 4;
     }
 
-    sector_pos =
-        fs->_.FAT121632.reserved_sectors + (offset >> fs->_.FAT121632.log2_bps);
+    sector_pos = fs->_.FAT121632.reserved_sectors + (offset >> fs->_.FAT121632.log2_bps);
 
     offset &= ~(~0U << fs->_.FAT121632.log2_bps);
 
@@ -366,8 +364,9 @@ static error_code next_FAT_section(file* f) {
   }
 
   f->current_cluster = cluster;
-  f->current_section_length =
-      1 << (fs->_.FAT121632.log2_bps + fs->_.FAT121632.log2_spc);
+  f->current_section_length = 1 << (fs->_.FAT121632.log2_bps + fs->_.FAT121632.log2_spc);
+  f->current_section_start = ((cluster - 2) << fs->_.FAT121632.log2_spc) + fs->_.FAT121632.first_data_sector;
+
   f->current_section_pos = 0;
 
   return NO_ERROR;
@@ -398,36 +397,36 @@ error_code read_file(file* f, void* buf, uint32 count) {
           uint32 left1;
           uint32 left2;
 
-          if (f->current_section_pos >= f->current_section_length)
+          if (f->current_section_pos >= f->current_section_length) {
             if (ERROR(err = next_FAT_section(f))) {
-              debug_write("error reading the next FAT section");
               if (err != EOF_ERROR) return err;
               break;
             }
+          }
+
+          // debug_write("Reading cluster:");
+          // debug_write(f->current_cluster);
 
           left1 = f->current_section_length - f->current_section_pos;
 
           if (left1 > n) left1 = n;
 
           while (left1 > 0) {
-            cache_block* cb;
 
+            cache_block* cb;
             if (ERROR(err = disk_cache_block_acquire(
                           fs->_.FAT121632.d,
-                          f->current_section_start +
-                              (f->current_section_pos >> DISK_LOG2_BLOCK_SIZE),
-                          &cb)))
+                          f->current_section_start + (f->current_section_pos >> DISK_LOG2_BLOCK_SIZE),
+                          &cb))) {
               return err;
+            }
 
             left2 = (1 << DISK_LOG2_BLOCK_SIZE) -
                     (f->current_section_pos & ~(~0U << DISK_LOG2_BLOCK_SIZE));
 
             if (left2 > left1) left2 = left1;
 
-            memcpy(p,
-                   cb->buf + (f->current_section_pos &
-                              ~(~0U << DISK_LOG2_BLOCK_SIZE)),
-                   left2);
+            memcpy(p, cb->buf + (f->current_section_pos & ~(~0U << DISK_LOG2_BLOCK_SIZE)), left2);
 
             if (ERROR(err = disk_cache_block_release(cb))) return err;
 
@@ -435,6 +434,7 @@ error_code read_file(file* f, void* buf, uint32 count) {
             f->current_section_pos += left2;
             f->current_pos += left2;
             n -= left2;
+            p += left2; // We read chars, skip to the next part
           }
         }
 

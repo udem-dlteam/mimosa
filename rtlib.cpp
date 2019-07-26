@@ -10,7 +10,7 @@
 
 #include "rtlib.h"
 #include "intr.h"
-#include "time.h"
+#include "chrono.h"
 #include "ide.h"
 #include "disk.h"
 #include "fs.h"
@@ -42,6 +42,14 @@ void fatal_error (native_string msg)
 {
   __asm__ __volatile__ ("cli" : : : "memory");
   debug_write(msg);
+
+  #ifdef RED_PANIC_SCREEN
+    raw_bitmap_fill_rect((raw_bitmap*)&screen, 0, 0, 640, 480, &pattern_red);
+
+    font_draw_string(&font_mono_6x9, &screen.super, 640 / 2, 480 / 2,
+                     CAST(unicode_string, msg), &pattern_white, &pattern_black);
+#endif
+  
   for (;;) ; // freeze execution
 
   // ** NEVER REACHED ** (this function never returns)
@@ -101,7 +109,7 @@ uint8 log2 (uint32 n)
 
 // For now, a simple linear allocator is used.  Memory is never reclaimed.
 
-static uint32 alloc_ptr = (1<<20); // start at 1MB
+static uint32 alloc_ptr = 0xB * (1<<20); // start at 1MB
 
 void* kmalloc (size_t size)
 {
@@ -162,8 +170,7 @@ void operator delete[] (void* obj)
   operator delete (obj);
 }
 
-extern "C"
-void* memcpy (void* dest, const void* src, size_t n)
+extern "C" void* memcpy (void* dest, const void* src, size_t n)
 {
   uint8* d = CAST(uint8*,dest);
   uint8* s = CAST(uint8*,src);
@@ -374,13 +381,10 @@ idle_thread::idle_thread()
 }
 
 void idle_thread::run() {
-  for (;;) {
-    // debug_write("I");
-    thread::yield();
-  }
+  for (;;) thread::yield();
 }
 
-extern "C" void a_sti();
+extern void libc_init(void);
 
 void __rtlib_setup ()
 { 
@@ -395,6 +399,8 @@ void __rtlib_setup ()
 
   (new idle_thread)->start (); // need an idle thread to prevent deadlocks
 
+  term_write(cout, "Loading up LIBC\n");
+  libc_init();
   term_write(cout, "Loading up disks...\n");
   setup_disk ();
   term_write(cout, "Loading up IDE controllers...\n");

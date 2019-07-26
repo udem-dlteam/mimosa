@@ -12,7 +12,7 @@
 #include "ps2.h"
 #include "intr.h"
 #include "asm.h"
-#include "time.h"
+#include "chrono.h"
 #include "video.h"
 #include "term.h"
 #include "rtlib.h"
@@ -156,22 +156,59 @@ static uint32 keymap[4] = { 0, 0, 0, 0 };
 #define PRESSED(code) (keymap[(code) >> 5] & (1 << ((code) & 0x1f)))
 
 #define BUFFER_SIZE 16
+#define LINE_BUFFER_SIZE (1 << 11)
 
 static volatile unicode_char circular_buffer[BUFFER_SIZE];
+static volatile native_char line_buffer[LINE_BUFFER_SIZE];
 static volatile int circular_buffer_lo = 0;
 static volatile int circular_buffer_hi = 0;
 static condvar* circular_buffer_cv;
 
+#pragma GCC push_options
+#pragma GCC optimize ("O0")
+
 static void keypress(uint8 ch) {
+  // debug_write("[START] Keypress");
+
   int next_hi = (circular_buffer_hi + 1) % BUFFER_SIZE;
 
   if (next_hi != circular_buffer_lo) {
     circular_buffer[circular_buffer_hi] = ch;
     circular_buffer_hi = next_hi;
     circular_buffer_cv->mutexless_signal();
-  } else {
-    // Buffer full... Trashing
   }
+
+  // debug_write("[STOP ] Keypress");
+}
+
+int getchar0(bool blocking) {
+
+  int result = -1;
+
+  disable_interrupts();
+
+  if (blocking) {
+    // debug_write("Blocking for some reason");
+    while (circular_buffer_lo == circular_buffer_hi) {
+      circular_buffer_cv->mutexless_wait();
+    }
+  } else if (circular_buffer_lo == circular_buffer_hi) {
+    // debug_write("Not blocking, goto!");
+    goto getchar0_done;
+  } else {
+    // debug_write("Else condition...");
+  }
+
+  // debug_write("Fetching result from the buffer");
+
+  result = circular_buffer[circular_buffer_lo];
+  circular_buffer_lo = (circular_buffer_lo + 1) % BUFFER_SIZE;
+  circular_buffer_cv->mutexless_signal();
+
+getchar0_done:
+  enable_interrupts();
+
+  return result;
 }
 
 unicode_char getchar() {
@@ -191,6 +228,57 @@ unicode_char getchar() {
   return result;
 }
 
+volatile bool buffer_flush = false;
+volatile uint16 buffer_flush_pos = 0;
+volatile uint16 buffer_write_pos = 0;
+
+native_char readline() {
+  term* io = cout;  // maybe get it from the running thread...
+
+  char read[2];
+  read[1] = '\0';
+  while (1) {
+    if (buffer_flush) {
+      if (buffer_flush_pos < buffer_write_pos) {
+        char to_return = line_buffer[buffer_flush_pos++];
+        return to_return;
+      } else {
+        buffer_flush = false;
+        buffer_flush_pos = buffer_write_pos = 0;
+      }
+    }
+
+    char c = read[0] = getchar();
+
+    if (IS_VISIBLE_CHAR(c)) {
+      term_write(io, c);
+      line_buffer[buffer_write_pos++] = c;
+    } else if (IS_NEWLINE(c)) {
+      // The newline terminates the input
+      term_write(io, "\n\r");
+      line_buffer[buffer_write_pos++] = '\n';
+      line_buffer[buffer_write_pos + 1] = '\0';
+      buffer_flush = true;
+    } else if (ASCII_BACKSPACE == c) {
+      // Don't overrun the Gambit term.
+      if (buffer_write_pos > 0) {
+        term_write(io, c);
+        term_write(io, ' ');
+        term_write(io, c);
+        line_buffer[--buffer_write_pos] = ' ';
+      }
+    } else if (IS_DEL(c)) {
+      // trash
+    } else {
+      debug_write("Dropping unknown char: ");
+      debug_write(read);
+      debug_write((uint32)read[0]);
+    }
+  }
+}
+
+#pragma GCC pop_options
+
 static void process_keyboard_data(uint8 data) {
 
   if (data >= KBD_SCANCODE_ESC && data <= KBD_SCANCODE_F12) {
@@ -200,8 +288,10 @@ static void process_keyboard_data(uint8 data) {
       code = keycode_table[data].with_shift;
     } else if (PRESSED(KBD_SCANCODE_CTRL)) {
       code = keycode_table[data].with_ctrl;
+      code = keycode_table[data].normal;
     } else if (PRESSED(KBD_SCANCODE_ALT)) {
       code = keycode_table[data].with_alt;
+      code = keycode_table[data].normal;
     } else {
       code = keycode_table[data].normal;
     }
@@ -291,12 +381,14 @@ static void process_mouse_data (uint8 data)
 void irq12 ()
 {
 #ifdef SHOW_INTERRUPTS
-  cout << "\033[41m irq12 \033[0m";
+  term_write(cout, "\033[41m irq12 \033[0m");
 #endif
 
   ACKNOWLEDGE_IRQ(12);
 
-  process_mouse_data (inb (PS2_PORT_A));
+#ifdef ENABLE_MOUSE
+  process_mouse_data(inb(PS2_PORT_A));
+#endif
 }
 
 //-----------------------------------------------------------------------------

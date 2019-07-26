@@ -1,4 +1,4 @@
-// file: "time.cpp"
+// file: "chrono.cpp"
 
 // Copyright (c) 2001 by Marc Feeley and Universit� de Montr�al, All
 // Rights Reserved.
@@ -8,7 +8,7 @@
 
 //-----------------------------------------------------------------------------
 
-#include "time.h"
+#include "chrono.h"
 #include "asm.h"
 #include "apic.h"
 #include "intr.h"

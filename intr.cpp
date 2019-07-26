@@ -342,18 +342,16 @@ void unhandled_interrupt(int num) {
 }
 
 void interrupt_handle(interrupt_data data) {
-  term_write(cout, "INT NO:");
-  term_write(cout, data.int_no);
-  term_write(cout, " EIP=");
-  term_write(cout, (void*) data.eip);
-  term_write(cout, " INT ARG: ");
-  term_write(cout, data.error_code);
-  term_write(cout, "\n\r");
-
+  debug_write("INT NO:");
+  debug_write(data.int_no);
+  debug_write(" EIP=");
+  // TODO: implement a full fledge debug write
+  // debug_write((void*) data.eip);
+  debug_write(" INT ARG: ");
+  debug_write(data.error_code);
+  debug_write("\n\r");
+  
   fatal_error("CPU exception occured :<(");
-#ifdef RED_PANIC_SCREEN
-  raw_bitmap_fill_rect((raw_bitmap*)&screen, 0, 0, 640, 480, &pattern_red);
-#endif
 }
 
 //-----------------------------------------------------------------------------

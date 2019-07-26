@@ -13,9 +13,11 @@
 
 #include "general.h"
 #include "intr.h"
-#include "time.h"
+#include "chrono.h"
 
 //-----------------------------------------------------------------------------
+
+const uint32 GAMBIT_START = 0x100000;
 
 typedef struct user_func_table {
   void (*print_int)(int i);
@@ -51,8 +53,28 @@ typedef struct user_func_table {
 
 #else
 
+#ifdef PRINT_ASSERTIONS
+#define ASSERT_INTERRUPTS_DISABLED()             \
+  do {                                           \
+    debug_write("Failed interrupt disabled at"); \
+    debug_write(__LINE__);                       \
+    debug_write(__FILE__);                       \
+    debug_write("----------------------------"); \
+  } while (0)
+
+#define ASSERT_INTERRUPTS_ENABLED()              \
+  do {                                           \
+    debug_write("Failed interrupt enabled at");  \
+    debug_write(__LINE__);                       \
+    debug_write(__FILE__);                       \
+    debug_write("----------------------------"); \
+  } while (0)
+
+#else
 #define ASSERT_INTERRUPTS_DISABLED()
 #define ASSERT_INTERRUPTS_ENABLED()
+
+#endif
 
 #endif
 
@@ -366,11 +388,11 @@ class condvar : public wait_queue
 
 // "thread" class declaration.
 
-typedef void (*void_fn) ();
+  typedef void (*void_fn)();
+  typedef int (*libc_startup_fn)(int argc, char* argv[], char* env[]);
 
-class thread : public wait_mutex_sleep_node
-  {
-  public:
+  class thread : public wait_mutex_sleep_node {
+   public:
 
     // constructs a thread that will call "run"
     thread ();
@@ -437,14 +459,14 @@ class thread : public wait_mutex_sleep_node
 
   class program_thread : public thread {
    public:
-    program_thread(void_fn code);
+    program_thread(libc_startup_fn code);
 
     char* name ();/////
     uint32 code();
 
    protected:
     virtual void run();
-    void_fn _code;
+    libc_startup_fn _code;
   };
 
   //-----------------------------------------------------------------------------
@@ -650,8 +672,6 @@ void sched_stats();
 void sched_reg_mutex(mutex* m);
 
 void sched_reg_condvar(condvar* c);
-
-int sched_start_task(void* task_file);
 
 void _sched_reschedule_thread(thread* t);
 
