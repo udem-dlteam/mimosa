@@ -326,7 +326,7 @@ void irq1 ()
 
 //-----------------------------------------------------------------------------
 
-static uint8 mouse_buf[3];
+static uint8 mouse_buf[PS2_MOUSE_BUFF_SIZE];
 static uint8 mouse_buf_ptr = 0;
 
 static void process_mouse_data (uint8 data)
@@ -356,10 +356,15 @@ static void process_mouse_data (uint8 data)
     return;               // resynchronize with the head of the mouse
                           // packets when communication errors occur)
 
+  if(mouse_buf_ptr >= PS2_MOUSE_BUFF_SIZE) {
+    mouse_buf_ptr = mouse_buf_ptr % PS2_MOUSE_BUFF_SIZE;
+  }
+  
   mouse_buf[mouse_buf_ptr++] = data;
 
-  if (mouse_buf_ptr < 3)
+  if (mouse_buf_ptr < PS2_MOUSE_BUFF_SIZE) {
     return;
+  }
 
   b1 = mouse_buf[0];
   b2 = mouse_buf[1];
