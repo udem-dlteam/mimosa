@@ -102,7 +102,7 @@ typedef struct file_struct
     uint8 mode;
   } file;
 
-error_code create_file(native_string path);
+error_code create_file(native_string path, file** f);
 error_code open_file (native_string path, file** f);
 error_code close_file (file* f);
 error_code read_file (file* f, void* buf, uint32 count);

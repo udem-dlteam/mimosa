@@ -511,6 +511,7 @@ error_code __attribute__((optimize("O0"))) create_file(native_string path, file*
       }
 
       uint32 entry_cluster = f->current_cluster;
+      // Section start is the LBA
       uint32 entry_section_start = f->current_section_start;
       uint32 entry_section_pos = f->current_section_pos;
       uint32 section_length = f->current_section_length;
@@ -526,8 +527,53 @@ error_code __attribute__((optimize("O0"))) create_file(native_string path, file*
       }
 
       // We got a position for the root entry, we need to find an available FAT
+      uint32 first_data_cluster = 2;
 
+      if(ERROR(err = fat_32_find_first_empty_cluster(fs, &first_data_cluster))) {
+        return err;
+      }
 
+      de.DIR_Name[0] = 'T';
+      de.DIR_Name[1] = 'E';
+      de.DIR_Name[2] = 'S';
+      de.DIR_Name[3] = 'T';
+      de.DIR_Name[4] = ' ';
+      de.DIR_Name[5] = ' ';
+      de.DIR_Name[6] = ' ';
+      de.DIR_Name[7] = ' ';
+      de.DIR_Name[8] = 'T';
+      de.DIR_Name[9] = 'X';
+      de.DIR_Name[10] = 'T';
+
+      {  // Set the cluster in the descriptor
+        uint16 cluster_hi = (first_data_cluster & 0xFFFF0000) >> 16;
+        uint16 cluster_lo = (first_data_cluster & 0x0000FFFF);
+        de.DIR_FstClusHI[0] = as_uint8(cluster_hi, 0);
+        de.DIR_FstClusHI[1] = as_uint8(cluster_hi, 1);
+
+        de.DIR_FstClusLO[0] = as_uint8(cluster_lo, 0);
+        de.DIR_FstClusLO[1] = as_uint8(cluster_lo, 1);
+
+        term_writeline(cout);
+        term_write(cout, "Cluster HI: ");
+        term_write(cout, cluster_hi);
+        term_write(cout, "\nCLuster LO:");
+        term_write(cout, cluster_lo);
+        term_writeline(cout);
+      }
+
+      ide_device* dev = fs->_.FAT121632.d->_.ide.dev;
+
+      term_write(cout, "Writing to section: ");
+      term_write(cout, entry_section_start);
+      term_write(cout, " at position ");
+      term_write(cout, entry_section_pos);
+      term_write(cout, ". File starts at cluster ");
+      term_write(cout, first_data_cluster);
+      term_writeline(cout);
+
+      ide_write(dev, entry_section_start, entry_section_pos, sizeof(de), &de);
+      fat_32_set_fat_link_value(fs, first_data_cluster, FAT_32_EOF);
 
       break;
   }

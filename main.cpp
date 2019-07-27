@@ -65,7 +65,7 @@ int main() {
   __surround_with_debug_t("Create file", {
     error_code err;
 
-    if(ERROR(err = create_file(""))) {
+    if(ERROR(err = create_file("", NULL))) {
       term_write(tty, "Error while creating an empty file");
     } else {
       term_write(tty, "Success while creating an empty file");

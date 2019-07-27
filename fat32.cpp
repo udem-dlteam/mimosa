@@ -141,7 +141,7 @@ error_code fat_32_set_fat_link_value(file_system* fs, uint32 cluster, uint32 val
   uint8 wrt_buff[4];
   
   for(int i = 0; i < 4; ++i) {
-    wrt_buff[i] = to_uint8(value, i);
+    wrt_buff[i] = as_uint8(value, i);
   } 
 
   ide_write(dev, lba, offset_in_bytes, 4, wrt_buff);
