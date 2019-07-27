@@ -554,6 +554,12 @@ error_code __attribute__((optimize("O0"))) create_file(native_string path, file*
         de.DIR_FstClusLO[0] = as_uint8(cluster_lo, 0);
         de.DIR_FstClusLO[1] = as_uint8(cluster_lo, 1);
 
+        uint32 sz = 512;
+        
+        for(int i = 0; i < 4; ++i) {
+          de.DIR_FileSize[i] = as_uint8(sz, i);
+        }
+
         term_writeline(cout);
         term_write(cout, "Cluster HI: ");
         term_write(cout, cluster_hi);
@@ -572,8 +578,37 @@ error_code __attribute__((optimize("O0"))) create_file(native_string path, file*
       term_write(cout, first_data_cluster);
       term_writeline(cout);
 
+      native_string test = "This is the test.txt file... Please confirm it works!";
+      native_char test_write[512];
+
+      native_char* s = CAST(native_char*, test);
+      native_char* d = CAST(native_char*, test_write);
+
+      while(*s != '\0') {
+        *d++ = *s++;
+      }
+
+      term_write(cout, "Writing to the file: \n\r");
+      term_write(cout, test_write);
+      term_writeline(cout);
+
       ide_write(dev, entry_section_start, entry_section_pos, sizeof(de), &de);
-      fat_32_set_fat_link_value(fs, first_data_cluster, FAT_32_EOF);
+
+      uint32 second_data_cluster = first_data_cluster + 1;
+      fat_32_find_first_empty_cluster(fs, &second_data_cluster);
+
+      term_write(cout, "The second data cluster is: ");
+      term_write(cout, second_data_cluster);
+      term_writeline(cout);
+
+      fat_32_set_fat_link_value(fs, first_data_cluster, second_data_cluster);
+      fat_32_set_fat_link_value(fs, second_data_cluster, FAT_32_EOF);
+
+      uint32 lba = ((first_data_cluster - 2) << fs->_.FAT121632.log2_spc) + fs->_.FAT121632.first_data_sector;
+      
+      term_write(cout, "Writing to LBA ");
+      term_write(cout, lba);
+      ide_write_sectors(dev, lba, test_write, 1);
 
       break;
   }

@@ -68,7 +68,7 @@ error_code fat_32_find_first_empty_cluster(file_system* fs, uint32* cluster) {
 
   uint16 cluster_per_sector = (1 << fs->_.FAT121632.log2_bps) >> 2;
 
-  uint32 clus = 2;  // We skip the first two cluster
+  uint32 clus = *cluster;  // We skip the first two cluster
   lba = fs->_.FAT121632.reserved_sectors + (clus / cluster_per_sector);
   uint32 max_sector = as_uint32(p->_.FAT32.BPB_FATSz32) - fs->_.FAT121632.reserved_sectors;
 
