@@ -44,16 +44,18 @@ fat_32_create_empty_file(file_system* fs, native_string name, native_string ext,
   }
 
   // Set the file to the last position so we can easily write there
-  f->current_cluster = entry_cluster;
-  f->current_section_start = entry_section_start;
-  f->current_section_pos = entry_section_pos;
-  f->current_pos = entry_pos;
-  f->current_section_length = section_length;
+  // It is also the position of the directory entry so we set that at 
+  // the same time
+  f->entry.cluster = f->current_cluster = entry_cluster;
+  f->entry.section_start = f->current_section_start = entry_section_start;
+  f->entry.section_pos = f->current_section_pos = entry_section_pos;
+  f->entry.current_pos = f->current_pos = entry_pos;
+  f->entry.section_length = f->current_section_length = section_length;
 
   // We got a position for the root entry, we need to find an available FAT
-  uint32 first_data_cluster = FAT32_FIRST_CLUSTER;
+  uint32 cluster = FAT32_FIRST_CLUSTER;
 
-  if (ERROR(err = fat_32_find_first_empty_cluster(fs, &first_data_cluster))) {
+  if (ERROR(err = fat_32_find_first_empty_cluster(fs, &cluster))) {
     return err;
   }
 
@@ -69,8 +71,8 @@ fat_32_create_empty_file(file_system* fs, native_string name, native_string ext,
   memcpy(de.DIR_Name + 8, ext, 3);
 
   {  // Set the cluster in the descriptor
-    uint16 cluster_hi = (first_data_cluster & 0xFFFF0000) >> 16;
-    uint16 cluster_lo = (first_data_cluster & 0x0000FFFF);
+    uint16 cluster_hi = (cluster & 0xFFFF0000) >> 16;
+    uint16 cluster_lo = (cluster & 0x0000FFFF);
 
     for (int i = 0; i < 2; ++i) {
       de.DIR_FstClusHI[i] = as_uint8(cluster_hi, i);
@@ -82,13 +84,18 @@ fat_32_create_empty_file(file_system* fs, native_string name, native_string ext,
     return err;
   }
 
-  if(ERROR(err = close_file(f))) {
+  if(ERROR(err = fat_32_set_fat_link_value(fs, cluster, FAT_32_EOF))) {
     return err;
   }
 
-  if(ERROR(err = fat_32_set_fat_link_value(fs, first_data_cluster, FAT_32_EOF))) {
-    return err;
-  }
+  // Correctly set to the right coordinates in the FAT
+  // so we are at the beginning of the file
+  f->current_cluster = cluster;
+  f->current_section_length =
+      1 << (fs->_.FAT121632.log2_bps + fs->_.FAT121632.log2_spc);
+  f->current_section_start = ((cluster - 2) << fs->_.FAT121632.log2_spc) +
+                             fs->_.FAT121632.first_data_sector;
+  f->current_section_pos = 0;
 
   *result = f;
 

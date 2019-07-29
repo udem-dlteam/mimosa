@@ -36,14 +36,17 @@ int main() {
     }
 
     native_string to_write = "This is the content of the file I am writing on disk";
-    
-    if(ERROR(err = write_file(f, to_write, strlen(to_write), TRUE))) {
+    size_t n = strlen(to_write);
+    if(ERROR(err = write_file(f, to_write, n + 1, TRUE))) {
       term_write(cout, "Failed to write the content to the file");
       term_writeline(cout);
     } else {
-      term_write(cout, "Success writing!");
+      term_write(cout, "Success writing! (wrote ");
+      term_write(cout, n); term_write(cout, " characters).");
       term_writeline(cout);
     }
+
+    close_file(f);
 
   });
 
