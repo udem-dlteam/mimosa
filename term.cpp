@@ -15,32 +15,33 @@
 
 //-----------------------------------------------------------------------------
 
-term new_term(int x, int y, int nb_columns, int nb_rows, font_c* font,
-              unicode_string title, bool initialy_visible) {
-  term term;
+term* term_init(term* self, int x, int y, int nb_columns, int nb_rows,
+                font_c* font_normal, font_c* font_bold,
+                unicode_string title, bool initialy_visible) {
 
-  term._x = x;
-  term._y = y;
-  term._nb_columns = nb_columns;
-  term._nb_rows = nb_rows;
-  term._fn = font;
-  term._title = title;
-  term._visible = FALSE;
-  term._cursor_column = term._cursor_row = 0;
-  term._cursor_visible = FALSE;
+  self->_x = x;
+  self->_y = y;
+  self->_nb_columns = nb_columns;
+  self->_nb_rows = nb_rows;
+  self->_fn_normal = font_normal;
+  self->_fn_bold = font_bold;
+  self->_title = title;
+  self->_visible = FALSE;
+  self->_cursor_column = self->_cursor_row = 0;
+  self->_cursor_visible = FALSE;
   // VT 100
-  term._param_num = -2;
-  term._bold = FALSE;
-  term._underline = FALSE;
-  term._reverse = FALSE;
-  term._fg = term_normal_foreground;
-  term._bg = term_normal_background;
+  self->_param_num = -2;
+  self->_bold = FALSE;
+  self->_underline = FALSE;
+  self->_reverse = FALSE;
+  self->_fg = term_normal_foreground;
+  self->_bg = term_normal_background;
 
   if (initialy_visible) {
-    term_show(&term);
+    term_show(self);
   }
 
-  return term;
+  return self;
 }
 
 void term_show(term* self) {
@@ -49,7 +50,7 @@ void term_show(term* self) {
   }
 
   int sx, sy, ex, ey;
-  int char_height = font_get_height(self->_fn);
+  int char_height = font_get_height(self->_fn_normal);
 
   pattern* background;
 
@@ -90,14 +91,14 @@ void term_show(term* self) {
   // EO TODO
 
   int curr_x = font_draw_string(
-      self->_fn, &screen.super,
+      self->_fn_normal, &screen.super,
       self->_x + term_outer_border + term_frame_border + term_inner_border,
       self->_y + term_outer_border + term_frame_border + term_inner_border,
       L"\x25b6 ",  // rightward triangle and space
       &pattern_blue, &pattern_black);
 
   font_draw_string(
-      self->_fn, &screen.super, curr_x,
+      self->_fn_normal, &screen.super, curr_x,
       self->_y + term_outer_border + term_frame_border + term_inner_border,
       self->_title, &pattern_blue, &pattern_black);
 
@@ -113,8 +114,8 @@ void term_show(term* self) {
 
 void term_char_coord_to_screen_coord(term* self, int column, int row, int* sx,
                                      int* sy, int* ex, int* ey) {
-  int char_max_width = font_get_max_width(self->_fn);
-  int char_height = font_get_height(self->_fn);
+  int char_max_width = font_get_max_width(self->_fn_normal);
+  int char_height = font_get_height(self->_fn_normal);
 
   *sx = self->_x + column * char_max_width + term_outer_border +
         term_frame_border + term_inner_border;
@@ -431,7 +432,8 @@ int term_write(term* self, unicode_char* buf, int count) {
 
       term_hide_cursor(self);
 
-      font_draw_text(self->_fn, &screen.super, sx, sy, buf + start, n,
+      font_draw_text(self->_bold ? self->_fn_bold : self->_fn_normal,
+                     &screen.super, sx, sy, buf + start, n,
                      foreground, background);
 
       start += n;

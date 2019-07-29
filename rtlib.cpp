@@ -17,14 +17,10 @@
 #include "ps2.h"
 #include "term.h"
 #include "thread.h"
-#include "mono_5x7.h"
-#include "mono_6x9.h"
 #include "video.h"
 
 void __rtlib_setup (); // forward declaration
 
-font_c font_mono_5x7;
-font_c font_mono_6x9;
 term term_console;
 video screen;
 
@@ -227,21 +223,20 @@ void __do_global_ctors ()
   _raw_bitmap_vtable._select_layer = _raw_bitmap_select_layer;
   
   // Screen
-  screen = new_video(18);
+  video_init(&screen);
 
   raw_bitmap_fill_rect(&screen.super, 0, 0, screen.super._width,
                        screen.super._height, &pattern_gray50);
 
-  mouse_save = new_raw_bitmap_in_memory(
-    mouse_bitmap, MOUSE_WIDTH_IN_BITMAP_WORDS << LOG2_BITMAP_WORD_WIDTH,
-    MOUSE_HEIGHT, 4);
-
-  // Create the fonts that might be used
-  font_mono_5x7 = create_mono_5x7();
-  font_mono_6x9 = create_mono_6x9();
+  raw_bitmap_in_memory_init
+    (&mouse_save,
+     mouse_bitmap, MOUSE_WIDTH_IN_BITMAP_WORDS << LOG2_BITMAP_WORD_WIDTH,
+     MOUSE_HEIGHT, 4);
 
   // Create the console terminal
-  term_console = new_term(0, 0, 80, 30, &font_mono_6x9, L"console", true);
+  term_init(&term_console, 0, 0, 80, 25,
+            &font_mono_7x13, &font_mono_7x13bold,
+            L"console", TRUE);
 }
 
 void __do_global_dtors ()

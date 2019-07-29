@@ -15,70 +15,87 @@
 
 // "pattern" class implementation.
 
-static bitmap_word black_bitmap_words[] = {0x00, 0x00, 0x00, 0x00,
-                                           0x00, 0x00, 0x00, 0x00};
+static bitmap_word black_bitmap_words[] = {
+  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+};
 
 pattern pattern_black = new_pattern(black_bitmap_words, 8, 1);
 
-static bitmap_word gray25_bitmap_words[] = {0x00, 0x55, 0x00, 0x55,
-                                            0x00, 0x55, 0x00, 0x55};
+static bitmap_word gray25_bitmap_words[] = {
+  0x00, 0x55, 0x00, 0x55, 0x00, 0x55, 0x00, 0x55
+};
 
 pattern pattern_gray25 = new_pattern(gray25_bitmap_words, 8, 1);
 
-static bitmap_word gray50_bitmap_words[] = {0xaa, 0x55, 0xaa, 0x55,
-                                            0xaa, 0x55, 0xaa, 0x55};
+static bitmap_word gray50_bitmap_words[] = {
+  0xaa, 0x55, 0xaa, 0x55, 0xaa, 0x55, 0xaa, 0x55
+};
 
 pattern pattern_gray50 = new_pattern(gray50_bitmap_words, 8, 1);
 
-static bitmap_word gray75_bitmap_words[] = {0xff, 0x55, 0xff, 0x55,
-                                            0xff, 0x55, 0xff, 0x55};
+static bitmap_word gray75_bitmap_words[] = {
+  0xff, 0x55, 0xff, 0x55, 0xff, 0x55, 0xff, 0x55
+};
 
 pattern pattern_gray75 = new_pattern(gray75_bitmap_words, 8, 1);
 
-static bitmap_word white_bitmap_words[] = {0xff, 0xff, 0xff, 0xff,
-                                           0xff, 0xff, 0xff, 0xff};
+static bitmap_word white_bitmap_words[] = {
+  0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff
+};
 
 pattern pattern_white = new_pattern(white_bitmap_words, 8, 1);
 
 static bitmap_word red_bitmap_words[] = {
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-    0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
+  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+  0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+  0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff
+};
 
 pattern pattern_red = new_pattern(red_bitmap_words, 8, 4);
 
 static bitmap_word green_bitmap_words[] = {
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff,
-    0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
+  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+  0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+  0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff
+};
 
 pattern pattern_green = new_pattern(green_bitmap_words, 8, 4);
 
 static bitmap_word yellow_bitmap_words[] = {
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff,
-    0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-    0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
+  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+  0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+  0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+  0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff
+};
 
 pattern pattern_yellow = new_pattern(yellow_bitmap_words, 8, 4);
 
 static bitmap_word blue_bitmap_words[] = {
-    0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
+  0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+  0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff
+};
 
 pattern pattern_blue = new_pattern(blue_bitmap_words, 8, 4);
 
 static bitmap_word magenta_bitmap_words[] = {
-    0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-    0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
+  0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+  0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+  0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff
+};
 
 pattern pattern_magenta = new_pattern(magenta_bitmap_words, 8, 4);
 
 static bitmap_word cyan_bitmap_words[] = {
-    0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-    0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
+  0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+  0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+  0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff
+};
 
 pattern pattern_cyan = new_pattern(cyan_bitmap_words, 8, 4);
 
@@ -113,34 +130,33 @@ static void clip (int* x, int min_val, int max_val)
 // video
 //-----------------------------------------------------------------------------
 
-video new_video(int mode) {
-  video video;
-  video.super.vtable = &_video_vtable;
-  
-  video._mode = mode;
+// The following screen information is determined by kernel.s which
+// calls the BIOS to setup the video hardware.
 
-  switch (mode) {
-    case 17:
-      video._start = CAST(bitmap_word*, 0xa0000);
-      video.super._width = 640;
-      video.super._height = 480;
-      video.super._depth = 1;
-      break;
+extern uint16 video_width;
+extern uint16 video_height;
+extern uint8  video_planes;
+extern uint8  video_bpp;
+extern uint16 video_mode;
+extern struct VBE_info vbe_info;
+extern struct VBE_mode_info vbe_mode_info;
 
-    default:
-    case 18:
-      video._start = CAST(bitmap_word*, 0xa0000);
-      video.super._width = 640;
-      video.super._height = 480;
-      video.super._depth = 4;
-      break;
-  }
+video* video_init(video* self) {
 
-  video._mouse_x = video.super._width / 2;
-  video._mouse_y = video.super._height / 2;
-  video._mouse_hides = 1;
+  self->super.vtable = &_video_vtable;
 
-  return video;
+  self->_mode = video_mode;
+  self->_start = CAST(bitmap_word*, vbe_mode_info.PhysicalBasePtr);
+  self->super._width = video_width;
+  self->super._height = video_height;
+  self->super._depth = video_planes;
+  //  self->super._bpp = video_bpp;
+
+  self->_mouse_x = self->super._width / 2;
+  self->_mouse_y = self->super._height / 2;
+  self->_mouse_hides = 1;
+
+  return self;
 }
 
 void video_hide_mouse(void* self) {
@@ -179,11 +195,11 @@ void video_show_mouse(void* self) {
 }
 
 bitmap_word* video_select_layer(void* self, int layer) {
+
   video* sself = (video*) self;
 
-  layer = layer % sself->super._depth;
-
-  if (sself->_mode == 18) {
+  if (sself->super._depth != 1) {
+    layer = layer % sself->super._depth;
     outb(VGA_MAP_MASK_REG, VGA_PORT_SEQ_INDEX);
     outb(1 << layer, VGA_PORT_SEQ_DATA);
     outb(VGA_READ_MAP_SELECT_REG, VGA_PORT_GRCTRL_INDEX);
@@ -269,17 +285,18 @@ void video_draw_mouse (video* self)
 // raw_bitmap_in_memory
 //-----------------------------------------------------------------------------
 
-raw_bitmap_in_memory new_raw_bitmap_in_memory(bitmap_word* start, int width,
+raw_bitmap_in_memory* raw_bitmap_in_memory_init(raw_bitmap_in_memory* self,
+                                                bitmap_word* start, int width,
                                                 int height, int depth) {
-  raw_bitmap_in_memory bmp;
-  bmp.super.vtable = &_raw_bitmap_in_memory_vtable;
 
-  bmp._start = start;
-  bmp.super._width = width;
-  bmp.super._height = height;
-  bmp.super._depth = depth;
+  self->super.vtable = &_raw_bitmap_in_memory_vtable;
 
-  return bmp;
+  self->_start = start;
+  self->super._width = width;
+  self->super._height = height;
+  self->super._depth = depth;
+
+  return self;
 }
 
 void raw_bitmap_in_memory_hide_mouse(void* self)
@@ -306,6 +323,7 @@ void raw_bitmap_bitblt(raw_bitmap_c* self, int x, int y, int x_end,
                                int y_end, raw_bitmap_c* src, int src_x,
                                int src_y, pattern* foreground,
                                pattern* background) {
+
   if (x < x_end && y < y_end) {
     int realignment =
         (((x & (BITMAP_WORD_WIDTH - 1)) - (src_x & (BITMAP_WORD_WIDTH - 1))) &
@@ -401,7 +419,6 @@ void raw_bitmap_fill_rect(raw_bitmap_c* self, int x, int y, int x_end,
       for (row = nb_rows; row > 0; row--) {
         for (layer = self->_depth - 1; layer >= 0; layer--) {
           bitmap_word fg = pattern_get_word(foreground, y, layer);
-
           bitmap_word* d = self->vtable->_select_layer(self,layer) +
                            ((y * self->_width + x) >> LOG2_BITMAP_WORD_WIDTH);
           bitmap_word m;
@@ -496,20 +513,41 @@ bitmap_word pattern_get_word(pattern* self, int y, int layer) {
 //-----------------------------------------------------------------------------
 // FONT
 //-----------------------------------------------------------------------------
-#include "mono_5x7.cpp"
-#include "mono_6x9.cpp"
 
-font_c new_font(int max_width, int height, int nb_chars, uint16* char_map,
-                uint32* char_end, raw_bitmap* raw) {
-  font_c font;
-  font._max_width = max_width;
-  font._height = height;
-  font._nb_chars = nb_chars;
-  font._char_map = char_map;
-  font._char_end = char_end;
-  font._raw = raw;
+#define font font_c
 
-  return font;
+#include "fonts/mono_5x7.c"
+#include "fonts/mono_5x8.c"
+#include "fonts/mono_6x9.c"
+#include "fonts/mono_6x10.c"
+#include "fonts/mono_6x12.c"
+#include "fonts/mono_6x13.c"
+#include "fonts/mono_6x13bold.c"
+#include "fonts/mono_7x13.c"
+#include "fonts/mono_7x13bold.c"
+#include "fonts/mono_7x14.c"
+#include "fonts/mono_7x14bold.c"
+#include "fonts/mono_8x13.c"
+#include "fonts/mono_8x13bold.c"
+#include "fonts/mono_8x16.c"
+#include "fonts/mono_9x15.c"
+#include "fonts/mono_9x15bold.c"
+#include "fonts/mono_10x20.c"
+#include "fonts/mono_12x24.c"
+
+#undef font
+
+font_c* font_init(font_c* self, int max_width, int height, int nb_chars,
+                  uint16* char_map, uint32* char_end, raw_bitmap* raw) {
+
+  self->_max_width = max_width;
+  self->_height = height;
+  self->_nb_chars = nb_chars;
+  self->_char_map = char_map;
+  self->_char_end = char_end;
+  self->_raw = raw;
+
+  return self;
 }
 
 int font_get_max_width(font_c* self) {

@@ -67,6 +67,7 @@ typedef struct pattern {
   bitmap_word* _words;
   int _height;
   int _depth;
+//  int _bpp;
 } pattern;
 
 pattern new_pattern(bitmap_word* words, int height, int depth);
@@ -119,7 +120,11 @@ typedef struct raw_bitmap_in_memory {
   bitmap_word* _start;
 } raw_bitmap_in_memory;
 
-raw_bitmap_in_memory new_raw_bitmap_in_memory(bitmap_word* start, int width,
+#define literal_raw_bitmap_in_memory(start,width,height,depth) \
+{ { &_raw_bitmap_in_memory_vtable, width, height, depth }, start }
+
+raw_bitmap_in_memory* raw_bitmap_in_memory_init(raw_bitmap_in_memory* self,
+                                                bitmap_word* start, int width,
                                                 int height, int depth);
 
 void raw_bitmap_in_memory_hide_mouse(void* self);
@@ -142,7 +147,7 @@ typedef struct video {
   int _mouse_hides;
 } video;
 
-video new_video(int mode);
+video* video_init(video* self);
 
 void video_move_mouse(video* self, int dx, int dy);
 
@@ -170,8 +175,11 @@ typedef struct font_c {
   raw_bitmap* _raw;
 } font_c;
 
-font_c new_font(int max_width, int height, int nb_chars, uint16* char_map,
-                uint32* char_end, raw_bitmap* raw);
+#define literal_font(max_width,height,nb_chars,char_map,char_end,raw) \
+{ max_width, height, nb_chars, char_map, char_end, CAST(raw_bitmap*,raw) }
+
+font_c* font_init(font_c* self, int max_width, int height, int nb_chars,
+                  uint16* char_map, uint32* char_end, raw_bitmap* raw);
 
 int font_get_max_width(font_c* self);
 
@@ -207,7 +215,23 @@ extern pattern pattern_magenta;
 extern pattern pattern_cyan;
 
 extern font_c font_mono_5x7;
+extern font_c font_mono_5x8;
 extern font_c font_mono_6x9;
+extern font_c font_mono_6x10;
+extern font_c font_mono_6x12;
+extern font_c font_mono_6x13;
+extern font_c font_mono_6x13bold;
+extern font_c font_mono_7x13;
+extern font_c font_mono_7x13bold;
+extern font_c font_mono_7x14;
+extern font_c font_mono_7x14bold;
+extern font_c font_mono_8x13;
+extern font_c font_mono_8x13bold;
+extern font_c font_mono_8x16;
+extern font_c font_mono_9x15;
+extern font_c font_mono_9x15bold;
+extern font_c font_mono_10x20;
+extern font_c font_mono_12x24;
 
 extern video screen;
 extern raw_bitmap_in_memory mouse_save;
@@ -225,6 +249,74 @@ video video::screen (18);
 extern raw_bitmap_vtable _raw_bitmap_vtable;
 extern raw_bitmap_vtable _raw_bitmap_in_memory_vtable;
 extern raw_bitmap_vtable _video_vtable;
+
+/* VBE structures. */
+
+struct VBE_info {
+  char   Signature[4];      /* 'VESA' 4 byte signature */
+  uint16 Version;           /* vbe version number */
+  uint32 OEMStringPointer;  /* Pointer to OEM string */
+  uint32 Capabilities;      /* Capabilities of video card */
+  uint32 VideoModePointer;  /* Pointer to supported modes */
+  uint16 TotalMemory;       /* Number of 64kb memory blocks */
+  uint16 OEMSoftwareRevision;
+  uint32 OEMVendorNamePointer;
+  uint32 OEMProductNamePointer;
+  uint32 OEMProductRevisionPointer;
+  uint8  Reserved[222];
+  uint8  OEMData[256];
+};
+
+struct VBE_mode_info {
+  uint16 ModeAttributes;
+  uint8  WindowAAttributes;
+  uint8  WindowBAttributes;
+  uint16 WindowGranularity;  /* Granularity in kb */
+  uint16 WindowSize;         /* Size in kb */
+  uint16 WindowASegment;
+  uint16 WindowBSegment;
+  uint32 WindowBankPointer;  /* Pointer to bank switching function */
+  uint16 BytesPerScanLine;
+  /* VBE 1.2 */
+  uint16 XResolution;
+  uint16 YResolution;
+  uint8  XCharSize;
+  uint8  YCharSize;
+  uint8  NumberOfPlanes;
+  uint8  BitsPerPixel;
+  uint8  NumberOfBanks;
+  uint8  MemoryModel;
+  uint8  BankSize;
+  uint8  NumberOfImagePages;
+  uint8  Reserved0;
+  uint8  RedMaskSize;
+  uint8  RedFieldPosition;
+  uint8  GreenMaskSize;
+  uint8  GreenFieldPosition;
+  uint8  BlueMaskSize;
+  uint8  BlueFieldPosition;
+  uint8  ReservedMaskSize;
+  uint8  ReservedFieldPosition;
+  uint8  DirectColorModeAttributes;
+  /* VBE 2.0 */
+  uint32 PhysicalBasePtr;    /* Physical address for flat frame buffer  */
+  uint32 ScreenMemoryOffset; /* Pointer to start of off screen memory   */
+  uint16 ScreenMemorySize;   /* Amount of off screen memory in 1k units */
+  /* VBE 3.0 */
+  uint16 LinearBytesPerScanLine;
+  uint8  BankNumberOfPages;
+  uint8  LinearNumberOfPages;
+  uint8  LinearRedMaskSize;
+  uint8  LinearRedFieldPosition;
+  uint8  LinearGreenMaskSize;
+  uint8  LinearGreenFieldPosition;
+  uint8  LinearBlueMaskSize;
+  uint8  LinearBlueFieldPosition;
+  uint8  LinearReservedMaskSize;
+  uint8  LinearReservedFieldPosition;
+  uint32 MaxPixelClock;
+  uint8  Reserved1[190];
+};
 
 #endif
 
