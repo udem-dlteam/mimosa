@@ -413,8 +413,9 @@ error_code write_file(file* f, void* buff, uint32 count, bool auto_flush) {
     // No buffer is currently allocated for the file.
     // We allocate it with twice the count to amortize
     // the cost
+    uint32 desired_size = count << 1;
     f->wrt.len = 0;
-    f->wrt.buff = (uint8*)kmalloc(sizeof(uint8) * f->wrt.buff_sz);
+    f->wrt.buff = (uint8*)kmalloc(sizeof(uint8) * desired_size);
 
     if (NULL == f->wrt.buff) {
       // Not enough memory to allocate this big of a buffer.
@@ -422,7 +423,7 @@ error_code write_file(file* f, void* buff, uint32 count, bool auto_flush) {
       return err;
     }
 
-    f->wrt.buff_sz = count << 1;
+    f->wrt.buff_sz = desired_size;
   }
 
   if (f->wrt.len + count > f->wrt.buff_sz) {
