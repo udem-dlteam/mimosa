@@ -112,6 +112,16 @@ typedef struct file_struct {
     uint32 len;      // in bytes
     uint32 buff_sz;  // in bytes
   } wrt;
+  struct {
+    // This substruct allows to keep the information
+    // of the root directory entry. This allows quick
+    // modifications of the entry
+    uint32 cluster;
+    uint32 section_start;
+    uint32 section_length;
+    uint32 section_pos;
+    uint32 current_pos;
+  } entry;
 } file;
 
 typedef struct FAT_directory_entry_struct {
@@ -131,6 +141,7 @@ typedef struct FAT_directory_entry_struct {
 
 error_code create_file(native_string path, file** f);
 error_code open_file(native_string path, file** f);
+error_code open_root_dir_at_file_entry(file* f, file** root_dir);
 error_code close_file(file* f);
 error_code write_file(file* f, void* buff, uint32 count, bool auto_flush);
 error_code read_file(file* f, void* buf, uint32 count);

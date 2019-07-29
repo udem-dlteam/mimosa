@@ -25,11 +25,26 @@ int main() {
   __surround_with_debug_t("Create file", {
     error_code err;
 
-    if(ERROR(err = create_file("", NULL))) {
+    file* f;
+
+    if(ERROR(err = create_file("", &f))) {
       term_write(tty, "Error while creating an empty file");
+      term_writeline(cout);
     } else {
       term_write(tty, "Success while creating an empty file");
+      term_writeline(cout);
     }
+
+    native_string to_write = "This is the content of the file I am writing on disk";
+    
+    if(ERROR(err = write_file(f, to_write, strlen(to_write), TRUE))) {
+      term_write(cout, "Failed to write the content to the file");
+      term_writeline(cout);
+    } else {
+      term_write(cout, "Success writing!");
+      term_writeline(cout);
+    }
+
   });
 
   term_run(tty);

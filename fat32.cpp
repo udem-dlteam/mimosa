@@ -90,6 +90,8 @@ fat_32_create_empty_file(file_system* fs, native_string name, native_string ext,
     return err;
   }
 
+  *result = f;
+
   return NO_ERROR;
 }
 

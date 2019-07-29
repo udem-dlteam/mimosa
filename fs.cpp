@@ -75,6 +75,28 @@ error_code __attribute__((optimize("O0"))) open_root_dir(file_system* fs, file**
   return NO_ERROR;
 }
 
+error_code open_root_dir_at_file_entry(file* f, file** result) {
+  error_code err = NO_ERROR;
+
+  file* root_dir = CAST(file*, kmalloc(sizeof(file)));
+
+  if (NULL == root_dir) {
+    err = MEM_ERROR;
+  } else {
+    root_dir->fs = f->fs;
+    root_dir->current_cluster = f->entry.cluster;
+    root_dir->current_section_start = f->entry.section_start;
+    root_dir->current_section_length = f->entry.section_length;
+    root_dir->current_pos = f->entry.current_pos;
+    root_dir->length = 0;  // Length for directories is not important
+    root_dir->mode = S_IFDIR;
+
+    *result = root_dir;
+  }
+
+  return err;
+}
+
 static error_code normalize_path(native_string path, native_string new_path) {
   uint32 i = 0;
 
@@ -193,8 +215,10 @@ error_code open_file(native_string path, file** result) {
 
         while (i < 3) name[8 + i++] = ' ';
 
+
+        file entry_file = *f;
         while ((err = read_file(f, &de, sizeof(de))) == sizeof(de)) {
-          if (de.DIR_Name[0] == 0) break;
+          if (de.DIR_Name[0] == 0) break; // No more entries
           // Only verify the file if it's readable
           if (de.DIR_Name[0] != 0xe5 && (de.DIR_Attr & FAT_ATTR_HIDDEN) == 0 &&
               (de.DIR_Attr & FAT_ATTR_VOLUME_ID) == 0) {
@@ -227,7 +251,17 @@ error_code open_file(native_string path, file** result) {
                 f->mode = S_IFREG;
               }
 
+              // Setup the entry file
+              f->entry.cluster = entry_file.current_cluster;
+              f->entry.current_pos = entry_file.current_pos;
+              f->entry.section_length = entry_file.current_section_length;
+              f->entry.section_pos = entry_file.current_section_pos;
+              f->entry.section_start = entry_file.current_section_start;
+
               goto found;
+            } else {
+              // Update the entry and position values
+              entry_file = *f;
             }
           }
         }
@@ -470,9 +504,6 @@ error_code read_file(file* f, void* buf, uint32 count) {
               break;
             }
           }
-
-          // debug_write("Reading cluster:");
-          // debug_write(f->current_cluster);
 
           left1 = f->current_section_length - f->current_section_pos;
 
@@ -881,11 +912,6 @@ error_code flush_file(file* f) {
       uint32 n;
       uint8* p;
 
-      if (!S_ISDIR(f->mode)) {
-        uint32 left = f->length - f->current_pos;
-        if (count > left) count = left;
-      }
-
       n = count;
       p = CAST(uint8*, buf);
 
@@ -924,7 +950,7 @@ error_code flush_file(file* f) {
           memcpy(cb->buf +
                      (f->current_section_pos & ~(~0U << DISK_LOG2_BLOCK_SIZE)),
                  p, left2);
-
+          
           if (ERROR(err = disk_cache_block_release(cb))) return err;
 
           // Write to disk
@@ -945,8 +971,39 @@ error_code flush_file(file* f) {
   }
 
   if (!ERROR(err)) {
-    // TODO: Update the directory entry
-   
+
+    if(!S_ISDIR(f->mode)) {
+      // Update the directory entry
+      // to set the correct length of the file
+      FAT_directory_entry de;
+      file entry_file_cp;
+      file* entry_file;
+      uint32 fz;
+
+      if(ERROR(err = open_root_dir_at_file_entry(f, &entry_file))) {
+        goto flush_file_update_dir_err_occured;
+      }
+
+      // Avoid reallocating to rewrite the root dir entry
+      entry_file_cp = *entry_file;
+
+      if(ERROR(err = read_file(entry_file, &de, sizeof(de)))) {
+        goto flush_file_update_dir_err_occured;
+      }
+      
+      fz = as_uint32(de.DIR_FileSize) + count;
+      for(int i = 0; i < 4; ++i) {
+        de.DIR_FileSize[i] = as_uint8(fz, i);
+      }
+
+      if(ERROR(err = write_file(&entry_file_cp, &de, sizeof(de), TRUE))) {
+        goto flush_file_update_dir_err_occured;
+      }
+
+    flush_file_update_dir_err_occured:
+      close_file(entry_file);
+    }
+
     // Free the buffer
     kfree(f->wrt.buff);
     f->wrt.len = f->wrt.buff_sz = 0;

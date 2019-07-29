@@ -199,7 +199,7 @@ error_code __attribute__((optimize("O0"))) ide_read_sectors(ide_device* dev, uin
     outb((lba >> 16), base + IDE_CYL_HI_REG);
     outb(IDE_READ_SECTORS_CMD, base + IDE_COMMAND_REG);
 
-    __surround_with_debug_t("Reading wait", { entry->done->mutexless_wait(); });
+    entry->done->mutexless_wait();
 
     err = entry->_.read_sectors.err;
 
@@ -213,8 +213,6 @@ error_code __attribute__((optimize("O0"))) ide_read_sectors(ide_device* dev, uin
 
 error_code __attribute__((optimize("O0"))) ide_write_sectors(ide_device* dev, uint32 lba, void* buf,
                              uint32 count) {
-  debug_write("[IDE WRT SEC] START");
-
   error_code err = NO_ERROR;
 
   ASSERT_INTERRUPTS_ENABLED();  // Interrupts should be enabled at this point
@@ -255,7 +253,7 @@ error_code __attribute__((optimize("O0"))) ide_write_sectors(ide_device* dev, ui
     }
 
     outb(IDE_FLUSH_CACHE_CMD, base + IDE_COMMAND_REG);
-    __surround_with_debug_t("WRT WAIT", {entry->done->mutexless_wait();});
+    entry->done->mutexless_wait();
 
     err = entry->_.write_sectors.err;
 
@@ -320,10 +318,12 @@ static void setup_ide_device(ide_controller* ctrl, ide_device* dev, uint8 id) {
   // perform an IDENTIFY DEVICE or IDENTIFY PACKET DEVICE command
 
   outb(IDE_DEV_HEAD_IBM | IDE_DEV_HEAD_DEV(dev->id), base + IDE_DEV_HEAD_REG);
-  if (dev->kind == IDE_DEVICE_ATA)
+
+  if (dev->kind == IDE_DEVICE_ATA) {
     outb(IDE_IDENTIFY_DEVICE_CMD, base + IDE_COMMAND_REG);
-  else
+  } else {
     outb(IDE_IDENTIFY_PACKET_DEVICE_CMD, base + IDE_COMMAND_REG);
+  }
 
   for (j = 1000000; j > 0; j--)  // wait up to 1 second for a response
   {
