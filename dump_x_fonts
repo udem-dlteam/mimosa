@@ -1,0 +1,26 @@
+#!/bin/sh
+
+for font in \
+5x7 \
+5x8 \
+6x10 \
+6x12 \
+6x13 \
+6x13bold \
+6x9 \
+7x13 \
+7x13bold \
+7x14 \
+7x14bold \
+8x13 \
+8x13bold \
+8x16 \
+9x15 \
+9x15bold \
+10x20 \
+12x24 \
+;
+do
+  echo -------------- $font
+  ./dump_x_font $font font_mono_$font > fonts/mono_$font.c
+done

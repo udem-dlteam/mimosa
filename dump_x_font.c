@@ -300,6 +300,7 @@ void dump_font (char *font_name, char *font_id)
   uint64 c;
   int i, j, k;
   bitmap_word bits;
+  int col;
 
   x_open_window (font_name, MAX_WIDTH, MAX_HEIGHT, font_name);
 
@@ -342,69 +343,85 @@ void dump_font (char *font_name, char *font_id)
 #endif
 
   printf ("static bitmap_word %s_pixels[] =\n", font_id);
-  printf ("{\n");
+  printf ("{");
 
   for (i=0; i<height; i++)
     {
+      col = -1;
       j = 0;
       while (j < last_char_end)
         {
+          col = (col+1) % 8;
+          if (col == 0)
+            printf("\n");
           if (i != 0 || j != 0)
-            printf (", ");
+            printf (",");
           else
-            printf ("  ");
+            printf (" ");
           bits = 0;
           for (k=0; k<BITMAP_WORD_WIDTH; k++)
             bits = (bits << 1)
                    | bitmap[i*((max_c+1)*width + BITMAP_WORD_WIDTH)+j++];
           print_hex (bits, BITMAP_WORD_WIDTH);
-          printf ("\n");
         }
+      printf ("\n");
     }
 
   printf ("};\n");
   printf ("\n");
 
   printf ("static uint16 %s_char_map[] =\n", font_id);
-  printf ("{\n");
+  printf ("{");
+
+  col = -1;
 
   for (i=0; i<=max_c; i++)
     {
+      col = (col+1) % 8;
+      if (col == 0)
+        printf("\n");
       if (i > 0)
-        printf (", ");
+        printf (",");
       else
-        printf ("  ");
-      printf ("%d\n", char_map[i]);
+        printf (" ");
+      printf ("%4d", char_map[i]);
     }
 
-  printf ("};\n");
+  printf ("\n};\n");
   printf ("\n");
 
   printf ("static uint32 %s_char_end[] =\n", font_id);
-  printf ("{\n");
+  printf ("{");
+
+  col = -1;
 
   for (i=0; i<=last_char_map; i++)
     {
+      col = (col+1) % 8;
+      if (col == 0)
+        printf("\n");
       if (i > 0)
-        printf (", ");
+        printf (",");
       else
-        printf ("  ");
-      printf ("%d\n", char_end[i]);
+        printf (" ");
+      printf ("%4d", char_end[i]);
     }
 
-  printf ("};\n");
+  printf ("\n};\n");
   printf ("\n");
 
-  printf ("static raw_bitmap_in_memory %s_raw_bitmap (%s_pixels, %d, %d, %d);\n",
-          font_id,
+  printf ("static raw_bitmap_in_memory %s_raw_bitmap =\n",
+          font_id);
+  printf ("  literal_raw_bitmap_in_memory(%s_pixels, %d, %d, %d);\n",
           font_id,
           j,
           height,
           1);
   printf ("\n");
 
-  printf ("font font::%s (%d, %d, %d, %s_char_map, %s_char_end, &%s_raw_bitmap);\n",
-          font_id,
+  printf ("font %s = \n",
+          font_id);
+  printf ("  literal_font(%d, %d, %d, %s_char_map, %s_char_end, &%s_raw_bitmap);\n",
           width,
           height,
           (int)max_c + 1,
