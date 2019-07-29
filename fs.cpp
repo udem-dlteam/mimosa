@@ -33,7 +33,7 @@ static fs_module fs_mod;
 
 // FAT file system implementation.
 
-static error_code open_root_dir(file_system* fs, file** result) {
+error_code open_root_dir(file_system* fs, file** result) {
   file* f = CAST(file*, kmalloc(sizeof(file)));
 
   if (f == NULL) return MEM_ERROR;

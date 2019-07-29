@@ -20,7 +20,7 @@ fat_32_create_empty_file(file_system* fs, native_string name, native_string ext,
   //         return err;
   //       }
 
-  if (ERROR(err = fat_32_open_root_dir(fs, f))) {
+  if (ERROR(err = open_root_dir(fs, f))) {
 #ifdef SHOW_DISK_INFO
     term_write(cout, "Error loading the root dir: ");
     term_write(cout, err);

@@ -128,6 +128,7 @@ error_code create_file(native_string path, file** f);
 error_code open_file(native_string path, file** f);
 error_code close_file(file* f);
 error_code read_file(file* f, void* buf, uint32 count);
+error_code open_root_dir(file_system* fs, file** result);
 
 void inline set_dir_entry_size(FAT_directory_entry* de, uint32 sz);
 
