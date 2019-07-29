@@ -275,11 +275,20 @@ error_code __attribute__((optimize("O0"))) ide_write(ide_device* dev, uint32 lba
 
   lba += wrt_offset / (1 << IDE_LOG2_SECTOR_SIZE);
   wrt_offset = wrt_offset % (1 << IDE_LOG2_SECTOR_SIZE);
-  sector_count = count / (1 << IDE_LOG2_SECTOR_SIZE) + 1;
+
+  uint32 sector_sz = (1 << IDE_LOG2_SECTOR_SIZE);
+
+  if (count == sector_sz) {
+    sector_count = 1;
+  } else {
+    sector_count = count / (1 << IDE_LOG2_SECTOR_SIZE) + 1;
+  }
 
   // TODO loop for sector count > 1?
 
   if(sector_count > 1) {
+    debug_write(count);
+    fatal_error("Writing more than a single sector is not implemented");
     return UNIMPL_ERROR;
   }
 
