@@ -141,8 +141,10 @@ fat32.o: fat32.cpp include/fat32.h include/general.h
 
 libc/libc.o: libc/libc.cpp libc/include/libc_link.h libc/src/libc_support.c \
              libc/include/dirent.h libc/include/errno.h libc/include/math.h \
-			 libc/include/setjmp.h libc/include/stdio.h libc/include/stdlib.h \
-			 libc/include/string.h libc/include/time.h libc/include/unistd.h \
-			 libc/src/libc_link.c libc/src/dirent.c libc/src/errno.c libc/src/math.c \
-			 libc/src/setjmp.c libc/src/stdio.c libc/src/stdlib.c libc/src/string.c \
-			 libc/src/time.c libc/src/unistd.c libc/src/termios.c
+	     libc/include/setjmp.h libc/include/stdio.h libc/include/stdlib.h \
+	     libc/include/string.h libc/include/time.h libc/include/unistd.h \
+	     libc/src/libc_link.c libc/src/dirent.c libc/src/errno.c \
+	     libc/src/math.c libc/src/setjmp.c libc/src/signal.c \
+	     libc/src/stdio.c libc/src/stdlib.c libc/src/string.c \
+	     libc/src/time.c libc/src/unistd.c libc/src/termios.c \
+	     libc/src/sys_time.c

@@ -10,4 +10,4 @@ typedef int wchar_t;
 
 #endif
 
-#endif /* wchar.h  */
+#endif // wchar.h

@@ -19,7 +19,7 @@ int setjmp(jmp_buf __env) {
 
 #else
 
-  /* TODO: implement */
+  // TODO: implement
   return 0;
 
 #endif
@@ -40,12 +40,12 @@ void longjmp(jmp_buf __env, int __val) {
 
 #undef longjmp
 
-  exit(0); /* don't actually longjmp, because setjmp definition above is bogus */
+  exit(0); // don't actually longjmp, because setjmp definition above is bogus
   longjmp(__env, __val);
 
 #else
 
-  /* TODO: implement */
+  // TODO: implement
   for (;;) ;
 
 #endif

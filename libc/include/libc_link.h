@@ -7,24 +7,26 @@
 #include "include/errno.h"
 #include "include/math.h"
 #include "include/setjmp.h"
+#include "include/signal.h"
 #include "include/stdio.h"
 #include "include/stdlib.h"
 #include "include/string.h"
 #include "include/termios.h"
 #include "include/time.h"
 #include "include/unistd.h"
+#include "include/sys/time.h"
 
 struct libc_link {
 
-  /* dirent.h */
+  // dirent.h
   DIR *(*_opendir)(const char *__name);
   struct dirent *(*_readdir)(DIR *__dirp);
   int (*_closedir)(DIR *__dirp);
 
-  /* errno.h */
+  // errno.h
   int *_errno;
 
-  /* math.h */
+  // math.h
   double (*_acos)(double __x);
   double (*_acosh)(double __x);
   double (*_asin)(double __x);
@@ -52,11 +54,14 @@ struct libc_link {
   double (*_tanh)(double __x);
   double (*_scalbn)(double __x, int __exp);
 
-  /* setjmp.h */
+  // setjmp.h
   int (*_setjmp)(jmp_buf __env);
   void (*_longjmp)(jmp_buf __env, int __val);
 
-  /* stdio.h */
+  // signal.h
+//  __sighandler_t (*_signal)(int __sig, __sighandler_t __handler);
+
+  // stdio.h
   FILE *(*_fopen)(const char *__restrict __filename,
                   const char *__restrict __modes);
   FILE *(*_fdopen)(int __fd, const char *__modes);
@@ -71,6 +76,7 @@ struct libc_link {
   int (*_ferror)(FILE *__restrict __stream);
   int (*_feof)(FILE *__restrict __stream);
   void (*_clearerr)(FILE *__restrict __stream);
+//  int (*_fileno)(FILE *__restrict __stream);
   void (*_setbuf)(FILE *__restrict __stream, char *__restrict __buf);
   int (*_rename)(const char *__oldpath, const char *__newpath);
   int (*_fprintf_aux)(FILE *__restrict __stream, const char **__format);
@@ -78,37 +84,68 @@ struct libc_link {
   FILE *_stdout;
   FILE *_stderr;
 
-  /* stdlib.h */
+  // stdlib.h
   void *(*_malloc)(size_t __size);
   void (*_free)(void *__ptr);
   void (*_exit)(int __status);
   char *(*_getenv)(const char *__name);
   int (*_system)(const char *__command);
 
-  /* string.h */
+  // string.h
 #if 0
   void *(*_memcpy)(void *__restrict __dest, const void *__restrict __src,
                    size_t __n);
   void *(*_memmove)(void *__dest, const void *__src, size_t __n);
 #endif
 
-  /* termios.h */
+  // termios.h
   int (*_tcgetattr)(int __fd, struct termios *__termios_p);
   int (*_tcsetattr)(int __fd, int __optional_actions,
                     const struct termios *__termios_p);
   int (*_cfsetospeed)(struct termios *__termios_p, speed_t __speed);
   int (*_cfsetispeed)(struct termios *__termios_p, speed_t __speed);
 
-  /* time.h */
+  // time.h
   clock_t (*_clock)(void);
   time_t (*_time)(time_t *__timer);
+//  int (*_nanosleep)(const struct timespec *__requested_time,
+//                    struct timespec *__remaining);
+//  int (*_clock_getres)(clockid_t __clock_id, struct timespec *__res);
+//  int (*_clock_gettime)(clockid_t __clock_id, struct timespec *__tp);
+//  int (*_clock_settime)(clockid_t __clock_id, const struct timespec *__tp);
 
-  /* unistd.h */
+  // unistd.h
   char *(*_getcwd)(char *__buf, size_t __size);
   int (*_mkdir)(const char *__pathname, mode_t __mode);
   int (*_remove)(const char *__pathname);
   int (*_stat)(const char *__pathname, struct_stat *__buf);
   int (*_lstat)(const char *__pathname, struct_stat *__buf);
+
+  // *** add new things below here for backward compatibility ***
+
+  // signal.h
+  __sighandler_t (*_signal)(int __sig, __sighandler_t __handler);
+
+  // stdio.h
+  int (*_fileno)(FILE *__restrict __stream);
+
+  // time.h
+  int (*_nanosleep)(const struct timespec *__requested_time,
+                    struct timespec *__remaining);
+  int (*_clock_getres)(clockid_t __clock_id, struct timespec *__res);
+  int (*_clock_gettime)(clockid_t __clock_id, struct timespec *__tp);
+  int (*_clock_settime)(clockid_t __clock_id, const struct timespec *__tp);
+
+  // sys/time.h
+  int (*_gettimeofday)(struct timeval *__restrict __tv,
+                       struct timezone *__tz);
+  int (*_settimeofday)(const struct timeval *__tv,
+                       const struct timezone *__tz);
+  int (*_getitimer)(int __which,
+                    struct itimerval *__value);
+  int (*_setitimer)(int __which,
+                    const struct itimerval *__restrict __new,
+                    struct itimerval *__restrict __old);
 
 };
 
@@ -120,4 +157,4 @@ extern struct libc_link LIBC_LINK;
 
 extern void libc_init(void);
 
-#endif /* libc_link.h */
+#endif // libc_link.h

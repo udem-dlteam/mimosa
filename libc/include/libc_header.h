@@ -8,17 +8,19 @@
 #include <errno.h>
 #include <math.h>
 #include <setjmp.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
 #include <sys/stat.h>
+#include <sys/time.h>
 
 #endif
 
-typedef struct stat struct_stat;
+typedef struct stat struct_stat; // avoid issue when "stat" is redirected
 
 #include "include/libc_redirect.h"
 
-#endif /* libc_header.h */
+#endif // libc_header.h

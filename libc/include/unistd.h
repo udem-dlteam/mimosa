@@ -25,4 +25,4 @@ extern void libc_init_unistd(void);
 
 #endif
 
-#endif /* unistd.h  */
+#endif // unistd.h

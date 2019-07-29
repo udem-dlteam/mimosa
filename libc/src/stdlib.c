@@ -19,11 +19,11 @@ void *malloc(size_t __size) {
 
 #else
 
-  /* TODO: implement */
+  // TODO: implement
 
   {
 #define MB (1<<20)
-#define HEAP_SIZE 10*MB /* needs to be at least 5*MB */
+#define HEAP_SIZE 10*MB // needs to be at least 5*MB
 
     static char heap[HEAP_SIZE];
     static int alloc = HEAP_SIZE;
@@ -61,7 +61,7 @@ void free(void *__ptr) {
 
 #else
 
-  /* TODO: implement */
+  // TODO: implement
 
 #endif
 #endif
@@ -85,13 +85,13 @@ void exit(int __status) {
 
 #else
 
-  /* TODO: implement */
+  // TODO: implement
   for (;;) ;
 
 #endif
 #endif
 
-  /*NOTREACHED*/
+  // NOTREACHED
 }
 
 char *getenv(const char *__name) {
@@ -112,7 +112,7 @@ char *getenv(const char *__name) {
 
 #else
 
-  /* TODO: implement */
+  // TODO: implement
   return NULL;
 
 #endif
@@ -137,7 +137,7 @@ int system(const char *__command) {
 
 #else
 
-  /* TODO: implement */
+  // TODO: implement
   return 0;
 
 #endif

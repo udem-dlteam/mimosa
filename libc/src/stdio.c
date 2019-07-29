@@ -1,7 +1,12 @@
 #include "include/libc_common.h"
 #include "include/stdio.h"
+
+#ifdef USE_MIMOSA
+
 #include "ps2.h"
 #include "general.h"
+
+#endif
 
 #ifndef USE_LIBC_LINK
 
@@ -35,20 +40,20 @@ FILE *fopen(const char *__restrict __filename,
 
 #else
 
-  /* TODO: implement */
+  // TODO: implement
   if (__filename[0] == '.' &&
       __filename[1] == '/' &&
       __filename[2] == '\0') {
-    /*
-     * The file "./" is opened by Gambit by the path normalization
-     * function and it must not return NULL.
-     */
+
+    // The file "./" is opened by Gambit by the path normalization
+    // function and it must not return NULL.
+
     return &FILE_root_dir;
   } else {
-    /*
-     * It is OK to return NULL for other files (of course this means
-     * files can't be accessed).
-     */
+
+    // It is OK to return NULL for other files (of course this means
+    // files can't be accessed).
+
     return NULL;
   }
 
@@ -74,7 +79,7 @@ FILE *fdopen(int __fd, const char *__modes) {
 
 #else
 
-  /* TODO: implement */
+  // TODO: implement
   return NULL;
 
 #endif
@@ -97,7 +102,7 @@ size_t fread(void *__restrict __ptr, size_t __size, size_t __n,
   return fread(__ptr, __size, __n, __stream);
 #else
 
-  /* TODO: implement reading other files than stdin */
+  // TODO: implement reading other files than stdin
 
   int i = 0;
   if (__stream == &FILE_stdin) {
@@ -137,7 +142,7 @@ size_t fwrite(const void *__restrict __ptr, size_t __size,
 
 #else
 
-  /* TODO: implement writing to files other than stdout/stderr */
+  // TODO: implement writing to files other than stdout/stderr
 
   if (__stream == &FILE_stdout || __stream == &FILE_stderr) {
 
@@ -174,7 +179,7 @@ int fclose(FILE *__restrict __stream) {
 
 #else
 
-  /* TODO: implement */
+  // TODO: implement
   return 0;
 
 #endif
@@ -199,7 +204,7 @@ int fflush(FILE *__restrict __stream) {
 
 #else
 
-  /* TODO: implement */
+  // TODO: implement
   return 0;
 
 #endif
@@ -224,7 +229,7 @@ int fseek(FILE *__restrict __stream, long __off, int __whence) {
 
 #else
 
-  /* TODO: implement */
+  // TODO: implement
   return 0;
 
 #endif
@@ -249,7 +254,7 @@ long ftell(FILE *__restrict __stream) {
 
 #else
 
-  /* TODO: implement */
+  // TODO: implement
   return 0;
 
 #endif
@@ -274,7 +279,7 @@ int ferror(FILE *__restrict __stream) {
 
 #else
 
-  /* TODO: implement */
+  // TODO: implement
   return 0;
 
 #endif
@@ -299,7 +304,7 @@ int feof(FILE *__restrict __stream) {
 
 #else
 
-  /* TODO: implement */
+  // TODO: implement
   return 0;
 
 #endif
@@ -310,7 +315,7 @@ void clearerr(FILE *__restrict __stream) {
 
 #ifdef USE_LIBC_LINK
 
-  return LIBC_LINK._clearerr(__stream);
+  LIBC_LINK._clearerr(__stream);
 
 #else
 
@@ -324,7 +329,32 @@ void clearerr(FILE *__restrict __stream) {
 
 #else
 
-  /* TODO: implement */
+  // TODO: implement
+
+#endif
+#endif
+}
+
+int fileno(FILE *__restrict __stream) {
+
+#ifdef USE_LIBC_LINK
+
+  return LIBC_LINK._fileno(__stream);
+
+#else
+
+  libc_trace("fileno");
+
+#ifdef USE_HOST_LIBC
+
+#undef fileno
+
+  return fileno(__stream);
+
+#else
+
+  // TODO: implement
+  return 0;
 
 #endif
 #endif
@@ -347,7 +377,7 @@ void setbuf (FILE *__restrict __stream, char *__restrict __buf) {
 
 #else
 
-  /* TODO: implement */
+  // TODO: implement
 
 #endif
 #endif
@@ -371,7 +401,7 @@ int rename(const char *__oldpath, const char *__newpath) {
 
 #else
 
-  /* TODO: implement */
+  // TODO: implement
   return 0;
 
 #endif
@@ -380,7 +410,7 @@ int rename(const char *__oldpath, const char *__newpath) {
 
 #ifndef USE_LIBC_LINK
 
-typedef long longlong; /* fake it to avoid 64 bit operations */
+typedef long longlong; // fake it to avoid 64 bit operations
 
 int fprintf_aux_char(FILE *__restrict __stream, char __c) {
   fwrite(&__c, 1, 1, __stream);

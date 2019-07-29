@@ -7,4 +7,4 @@
 #define FLT_MAX_EXP 128
 #define DBL_MAX_EXP 1024
 
-#endif /* float.h  */
+#endif // float.h

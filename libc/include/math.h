@@ -33,10 +33,8 @@ extern double scalbn(double __x, int __exp);
 
 #ifndef USE_LIBC_LINK
 
-#include "include/libc_link.h"
-
 extern void libc_init_math(void);
 
 #endif
 
-#endif /* math.h  */
+#endif // math.h

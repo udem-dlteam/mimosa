@@ -19,7 +19,7 @@ DIR *opendir(const char *__name) {
 
 #else
 
-  /* TODO: implement */
+  // TODO: implement
   return NULL;
 
 #endif
@@ -44,7 +44,7 @@ struct dirent *readdir(DIR *__dirp) {
 
 #else
 
-  /* TODO: implement */
+  // TODO: implement
   return NULL;
 
 #endif
@@ -69,7 +69,7 @@ int closedir(DIR *__dirp) {
 
 #else
 
-  /* TODO: implement */
+  // TODO: implement
   return 0;
 
 #endif
