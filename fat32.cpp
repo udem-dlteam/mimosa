@@ -91,23 +91,22 @@ fat_32_create_empty_file(file_system* fs, native_string name, native_string ext,
   // Correctly set to the right coordinates in the FAT
   // so we are at the beginning of the file
   f->current_cluster = cluster;
-  f->current_section_length =
-      1 << (fs->_.FAT121632.log2_bps + fs->_.FAT121632.log2_spc);
-  f->current_section_start = ((cluster - 2) << fs->_.FAT121632.log2_spc) +
-                             fs->_.FAT121632.first_data_sector;
+  f->current_section_length = 1 << (fs->_.FAT121632.log2_bps + fs->_.FAT121632.log2_spc);
+  f->current_section_start = ((cluster - 2) << fs->_.FAT121632.log2_spc) + fs->_.FAT121632.first_data_sector;
   f->current_section_pos = 0;
+  f->current_pos = 0;
+  f->length = 0;
+  f->mode = S_IFREG;
 
   *result = f;
 
-  return NO_ERROR;
+  return err;
 }
 
 error_code __attribute__((optimize("O0"))) fat_32_open_root_dir(file_system* fs, file* f) {
 #ifdef SHOW_DISK_INFO
   term_write(cout, "Loading FAT32 root dir\n\r");
 #endif
-
-  debug_write("In FAT32 open root dir");
 
   BIOS_Parameter_Block* p;
   cache_block* cb;

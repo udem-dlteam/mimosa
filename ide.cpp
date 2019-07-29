@@ -266,27 +266,49 @@ error_code __attribute__((optimize("O0"))) ide_write_sectors(ide_device* dev, ui
 }
 
 error_code __attribute__((optimize("O0"))) ide_write(ide_device* dev, uint32 lba, uint32 wrt_offset, uint32 count, void* buff) {
+  error_code err = NO_ERROR;
   uint32 sector_count;
 
   if(count < 1) {
-    return NO_ERROR;
+    return err;
   }
 
   lba += wrt_offset / (1 << IDE_LOG2_SECTOR_SIZE);
   wrt_offset = wrt_offset % (1 << IDE_LOG2_SECTOR_SIZE);
   sector_count = count / (1 << IDE_LOG2_SECTOR_SIZE) + 1;
 
+  // TODO loop for sector count > 1?
+
+  if(sector_count > 1) {
+    return UNIMPL_ERROR;
+  }
+
   uint8* sect_buff = (uint8*)kmalloc(
       sizeof(uint8) * (1 << IDE_LOG2_SECTOR_SIZE) * sector_count);
-      
+
+  if(NULL == sect_buff) {
+    err = MEM_ERROR;
+    return err;
+  }
+
   // Read the sectors currently on the disk
-  ide_read_sectors(dev, lba, sect_buff, sector_count);
+  if(ERROR(err = ide_read_sectors(dev, lba, sect_buff, sector_count))) {
+    goto ide_write_end;
+  }
+
   // Replace the content
   memcpy(sect_buff + wrt_offset, buff, count);
   // Rewrite the sectors
-  ide_write_sectors(dev, lba, sect_buff, sector_count);
+  if(ERROR(err = ide_write_sectors(dev, lba, sect_buff, sector_count))) {
+    goto ide_write_end;
+  }
 
-  kfree(sect_buff);
+ide_write_end:
+  if (NULL != sect_buff) {
+    kfree(sect_buff);
+  }
+  
+  return err;
 }
 
 static void swap_and_trim (native_string dst, uint16* src, uint32 len)

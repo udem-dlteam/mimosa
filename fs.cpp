@@ -87,6 +87,7 @@ error_code open_root_dir_at_file_entry(file* f, file** result) {
     root_dir->current_cluster = f->entry.cluster;
     root_dir->current_section_start = f->entry.section_start;
     root_dir->current_section_length = f->entry.section_length;
+    root_dir->current_section_pos = f->entry.section_pos;
     root_dir->current_pos = f->entry.current_pos;
     root_dir->length = 0;  // Length for directories is not important
     root_dir->mode = S_IFDIR;
@@ -469,7 +470,9 @@ error_code write_file(file* f, void* buff, uint32 count, bool auto_flush) {
   f->wrt.len = len + count;
 
   if (auto_flush) {
-    flush_file(f);
+    err = flush_file(f);
+  } else {
+    err = count;
   }
 
   return err;
@@ -900,7 +903,6 @@ error_code closedir(DIR* dir) {
 
 error_code flush_file(file* f) {
   error_code err = NO_ERROR;
-  uint8* buf = f->wrt.buff;
   uint32 count = f->wrt.len;
   file_system* fs = f->fs;
   ide_device* dev = fs->_.FAT121632.d->_.ide.dev;
@@ -914,7 +916,7 @@ error_code flush_file(file* f) {
       uint8* p;
 
       n = count;
-      p = CAST(uint8*, buf);
+      p = CAST(uint8*, f->wrt.buff);
 
       while (n > 0) {
         uint32 left1;
@@ -955,8 +957,11 @@ error_code flush_file(file* f) {
           if (ERROR(err = disk_cache_block_release(cb))) return err;
 
           // Write to disk
-          ide_write(dev, f->current_section_start, f->current_section_pos,
-                    left2, sector_buffer);
+          if (ERROR(err = ide_write(dev, f->current_section_start,
+                                    f->current_section_pos, left2,
+                                    sector_buffer))) {
+            return err;
+          }
 
           left1 -= left2;
           f->current_section_pos += left2;
