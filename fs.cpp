@@ -945,16 +945,17 @@ error_code flush_file(file* f) {
 
           if (left2 > left1) left2 = left1;
 
+          uint8* sector_buffer = cb->buf +
+                     (f->current_section_pos & ~(~0U << DISK_LOG2_BLOCK_SIZE));
 
           // Update the cache_block buffer
-          memcpy(cb->buf +
-                     (f->current_section_pos & ~(~0U << DISK_LOG2_BLOCK_SIZE)),
-                 p, left2);
-          
+          memcpy(sector_buffer, p, left2);
+
           if (ERROR(err = disk_cache_block_release(cb))) return err;
 
           // Write to disk
-          ide_write(dev, f->current_section_start, f->current_section_pos, left2, p);
+          ide_write(dev, f->current_section_start, f->current_section_pos,
+                    left2, sector_buffer);
 
           left1 -= left2;
           f->current_section_pos += left2;
