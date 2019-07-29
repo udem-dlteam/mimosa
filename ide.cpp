@@ -281,7 +281,7 @@ error_code __attribute__((optimize("O0"))) ide_write(ide_device* dev, uint32 lba
 
   uint8* sect_buff = (uint8*)kmalloc(
       sizeof(uint8) * (1 << IDE_LOG2_SECTOR_SIZE) * sector_count);
-  // No cache for now
+  // TODO: get a cache No cache for now
 
   // Read the sectors currently on the disk
   ide_read_sectors(dev, lba, sect_buff, sector_count);

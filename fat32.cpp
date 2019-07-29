@@ -4,7 +4,99 @@
 #include "general.h"
 #include "rtlib.h"
 
-error_code fat_32_open_root_dir(file_system* fs, file* f, file** result) {
+error_code __attribute__((optimize("O0")))
+fat_32_create_empty_file(file_system* fs, native_string name, native_string ext,
+                         file** result) {
+  FAT_directory_entry de;
+  error_code err;
+  native_char normalized_path[NAME_MAX + 1];
+  native_string p = normalized_path;
+  file* f;
+
+  //       if (ERROR(err = normalize_path(path, normalized_path))) {
+  // #ifdef SHOW_DISK_INFO
+  //         term_write(cout, "Failed to normalize the path\n\r");
+  // #endif
+  //         return err;
+  //       }
+
+  if (ERROR(err = fat_32_open_root_dir(fs, f))) {
+#ifdef SHOW_DISK_INFO
+    term_write(cout, "Error loading the root dir: ");
+    term_write(cout, err);
+    term_writeline(cout);
+#endif
+    return err;
+  }
+
+  uint32 entry_cluster = f->current_cluster;
+  // Section start is the LBA
+  uint32 entry_section_start = f->current_section_start;
+  uint32 entry_section_pos = f->current_section_pos;
+  uint32 section_length = f->current_section_length;
+
+  term_write(cout, "The current root dir section start is:");
+  term_write(cout, entry_section_start);
+
+  while ((err = read_file(f, &de, sizeof(de))) == sizeof(de)) {
+    // This means the entry is available
+    if (de.DIR_Name[0] == 0) break;
+    // Update the position with the information before
+    entry_cluster = f->current_cluster;
+    entry_section_start = f->current_section_start;
+    entry_section_pos = f->current_section_pos;
+    section_length = f->current_section_length;
+  }
+
+  // We got a position for the root entry, we need to find an available FAT
+  uint32 first_data_cluster = 2;
+
+  if (ERROR(err = fat_32_find_first_empty_cluster(fs, &first_data_cluster))) {
+    return err;
+  }
+
+  // Fill with spaces
+  for (int i = 0; i < FAT_NAME_LENGTH; ++i) {
+    de.DIR_Name[i] = ' ';
+  }
+
+  // TODO get the right length to avoid an overrun
+
+  // Copy the name
+  memcpy(de.DIR_Name, name, 7);
+  memcpy(de.DIR_Name + 8, ext, 3);
+
+  {  // Set the cluster in the descriptor
+    uint16 cluster_hi = (first_data_cluster & 0xFFFF0000) >> 16;
+    uint16 cluster_lo = (first_data_cluster & 0x0000FFFF);
+
+    for (int i = 0; i < 2; ++i) {
+      de.DIR_FstClusHI[i] = as_uint8(cluster_hi, i);
+      de.DIR_FstClusLO[i] = as_uint8(cluster_lo, i);
+    }
+  }
+
+  ide_device* dev = fs->_.FAT121632.d->_.ide.dev;
+
+  term_write(cout, entry_section_start);
+  term_writeline(cout);
+  term_write(cout, entry_section_pos);
+  term_writeline(cout);
+
+  // Write the directory entry
+  if(ERROR(err = ide_write(dev, entry_section_start, entry_section_pos, sizeof(de), &de))) {
+    return err;
+  }
+
+  if(ERROR(err = fat_32_set_fat_link_value(fs, first_data_cluster, FAT_32_EOF))) {
+    return err;
+  }
+
+
+  return NO_ERROR;
+}
+
+error_code fat_32_open_root_dir(file_system* fs, file* f) {
 #ifdef SHOW_DISK_INFO
   term_write(cout, "Loading FAT32 root dir\n\r");
 #endif
