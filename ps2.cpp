@@ -257,7 +257,8 @@ native_char readline() {
       // The newline terminates the input
       term_write(io, "\n\r");
       line_buffer[buffer_write_pos++] = '\n';
-      line_buffer[buffer_write_pos + 1] = '\0';
+      /* We want the \0 to be included */
+      line_buffer[buffer_write_pos++] = '\0';
       buffer_flush = true;
     } else if (ASCII_BACKSPACE == c) {
       // Don't overrun the Gambit term.

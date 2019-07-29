@@ -33,7 +33,7 @@ static fs_module fs_mod;
 
 // FAT file system implementation.
 
-error_code open_root_dir(file_system* fs, file** result) {
+error_code __attribute__((optimize("O0"))) open_root_dir(file_system* fs, file** result) {
   file* f = CAST(file*, kmalloc(sizeof(file)));
 
   if (f == NULL) return MEM_ERROR;
@@ -368,6 +368,76 @@ static error_code next_FAT_section(file* f) {
   f->current_section_pos = 0;
 
   return NO_ERROR;
+}
+
+error_code write_file(file* f, void* buff, uint32 count, bool auto_flush) {
+  error_code err = NO_ERROR;
+
+  if (count < 1) return err;
+
+  if (f->wrt.buff_sz == 0) {
+    // No buffer is currently allocated for the file.
+    // We allocate it with twice the count to amortize
+    // the cost
+    f->wrt.len = 0;
+    f->wrt.buff = (uint8*)kmalloc(sizeof(uint8) * f->wrt.buff_sz);
+
+    if (NULL == f->wrt.buff) {
+      // Not enough memory to allocate this big of a buffer.
+      err = MEM_ERROR;
+      return err;
+    }
+
+    f->wrt.buff_sz = count << 1;
+  }
+
+  if (f->wrt.len + count > f->wrt.buff_sz) {
+    // This buffer is too small, so we need to reallocate it.
+    // Again, take twice the size. However, since count might be big, we double
+    // until counts fits in.
+    uint8* old_buff = f->wrt.buff;
+    uint32 old_len = f->wrt.len;
+    uint32 old_sz = f->wrt.buff_sz;
+    uint32 total_sz;
+
+    do {
+      f->wrt.buff_sz = f->wrt.buff_sz << 1;  // Double it
+    } while (f->wrt.len + count > f->wrt.buff_sz);
+
+    uint8* new_buff = CAST(uint8*, kmalloc(sizeof(uint8) * f->wrt.buff_sz));
+
+    if (NULL == new_buff) {
+      // We could not allocate enough memory for the write buffer
+      err = MEM_ERROR;
+      return err;
+    }
+
+    memcpy(new_buff, old_buff, old_len);
+    kfree(old_buff);
+
+    f->wrt.buff = new_buff;
+    f->wrt.len = old_len;
+    // f->wrt.buff_sz = Already correct
+  }
+
+#ifdef CHECK_ASSERTIONS
+  if (f->wrt.len + count > f->wrt.buff_sz)
+    fatal_error("The new buffer is of incorrect size");
+#endif
+
+  uint8* file_buff = f->wrt.buff;
+  uint32 len = f->wrt.len;
+
+  memcpy(file_buff + len, buff, count);
+
+  // Update the len
+  f->wrt.len = len + count;
+
+  if (auto_flush) {
+    flush_file(f);
+  }
+
+  return err;
 }
 
 error_code read_file(file* f, void* buf, uint32 count) {
@@ -794,6 +864,96 @@ error_code closedir(DIR* dir) {
   kfree(dir);          // ignore error
 
   return NO_ERROR;
+}
+
+error_code flush_file(file* f) {
+  error_code err = NO_ERROR;
+  uint8* buf = f->wrt.buff;
+  uint32 count = f->wrt.len;
+  file_system* fs = f->fs;
+  ide_device* dev = fs->_.FAT121632.d->_.ide.dev;
+  cache_block* cb;
+
+  if (count < 1) return err;
+
+  switch (fs->kind) {
+    case FAT32_FS: {
+      uint32 n;
+      uint8* p;
+
+      if (!S_ISDIR(f->mode)) {
+        uint32 left = f->length - f->current_pos;
+        if (count > left) count = left;
+      }
+
+      n = count;
+      p = CAST(uint8*, buf);
+
+      while (n > 0) {
+        uint32 left1;
+        uint32 left2;
+
+        if (f->current_section_pos >= f->current_section_length) {
+          if (ERROR(err = next_FAT_section(f))) {
+            if (err != EOF_ERROR) return err;
+            break;
+          }
+        }
+
+        left1 = f->current_section_length - f->current_section_pos;
+
+        if (left1 > n) left1 = n;
+
+        while (left1 > 0) {
+          cache_block* cb;
+          if (ERROR(err = disk_cache_block_acquire(
+                        fs->_.FAT121632.d,
+                        f->current_section_start +
+                            (f->current_section_pos >> DISK_LOG2_BLOCK_SIZE),
+                        &cb))) {
+            return err;
+          }
+
+          left2 = (1 << DISK_LOG2_BLOCK_SIZE) -
+                  (f->current_section_pos & ~(~0U << DISK_LOG2_BLOCK_SIZE));
+
+          if (left2 > left1) left2 = left1;
+
+
+          // Update the cache_block buffer
+          memcpy(cb->buf +
+                     (f->current_section_pos & ~(~0U << DISK_LOG2_BLOCK_SIZE)),
+                 p, left2);
+
+          if (ERROR(err = disk_cache_block_release(cb))) return err;
+
+          // Write to disk
+          ide_write(dev, f->current_section_start, f->current_section_pos, left2, p);
+
+          left1 -= left2;
+          f->current_section_pos += left2;
+          f->current_pos += left2;
+          n -= left2;
+          p += left2;  // We read chars, skip to the next part
+        }
+      }
+
+      err = count - n;
+    } break;
+    default:
+      err = UNIMPL_ERROR;
+  }
+
+  if (!ERROR(err)) {
+    // TODO: Update the directory entry
+   
+    // Free the buffer
+    kfree(f->wrt.buff);
+    f->wrt.len = f->wrt.buff_sz = 0;
+    f->wrt.buff = NULL;
+  }
+
+  return err;
 }
 
 void inline set_dir_entry_size(FAT_directory_entry* de, uint32 sz) {

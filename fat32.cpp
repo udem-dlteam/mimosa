@@ -13,14 +13,7 @@ fat_32_create_empty_file(file_system* fs, native_string name, native_string ext,
   native_string p = normalized_path;
   file* f;
 
-  //       if (ERROR(err = normalize_path(path, normalized_path))) {
-  // #ifdef SHOW_DISK_INFO
-  //         term_write(cout, "Failed to normalize the path\n\r");
-  // #endif
-  //         return err;
-  //       }
-
-  if (ERROR(err = open_root_dir(fs, f))) {
+  if (ERROR(err = open_root_dir(fs, &f))) {
 #ifdef SHOW_DISK_INFO
     term_write(cout, "Error loading the root dir: ");
     term_write(cout, err);
@@ -33,6 +26,7 @@ fat_32_create_empty_file(file_system* fs, native_string name, native_string ext,
   // Section start is the LBA
   uint32 entry_section_start = f->current_section_start;
   uint32 entry_section_pos = f->current_section_pos;
+  uint32 entry_pos = f->current_pos;
   uint32 section_length = f->current_section_length;
 
   term_write(cout, "The current root dir section start is:");
@@ -45,11 +39,19 @@ fat_32_create_empty_file(file_system* fs, native_string name, native_string ext,
     entry_cluster = f->current_cluster;
     entry_section_start = f->current_section_start;
     entry_section_pos = f->current_section_pos;
+    entry_pos = f->current_pos;
     section_length = f->current_section_length;
   }
 
+  // Set the file to the last position so we can easily write there
+  f->current_cluster = entry_cluster;
+  f->current_section_start = entry_section_start;
+  f->current_section_pos = entry_section_pos;
+  f->current_pos = entry_pos;
+  f->current_section_length = section_length;
+
   // We got a position for the root entry, we need to find an available FAT
-  uint32 first_data_cluster = 2;
+  uint32 first_data_cluster = FAT32_FIRST_CLUSTER;
 
   if (ERROR(err = fat_32_find_first_empty_cluster(fs, &first_data_cluster))) {
     return err;
@@ -76,15 +78,11 @@ fat_32_create_empty_file(file_system* fs, native_string name, native_string ext,
     }
   }
 
-  ide_device* dev = fs->_.FAT121632.d->_.ide.dev;
+  if(ERROR(err = write_file(f, &de, sizeof(de), TRUE))) {
+    return err;
+  }
 
-  term_write(cout, entry_section_start);
-  term_writeline(cout);
-  term_write(cout, entry_section_pos);
-  term_writeline(cout);
-
-  // Write the directory entry
-  if(ERROR(err = ide_write(dev, entry_section_start, entry_section_pos, sizeof(de), &de))) {
+  if(ERROR(err = close_file(f))) {
     return err;
   }
 
@@ -92,14 +90,15 @@ fat_32_create_empty_file(file_system* fs, native_string name, native_string ext,
     return err;
   }
 
-
   return NO_ERROR;
 }
 
-error_code fat_32_open_root_dir(file_system* fs, file* f) {
+error_code __attribute__((optimize("O0"))) fat_32_open_root_dir(file_system* fs, file* f) {
 #ifdef SHOW_DISK_INFO
   term_write(cout, "Loading FAT32 root dir\n\r");
 #endif
+
+  debug_write("In FAT32 open root dir");
 
   BIOS_Parameter_Block* p;
   cache_block* cb;

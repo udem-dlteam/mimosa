@@ -107,6 +107,11 @@ typedef struct file_struct {
   uint32 current_pos;
   uint32 length;  // in bytes
   uint8 mode;
+  struct {
+    uint8* buff;
+    uint32 len;      // in bytes
+    uint32 buff_sz;  // in bytes
+  } wrt;
 } file;
 
 typedef struct FAT_directory_entry_struct {
@@ -127,8 +132,10 @@ typedef struct FAT_directory_entry_struct {
 error_code create_file(native_string path, file** f);
 error_code open_file(native_string path, file** f);
 error_code close_file(file* f);
+error_code write_file(file* f, void* buff, uint32 count, bool auto_flush);
 error_code read_file(file* f, void* buf, uint32 count);
 error_code open_root_dir(file_system* fs, file** result);
+error_code flush_file(file* f);
 
 void inline set_dir_entry_size(FAT_directory_entry* de, uint32 sz);
 

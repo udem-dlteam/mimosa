@@ -5,6 +5,8 @@
 #include "fs.h"
 
 #define FAT_32_EOF 0x0FFFFFF8
+#define FAT32_FIRST_CLUSTER 2
+#define AUTO_FLUSH_DIR_WRTS FALSE
 
 error_code fat_32_create_empty_file(file_system* fs, native_string name, native_string ext, file** result);
 

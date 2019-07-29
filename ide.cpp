@@ -268,7 +268,6 @@ error_code __attribute__((optimize("O0"))) ide_write_sectors(ide_device* dev, ui
 }
 
 error_code __attribute__((optimize("O0"))) ide_write(ide_device* dev, uint32 lba, uint32 wrt_offset, uint32 count, void* buff) {
-
   uint32 sector_count;
 
   if(count < 1) {
@@ -281,8 +280,7 @@ error_code __attribute__((optimize("O0"))) ide_write(ide_device* dev, uint32 lba
 
   uint8* sect_buff = (uint8*)kmalloc(
       sizeof(uint8) * (1 << IDE_LOG2_SECTOR_SIZE) * sector_count);
-  // TODO: get a cache No cache for now
-
+      
   // Read the sectors currently on the disk
   ide_read_sectors(dev, lba, sect_buff, sector_count);
   // Replace the content
