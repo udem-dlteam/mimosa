@@ -1,4 +1,3 @@
-
 #include "asm.h"
 #include "general.h"
 #include "uart.h"
@@ -46,6 +45,82 @@ void init_serial(int com_port) {
    }
 }
 
+// Modem Status Register read
+static void read_msr(uint16 port){
+  uint8 c = inb(port + UART_8250_MSR);
+  term_write(cout, "\r\nRead MSR\r\n");
+  if( UART_MSR_CARRIER_DETECT(c) ){
+    term_write(cout,"\r\nModem connected to another modem\r\n");
+  } else {
+    term_write(cout,"\r\nModem not connected to another modem\r\n");
+  }
+  if( UART_MSR_RING_INDICATOR(c) ){
+    term_write(cout,"\r\nRing Voltage\r\n");
+  }
+  if( UART_MSR_DATA_SET_READY(c) ){ // TODO
+    term_write(cout,"\r\nData Set Ready\r\n");
+  }
+  if( UART_MSR_CLEAR_TO_SEND(c) ){ // TODO
+    term_write(cout,"\r\nClear to Send\r\n");
+  }
+  // ignored bits for the moment
+  if( UART_MSR_DELTA_DATA_CARRIER_DETECT(c) ){}
+  if( UART_MSR_TRAILING_EDGE_RING_INDICATOR(c) ){}
+  if( UART_MSR_DELTA_DATA_SET_READY(c) ){}
+  if( UART_MSR_DELTA_CLEAR_TO_SEND(c) ){}
+}
+
+static void THR_handle(uint16 port){
+  // bit 5 in LSR used to check if info must be written to THR or read from IIR
+  if( UART_THR_GET_ACTION( inb( port + UART_8250_LSR ))){
+    //TODO : if fifo is enabled , then more than one character can be written to THR
+    //if(UART_IIR_GET_FIFO_STATE( inb( port + UART_IIR_FIFO_NO_FIFO ))){}
+    
+    
+  }
+}
+
+static void read_rbr(int com_port) {
+  while ((inb(com_port + UART_8250_LSR) & UART_8250_LSR_DR) == 0);
+  //return inb(com_port);
+  char c = (char)inb(com_port);
+  
+  term_write(cout, c);
+  term_write(cout, "\r\ndata has been read\r\n");
+}
+
+static void read_lsr(uint16 port){
+  uint8 e = inb(port + UART_8250_LSR);
+  
+  if( UART_LSR_DATA_AVAILABLE(e) ){
+    //read (RBR)
+    term_write(cout, "\r\nData Available\r\n");
+    read_rbr(port);
+  }
+  if( UART_LSR_OVERRUN_ERROR(e) ){
+    term_write(cout, "\r\nOVERRUN_ERROR\r\n");
+  }
+  if( UART_LSR_PARITY_ERROR(e) ){
+    term_write(cout, "\r\nPARITY_ERROR\r\n");
+  }
+  if( UART_LSR_FRAMING_ERROR(e) ){
+    term_write(cout, "\r\nFRAMING_ERROR\r\n");
+  }
+  if( UART_LSR_BREAK_INTERRUPT(e) ){
+    term_write(cout, "\r\nBREAK_INTERRUPT\r\n");
+  }
+  if( UART_LSR_CAN_RECEIVE(e) ){
+    term_write(cout, "\r\nCAN_RECEIVE\r\n");
+  }
+  if( UART_LSR_ALL_CAR_TRANSMITTED(e) ){
+    term_write(cout, "\r\nALL_CAR_TRANSMITTED\r\n");
+  }
+  if( UART_LSR_ERROR_IN_RECEIVED_FIFO(e) ){
+    //FIFO never used for the moment.
+    term_write(cout, "\r\nERROR IN RECEIVED FIFO,need to be cleared out\r\n");
+  }
+}
+
 void _handle_interrupt(uint16 port, uint8 com_index, uint8 iir) {
 #ifdef SHOW_UART_MESSAGES
   term_write(cout, "\n\rIRQ4 fired and COM ");
@@ -58,22 +133,33 @@ void _handle_interrupt(uint16 port, uint8 com_index, uint8 iir) {
   uint8 cause = UART_IIR_GET_CAUSE(iir);
 
   switch (cause) {
-    case UART_IIR_MODEM:
-      break;
-    case UART_IIR_TRANSMITTER_HOLDING_REG:
-      break;
-    case UART_IIR_RCV_LINE:
-      break;
+  case UART_IIR_MODEM:
+    // Reading Modem Status Register (MSR) // #1
+    term_write(cout, "Read_modem_status_register");
+      read_msr(port);
+    break;
+  case UART_IIR_TRANSMITTER_HOLDING_REG:
+    // Reading interrupt indentification register(IIR)
+    // or writing to Transmit Holding Buffer (THR)
+    THR_handle(port);
+    break;
+  case UART_IIR_RCV_LINE:
+    // reading line status register
+    read_lsr(port);
+    break;
+  case UART_IIR_DATA_AVAIL:
+    // timeout is available on new model.
+    // This means that we need to read data
+    // before the connection timeouts
+    // reading receive Buffer Register(RBR)
+    read_rbr(port);
+  case UART_IIR_TIMEOUT:
+    read_rbr(port);
+    break;
 
-    case UART_IIR_DATA_AVAIL:
-     // timeout is available on new model. This means that we need to read data before the connection timeouts
-    case UART_IIR_TIMEOUT:
-        term_write(cout, "DATA AVAIL!\n\r");
-      break;
-
-    default:
-      fatal_error("Illegal UART interrupt cause");
-      break;
+  default:
+    fatal_error("Illegal UART interrupt cause");
+    break;
   }
 }
 
@@ -87,7 +173,7 @@ void irq3() {
 #ifdef SHOW_INTERRUPTS
   term_write(cout, "\033[41m irq3 UART \033[0m");
 #endif
-  
+
   uint8 com2_iir = inb(COM2_PORT_BASE + UART_8250_IIR);
   uint8 com4_iir = inb(COM4_PORT_BASE + UART_8250_IIR);
 
@@ -127,9 +213,4 @@ void send_serial(int port, char* x) {
     outb(*x, port);
     x++;
   }
-}
-
-char read_serial(int com_port) {
-  // while ((inb(com_port + UART_8250_LSR) & UART_8250_LSR_DR) == 0);
-  // return inb(com_port);
 }

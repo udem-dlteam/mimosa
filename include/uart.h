@@ -48,6 +48,8 @@
 #define DIV_MSB(baud) ((115200 / baud) >> 8)
 #define DIV_LSB(baud) ((115200 / baud) & 0xff)
 
+// Line Status register (LSR)
+#define UART_8250_LSR_ERF (1 << 7)
 #define UART_8250_LSR_TEMT (1 << 6)
 #define UART_8250_LSR_THRE (1 << 5)
 #define UART_8250_LSR_BI (1 << 4)
@@ -56,10 +58,42 @@
 #define UART_8250_LSR_OE (1 << 1)
 #define UART_8250_LSR_DR (1 << 0)
 
+// Line Status Register (LSR) interrupt cause 
+#define UART_LSR_DATA_AVAILABLE(x) ((x) & UART_8250_LSR_DR)
+#define UART_LSR_OVERRUN_ERROR(x) ((x) & UART_8250_LSR_OE)
+#define UART_LSR_PARITY_ERROR(x) ((x) & UART_8250_LSR_PE)
+#define UART_LSR_FRAMING_ERROR(x) ((x) & UART_8250_LSR_FE)
+#define UART_LSR_BREAK_INTERRUPT(x) ((x) & UART_8250_LSR_BI)
+#define UART_LSR_CAN_RECEIVE(x) ((x) & UART_8250_LSR_THRE)
+#define UART_LSR_ALL_CAR_TRANSMITTED(x) ((x) & UART_8250_LSR_TEMT)
+#define UART_LSR_ERROR_IN_RECEIVED_FIFO(x) ((x) & UART_8250_LSR_ERF)
+
+// Modem Status Register (MSR) bit flags
+#define UART_8250_MSR_CD (1 << 7)
+#define UART_8250_MSR_RI (1 << 6)
+#define UART_8250_MSR_DSR (1 << 5)
+#define UART_8250_MSR_CTS (1 << 4)
+#define UART_8250_MSR_DDCD (1 << 3)
+#define UART_8250_MSR_TERI (1 << 2)
+#define UART_8250_MSR_DDSR (1 << 1)
+#define UART_8250_MSR_DCTS (1 << 0)
+
+// Modem Status Register (MSR) interrupt causes
+#define UART_MSR_CARRIER_DETECT(x) ((x) & UART_8250_MSR_CD)
+#define UART_MSR_RING_INDICATOR(x) ((x) & UART_8250_MSR_RI)
+#define UART_MSR_DATA_SET_READY(x) ((x) & UART_8250_MSR_DSR)
+#define UART_MSR_CLEAR_TO_SEND(x) ((x) & UART_8250_MSR_CTS)
+#define UART_MSR_DELTA_DATA_CARRIER_DETECT(x) ((x) & UART_8250_MSR_DDCD)
+#define UART_MSR_TRAILING_EDGE_RING_INDICATOR(x) ((x) & UART_8250_MSR_TERI)
+#define UART_MSR_DELTA_DATA_SET_READY(x) ((x) & UART_8250_MSR_DDSR)
+#define UART_MSR_DELTA_CLEAR_TO_SEND(x) ((x) & UART_8250_MSR_DCTS)
+
 #define UART_IIR_PENDING(x) (!((x) & (1 << 0)))
 #define UART_IIR_IS_64_BIT_FIFO(x) ((x) & (1 << 5))
 #define UART_IIR_GET_CAUSE(x) ((x & 0xE) >> 1)
 #define UART_IIR_GET_FIFO_STATE(x) ((x & 0b11000000) >> 6)
+
+#define UART_THR_GET_ACTION(x) ((x & (UART_8250_LSR_THRE)))
 
 // Interrupt Identification Register (IIR) interrupt cause
 #define UART_IIR_MODEM 0
