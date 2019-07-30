@@ -141,6 +141,7 @@ typedef struct FAT_directory_entry_struct {
 } FAT_directory_entry;
 
 void file_reset_cursor(file* f);
+error_code file_move_cursor(file* f, int32 n);
 error_code file_set_to_absolute_position(file *f, uint32 position);
 error_code create_file(native_string path, file** f);
 error_code open_file(native_string path, file** f);

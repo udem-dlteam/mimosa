@@ -1067,7 +1067,7 @@ void file_reset_cursor(file* f) {
   f->current_pos = 0;
 }
 
-error_code file_set_to_absolute_position(file* f, uint32 position) {
+error_code _file_set_pos_from_start(file* f, uint32 position) {
   error_code err = NO_ERROR;
   file_system* fs = f->fs;
   BIOS_Parameter_Block* p;
@@ -1103,6 +1103,102 @@ error_code file_set_to_absolute_position(file* f, uint32 position) {
   }
 
   return err;
+}
+
+error_code file_move_cursor(file* f, int32 n) {
+  uint32 displacement;
+  BIOS_Parameter_Block* p;
+  cache_block* cb;
+  error_code err = NO_ERROR;
+  file_system* fs = f->fs;
+  disk* d = fs->_.FAT121632.d;
+
+  if(n == 0) {
+    // No move
+    return err;
+  } 
+    
+  if(n < 0) {
+    // Backwards move
+    displacement = -n;
+    bool crosses_section_boundary = displacement > f->current_section_pos; 
+
+    debug_write("Mouvement crosses section boundary:");
+    
+    if(crosses_section_boundary) {
+      debug_write("TRUE");
+    } else {
+      debug_write("FALSE");
+    }
+
+    // If we cross a section boundary, the design of the FAT FS requires to start
+    // from the beginning.
+    if (crosses_section_boundary) {
+      return _file_set_pos_from_start(f, f->current_pos - displacement);
+    } else {
+      // Simply update the position
+      f->current_pos -= displacement;
+      f->current_section_pos -= displacement;
+    }
+  } else {
+    // Forward move
+    displacement = n;
+    bool crosses_section_boundary = ((displacement + f->current_section_pos) >= f->current_section_length);
+
+    debug_write("Mouvement crosses section boundary:");
+    
+    if(crosses_section_boundary) {
+      debug_write("TRUE");
+    } else {
+      debug_write("FALSE");
+    }
+
+    if(crosses_section_boundary) {
+      // We are moving forward.
+      if (HAS_NO_ERROR(err = disk_cache_block_acquire(d, 0, &cb))) {
+        p = CAST(BIOS_Parameter_Block*, cb->buf);
+        uint16 bytes_per_sector = as_uint16(p->BPB_BytsPerSec);
+        uint32 cluster_sz = bytes_per_sector * p->BPB_SecPerClus;
+        
+        uint32 current_section_pos = f->current_section_pos;
+        uint32 section_relative_pos = (current_section_pos + displacement) % cluster_sz;
+
+        uint32 no_of_clusters;
+        if(displacement == cluster_sz) {
+          return no_of_clusters = 1;
+        } else {
+          no_of_clusters = (displacement / cluster_sz) + 1;
+        }
+
+        for (int i = 0; i < no_of_clusters; ++i) {
+          if(ERROR(err = next_FAT_section(f))) {
+            break;
+          }
+        }
+
+        if(HAS_NO_ERROR(err)) {
+          f->current_section_pos = section_relative_pos;
+          f->current_pos += displacement;
+        } else {
+          // Try anyways
+          disk_cache_block_release(cb);
+        }
+      }
+    } else {
+      // Simply update the position
+      f->current_pos += displacement;
+      f->current_section_pos += displacement;
+    }
+  }
+
+  return err;
+}
+
+error_code file_set_to_absolute_position(file* f, uint32 position) {
+  // To goal of this method is to set the file cursor to an absolute position,
+  // but maybe by using relative movements. It decides what is more appropriate.
+  int32 bytes = position - f->current_pos;
+  return file_move_cursor(f, bytes);
 }
 
 void inline set_dir_entry_size(FAT_directory_entry* de, uint32 sz) {
