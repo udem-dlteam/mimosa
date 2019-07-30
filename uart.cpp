@@ -4,7 +4,7 @@
 #include "intr.h"
 #include "term.h"
 #include "rtlib.h"
-
+#include "thread.h"
 /**
  * Source for writing 8250 UART drivers can be found at
  * https://en.wikibooks.org/wiki/Serial_Programming/8250_UART_Programming
@@ -23,10 +23,10 @@ void init_serial(int com_port) {
   outb(0x00,
        com_port + UART_8250_DLM);  // Set divisor to 3 (lo byte) 38400 baud
   outb(0x03, com_port + UART_8250_LCR);  // 8 bits, no parity, one stop bit
-  outb(0x01, com_port + UART_8250_IER);  //                  (hi byte)
-  outb(0xC7,
+  outb(0x0F, com_port + UART_8250_IER);  //                  (hi byte)
+  outb(0x8E,
        com_port +
-           UART_8250_IIR);  // Enable FIFO, clear them, with 14-byte threshold
+           UART_8250_IIR);  //TODO Do not enable FIFO, clear them, with 14-byte threshold
   outb(0x08, com_port + UART_8250_MCR);  // IRQs enabled, RTS/DSR set
 
   switch (com_port) {
@@ -45,6 +45,51 @@ void init_serial(int com_port) {
    }
 }
 
+// Circular Buffer linked to MSR interrupt
+#define BUFFER_SIZE 16
+
+static volatile unicode_char circular_buffer[BUFFER_SIZE];
+static volatile int circular_buffer_lo = 0;
+static volatile int circular_buffer_hi = 0;
+static condvar* circular_buffer_cv;
+
+//#pragma GCC push_options
+//#pragma GCC optimize("O0")
+
+static void keypress2(uint8 ch) {
+  // debug_write("[START] Keypress");
+
+  int next_hi = (circular_buffer_hi + 1) % BUFFER_SIZE;
+
+  if (next_hi != circular_buffer_lo) {
+    circular_buffer[circular_buffer_hi] = ch;
+    circular_buffer_hi = next_hi;
+    circular_buffer_cv->mutexless_signal();
+  }
+  // debug_write("[STOP ] Keypress");
+}
+
+unicode_char getchar2() {
+  disable_interrupts();
+
+  while (circular_buffer_lo == circular_buffer_hi) {
+    circular_buffer_cv->mutexless_wait();
+  }
+
+  unicode_char result = circular_buffer[circular_buffer_lo];
+
+  circular_buffer_lo = (circular_buffer_lo + 1) % BUFFER_SIZE;
+
+  circular_buffer_cv->mutexless_signal();
+  enable_interrupts();
+
+  return result;
+}
+
+volatile bool buffer2_flush = false;
+volatile uint16 buffer2_flush_pos = 0;
+volatile uint16 buffer2_write_pos = 0;
+
 // Modem Status Register read
 static void read_msr(uint16 port){
   uint8 c = inb(port + UART_8250_MSR);
@@ -54,20 +99,25 @@ static void read_msr(uint16 port){
   } else {
     term_write(cout,"\r\nModem not connected to another modem\r\n");
   }
-  if( UART_MSR_RING_INDICATOR(c) ){
-    term_write(cout,"\r\nRing Voltage\r\n");
-  }
-  if( UART_MSR_DATA_SET_READY(c) ){ // TODO
+  //if( UART_MSR_RING_INDICATOR(c) ){
+  //  term_write(cout,"\r\nRing Voltage\r\n");
+  //}
+  if( UART_MSR_DATA_SET_READY(c) ){
+    // TODO
     term_write(cout,"\r\nData Set Ready\r\n");
   }
-  if( UART_MSR_CLEAR_TO_SEND(c) ){ // TODO
+  if( UART_MSR_CLEAR_TO_SEND(c) ){
+    // handshaking signal. This is normally connected
+    // to the RTS (Request To Send) signal on the remove
+    // device. When that remote device asserts its RTS line,
+    // data transmission can take place
     term_write(cout,"\r\nClear to Send\r\n");
   }
   // ignored bits for the moment
-  if( UART_MSR_DELTA_DATA_CARRIER_DETECT(c) ){}
-  if( UART_MSR_TRAILING_EDGE_RING_INDICATOR(c) ){}
-  if( UART_MSR_DELTA_DATA_SET_READY(c) ){}
-  if( UART_MSR_DELTA_CLEAR_TO_SEND(c) ){}
+  //if( UART_MSR_DELTA_DATA_CARRIER_DETECT(c) ){}
+  //if( UART_MSR_TRAILING_EDGE_RING_INDICATOR(c) ){}
+  //if( UART_MSR_DELTA_DATA_SET_READY(c) ){}
+  //if( UART_MSR_DELTA_CLEAR_TO_SEND(c) ){}
 }
 
 static void THR_handle(uint16 port){
@@ -75,18 +125,22 @@ static void THR_handle(uint16 port){
   if( UART_THR_GET_ACTION( inb( port + UART_8250_LSR ))){
     //TODO : if fifo is enabled , then more than one character can be written to THR
     //if(UART_IIR_GET_FIFO_STATE( inb( port + UART_IIR_FIFO_NO_FIFO ))){}
-    
-    
+
+    //TODO : write buffer in THR ?
+    outb(port + UART_8250_THR, getchar2());
+    term_write(cout, "\r\ndata wrote in THR\r\n");
   }
 }
 
+// TODO: write characters read in buffer
 static void read_rbr(int com_port) {
   while ((inb(com_port + UART_8250_LSR) & UART_8250_LSR_DR) == 0);
   //return inb(com_port);
   char c = (char)inb(com_port);
   
   term_write(cout, c);
-  term_write(cout, "\r\ndata has been read\r\n");
+  keypress2(c);
+  term_write(cout, "\r\ndata has been read and put into circular buffer\r\n");
 }
 
 static void read_lsr(uint16 port){
@@ -111,17 +165,19 @@ static void read_lsr(uint16 port){
   }
   if( UART_LSR_CAN_RECEIVE(e) ){
     term_write(cout, "\r\nCAN_RECEIVE\r\n");
+    // reading the lsr or writing to the data register clears this bit
   }
   if( UART_LSR_ALL_CAR_TRANSMITTED(e) ){
     term_write(cout, "\r\nALL_CAR_TRANSMITTED\r\n");
   }
-  if( UART_LSR_ERROR_IN_RECEIVED_FIFO(e) ){
-    //FIFO never used for the moment.
-    term_write(cout, "\r\nERROR IN RECEIVED FIFO,need to be cleared out\r\n");
-  }
+  //if( UART_LSR_ERROR_IN_RECEIVED_FIFO(e) ){
+  //  //FIFO never used for the moment.
+  //  term_write(cout, "\r\nERROR IN RECEIVED FIFO,need to be cleared out\r\n");
+  //}
 }
 
 void _handle_interrupt(uint16 port, uint8 com_index, uint8 iir) {
+  term_write(cout, inb(port + UART_8250_IIR));
 #ifdef SHOW_UART_MESSAGES
   term_write(cout, "\n\rIRQ4 fired and COM ");
   term_write(cout, com_index);
@@ -134,25 +190,41 @@ void _handle_interrupt(uint16 port, uint8 com_index, uint8 iir) {
 
   switch (cause) {
   case UART_IIR_MODEM:
-    // Reading Modem Status Register (MSR) // #1
+    // Modem Status 
+    // Caused by : Change in clear to send, data set
+    //             ready, ring indicator, or received
+    //             line signal detect signals.
+    // priority :lowest
+    // Reading Modem Status Register (MSR) 
     term_write(cout, "Read_modem_status_register");
       read_msr(port);
     break;
   case UART_IIR_TRANSMITTER_HOLDING_REG:
+    // Transmitter empty
+    // Caused by : The transmitter finishes sending
+    //             data and is ready to accept additional data.
+    // priority : next to lowest
     // Reading interrupt indentification register(IIR)
     // or writing to Transmit Holding Buffer (THR)
     THR_handle(port);
     break;
   case UART_IIR_RCV_LINE:
+    // Error or Break
+    // caused by : Overrun error, parity error, framing
+    //             error, or break interrupt.
+    // priority : highest
     // reading line status register
     read_lsr(port);
     break;
   case UART_IIR_DATA_AVAIL:
+    // Data Available
+    // caused by : Data arriving from an external
+    //             source in the Receive Register.
+    // priority : next to highest
     // timeout is available on new model.
     // This means that we need to read data
     // before the connection timeouts
     // reading receive Buffer Register(RBR)
-    read_rbr(port);
   case UART_IIR_TIMEOUT:
     read_rbr(port);
     break;
