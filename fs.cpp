@@ -924,7 +924,6 @@ error_code __attribute__((optimize("O0"))) flush_file(file* f) {
       p = CAST(uint8*, f->wrt.buff);
 
       while (n > 0) {
-        debug_write("n:"); debug_write(n);
         uint32 left1;
         uint32 left2;
 
@@ -1121,15 +1120,7 @@ error_code file_move_cursor(file* f, int32 n) {
   if(n < 0) {
     // Backwards move
     displacement = -n;
-    bool crosses_section_boundary = displacement > f->current_section_pos; 
-
-    debug_write("Mouvement crosses section boundary:");
-    
-    if(crosses_section_boundary) {
-      debug_write("TRUE");
-    } else {
-      debug_write("FALSE");
-    }
+    bool crosses_section_boundary = displacement > f->current_section_pos;
 
     // If we cross a section boundary, the design of the FAT FS requires to start
     // from the beginning.
@@ -1144,14 +1135,6 @@ error_code file_move_cursor(file* f, int32 n) {
     // Forward move
     displacement = n;
     bool crosses_section_boundary = ((displacement + f->current_section_pos) >= f->current_section_length);
-
-    debug_write("Mouvement crosses section boundary:");
-    
-    if(crosses_section_boundary) {
-      debug_write("TRUE");
-    } else {
-      debug_write("FALSE");
-    }
 
     if(crosses_section_boundary) {
       // We are moving forward.
