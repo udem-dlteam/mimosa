@@ -227,18 +227,16 @@ error_code disk_cache_block_release(cache_block* block) {
   error_code err = NO_ERROR;
   uint32 n;
 
-  // if (block->refcount == 1) {
+  if (block->refcount == 1) {
      // we are the last reference to this block
      // this means we don't need any lock on it
     if (block->dirty) {
-      debug_write("Block is dirty: write");
       if(ERROR(err = ide_write_sectors(block->d->_.ide.dev, block->sector_pos, block->buf, 1))) {
-        debug_write("WARNING: FAILURE WHILE RELEASING CACHE BLOCK");
         return err;
       }
       block->dirty = 0;
     }    
-  // }
+  }
 
   if(HAS_NO_ERROR(err)) {
     disk_mod.cache_mut->lock();
