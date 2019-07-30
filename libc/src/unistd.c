@@ -128,6 +128,31 @@ int stat(const char *__pathname, struct_stat *__buf) {
 #endif
 }
 
+int isatty(int __fd) {
+
+#ifdef USE_LIBC_LINK
+
+  return LIBC_LINK._isatty(__fd);
+
+#else
+
+  libc_trace("isatty");
+
+#ifdef USE_HOST_LIBC
+
+#undef isatty
+
+  return isatty(__fd);
+
+#else
+
+  // TODO: implement
+  return 0;
+
+#endif
+#endif
+}
+
 #ifndef USE_LIBC_LINK
 
 void libc_init_unistd(void) {

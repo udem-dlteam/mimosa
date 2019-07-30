@@ -3,14 +3,20 @@
 #include "include/errno.h"
 #include "include/math.h"
 #include "include/setjmp.h"
+#include "include/signal.h"
 #include "include/stdio.h"
 #include "include/stdlib.h"
 #include "include/string.h"
 #include "include/termios.h"
 #include "include/time.h"
 #include "include/unistd.h"
+#include "include/sys/time.h"
+#include "include/sys/resource.h"
 
 void libc_init(void) {
+
+  libc_trace("libc_init begin");
+
   // dirent.h
   LIBC_LINK._opendir = opendir;
   LIBC_LINK._readdir = readdir;
@@ -111,8 +117,12 @@ void libc_init(void) {
   LIBC_LINK._remove = remove;
   LIBC_LINK._stat = stat;
   LIBC_LINK._lstat = lstat;
+  LIBC_LINK._isatty = isatty;
 
-  // sys_time.h
+  // sys/resource.h
+  LIBC_LINK._getrusage = getrusage;
+
+  // sys/time.h
   LIBC_LINK._clock = clock;
   LIBC_LINK._time = time;
   LIBC_LINK._gettimeofday = gettimeofday;
@@ -132,4 +142,8 @@ void libc_init(void) {
   libc_init_time();
   libc_init_unistd();
   libc_init_sys_time();
+  libc_init_sys_resource();
+
+  libc_trace("libc_init end");
+
 }

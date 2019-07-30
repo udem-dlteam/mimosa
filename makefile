@@ -3,7 +3,7 @@
 OS_NAME = "\"MIMOSA version 1.2\""
 KERNEL_START = 0x20000
 
-KERNEL_OBJECTS = kernel.o main.o fs.o ide.o disk.o thread.o chrono.o ps2.o term.o video.o intr.o rtlib.o fat32.o libc/libc.o $(NETWORK_OBJECTS)
+KERNEL_OBJECTS = kernel.o main.o fs.o ide.o disk.o thread.o chrono.o ps2.o term.o video.o intr.o rtlib.o fat32.o libc/libc_os.o $(NETWORK_OBJECTS)
 NETWORK_OBJECTS =
 #NETWORK_OBJECTS = eepro100.o tulip.o timer2.o misc.o pci.o config.o net.o
 DEFS = -DINCLUDE_EEPRO100 
@@ -139,12 +139,40 @@ video.o: video.cpp include/video.h include/general.h include/asm.h \
 	include/vga.h include/term.h mono_5x7.cpp mono_6x9.cpp
 fat32.o: fat32.cpp include/fat32.h include/general.h
 
-libc/libc.o: libc/libc.cpp libc/include/libc_link.h libc/src/libc_support.c \
-             libc/include/dirent.h libc/include/errno.h libc/include/math.h \
-	     libc/include/setjmp.h libc/include/stdio.h libc/include/stdlib.h \
-	     libc/include/string.h libc/include/time.h libc/include/unistd.h \
-	     libc/src/libc_link.c libc/src/dirent.c libc/src/errno.c \
-	     libc/src/math.c libc/src/setjmp.c libc/src/signal.c \
-	     libc/src/stdio.c libc/src/stdlib.c libc/src/string.c \
-	     libc/src/time.c libc/src/unistd.c libc/src/termios.c \
-	     libc/src/sys_time.c
+libc/libc_os.o: libc/libc_os.cpp \
+                libc/include/dirent.h \
+                libc/include/errno.h \
+                libc/include/float.h \
+                libc/include/libc_common.h \
+                libc/include/libc_header.h \
+                libc/include/libc_link.h \
+                libc/include/libc_redirect.h \
+                libc/include/limits.h \
+                libc/include/math.h \
+                libc/include/setjmp.h \
+                libc/include/signal.h \
+                libc/include/stddef.h \
+                libc/include/stdio.h \
+                libc/include/stdlib.h \
+                libc/include/string.h \
+                libc/include/sys/resource.h \
+                libc/include/sys/time.h \
+                libc/include/termios.h \
+                libc/include/time.h \
+                libc/include/unistd.h \
+                libc/include/wchar.h \
+                libc/src/dirent.c \
+                libc/src/errno.c \
+                libc/src/libc_link.c \
+                libc/src/libc_support.c \
+                libc/src/math.c \
+                libc/src/setjmp.c \
+                libc/src/signal.c \
+                libc/src/stdio.c \
+                libc/src/stdlib.c \
+                libc/src/string.c \
+                libc/src/sys_resource.c \
+                libc/src/sys_time.c \
+                libc/src/termios.c \
+                libc/src/time.c \
+                libc/src/unistd.c

@@ -1,3 +1,4 @@
+//#define ENABLE_LIBC_TRACE
 #define USE_MIMOSA
 #undef REDIRECT_PREFIX
 #define REDIRECT_PREFIX libc_
@@ -18,6 +19,7 @@
 #include "include/time.h"
 #include "include/unistd.h"
 #include "include/sys/time.h"
+#include "include/sys/resource.h"
 
 #include "src/libc_link.c"
 
@@ -33,3 +35,4 @@
 #include "src/time.c"
 #include "src/unistd.c"
 #include "src/sys_time.c"
+#include "src/sys_resource.c"

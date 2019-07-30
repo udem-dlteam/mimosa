@@ -15,6 +15,7 @@
 #include "include/time.h"
 #include "include/unistd.h"
 #include "include/sys/time.h"
+#include "include/sys/resource.h"
 
 struct libc_link {
 
@@ -120,6 +121,7 @@ struct libc_link {
   int (*_remove)(const char *__pathname);
   int (*_stat)(const char *__pathname, struct_stat *__buf);
   int (*_lstat)(const char *__pathname, struct_stat *__buf);
+//  int (*_isatty)(int __fd);
 
   // *** add new things below here for backward compatibility ***
 
@@ -135,6 +137,12 @@ struct libc_link {
   int (*_clock_getres)(clockid_t __clock_id, struct timespec *__res);
   int (*_clock_gettime)(clockid_t __clock_id, struct timespec *__tp);
   int (*_clock_settime)(clockid_t __clock_id, const struct timespec *__tp);
+
+  // unistd.h
+  int (*_isatty)(int __fd);
+
+  // sys/resource.h
+  int (*_getrusage)(int __who, struct rusage *__usage);
 
   // sys/time.h
   int (*_gettimeofday)(struct timeval *__restrict __tv,

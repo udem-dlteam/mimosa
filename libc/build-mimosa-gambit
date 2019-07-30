@@ -1,0 +1,72 @@
+#!/bin/sh
+
+# This script builds Gambit with a custom libc.
+#
+#   cd libc
+#   tar xf ../gambit-v4_9_3.tgz 
+#   mv gambit-v4_9_3 gambit
+#   ./build-mimosa-gambit
+
+CCOMP=gcc-3.4
+
+cd gambit
+
+echo "#!/bin/sh" > ccomp
+echo "$CCOMP \"\$@\"" >> ccomp
+
+chmod +x ccomp
+
+export CFLAGS=""
+export LIBS=""
+
+./configure --enable-single-host --enable-ansi-c --disable-pic CC=`pwd`/ccomp
+
+grep "^#define ___DEFAULT_RUNTIME_OPTIONS " include/config.h > conf.h
+
+echo "#define HAVE_ERRNO_H 1"      >> conf.h
+echo "#define HAVE_UNISTD_H 1"     >> conf.h
+echo "#define HAVE_TIME_H 1"       >> conf.h
+echo "#define HAVE_SIGNAL_H 1"     >> conf.h
+echo "#define HAVE_FLOAT_H 1"      >> conf.h
+echo "#define HAVE_STDIO_H 1"      >> conf.h
+echo "#define HAVE_STDLIB_H 1"     >> conf.h
+echo "#define HAVE_STRING_H 1"     >> conf.h
+echo "#define HAVE_TERMIOS_H 1"    >> conf.h
+echo "#define HAVE_GETRUSAGE 1"    >> conf.h
+echo "#define HAVE_GETTIMEOFDAY 1" >> conf.h
+echo "#define HAVE_SETITIMER 1"    >> conf.h
+echo "#define HAVE_SIGNAL 1"       >> conf.h
+
+echo "#define USE_LIBC_LINK" >> conf.h
+echo "#include \"include/libc_link.h\"" >> conf.h
+
+mv conf.h include/config.h
+
+echo "#!/bin/sh" > ccomp
+echo "$CCOMP -nostdinc -I `pwd`/.. -I `pwd`/../include -m32 -Wno-write-strings -ffreestanding \"\$@\"" >> ccomp
+
+cd lib
+make
+cd ..
+
+cd gsi
+make libgambitgsi.a
+make _gsi.o
+make _gsi_.o
+cd ..
+
+cd gsc
+make libgambitgsc.a
+make _gsc.o
+make _gsc_.o
+cd ..
+
+cd ..
+
+gambit/ccomp -DUSE_LIBC_LINK -I . -c -o libc_app.o libc_app.c
+
+ld -Ttext 0x100000 -m elf_i386 -o gsi.exe --omagic --entry=libc_startup --oformat binary libc_app.o gambit/gsi/_gsi_.o gambit/gsi/_gsi.o gambit/gsi/libgambitgsi.a gambit/lib/libgambit.a -lm
+
+ld -Ttext 0x100000 -m elf_i386 -o gsc.exe --omagic --entry=libc_startup --oformat binary libc_app.o gambit/gsc/_gsc_.o gambit/gsc/_gsc.o gambit/gsc/libgambitgsc.a gambit/lib/libgambit.a -lm
+
+#objdump -b binary -m i386 -D gsi.exe | head -20

@@ -107,6 +107,10 @@
 #define remove REDIRECT_NAME(remove)
 #define stat REDIRECT_NAME(stat)
 #define lstat REDIRECT_NAME(lstat)
+#define isatty REDIRECT_NAME(isatty)
+
+// sys/resource.h
+#define getrusage REDIRECT_NAME(getrusage)
 
 // sys/time.h
 #define gettimeofday REDIRECT_NAME(gettimeofday)

@@ -8,6 +8,9 @@
 
 #ifdef USE_MIMOSA
 
+#ifndef __cplusplus
+#include "include/wchar.h"
+#endif
 #include "general.h"
 
 #else

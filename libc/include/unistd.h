@@ -18,6 +18,7 @@ extern int mkdir(const char *__pathname, mode_t __mode);
 extern int remove(const char *__pathname);
 extern int lstat(const char *__pathname, struct_stat *__buf);
 extern int stat(const char *__pathname, struct_stat *__buf);
+extern int isatty(int __fd);
 
 #ifndef USE_LIBC_LINK
 
