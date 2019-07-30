@@ -85,6 +85,7 @@ error_code open_root_dir_at_file_entry(file* f, file** result) {
     err = MEM_ERROR;
   } else {
     root_dir->fs = f->fs;
+    root_dir->first_cluster = 2; // TODO: not necessairly true
     root_dir->current_cluster = f->entry.cluster;
     root_dir->current_section_start = f->entry.section_start;
     root_dir->current_section_length = f->entry.section_length;
@@ -237,6 +238,7 @@ error_code open_file(native_string path, file** result) {
               f->current_cluster =
                   (CAST(uint32, as_uint16(de.DIR_FstClusHI)) << 16) +
                   as_uint16(de.DIR_FstClusLO);
+              f->first_cluster = f->current_cluster;
               f->current_section_start =
                   fs->_.FAT121632.first_data_sector +
                   ((f->current_cluster - 2) << fs->_.FAT121632.log2_spc);
@@ -393,7 +395,7 @@ static error_code next_FAT_section(file* f) {
 
       if (cluster >= FAT_32_EOF) {
         return EOF_ERROR;
-      }      
+      }
     }
   }
 
@@ -1048,6 +1050,56 @@ error_code __attribute__((optimize("O0"))) flush_file(file* f) {
     kfree(f->wrt.buff);
     f->wrt.len = f->wrt.buff_sz = 0;
     f->wrt.buff = NULL;
+  }
+
+  return err;
+}
+
+void file_reset_cursor(file* f) {
+  file_system* fs = f->fs;
+  f->current_cluster = f->first_cluster;
+  f->current_section_length =
+      1 << (fs->_.FAT121632.log2_bps + fs->_.FAT121632.log2_spc);
+  f->current_section_start =
+      ((f->first_cluster - 2) << fs->_.FAT121632.log2_spc) +
+      fs->_.FAT121632.first_data_sector;
+  f->current_section_pos = 0;
+  f->current_pos = 0;
+}
+
+error_code file_set_to_absolute_position(file* f, uint32 position) {
+  error_code err = NO_ERROR;
+  file_system* fs = f->fs;
+  BIOS_Parameter_Block* p;
+  cache_block* cb;
+  disk* d = fs->_.FAT121632.d;
+
+  if (position > f->length) {
+    return UNKNOWN_ERROR;  // TODO: better than this
+  }
+  // FAT32 only
+  if (HAS_NO_ERROR(err = disk_cache_block_acquire(d, 0, &cb))) {
+    p = CAST(BIOS_Parameter_Block*, cb->buf);
+    uint16 bytes_per_sector = as_uint16(p->BPB_BytsPerSec);
+
+    uint32 cluster_sz = bytes_per_sector * p->BPB_SecPerClus;
+    uint32 no_of_clusters =
+        position /
+        cluster_sz;  // determines how many cluster links we have to jump
+    uint32 bytes_left_cluster = position % cluster_sz;
+
+    file_reset_cursor(f);
+    // We are now at the beginning of the file.
+    // We want to go to the position wanted, so
+    // we walk through the FAT chain until we read
+    // as many clusters as required to get a correct position.
+    for (int i = 0; i < no_of_clusters; ++i) {
+      if (ERROR(err = next_FAT_section(f))) return err;
+    }
+    f->current_section_pos += bytes_left_cluster;
+    if (ERROR(err = disk_cache_block_release(cb))) return err;
+
+    f->current_pos = position;
   }
 
   return err;

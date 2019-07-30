@@ -64,7 +64,8 @@ typedef int32 error_code;
 
 #define NOP() do { __asm__ __volatile__ ("NOP" : : : "memory");} while(0)
 
-#define ERROR(x) ((x)<0)
+#define HAS_NO_ERROR(x) ((x) >= 0)
+#define ERROR(x) ((x) < 0)
 
 //-----------------------------------------------------------------------------
 

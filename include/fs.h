@@ -100,11 +100,12 @@ typedef struct file_system_struct {
 
 typedef struct file_struct {
   file_system* fs;
-  uint32 current_cluster;
-  uint32 current_section_start;
-  uint32 current_section_length;
-  uint32 current_section_pos;
-  uint32 current_pos;
+  uint32 first_cluster;
+  uint32 current_cluster;          // the "logical cluster"
+  uint32 current_section_start;    // the current LBA of the section
+  uint32 current_section_length;   // length in bytes of the current section
+  uint32 current_section_pos;      // the offset in bytes from the section
+  uint32 current_pos;              // the absolute position
   uint32 length;  // in bytes
   uint8 mode;
   struct {
@@ -139,6 +140,8 @@ typedef struct FAT_directory_entry_struct {
   uint8 DIR_FileSize[4];
 } FAT_directory_entry;
 
+void file_reset_cursor(file* f);
+error_code file_set_to_absolute_position(file *f, uint32 position);
 error_code create_file(native_string path, file** f);
 error_code open_file(native_string path, file** f);
 error_code open_root_dir_at_file_entry(file* f, file** root_dir);

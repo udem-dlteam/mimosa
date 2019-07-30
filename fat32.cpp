@@ -46,7 +46,7 @@ fat_32_create_empty_file(file_system* fs, native_string name, native_string ext,
   // Set the file to the last position so we can easily write there
   // It is also the position of the directory entry so we set that at 
   // the same time
-  f->entry.cluster = f->current_cluster = entry_cluster;
+  f->entry.cluster = f->first_cluster = f->current_cluster = entry_cluster;
   f->entry.section_start = f->current_section_start = entry_section_start;
   f->entry.section_pos = f->current_section_pos = entry_section_pos;
   f->entry.current_pos = f->current_pos = entry_pos;
@@ -123,7 +123,7 @@ error_code __attribute__((optimize("O0"))) fat_32_open_root_dir(file_system* fs,
   // debug_write(fs->kind);
 
   f->fs = fs;
-  f->current_cluster = as_uint32(p->_.FAT32.BPB_RootClus);
+  f->first_cluster = f->current_cluster = as_uint32(p->_.FAT32.BPB_RootClus);
 
 #ifdef SHOW_DISK_INFO
   term_write(cout, "Root cluster is: ");
