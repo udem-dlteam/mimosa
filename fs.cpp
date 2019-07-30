@@ -388,7 +388,7 @@ static error_code next_FAT_section(file* f) {
       if (ERROR(err = disk_cache_block_release(cb))) return err;
       if (cluster >= 0xfff8) return EOF_ERROR;
     } else {
-      cluster = *CAST(uint16*, cb->buf + offset) & 0x0fffffff;
+      cluster = *CAST(uint32*, cb->buf + offset) & 0x0fffffff;
       if (ERROR(err = disk_cache_block_release(cb))) return err;
       if (cluster >= FAT_32_EOF) return EOF_ERROR;
     }
