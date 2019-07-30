@@ -24,6 +24,8 @@ GPP_OPTIONS = $(GCC_OPTIONS) -fno-rtti -fno-builtin -fno-exceptions -nostdinc++
 
 all: bin_files
 
+rebuild: clean build createimg
+
 build:
 	mkdir -p mimosa-build
 	tar --exclude='*.img' -cf  - .  | ssh administrator@localhost -p 10022 "rm -rf mimosa-build;mkdir mimosa-build;cd mimosa-build;tar xf -;make clean;make"
