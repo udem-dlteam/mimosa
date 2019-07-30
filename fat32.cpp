@@ -149,48 +149,52 @@ error_code __attribute__((optimize("O0"))) fat_32_open_root_dir(file_system* fs,
   f->mode = S_IFDIR;
 }
 
-error_code fat_32_find_first_empty_cluster(file_system* fs, uint32* cluster) {
+error_code fat_32_find_first_empty_cluster(file_system* fs, uint32* result) {
   error_code err = NO_ERROR;
   BIOS_Parameter_Block* p;
-  uint32 lba;
   uint32 offset = 0;
   disk* d = fs->_.FAT121632.d;
   cache_block* cb;
-
-  if(*cluster < 2) {
-    fatal_error("Cannot inspect lower than the second cluster entry");
-  }
 
   // Fetch the BPB
   if (ERROR(err = disk_cache_block_acquire(d, 0, &cb))) return err;
   p = CAST(BIOS_Parameter_Block*, cb->buf);
   if (ERROR(err = disk_cache_block_release(cb))) return err;
 
-  uint16 cluster_per_sector = (1 << fs->_.FAT121632.log2_bps) >> 2;
+  uint16 entries_per_sector = (1 << fs->_.FAT121632.log2_bps) >> 2;
 
-  uint32 clus = *cluster;  // We skip the first two cluster
-  lba = fs->_.FAT121632.reserved_sectors + (clus / cluster_per_sector);
-  uint32 max_sector = as_uint32(p->_.FAT32.BPB_FATSz32) - fs->_.FAT121632.reserved_sectors;
+  uint32 lba = fs->_.FAT121632.reserved_sectors;
+  uint32 max_lba = as_uint32(p->_.FAT32.BPB_FATSz32) + fs->_.FAT121632.reserved_sectors;
 
   bool found = FALSE;
   // Inspect all sectors starting from *cluster
-  while (lba < max_sector && !found) {
-    if (ERROR(err = disk_cache_block_acquire(fs->_.FAT121632.d, lba, &cb)))
+  // It is faster to use this method than repeated calls to
+  // fat_32_get_fat_link_value since the latter will get a 
+  // cache block per request.
+  uint32 clus;
+  uint16 i;
+  clus = i = 2;
+  // We start from the first cluster because we have no clue where data has been overridden
+  while ((lba < max_lba) && !found) {
+    if (ERROR(err = disk_cache_block_acquire(fs->_.FAT121632.d, lba, &cb))) {
       return err;
+    }
 
-    uint32 clust_at_start = clus;
-
-    for (; clus < clust_at_start + cluster_per_sector; clus++) {
-      uint32 cluster_relative_to_sector = clus % cluster_per_sector;
-      uint32 entry = *(CAST(uint32*, cb->buf) + cluster_relative_to_sector);
-      found = (entry == 0);
+    for (; i < entries_per_sector; ++i, ++clus) {
+      uint32 entry = CAST(uint32*, cb->buf)[i];
+      if(found = (entry == 0)) {
+        break;
+      }
     }
 
     if (ERROR(err = disk_cache_block_release(cb))) return err;
     ++lba;
+    i = 0;
   }
 
-  *cluster = clus;
+  // Could not find an entry: disk out of space
+  if (!found) err = DISK_OUT_OF_SPACE;
+  *result = clus;
   return err;
 }
 
@@ -221,12 +225,13 @@ error_code fat_32_get_fat_link_value(file_system* fs, uint32 cluster, uint32* va
 }
 
 error_code fat_32_set_fat_link_value(file_system* fs, uint32 cluster, uint32 value) {
-  BIOS_Parameter_Block* p;
+  cache_block* cb;
   disk* d = fs->_.FAT121632.d;
   ide_device* dev = d->_.ide.dev;
-  error_code err;
-  cache_block* cb;
   uint16 entries_per_sector = (1 << fs->_.FAT121632.log2_bps) >> 2;
+  error_code err;
+  BIOS_Parameter_Block* p;
+  uint8 wrt_buff[4];
 
   if (cluster < 2) {
     fatal_error("Cannot inspect lower than the second cluster entry");
@@ -239,13 +244,15 @@ error_code fat_32_set_fat_link_value(file_system* fs, uint32 cluster, uint32 val
   uint32 lba = (cluster / entries_per_sector) + as_uint16(p->BPB_RsvdSecCnt);
   uint32 offset_in_bytes = (cluster % entries_per_sector) << 2;
 
-  uint8 wrt_buff[4];
-  
-  for(int i = 0; i < 4; ++i) {
-    wrt_buff[i] = as_uint8(value, i);
-  } 
+  // Read the cache in order to update it
+  if (ERROR(err = disk_cache_block_acquire(d, lba, &cb))) return err;
+
+  for(int i = 0; i < 4; ++i)
+    cb->buf[i + offset_in_bytes] = wrt_buff[i] = as_uint8(value, i);
 
   ide_write(dev, lba, offset_in_bytes, sizeof(uint32), wrt_buff);
+
+  if(ERROR(err = disk_cache_block_release(cb))) return err;
   
   return err;
 }

@@ -33,7 +33,8 @@ static fs_module fs_mod;
 
 // FAT file system implementation.
 
-error_code __attribute__((optimize("O0"))) open_root_dir(file_system* fs, file** result) {
+error_code __attribute__((optimize("O0")))
+open_root_dir(file_system* fs, file** result) {
   file* f = CAST(file*, kmalloc(sizeof(file)));
 
   if (f == NULL) return MEM_ERROR;
@@ -216,10 +217,9 @@ error_code open_file(native_string path, file** result) {
 
         while (i < 3) name[8 + i++] = ' ';
 
-
         file entry_file = *f;
         while ((err = read_file(f, &de, sizeof(de))) == sizeof(de)) {
-          if (de.DIR_Name[0] == 0) break; // No more entries
+          if (de.DIR_Name[0] == 0) break;  // No more entries
           // Only verify the file if it's readable
           if (de.DIR_Name[0] != 0xe5 && (de.DIR_Attr & FAT_ATTR_HIDDEN) == 0 &&
               (de.DIR_Attr & FAT_ATTR_VOLUME_ID) == 0) {
@@ -365,9 +365,9 @@ static error_code next_FAT_section(file* f) {
     if (cluster >= 0xff8) return EOF_ERROR;
   } else {
     if (fs->kind == FAT16_FS) {
-      offset = n * 2;
+      offset = n << 1;
     } else {
-      offset = n * 4;
+      offset = n << 2;
     }
 
     sector_pos =
@@ -377,9 +377,6 @@ static error_code next_FAT_section(file* f) {
 
     if (ERROR(err = disk_cache_block_acquire(fs->_.FAT121632.d, sector_pos,
                                              &cb))) {
-      debug_write("Failed to aquire disk cache block");
-      debug_write(sector_pos);
-      debug_write(offset);
       return err;
     }
 
@@ -389,8 +386,14 @@ static error_code next_FAT_section(file* f) {
       if (cluster >= 0xfff8) return EOF_ERROR;
     } else {
       cluster = *CAST(uint32*, cb->buf + offset) & 0x0fffffff;
-      if (ERROR(err = disk_cache_block_release(cb))) return err;
-      if (cluster >= FAT_32_EOF) return EOF_ERROR;
+
+      if (ERROR(err = disk_cache_block_release(cb))) {
+        return err;
+      }
+
+      if (cluster >= FAT_32_EOF) {
+        return EOF_ERROR;
+      }      
     }
   }
 
@@ -901,7 +904,7 @@ error_code closedir(DIR* dir) {
   return NO_ERROR;
 }
 
-error_code flush_file(file* f) {
+error_code __attribute__((optimize("O0"))) flush_file(file* f) {
   error_code err = NO_ERROR;
   uint32 count = f->wrt.len;
   file_system* fs = f->fs;
@@ -919,20 +922,52 @@ error_code flush_file(file* f) {
       p = CAST(uint8*, f->wrt.buff);
 
       while (n > 0) {
+        debug_write("n:"); debug_write(n);
         uint32 left1;
         uint32 left2;
 
         if (f->current_section_pos >= f->current_section_length) {
           if (ERROR(err = next_FAT_section(f))) {
-            if (err != EOF_ERROR) return err;
-            break;
+            if (err != EOF_ERROR) {
+              return err;
+            } else {
+              // Writing a file should not OEF, we allocate more
+              uint32 cluster;
+              uint32 value;
+
+              if (ERROR(err = fat_32_find_first_empty_cluster(fs, &cluster))) {
+                return err;
+              }
+              
+              // We set the current last cluster to point towards the new one
+              if (ERROR(err = fat_32_set_fat_link_value(fs,
+                                                        f->current_cluster,
+                                                        cluster))) {
+                return err;
+              }
+
+              if (ERROR(err = fat_32_set_fat_link_value(fs, cluster,
+                                                        FAT_32_EOF))) {
+                return err;
+              }
+
+              // Retry to fetch the next cluster
+              if (ERROR(err = next_FAT_section(f))) {
+                if (err == EOF_ERROR) {
+                  fatal_error(
+                      "Failed to allocate a new FAT cluster, but no error was "
+                      "returned");
+                } else {
+                  return err;
+                }
+              }
+            }
           }
         }
 
         left1 = f->current_section_length - f->current_section_pos;
 
         if (left1 > n) left1 = n;
-
         while (left1 > 0) {
           cache_block* cb;
           if (ERROR(err = disk_cache_block_acquire(
@@ -948,9 +983,8 @@ error_code flush_file(file* f) {
 
           if (left2 > left1) left2 = left1;
 
-          uint8* sector_buffer = cb->buf +
-                     (f->current_section_pos & ~(~0U << DISK_LOG2_BLOCK_SIZE));
-
+          uint8* sector_buffer = cb->buf + (f->current_section_pos &
+                                            ~(~0U << DISK_LOG2_BLOCK_SIZE));
           // Update the cache_block buffer
           memcpy(sector_buffer, p, left2);
 
@@ -978,8 +1012,7 @@ error_code flush_file(file* f) {
   }
 
   if (!ERROR(err)) {
-
-    if(!S_ISDIR(f->mode)) {
+    if (!S_ISDIR(f->mode)) {
       // Update the directory entry
       // to set the correct length of the file
       FAT_directory_entry de;
@@ -987,23 +1020,23 @@ error_code flush_file(file* f) {
       file* entry_file;
       uint32 fz;
 
-      if(ERROR(err = open_root_dir_at_file_entry(f, &entry_file))) {
+      if (ERROR(err = open_root_dir_at_file_entry(f, &entry_file))) {
         goto flush_file_update_dir_err_occured;
       }
 
       // Avoid reallocating to rewrite the root dir entry
       entry_file_cp = *entry_file;
 
-      if(ERROR(err = read_file(entry_file, &de, sizeof(de)))) {
+      if (ERROR(err = read_file(entry_file, &de, sizeof(de)))) {
         goto flush_file_update_dir_err_occured;
       }
-      
+
       fz = as_uint32(de.DIR_FileSize) + count;
-      for(int i = 0; i < 4; ++i) {
+      for (int i = 0; i < 4; ++i) {
         de.DIR_FileSize[i] = as_uint8(fz, i);
       }
 
-      if(ERROR(err = write_file(&entry_file_cp, &de, sizeof(de), TRUE))) {
+      if (ERROR(err = write_file(&entry_file_cp, &de, sizeof(de), TRUE))) {
         goto flush_file_update_dir_err_occured;
       }
 

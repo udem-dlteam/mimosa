@@ -137,6 +137,7 @@ typedef struct cache_block_struct
     condvar* cv;
     error_code err;
     uint8 buf[1 << DISK_LOG2_BLOCK_SIZE];
+    uint8 dirty : 1;
   } cache_block;
 
 disk* disk_alloc ();

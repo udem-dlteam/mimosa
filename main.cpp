@@ -35,19 +35,22 @@ int main() {
       term_writeline(cout);
     }
 
-    native_string to_write = "This is the content of the file I am writing on disk";
-    size_t n = strlen(to_write);
-    if(ERROR(err = write_file(f, to_write, n + 1, TRUE))) {
-      term_write(cout, "Failed to write the content to the file");
-      term_writeline(cout);
-    } else {
-      term_write(cout, "Success writing! (wrote ");
-      term_write(cout, n); term_write(cout, " characters).");
-      term_writeline(cout);
-    }
+    native_char buff[1024];
+    for(int i = 0; i < 1024; ++i) { buff[i] = 'A';}
+    buff[1024 - 1] = 'B';
+
+    __surround_with_debug_t("Actual file write...", {
+      if (ERROR(err = write_file(f, buff, 1024, TRUE))) {
+        term_write(cout, "Failed to write the content to the file: err= ");
+        term_write(cout, err);
+        term_writeline(cout);
+      } else {
+        term_write(cout, "Success writing!");
+        term_writeline(cout);
+      }
+    });
 
     close_file(f);
-
   });
 
   term_run(tty);
