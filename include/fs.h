@@ -106,22 +106,14 @@ typedef struct file_struct {
   uint32 current_section_length;   // length in bytes of the current section
   uint32 current_section_pos;      // the offset in bytes from the section
   uint32 current_pos;              // the absolute position
-  uint32 length;  // in bytes
+  uint32 length;                   // in bytes
   uint8 mode;
-  struct {
-    uint8* buff;
-    uint32 len;      // in bytes
-    uint32 buff_sz;  // in bytes
-  } wrt;
   struct {
     // This substruct allows to keep the information
     // of the root directory entry. This allows quick
-    // modifications of the entry
-    uint32 cluster;
-    uint32 section_start;
-    uint32 section_length;
-    uint32 section_pos;
-    uint32 current_pos;
+    // modifications of the entry because we know exactly
+    // where it is on the disk.
+    uint32 position;
   } entry;
 } file;
 
@@ -147,10 +139,9 @@ error_code create_file(native_string path, file** f);
 error_code open_file(native_string path, file** f);
 error_code open_root_dir_at_file_entry(file* f, file** root_dir);
 error_code close_file(file* f);
-error_code write_file(file* f, void* buff, uint32 count, bool auto_flush);
+error_code write_file(file* f, void* buff, uint32 count);
 error_code read_file(file* f, void* buf, uint32 count);
 error_code open_root_dir(file_system* fs, file** result);
-error_code flush_file(file* f);
 
 void inline set_dir_entry_size(FAT_directory_entry* de, uint32 sz);
 

@@ -34,6 +34,7 @@ void mutex::lock() {
   disable_interrupts();
 
   if (_locked) {
+    debug_write("Mutex locked!");
     save_context(_sched_suspend_on_wait_queue, this);
   } else {
     _locked = TRUE;

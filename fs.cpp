@@ -42,6 +42,7 @@ open_root_dir(file_system* fs, file** result) {
   switch (fs->kind) {
     case FAT12_FS:
     case FAT16_FS: {
+      debug_write("Opening a FAT12 root dir");
 #ifdef SHOW_DISK_INFO
       term_write(cout, "Opening FAT12/FAT16\n\r");
 #endif
@@ -76,26 +77,21 @@ open_root_dir(file_system* fs, file** result) {
   return NO_ERROR;
 }
 
+error_code _file_set_pos_from_start(file* f, uint32 position);
+
 error_code open_root_dir_at_file_entry(file* f, file** result) {
   error_code err = NO_ERROR;
 
-  file* root_dir = CAST(file*, kmalloc(sizeof(file)));
+  file* root_dir;
 
-  if (NULL == root_dir) {
-    err = MEM_ERROR;
+  if(ERROR(err = open_root_dir(f->fs, &root_dir))) {
+    debug_write("ERROR WHILE OPENING THE ROOT DIRECTORY :/");
+    return err;
   } else {
-    root_dir->fs = f->fs;
-    root_dir->first_cluster = 2; // TODO: not necessairly true
-    root_dir->current_cluster = f->entry.cluster;
-    root_dir->current_section_start = f->entry.section_start;
-    root_dir->current_section_length = f->entry.section_length;
-    root_dir->current_section_pos = f->entry.section_pos;
-    root_dir->current_pos = f->entry.current_pos;
-    root_dir->length = 0;  // Length for directories is not important
-    root_dir->mode = S_IFDIR;
-
-    *result = root_dir;
+    _file_set_pos_from_start(root_dir, f->entry.position);
   }
+
+  *result = root_dir;
 
   return err;
 }
@@ -255,11 +251,7 @@ error_code open_file(native_string path, file** result) {
               }
 
               // Setup the entry file
-              f->entry.cluster = entry_file.current_cluster;
-              f->entry.current_pos = entry_file.current_pos;
-              f->entry.section_length = entry_file.current_section_length;
-              f->entry.section_pos = entry_file.current_section_pos;
-              f->entry.section_start = entry_file.current_section_start;
+              f->entry.position = entry_file.current_pos;
 
               goto found;
             } else {
@@ -410,74 +402,154 @@ static error_code next_FAT_section(file* f) {
   return NO_ERROR;
 }
 
-error_code write_file(file* f, void* buff, uint32 count, bool auto_flush) {
+error_code __attribute__((optimize("O0"))) write_file(file* f, void* buff, uint32 count) {
   error_code err = NO_ERROR;
+  file_system* fs = f->fs;
+  ide_device* dev = fs->_.FAT121632.d->_.ide.dev;
+  cache_block* cb;
 
   if (count < 1) return err;
 
-  if (f->wrt.buff_sz == 0) {
-    // No buffer is currently allocated for the file.
-    // We allocate it with twice the count to amortize
-    // the cost
-    uint32 desired_size = count << 1;
-    f->wrt.len = 0;
-    f->wrt.buff = (uint8*)kmalloc(sizeof(uint8) * desired_size);
+  switch (fs->kind) {
+    case FAT32_FS: {
+      uint32 n;
+      uint8* p;
 
-    if (NULL == f->wrt.buff) {
-      // Not enough memory to allocate this big of a buffer.
-      err = MEM_ERROR;
-      return err;
+      n = count;
+      p = CAST(uint8*, buff);
+
+      while (n > 0) {
+        uint32 left1;
+        uint32 left2;
+
+        if (f->current_section_pos >= f->current_section_length) {
+          if (ERROR(err = next_FAT_section(f))) {
+            if (err != EOF_ERROR) {
+              return err;
+            } else {
+              // Writing a file should not OEF, we allocate more
+              uint32 cluster;
+              uint32 value;
+
+              if (ERROR(err = fat_32_find_first_empty_cluster(fs, &cluster))) {
+                return err;
+              }
+              
+              // We set the current last cluster to point towards the new one
+              if (ERROR(err = fat_32_set_fat_link_value(fs,
+                                                        f->current_cluster,
+                                                        cluster))) {
+                return err;
+              }
+
+              if (ERROR(err = fat_32_set_fat_link_value(fs, cluster,
+                                                        FAT_32_EOF))) {
+                return err;
+              }
+
+              // Retry to fetch the next cluster
+              if (ERROR(err = next_FAT_section(f))) {
+                if (err == EOF_ERROR) {
+                  fatal_error(
+                      "Failed to allocate a new FAT cluster, but no error was "
+                      "returned");
+                } else {
+                  return err;
+                }
+              }
+            }
+          }
+        }
+
+        left1 = f->current_section_length - f->current_section_pos;
+
+        if (left1 > n) left1 = n;
+        while (left1 > 0) {
+          cache_block* cb;
+          if (ERROR(err = disk_cache_block_acquire(
+                        fs->_.FAT121632.d,
+                        f->current_section_start +
+                            (f->current_section_pos >> DISK_LOG2_BLOCK_SIZE),
+                        &cb))) {
+            return err;
+          }
+
+          // Lock the access to this cache block
+          cb->mut->lock();
+
+          left2 = (1 << DISK_LOG2_BLOCK_SIZE) -
+                  (f->current_section_pos & ~(~0U << DISK_LOG2_BLOCK_SIZE));
+
+          if (left2 > left1) left2 = left1;
+
+          uint8* sector_buffer = cb->buf + (f->current_section_pos &
+                                            ~(~0U << DISK_LOG2_BLOCK_SIZE));
+          // Update the cache_block buffer
+          memcpy(sector_buffer, p, left2);
+
+          cb->dirty = TRUE;
+          cb->mut->unlock();
+
+          if (ERROR(err = disk_cache_block_release(cb))) return err;
+          
+          left1 -= left2;
+          f->current_section_pos += left2;
+          f->current_pos += left2;
+          n -= left2;
+          p += left2;  // We read chars, skip to the next part
+        }
+      }
+
+      err = count - n;
+    } break;
+    default: {
+      debug_write("FAT FS not supported...");
+      err = UNIMPL_ERROR;
     }
-
-    f->wrt.buff_sz = desired_size;
+    break;
   }
 
-  if (f->wrt.len + count > f->wrt.buff_sz) {
-    // This buffer is too small, so we need to reallocate it.
-    // Again, take twice the size. However, since count might be big, we double
-    // until counts fits in.
-    uint8* old_buff = f->wrt.buff;
-    uint32 old_len = f->wrt.len;
-    uint32 old_sz = f->wrt.buff_sz;
-    uint32 total_sz;
+  if (!ERROR(err)) {
 
-    do {
-      f->wrt.buff_sz = f->wrt.buff_sz << 1;  // Double it
-    } while (f->wrt.len + count > f->wrt.buff_sz);
+    f->length += count;
 
-    uint8* new_buff = CAST(uint8*, kmalloc(sizeof(uint8) * f->wrt.buff_sz));
+    if (!S_ISDIR(f->mode)) {
+      // Update the directory entry
+      // to set the correct length of the file
+      FAT_directory_entry de;
+      file* entry_file;
+      uint32 filesize;
 
-    if (NULL == new_buff) {
-      // We could not allocate enough memory for the write buffer
-      err = MEM_ERROR;
-      return err;
+      if (ERROR(err = open_root_dir_at_file_entry(f, &entry_file))) {
+        goto flush_file_update_dir_err_occured;
+      }
+
+      if (ERROR(err = read_file(entry_file, &de, sizeof(de)))) {
+        goto flush_file_update_dir_err_occured;
+      }
+
+      // Go backwards to overwrite the directory entry
+      file_move_cursor(entry_file, -sizeof(de));
+
+      term_write(cout, "Reading the directory entry to update the file length:");
+      term_writeline(cout);
+      for(int i =0; i < 11; ++i) {
+        term_write(cout, (char)de.DIR_Name[i]);
+      }
+      term_writeline(cout);
+
+      filesize = f->length;
+      for (int i = 0; i < 4; ++i) {
+        de.DIR_FileSize[i] = as_uint8(filesize, i);
+      }
+
+      if (ERROR(err = write_file(entry_file, &de, sizeof(de)))) {
+        goto flush_file_update_dir_err_occured;
+      }
+
+    flush_file_update_dir_err_occured:
+      close_file(entry_file);
     }
-
-    memcpy(new_buff, old_buff, old_len);
-    kfree(old_buff);
-
-    f->wrt.buff = new_buff;
-    f->wrt.len = old_len;
-    // f->wrt.buff_sz = Already correct
-  }
-
-#ifdef CHECK_ASSERTIONS
-  if (f->wrt.len + count > f->wrt.buff_sz)
-    fatal_error("The new buffer is of incorrect size");
-#endif
-
-  uint8* file_buff = f->wrt.buff;
-  uint32 len = f->wrt.len;
-
-  memcpy(file_buff + len, buff, count);
-
-  // Update the len
-  f->wrt.len = len + count;
-
-  if (auto_flush) {
-    err = flush_file(f);
-  } else {
-    err = count;
   }
 
   return err;
@@ -906,154 +978,6 @@ error_code closedir(DIR* dir) {
   return NO_ERROR;
 }
 
-error_code __attribute__((optimize("O0"))) flush_file(file* f) {
-  error_code err = NO_ERROR;
-  uint32 count = f->wrt.len;
-  file_system* fs = f->fs;
-  ide_device* dev = fs->_.FAT121632.d->_.ide.dev;
-  cache_block* cb;
-
-  if (count < 1) return err;
-
-  switch (fs->kind) {
-    case FAT32_FS: {
-      uint32 n;
-      uint8* p;
-
-      n = count;
-      p = CAST(uint8*, f->wrt.buff);
-
-      while (n > 0) {
-        uint32 left1;
-        uint32 left2;
-
-        if (f->current_section_pos >= f->current_section_length) {
-          if (ERROR(err = next_FAT_section(f))) {
-            if (err != EOF_ERROR) {
-              return err;
-            } else {
-              // Writing a file should not OEF, we allocate more
-              uint32 cluster;
-              uint32 value;
-
-              if (ERROR(err = fat_32_find_first_empty_cluster(fs, &cluster))) {
-                return err;
-              }
-              
-              // We set the current last cluster to point towards the new one
-              if (ERROR(err = fat_32_set_fat_link_value(fs,
-                                                        f->current_cluster,
-                                                        cluster))) {
-                return err;
-              }
-
-              if (ERROR(err = fat_32_set_fat_link_value(fs, cluster,
-                                                        FAT_32_EOF))) {
-                return err;
-              }
-
-              // Retry to fetch the next cluster
-              if (ERROR(err = next_FAT_section(f))) {
-                if (err == EOF_ERROR) {
-                  fatal_error(
-                      "Failed to allocate a new FAT cluster, but no error was "
-                      "returned");
-                } else {
-                  return err;
-                }
-              }
-            }
-          }
-        }
-
-        left1 = f->current_section_length - f->current_section_pos;
-
-        if (left1 > n) left1 = n;
-        while (left1 > 0) {
-          cache_block* cb;
-          if (ERROR(err = disk_cache_block_acquire(
-                        fs->_.FAT121632.d,
-                        f->current_section_start +
-                            (f->current_section_pos >> DISK_LOG2_BLOCK_SIZE),
-                        &cb))) {
-            return err;
-          }
-
-          left2 = (1 << DISK_LOG2_BLOCK_SIZE) -
-                  (f->current_section_pos & ~(~0U << DISK_LOG2_BLOCK_SIZE));
-
-          if (left2 > left1) left2 = left1;
-
-          uint8* sector_buffer = cb->buf + (f->current_section_pos &
-                                            ~(~0U << DISK_LOG2_BLOCK_SIZE));
-          // Update the cache_block buffer
-          memcpy(sector_buffer, p, left2);
-
-          if (ERROR(err = disk_cache_block_release(cb))) return err;
-
-          // Write to disk
-          if (ERROR(err = ide_write(dev, f->current_section_start,
-                                    f->current_section_pos, left2,
-                                    sector_buffer))) {
-            return err;
-          }
-
-          left1 -= left2;
-          f->current_section_pos += left2;
-          f->current_pos += left2;
-          n -= left2;
-          p += left2;  // We read chars, skip to the next part
-        }
-      }
-
-      err = count - n;
-    } break;
-    default:
-      err = UNIMPL_ERROR;
-  }
-
-  if (!ERROR(err)) {
-    if (!S_ISDIR(f->mode)) {
-      // Update the directory entry
-      // to set the correct length of the file
-      FAT_directory_entry de;
-      file entry_file_cp;
-      file* entry_file;
-      uint32 fz;
-
-      if (ERROR(err = open_root_dir_at_file_entry(f, &entry_file))) {
-        goto flush_file_update_dir_err_occured;
-      }
-
-      // Avoid reallocating to rewrite the root dir entry
-      entry_file_cp = *entry_file;
-
-      if (ERROR(err = read_file(entry_file, &de, sizeof(de)))) {
-        goto flush_file_update_dir_err_occured;
-      }
-
-      fz = as_uint32(de.DIR_FileSize) + count;
-      for (int i = 0; i < 4; ++i) {
-        de.DIR_FileSize[i] = as_uint8(fz, i);
-      }
-
-      if (ERROR(err = write_file(&entry_file_cp, &de, sizeof(de), TRUE))) {
-        goto flush_file_update_dir_err_occured;
-      }
-
-    flush_file_update_dir_err_occured:
-      close_file(entry_file);
-    }
-
-    // Free the buffer
-    kfree(f->wrt.buff);
-    f->wrt.len = f->wrt.buff_sz = 0;
-    f->wrt.buff = NULL;
-  }
-
-  return err;
-}
-
 void file_reset_cursor(file* f) {
   file_system* fs = f->fs;
   f->current_cluster = f->first_cluster;
@@ -1073,14 +997,15 @@ error_code _file_set_pos_from_start(file* f, uint32 position) {
   cache_block* cb;
   disk* d = fs->_.FAT121632.d;
 
-  if (position > f->length) {
+  if (S_ISREG(f->mode) && (position > f->length)) {
     return UNKNOWN_ERROR;  // TODO: better than this
   }
+
   // FAT32 only
   if (HAS_NO_ERROR(err = disk_cache_block_acquire(d, 0, &cb))) {
     p = CAST(BIOS_Parameter_Block*, cb->buf);
     uint16 bytes_per_sector = as_uint16(p->BPB_BytsPerSec);
-
+    
     uint32 cluster_sz = bytes_per_sector * p->BPB_SecPerClus;
     uint32 no_of_clusters =
         position /
@@ -1095,10 +1020,11 @@ error_code _file_set_pos_from_start(file* f, uint32 position) {
     for (int i = 0; i < no_of_clusters; ++i) {
       if (ERROR(err = next_FAT_section(f))) return err;
     }
-    f->current_section_pos += bytes_left_cluster;
-    if (ERROR(err = disk_cache_block_release(cb))) return err;
 
+    f->current_section_pos += bytes_left_cluster;
     f->current_pos = position;
+
+    if (ERROR(err = disk_cache_block_release(cb))) return err;
   }
 
   return err;
@@ -1113,18 +1039,21 @@ error_code file_move_cursor(file* f, int32 n) {
   disk* d = fs->_.FAT121632.d;
 
   if(n == 0) {
-    // No move
+    // No mvmt
     return err;
   } 
     
   if(n < 0) {
-    // Backwards move
+    // Backwards mvmt
     displacement = -n;
     bool crosses_section_boundary = displacement > f->current_section_pos;
 
     // If we cross a section boundary, the design of the FAT FS requires to start
     // from the beginning.
     if (crosses_section_boundary) {
+      term_write(cout, "Pos. targeted:");
+      term_write(cout, f->current_pos - displacement);
+      term_writeline(cout);
       return _file_set_pos_from_start(f, f->current_pos - displacement);
     } else {
       // Simply update the position
@@ -1132,7 +1061,7 @@ error_code file_move_cursor(file* f, int32 n) {
       f->current_section_pos -= displacement;
     }
   } else {
-    // Forward move
+    // Forward mvmt
     displacement = n;
     bool crosses_section_boundary = ((displacement + f->current_section_pos) >= f->current_section_length);
 
@@ -1180,8 +1109,8 @@ error_code file_move_cursor(file* f, int32 n) {
 error_code file_set_to_absolute_position(file* f, uint32 position) {
   // To goal of this method is to set the file cursor to an absolute position,
   // but maybe by using relative movements. It decides what is more appropriate.
-  int32 bytes = position - f->current_pos;
-  return file_move_cursor(f, bytes);
+  int32 mvmt = position - f->current_pos;
+  return file_move_cursor(f, mvmt);
 }
 
 void inline set_dir_entry_size(FAT_directory_entry* de, uint32 sz) {
