@@ -183,11 +183,11 @@ do {                                                                          \
 
 #endif
 
-          //-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
 
-          // Available thread priorities.
+// Available thread priorities.
 
-          typedef int priority;
+typedef int priority;
 
 #define low_priority    0
 #define normal_priority 100

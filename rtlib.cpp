@@ -405,9 +405,11 @@ void __rtlib_setup ()
   setup_fs ();
   //setup_net ();
   // FS is loaded, now load the cache maid
+
+#ifdef USE_CACHE_BLOCK_MAID
   term_write(cout, "Loading the cache block maid...\n");
   (new cache_block_maid)->start();
-
+#endif
 
   main ();
 

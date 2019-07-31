@@ -741,11 +741,11 @@ void _sched_timer_elapsed() {
       thread* t = sleep_queue_head (sleepq);
 
       if (t == NULL || less_time (now, t->_timeout)) {
-        if(NULL == t) {
-          debug_write("Sleep queue head is null");
-        } else {
-          debug_write("Awaken before the time");
-        }
+        // if(NULL == t) {
+        //   debug_write("Sleep queue head is null");
+        // } else {
+        //   debug_write("Awaken before the time");
+        // }
 
         break;
       }
@@ -779,11 +779,12 @@ void _sched_timer_elapsed() {
     if (less_time(now, current->_end_of_quantum)) {
       //      cout << "timer is fast\n";/////////////
       _sched_set_timer(current->_end_of_quantum, now);
-    } else {  // cout << "f";//////////
-      // debug_write("LN 794");
-      save_context(_sched_switch_to_next_thread, NULL);
-      // cout << "F";
     }
+    // else {  // cout << "f";//////////
+    //   // debug_write("LN 794");
+    //   save_context(_sched_switch_to_next_thread, NULL);
+    //   // cout << "F";
+    // }
 }
 
 uint32 thread::code() {
