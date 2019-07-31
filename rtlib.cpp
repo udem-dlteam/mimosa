@@ -42,7 +42,7 @@ void fatal_error (native_string msg)
   #ifdef RED_PANIC_SCREEN
     raw_bitmap_fill_rect((raw_bitmap*)&screen, 0, 0, 640, 480, &pattern_red);
 
-    font_draw_string(&font_mono_6x9, &screen.super, 640 / 2, 480 / 2,
+    font_draw_string(&font_mono_6x13, &screen.super, 640 / 2, 480 / 2,
                      CAST(unicode_string, msg), &pattern_white, &pattern_black);
 #endif
   
@@ -259,7 +259,7 @@ void __do_global_ctors ()
 
   // Create the console terminal
   term_init(&term_console, 0, 0, 80, 25,
-            &font_mono_7x13, &font_mono_7x13bold,
+            &font_mono_6x13, &font_mono_6x13bold,
             L"console", TRUE);
 }
 
