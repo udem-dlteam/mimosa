@@ -7,6 +7,8 @@
 
 #ifndef USE_HOST_LIBC
 
+#ifndef USE_MIMOSA
+
 struct timeval {
   int32 tv_sec;  // seconds
   int32 tv_usec; // microseconds
@@ -16,6 +18,8 @@ struct timezone {
   int32 tz_minuteswest; // Minutes west of GMT
   int32 tz_dsttime;     // Nonzero if DST is ever in effect
 };
+
+#endif
 
 #define ITIMER_REAL    0
 #define ITIMER_VIRTUAL 1

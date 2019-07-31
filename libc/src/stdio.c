@@ -1,13 +1,6 @@
 #include "include/libc_common.h"
 #include "include/stdio.h"
 
-#ifdef USE_MIMOSA
-
-#include "ps2.h"
-#include "general.h"
-
-#endif
-
 #ifndef USE_LIBC_LINK
 
 #ifndef USE_HOST_LIBC
@@ -99,26 +92,33 @@ size_t fread(void *__restrict __ptr, size_t __size, size_t __n,
 #ifdef USE_HOST_LIBC
 
 #undef fread
+
   return fread(__ptr, __size, __n, __stream);
+
 #else
 
   // TODO: implement reading other files than stdin
 
-  int i = 0;
   if (__stream == &FILE_stdin) {
-    char *p = (char *)__ptr;
-    int n = __n;
+
+    unicode_char *p = CAST(unicode_char*,__ptr);
+    int n = __size * __n / sizeof(unicode_char);
+    int i = 0;
+
     while (i < n) {
       int c = getchar0(FALSE);
       if (c < 0) break;
       *p++ = c;
       i++;
     }
+
+    __n = i * sizeof(unicode_char) / __size;
+
   } else {
     debug_write("Incorrect stream");
   }
 
-  return i;
+  return __n;
 #endif
 #endif
 }
@@ -146,13 +146,10 @@ size_t fwrite(const void *__restrict __ptr, size_t __size,
 
   if (__stream == &FILE_stdout || __stream == &FILE_stderr) {
 
-    char *p = (char*)__ptr;
-    int n = __size * __n;
+    unicode_char *p = CAST(unicode_char*,__ptr);
+    int n = __size * __n / sizeof(unicode_char);
 
-    while (n > 0) {
-      libc_wr_char(1, *p++);
-      n--;
-    }
+    __n = term_write(cout, p, n) * sizeof(unicode_char) / __size;
   }
 
   return __n;

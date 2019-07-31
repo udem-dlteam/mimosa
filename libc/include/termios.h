@@ -11,6 +11,7 @@ typedef unsigned int  speed_t;
 typedef unsigned int  tcflag_t;
 
 #define NCCS 32
+
 struct termios {
   tcflag_t c_iflag; // input mode flags
   tcflag_t c_oflag; // output mode flags

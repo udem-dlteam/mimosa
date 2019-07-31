@@ -278,6 +278,8 @@ native_char readline() {
   }
 }
 
+extern void send_signal(int sig); // from libc/src/signal.c
+
 static void process_keyboard_data(uint8 data) {
 
   if (data >= KBD_SCANCODE_ESC && data <= KBD_SCANCODE_F12) {
@@ -301,6 +303,8 @@ static void process_keyboard_data(uint8 data) {
       if (seq == NULL) {
         uint8 ch = code & 0xff;
         keypress(ch);
+        if (ch == 3) // CTRL-C
+          send_signal(2); // send SIGINT
       } else {
         while (*seq != '\0')
           keypress(*seq++);

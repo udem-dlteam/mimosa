@@ -24,7 +24,7 @@ int main() {
   term_init(&tty, 0, 366, 80, 13, &font_mono_5x7, &font_mono_5x7, L"tty", TRUE);
 
   {
-    native_string file_name = "GSI.EXE";
+    native_string file_name = "GSC.EXE";
 
     file* prog;
     if (NO_ERROR == open_file(file_name, &prog)) {

@@ -157,7 +157,7 @@ struct libc_link {
 
 };
 
-#ifdef USE_MIMOSA
+#ifdef USE_MIMOSA_LIBC_LINK
 #define LIBC_LINK (*(struct libc_link *)0x1F000)
 #else
 extern struct libc_link LIBC_LINK;

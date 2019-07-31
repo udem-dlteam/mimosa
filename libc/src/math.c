@@ -1,6 +1,14 @@
 #include "include/libc_common.h"
 #include "include/math.h"
 
+#ifndef USE_LIBC_LINK
+#ifndef USE_HOST_LIBC
+// to prevent optimizations by C compiler...
+volatile double TWO_POW_52_1 = 4.503599627370496e15;
+volatile double TWO_POW_52_2 = 4.503599627370496e15;
+#endif
+#endif
+
 double acos(double __x) {
 
 #ifdef USE_LIBC_LINK
@@ -9,7 +17,7 @@ double acos(double __x) {
 
 #else
 
-  libc_trace("acos");
+  libc_trace("acos");debug_write("acos");
 
 #ifdef USE_HOST_LIBC
 
@@ -34,7 +42,7 @@ double acosh(double __x) {
 
 #else
 
-  libc_trace("acosh");
+  libc_trace("acosh");debug_write("acosh");
 
 #ifdef USE_HOST_LIBC
 
@@ -59,7 +67,7 @@ double asin(double __x) {
 
 #else
 
-  libc_trace("asin");
+  libc_trace("asin");debug_write("asin");
 
 #ifdef USE_HOST_LIBC
 
@@ -84,7 +92,7 @@ double asinh(double __x) {
 
 #else
 
-  libc_trace("asinh");
+  libc_trace("asinh");debug_write("asinh");
 
 #ifdef USE_HOST_LIBC
 
@@ -109,7 +117,7 @@ double atan(double __x) {
 
 #else
 
-  libc_trace("atan");
+  libc_trace("atan");debug_write("atan");
 
 #ifdef USE_HOST_LIBC
 
@@ -134,7 +142,7 @@ double atan2(double __y, double __x) {
 
 #else
 
-  libc_trace("atan2");
+  libc_trace("atan2");debug_write("atan2");
 
 #ifdef USE_HOST_LIBC
 
@@ -159,7 +167,7 @@ double atanh(double __x) {
 
 #else
 
-  libc_trace("atanh");
+  libc_trace("atanh");debug_write("atanh");
 
 #ifdef USE_HOST_LIBC
 
@@ -194,8 +202,26 @@ double ceil(double __x) {
 
 #else
 
-  // TODO: implement
-  return 0.0;
+  {
+    double a = (__x < 0) ? -__x : __x;
+    if (a >= TWO_POW_52_1) {
+      debug_write("ceil");
+      debug_write(__x*1000);
+      debug_write(__x*1000);
+      return __x; // no possible fractional part
+    } else {
+      double b = (a + TWO_POW_52_1) - TWO_POW_52_2;
+      if (b > a) b = b-1;
+      if (__x < 0)
+        b = -b;
+      if (b != __x)
+        b = b+1;
+      debug_write("ceil");
+      debug_write(__x*1000);
+      debug_write(b*1000);
+      return b;
+    }
+  }
 
 #endif
 #endif
@@ -209,7 +235,7 @@ double cos(double __x) {
 
 #else
 
-  libc_trace("cos");
+  libc_trace("cos");debug_write("cos");
 
 #ifdef USE_HOST_LIBC
 
@@ -219,8 +245,7 @@ double cos(double __x) {
 
 #else
 
-  // TODO: implement
-  return 0.0;
+  return 0.0; // TODO: implement
 
 #endif
 #endif
@@ -234,7 +259,7 @@ double cosh(double __x) {
 
 #else
 
-  libc_trace("cosh");
+  libc_trace("cosh");debug_write("cosh");
 
 #ifdef USE_HOST_LIBC
 
@@ -259,7 +284,7 @@ double exp(double __x) {
 
 #else
 
-  libc_trace("exp");
+  libc_trace("exp");debug_write("exp");
 
 #ifdef USE_HOST_LIBC
 
@@ -284,7 +309,7 @@ double expm1(double __x) {
 
 #else
 
-  libc_trace("expm1");
+  libc_trace("expm1");debug_write("expm1");
 
 #ifdef USE_HOST_LIBC
 
@@ -319,8 +344,10 @@ double fabs(double __x) {
 
 #else
 
-  // TODO: implement
-  return 0.0;
+  if (__x < 0 || (__x == 0 && 1/__x < 0)) // correctly handle -0.0
+    return -__x;
+  else
+    return __x;
 
 #endif
 #endif
@@ -344,8 +371,24 @@ double floor(double __x) {
 
 #else
 
-  // TODO: implement
-  return 0.0;
+  {
+    double a = (__x < 0) ? -__x : __x;
+    if (a >= TWO_POW_52_1) {
+      debug_write("floor");
+      debug_write(__x*1000);
+      debug_write(__x*1000);
+      return __x; // no possible fractional part
+    } else {
+      double b = (a + TWO_POW_52_1) - TWO_POW_52_2;
+      if (b > a) b = b-1;
+      if (__x < 0)
+        b = -b;
+      debug_write("floor");
+      debug_write(__x*1000);
+      debug_write(b*1000);
+      return b;
+    }
+  }
 
 #endif
 #endif
@@ -359,7 +402,7 @@ double hypot(double __x, double __y) {
 
 #else
 
-  libc_trace("hypot");
+  libc_trace("hypot");debug_write("hypot");
 
 #ifdef USE_HOST_LIBC
 
@@ -384,7 +427,7 @@ int ilogb(double __x) {
 
 #else
 
-  libc_trace("ilogb");
+  libc_trace("ilogb");debug_write("ilogb");
 
 #ifdef USE_HOST_LIBC
 
@@ -419,8 +462,52 @@ double log(double __x) {
 
 #else
 
-  // TODO: implement
-  return 0.0;
+  {
+    static double pospow2[10] =
+      { 2.0, 4.0, 16.0, 256.0, 65536.0, 4294967296.0,
+        1.8446744073709552e19, 3.402823669209385e38,
+        1.157920892373162e77, 1.3407807929942597e154
+      };
+    static double negpow2[10] =
+      { 0.5, 0.25, 0.0625, 0.00390625, 1.52587890625e-5,
+        2.3283064365386963e-10, 5.421010862427522e-20,
+        2.938735877055719e-39, 8.636168555094445e-78,
+        7.458340731200207e-155
+      };
+    double y = __x;
+    double a;
+    double b;
+    double r;
+    int i = 9;
+    int e = 0;
+    int p;
+    if (y < 1) {
+      while (i >= 0) {
+        if (y <= negpow2[i]) {
+          y *= pospow2[i];
+          e -= (1<<i);
+        }
+        i--;
+      }
+      e++;
+      y *= 2;
+    } else {
+      while (i >= 0) {
+        if (y >= pospow2[i]) {
+          y *= negpow2[i];
+          e += (1<<i);
+        }
+        i--;
+      }
+    }
+    a = (y-1)/(y+1);
+    b = a*a;
+    r = a;
+    p = 3;
+#define STEP a *= b; r += a/p; p += 2;
+    STEP; STEP; STEP; STEP; STEP; STEP; STEP;
+    return e * 0.6931471805599453 + 2 * r;
+  }
 
 #endif
 #endif
@@ -434,7 +521,7 @@ double log1p(double __x) {
 
 #else
 
-  libc_trace("log1p");
+  libc_trace("log1p");debug_write("log1p");
 
 #ifdef USE_HOST_LIBC
 
@@ -469,8 +556,20 @@ double modf(double __x, double *__iptr) {
 
 #else
 
-  // TODO: implement
-  return 0.0;
+  {
+    double a = (__x < 0) ? -__x : __x;
+    if (a >= TWO_POW_52_1) {
+      *__iptr = __x; // no possible fractional part
+      return 0.0;
+    } else {
+      double b = (a + TWO_POW_52_1) - TWO_POW_52_2;
+      if (b > a) b = b-1;
+      if (__x < 0)
+        b = -b;
+      *__iptr = b; // no possible fractional part
+      return __x - b;
+    }
+  }
 
 #endif
 #endif
@@ -484,7 +583,7 @@ double pow(double __x, double __y) {
 
 #else
 
-  libc_trace("pow");
+  libc_trace("pow");debug_write("pow");
 
 #ifdef USE_HOST_LIBC
 
@@ -509,7 +608,7 @@ double sin(double __x) {
 
 #else
 
-  libc_trace("sin");
+  libc_trace("sin");debug_write("sin");
 
 #ifdef USE_HOST_LIBC
 
@@ -519,8 +618,7 @@ double sin(double __x) {
 
 #else
 
-  // TODO: implement
-  return 0.0;
+  return 0.0; // TODO: implement
 
 #endif
 #endif
@@ -534,7 +632,7 @@ double sinh(double __x) {
 
 #else
 
-  libc_trace("sinh");
+  libc_trace("sinh");debug_write("sinh");
 
 #ifdef USE_HOST_LIBC
 
@@ -559,7 +657,7 @@ double sqrt(double __x) {
 
 #else
 
-  libc_trace("sqrt");
+  libc_trace("sqrt");debug_write("sqrt");
 
 #ifdef USE_HOST_LIBC
 
@@ -569,8 +667,7 @@ double sqrt(double __x) {
 
 #else
 
-  // TODO: implement
-  return 0.0;
+  return 0.0; // TODO: implement
 
 #endif
 #endif
@@ -584,7 +681,7 @@ double tan(double __x) {
 
 #else
 
-  libc_trace("tan");
+  libc_trace("tan");debug_write("tan");
 
 #ifdef USE_HOST_LIBC
 
@@ -594,8 +691,7 @@ double tan(double __x) {
 
 #else
 
-  // TODO: implement
-  return 0.0;
+  return 0.0; // TODO: implement
 
 #endif
 #endif
@@ -609,7 +705,7 @@ double tanh(double __x) {
 
 #else
 
-  libc_trace("tanh");
+  libc_trace("tanh");debug_write("tanh");
 
 #ifdef USE_HOST_LIBC
 
@@ -634,7 +730,7 @@ double scalbn(double __x, int __exp) {
 
 #else
 
-  libc_trace("scalbn");
+  libc_trace("scalbn");debug_write("scalbn");
 
 #ifdef USE_HOST_LIBC
 
