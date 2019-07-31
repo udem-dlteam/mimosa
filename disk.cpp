@@ -89,6 +89,23 @@ error_code disk_read_sectors(disk* d, uint32 sector_pos, void* buf,
   return UNKNOWN_ERROR;
 }
 
+error_code disk_write_sectors(disk* d, uint32 sector_pos, void* sector_buffs, uint32 sector_count) {
+  
+    error_code err = UNKNOWN_ERROR;
+
+    if (sector_pos < d->partition_length && sector_pos + sector_count <= d->partition_length) {
+    switch (d->kind) {
+      case DISK_IDE:
+        return ide_write_sectors(d->_.ide.dev, d->partition_start + sector_pos,
+                                 sector_buffs, sector_count);
+      default:
+        return UNIMPL_ERROR;
+    }
+  }
+
+  return err;
+}
+
 error_code disk_cache_block_acquire(disk* d, uint32 sector_pos,
                                     cache_block** block) {
 
@@ -228,14 +245,15 @@ error_code disk_cache_block_release(cache_block* block) {
   uint32 n;
 
   if (block->refcount == 1) {
-     // we are the last reference to this block
-     // this means we don't need any lock on it
+    // we are the last reference to this block
+    // this means we don't need any lock on it
     if (block->dirty) {
-      if(ERROR(err = ide_write_sectors(block->d->_.ide.dev, block->sector_pos, block->buf, 1))) {
+      if (ERROR(err = disk_write_sectors(block->d, block->sector_pos,
+                                         block->buf, 1))) {
         return err;
       }
       block->dirty = 0;
-    }    
+    }
   }
 
   if(HAS_NO_ERROR(err)) {

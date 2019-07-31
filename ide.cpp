@@ -266,56 +266,56 @@ error_code __attribute__((optimize("O0"))) ide_write_sectors(ide_device* dev, ui
 }
 
 error_code __attribute__((optimize("O0"))) ide_write(ide_device* dev, uint32 lba, uint32 wrt_offset, uint32 count, void* buff) {
-  error_code err = NO_ERROR;
-  uint32 sector_count;
+  error_code err = UNIMPL_ERROR;
+//   uint32 sector_count;
 
-  if(count < 1) {
-    return err;
-  }
+//   if(count < 1) {
+//     return err;
+//   }
 
-  lba += wrt_offset / (1 << IDE_LOG2_SECTOR_SIZE);
-  wrt_offset = wrt_offset % (1 << IDE_LOG2_SECTOR_SIZE);
+//   lba += wrt_offset / (1 << IDE_LOG2_SECTOR_SIZE);
+//   wrt_offset = wrt_offset % (1 << IDE_LOG2_SECTOR_SIZE);
 
-  uint32 sector_sz = (1 << IDE_LOG2_SECTOR_SIZE);
+//   uint32 sector_sz = (1 << IDE_LOG2_SECTOR_SIZE);
 
-  if (count == sector_sz) {
-    sector_count = 1;
-  } else {
-    sector_count = count / (1 << IDE_LOG2_SECTOR_SIZE) + 1;
-  }
+//   if (count == sector_sz) {
+//     sector_count = 1;
+//   } else {
+//     sector_count = count / (1 << IDE_LOG2_SECTOR_SIZE) + 1;
+//   }
 
-  // TODO loop for sector count > 1?
+//   // TODO loop for sector count > 1?
 
-  if(sector_count > 1) {
-    debug_write(count);
-    fatal_error("Writing more than a single sector is not implemented");
-    return UNIMPL_ERROR;
-  }
+//   if(sector_count > 1) {
+//     debug_write(count);
+//     fatal_error("Writing more than a single sector is not implemented");
+//     return UNIMPL_ERROR;
+//   }
 
-  uint8* sect_buff = (uint8*)kmalloc(
-      sizeof(uint8) * (1 << IDE_LOG2_SECTOR_SIZE) * sector_count);
+//   uint8* sect_buff = (uint8*)kmalloc(
+//       sizeof(uint8) * (1 << IDE_LOG2_SECTOR_SIZE) * sector_count);
 
-  if(NULL == sect_buff) {
-    err = MEM_ERROR;
-    return err;
-  }
+//   if(NULL == sect_buff) {
+//     err = MEM_ERROR;
+//     return err;
+//   }
 
-  // Read the sectors currently on the disk
-  if(ERROR(err = ide_read_sectors(dev, lba, sect_buff, sector_count))) {
-    goto ide_write_end;
-  }
+//   // Read the sectors currently on the disk
+//   if(ERROR(err = ide_read_sectors(dev, lba, sect_buff, sector_count))) {
+//     goto ide_write_end;
+//   }
 
-  // Replace the content
-  memcpy(sect_buff + wrt_offset, buff, count);
-  // Rewrite the sectors
-  if(ERROR(err = ide_write_sectors(dev, lba, sect_buff, sector_count))) {
-    goto ide_write_end;
-  }
+//   // Replace the content
+//   memcpy(sect_buff + wrt_offset, buff, count);
+//   // Rewrite the sectors
+//   if(ERROR(err = disk_write_sectors(fs->d, lba, sect_buff, sector_count))) {
+//     goto ide_write_end;
+//   }
 
-ide_write_end:
-  if (NULL != sect_buff) {
-    kfree(sect_buff);
-  }
+// ide_write_end:
+//   if (NULL != sect_buff) {
+//     kfree(sect_buff);
+//   }
   
   return err;
 }

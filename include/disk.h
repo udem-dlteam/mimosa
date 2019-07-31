@@ -157,6 +157,9 @@ error_code disk_read_sectors
    void* buf,
    uint32 count);
 
+error_code disk_write_sectors(disk* d, uint32 sector_pos, void* sector_buff,
+                              uint32 sector_count);
+
 error_code disk_cache_block_acquire
   (disk* d,
    uint32 sector_pos,
