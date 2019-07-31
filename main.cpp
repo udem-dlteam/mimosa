@@ -19,19 +19,24 @@
 #include "thread.h"
 
 int main() {
+
+  debug_write("Main hit");
+
   term* tty = &new_term(0, 320, 80, 10, &font_mono_6x9, L"tty", true);
 
   error_code err;
 
   file* f;
 
-  if (ERROR(err = create_file("", &f))) {
-    term_write(tty, "Error while creating an empty file");
-    term_writeline(cout);
-  } else {
-    term_write(tty, "Success while creating an empty file");
-    term_writeline(cout);
-  }
+  __surround_with_debug_t("Creating file", {
+    if (ERROR(err = create_file("", &f))) {
+      term_write(tty, "Error while creating an empty file");
+      term_writeline(cout);
+    } else {
+      term_write(tty, "Success while creating an empty file");
+      term_writeline(cout);
+    }
+  });
 
   native_char buff[1024];
   for (int i = 0; i < 1024; ++i) {

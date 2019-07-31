@@ -42,8 +42,7 @@ void mutex::lock() {
   enable_interrupts();
 }
 
-bool mutex::lock_or_timeout (time timeout)
-{
+bool mutex::lock_or_timeout(time timeout) {
 #if 0
   disable_interrupts ();
 
@@ -69,34 +68,32 @@ bool mutex::lock_or_timeout (time timeout)
 
   return TRUE;
 #else
-  disable_interrupts ();
+  disable_interrupts();
 
   thread* current = sched_current_thread;
 
-  if (_locked)
-    {
-      if (!less_time (current_time_no_interlock (), timeout))
-        {
-          enable_interrupts ();
-          return FALSE;
-        }
-
-      current->_timeout = timeout;
-      current->_did_not_timeout = TRUE;
-
-      wait_queue_remove (current);
-      wait_queue_insert (current, this);
-      debug_write("LN 91");
-      save_context (_sched_suspend_on_sleep_queue, NULL);
-
-      enable_interrupts ();
-
-      return current->_did_not_timeout;
+  if (_locked) {
+    if (!less_time(current_time_no_interlock(), timeout)) {
+      enable_interrupts();
+      return FALSE;
     }
+
+    current->_timeout = timeout;
+    current->_did_not_timeout = TRUE;
+
+    wait_queue_remove(current);
+    wait_queue_insert(current, this);
+    debug_write("LN 91");
+    save_context(_sched_suspend_on_sleep_queue, NULL);
+
+    enable_interrupts();
+
+    return _locked = current->_did_not_timeout;
+  }
 
   _locked = TRUE;
 
-  enable_interrupts ();
+  enable_interrupts();
 
   return TRUE;
 #endif

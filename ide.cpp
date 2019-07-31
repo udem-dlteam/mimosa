@@ -217,7 +217,7 @@ error_code __attribute__((optimize("O0"))) ide_write_sectors(ide_device* dev, ui
 
   ASSERT_INTERRUPTS_ENABLED();  // Interrupts should be enabled at this point
 
-  if (count > 0) {
+  __surround_with_debug_t("IDE WRITE...", {if (count > 0) {
     ide_controller* ctrl = dev->ctrl;
     uint16 base = ide_controller_map[ctrl->id].base;
     ide_cmd_queue_entry* entry;
@@ -260,7 +260,7 @@ error_code __attribute__((optimize("O0"))) ide_write_sectors(ide_device* dev, ui
     ide_cmd_queue_free(entry);
 
     enable_interrupts();
-  }
+  }});
 
   return err;
 }

@@ -371,7 +371,6 @@ class idle_thread : public thread
   public:
 
     idle_thread ();
-
   protected:
     virtual void run ();
   };
@@ -408,6 +407,10 @@ void __rtlib_setup ()
   term_write(cout, "Loading up the file system...\n");
   setup_fs ();
   //setup_net ();
+  // FS is loaded, now load the cache maid
+  term_write(cout, "Loading the cache block maid...\n");
+  (new cache_block_maid)->start();
+
 
   main ();
 

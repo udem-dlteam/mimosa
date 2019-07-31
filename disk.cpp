@@ -240,6 +240,28 @@ again:
   return NO_ERROR;
 }
 
+static error_code flush_block(cache_block* block, time timeout) {
+  error_code err = NO_ERROR;
+  
+  debug_write("Trying to acquire block lock");
+  if (block->dirty && block->mut->lock_or_timeout(timeout)) {
+    debug_write("Block lock acquired");
+    if (HAS_NO_ERROR(err = disk_write_sectors(block->d, block->sector_pos,
+                                              block->buf, 1))) {
+      block->dirty = 0;
+      err = 1; // We flushed a single block
+    }
+
+  } else {
+    debug_write("Block lock not acquired");
+  }
+
+  block->mut->unlock();
+
+
+  return err;
+}
+
 error_code disk_cache_block_release(cache_block* block) {
   error_code err = NO_ERROR;
   uint32 n;
@@ -247,13 +269,7 @@ error_code disk_cache_block_release(cache_block* block) {
   if (block->refcount == 1) {
     // we are the last reference to this block
     // this means we don't need any lock on it
-    if (block->dirty) {
-      if (ERROR(err = disk_write_sectors(block->d, block->sector_pos,
-                                         block->buf, 1))) {
-        return err;
-      }
-      block->dirty = 0;
-    }
+    // flush_block(block, seconds_to_time(0));
   }
 
   if(HAS_NO_ERROR(err)) {
@@ -480,6 +496,45 @@ void setup_disk() {
     cb->refcount = 0;
     cb->mut = new mutex;
     cb->cv = new condvar;
+  }
+}
+
+//-----------------------------------------------------------------------------
+// Cache block cleaning thread
+//-----------------------------------------------------------------------------
+
+native_string cache_block_maid::name() {
+  return "Cache block maid thread";
+}
+cache_block_maid::cache_block_maid() {}
+
+void cache_block_maid::run() {
+  cache_block* cb;
+  cache_block_deq* deq;
+  cache_block_deq* lru_probe;
+  for (;;) {
+    uint32 flushed_count = 0;
+    thread::sleep(seconds_to_time(60).n); 
+    thread::yield();
+    
+    if(disk_mod.cache_mut->lock_or_timeout(seconds_to_time(60))) {
+      cb = NULL;
+      deq = &disk_mod.LRU_deq;
+      lru_probe = deq->prev;
+
+      while (lru_probe != deq) {
+        cb = CAST(cache_block*, CAST(uint8*, lru_probe) - (CAST(uint8*, &cb->LRU_deq) - CAST(uint8*, cb)));
+
+        if (flush_block(cb, seconds_to_time(10)) > 0) {
+          flushed_count += 1;
+        }
+
+        lru_probe = lru_probe->prev;
+      }
+
+      // Done the cleaning task
+      disk_mod.cache_mut->unlock();
+    }
   }
 }
 
