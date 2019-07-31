@@ -45,12 +45,10 @@ void panic (unicode_string msg)
   #ifdef RED_PANIC_SCREEN
     raw_bitmap_fill_rect((raw_bitmap*)&screen, 0, 0, 640, 480, &pattern_red);
 
-    font_draw_string(&font_mono_6x9, &screen.super, 640 / 2, 480 / 2,
-                     CAST(unicode_string, msg), &pattern_white, &pattern_black);
+    font_draw_string(&font_mono_6x9, &screen.super, 0, 0, msg, &pattern_white, &pattern_black);
 #endif
   
-  for (;;) ; // freeze execution
-
+  for (;;) NOP(); // freeze execution
   // ** NEVER REACHED ** (this function never returns)
 }
 
