@@ -178,6 +178,7 @@ void term_toggle_cursor(term* self) {
 }
 
 int term_write(term* self, unicode_char* buf, int count) {
+
   int start, end, i;
   unicode_char c;
 

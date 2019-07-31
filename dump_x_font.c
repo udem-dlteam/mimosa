@@ -307,6 +307,14 @@ void dump_font (char *font_name, char *font_id)
   max_c = (uint64)x_wind.font->max_char_or_byte2 +
           (uint64)x_wind.font->max_byte1*256;
 
+#ifdef DEBUG
+  fprintf(stderr,"x_wind.font->min_char_or_byte2 = %d\n",x_wind.font->min_char_or_byte2);
+  fprintf(stderr,"x_wind.font->max_char_or_byte2 = %d\n",x_wind.font->max_char_or_byte2);
+  fprintf(stderr,"x_wind.font->min_byte1         = %d\n",x_wind.font->min_byte1);
+  fprintf(stderr,"x_wind.font->max_byte1         = %d\n",x_wind.font->max_byte1);
+  fprintf(stderr,"max_c                          = %d\n",max_c);
+#endif
+
   width = x_wind.font->max_bounds.width;
   height = x_wind.font->max_bounds.ascent + x_wind.font->max_bounds.descent;
 
@@ -323,8 +331,13 @@ void dump_font (char *font_name, char *font_id)
   last_char_map = -1;
   last_char_end = 0;
 
-  for (c=0; c<=max_c; c++)
+  for (c=0; c<=max_c; c++) {
+#ifdef DEBUG
+    if (c > 0 && c % 100 == 0)
+      fprintf(stderr,"c = %d\n",c);
+#endif
     extract_char (c);
+  }
 
 #if 0
   for (i=0; i<height; i++)
@@ -342,8 +355,7 @@ void dump_font (char *font_name, char *font_id)
     }
 #endif
 
-  printf ("static bitmap_word %s_pixels[] =\n", font_id);
-  printf ("{");
+  printf ("static bitmap_word %s_pixels[] = {", font_id);
 
   for (i=0; i<height; i++)
     {
@@ -370,8 +382,7 @@ void dump_font (char *font_name, char *font_id)
   printf ("};\n");
   printf ("\n");
 
-  printf ("static uint16 %s_char_map[] =\n", font_id);
-  printf ("{");
+  printf ("static uint16 %s_char_map[] = {", font_id);
 
   col = -1;
 
@@ -390,8 +401,7 @@ void dump_font (char *font_name, char *font_id)
   printf ("\n};\n");
   printf ("\n");
 
-  printf ("static uint32 %s_char_end[] =\n", font_id);
-  printf ("{");
+  printf ("static uint32 %s_char_end[] = {", font_id);
 
   col = -1;
 

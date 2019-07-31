@@ -259,7 +259,7 @@ void __do_global_ctors ()
 
   // Create the console terminal
   term_init(&term_console, 0, 0, 80, 25,
-            &font_mono_6x13, &font_mono_6x13bold,
+            &font_mono_6x13, &font_mono_6x13B,
             L"console", TRUE);
 }
 

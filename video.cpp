@@ -324,6 +324,23 @@ void raw_bitmap_bitblt(raw_bitmap_c* self, int x, int y, int x_end,
                                int src_y, pattern* foreground,
                                pattern* background) {
 
+#if 0
+  if (self == &screen.super) {
+    bitmap_word* d = self->vtable->_select_layer(self, 0);
+    bitmap_word* s = src->vtable->_select_layer(src, 0);
+    int nb_rows = y_end - y;
+    int nb_cols = x_end - x;
+    int row;
+    int col;
+    for (row = 0; row < nb_rows; row++) {
+      for (col = 0; col < nb_cols; col++) {
+        int a = (row+src_y)*src->_width + (col+src_x);
+        d[(row+y)*self->_width + (col+x)] = (s[(a>>3)]&(128>>(a&7)))==0?15:0;
+      }
+    }
+  } else
+#endif
+
   if (x < x_end && y < y_end) {
     int realignment =
         (((x & (BITMAP_WORD_WIDTH - 1)) - (src_x & (BITMAP_WORD_WIDTH - 1))) &
@@ -516,24 +533,28 @@ bitmap_word pattern_get_word(pattern* self, int y, int layer) {
 
 #define font font_c
 
-#include "fonts/mono_5x7.c"
-#include "fonts/mono_5x8.c"
-#include "fonts/mono_6x9.c"
-#include "fonts/mono_6x10.c"
-#include "fonts/mono_6x12.c"
+#include "fonts/mono_5x7_256.c"
+//#include "fonts/mono_5x7.c"
+//#include "fonts/mono_5x8.c"
+//#include "fonts/mono_6x9.c"
+//#include "fonts/mono_6x10.c"
+//#include "fonts/mono_6x12.c"
 #include "fonts/mono_6x13.c"
-#include "fonts/mono_6x13bold.c"
-#include "fonts/mono_7x13.c"
-#include "fonts/mono_7x13bold.c"
-#include "fonts/mono_7x14.c"
-#include "fonts/mono_7x14bold.c"
-#include "fonts/mono_8x13.c"
-#include "fonts/mono_8x13bold.c"
-#include "fonts/mono_8x16.c"
-#include "fonts/mono_9x15.c"
-#include "fonts/mono_9x15bold.c"
-#include "fonts/mono_10x20.c"
-#include "fonts/mono_12x24.c"
+#include "fonts/mono_6x13B.c"
+//#include "fonts/mono_6x13O.c"
+//#include "fonts/mono_7x13.c"
+//#include "fonts/mono_7x13B.c"
+//#include "fonts/mono_7x13O.c"
+//#include "fonts/mono_7x14.c"
+//#include "fonts/mono_7x14B.c"
+//#include "fonts/mono_8x13.c"
+//#include "fonts/mono_8x13B.c"
+//#include "fonts/mono_8x13O.c"
+//#include "fonts/mono_9x15.c"
+//#include "fonts/mono_9x15B.c"
+//#include "fonts/mono_9x18.c"
+//#include "fonts/mono_9x18B.c"
+//#include "fonts/mono_10x20.c"
 
 #undef font
 

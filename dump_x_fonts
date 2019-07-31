@@ -1,26 +1,23 @@
 #!/bin/sh
 
-for font in \
-5x7 \
-5x8 \
-6x10 \
-6x12 \
-6x13 \
-6x13bold \
-6x9 \
-7x13 \
-7x13bold \
-7x14 \
-7x14bold \
-8x13 \
-8x13bold \
-8x16 \
-9x15 \
-9x15bold \
-10x20 \
-12x24 \
-;
-do
-  echo -------------- $font
-  ./dump_x_font $font font_mono_$font > fonts/mono_$font.c
-done
+./dump_x_font -Misc-Fixed-Medium-R-Normal--7-70-75-75-C-50-ISO10646-1 font_mono_5x7 > fonts/mono_5x7.c
+./dump_x_font -Misc-Fixed-Medium-R-Normal--8-80-75-75-C-50-ISO10646-1 font_mono_5x8 > fonts/mono_5x8.c
+./dump_x_font -Misc-Fixed-Medium-R-Normal--9-90-75-75-C-60-ISO10646-1 font_mono_6x9 > fonts/mono_6x9.c
+./dump_x_font -Misc-Fixed-Medium-R-Normal--10-100-75-75-C-60-ISO10646-1 font_mono_6x10 > fonts/mono_6x10.c
+./dump_x_font -Misc-Fixed-Medium-R-Semicondensed--12-110-75-75-C-60-ISO10646-1 font_mono_6x12 > fonts/mono_6x12.c
+./dump_x_font -Misc-Fixed-Medium-R-SemiCondensed--13-120-75-75-C-60-ISO10646-1 font_mono_6x13 > fonts/mono_6x13.c
+./dump_x_font -Misc-Fixed-Bold-R-SemiCondensed--13-120-75-75-C-60-ISO10646-1 font_mono_6x13B > fonts/mono_6x13B.c
+./dump_x_font -Misc-Fixed-Medium-O-SemiCondensed--13-120-75-75-C-60-ISO10646-1 font_mono_6x13O > fonts/mono_6x13O.c
+./dump_x_font -Misc-Fixed-Medium-R-Normal--13-120-75-75-C-70-ISO10646-1 font_mono_7x13 > fonts/mono_7x13.c
+./dump_x_font -Misc-Fixed-Bold-R-Normal--13-120-75-75-C-70-ISO10646-1 font_mono_7x13B > fonts/mono_7x13B.c
+./dump_x_font -Misc-Fixed-Medium-O-Normal--13-120-75-75-C-70-ISO10646-1 font_mono_7x13O > fonts/mono_7x13O.c
+./dump_x_font -Misc-Fixed-Medium-R-Normal--14-130-75-75-C-70-ISO10646-1 font_mono_7x14 > fonts/mono_7x14.c
+./dump_x_font -Misc-Fixed-Bold-R-Normal--14-130-75-75-C-70-ISO10646-1 font_mono_7x14B > fonts/mono_7x14B.c
+./dump_x_font -Misc-Fixed-Medium-R-Normal--13-120-75-75-C-80-ISO10646-1 font_mono_8x13 > fonts/mono_8x13.c
+./dump_x_font -Misc-Fixed-Bold-R-Normal--13-120-75-75-C-80-ISO10646-1 font_mono_8x13B > fonts/mono_8x13B.c
+./dump_x_font -Misc-Fixed-Medium-O-Normal--13-120-75-75-C-80-ISO10646-1 font_mono_8x13O > fonts/mono_8x13O.c
+./dump_x_font -Misc-Fixed-Medium-R-Normal--15-140-75-75-C-90-ISO10646-1 font_mono_9x15 > fonts/mono_9x15.c
+./dump_x_font -Misc-Fixed-Bold-R-Normal--15-140-75-75-C-90-ISO10646-1 font_mono_9x15B > fonts/mono_9x15B.c
+./dump_x_font -Misc-Fixed-Medium-R-Normal--18-120-100-100-C-90-ISO10646-1 font_mono_9x18 > fonts/mono_9x18.c
+./dump_x_font -Misc-Fixed-Bold-R-Normal--18-120-100-100-C-90-ISO10646-1 font_mono_9x18B > fonts/mono_9x18B.c
+./dump_x_font -Misc-Fixed-Medium-R-Normal--20-200-75-75-C-100-ISO10646-1 font_mono_10x20 > fonts/mono_10x20.c
