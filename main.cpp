@@ -20,8 +20,13 @@
 
 int main() {
 
-  term* tty = &new_term(0, 320, 80, 10, &font_mono_6x9, L"tty", true);
-  // term_run(tty);
+  term tty;
+
+  term_init(&tty, 0, 366, 80, 13,
+            &font_mono_5x7, &font_mono_5x7,
+            L"tty", TRUE);
+
+  // term_run(&tty);
 
   // {
   //   native_string file_name = "COPYPA.TXT";
@@ -41,18 +46,18 @@ int main() {
   //     error_code err;
   //     debug_write("Starting to read the file...");
   //     if (ERROR(err = read_file(f, buff, f->length))) {
-  //       term_write(tty, "ERROR WHILE READING:\n");
-  //       term_write(tty, err);
+  //       term_write(&tty, "ERROR WHILE READING:\n");
+  //       term_write(&tty, err);
   //       fatal_error("ERR");
   //     }
   //     debug_write("Done writing... printing soon");
 
-  //     term_write(tty, '---\n\r');
-  //     term_write(tty, CAST(native_string, buff + f->length - 100));
-  //     term_write(tty, "!");
-  //     term_write(tty, "\n\r----");
+  //     term_write(&tty, '---\n\r');
+  //     term_write(&tty, CAST(native_string, buff + f->length - 100));
+  //     term_write(&tty, "!");
+  //     term_write(&tty, "\n\r----");
   //   } else {
-  //     term_write(tty, "\r\n Failed to read the file.\r\n");
+  //     term_write(&tty, "\r\n Failed to read the file.\r\n");
   //   }
   // }
 
@@ -63,9 +68,9 @@ int main() {
 
     file* prog;
     if (NO_ERROR == open_file(file_name, &prog)) {
-      term_write(tty, "\r\n Starting program ");
-      term_write(tty, file_name);
-      term_writeline(tty);
+      term_write(&tty, "\r\n Starting program ");
+      term_write(&tty, file_name);
+      term_writeline(&tty);
 
       // TODO:
       // The program thread needs to be aware of what its doing
@@ -93,7 +98,7 @@ int main() {
       task->start();
 
     } else {
-      term_write(tty, "\r\n Failed to open the program.\r\n");
+      term_write(&tty, "\r\n Failed to open the program.\r\n");
     }
   }
 

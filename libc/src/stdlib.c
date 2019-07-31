@@ -1,6 +1,22 @@
 #include "include/libc_common.h"
 #include "include/stdlib.h"
 
+#ifdef USE_MIMOSA
+
+struct heap {
+  void *start;
+  size_t size;
+  size_t alloc;
+};
+
+void heap_init(struct heap *h, void *start, size_t size);
+void *heap_malloc(struct heap *h, size_t size);
+void heap_free(struct heap *h, void *ptr);
+
+struct heap appheap;
+
+#endif
+
 void *malloc(size_t __size) {
 
 #ifdef USE_LIBC_LINK
@@ -19,11 +35,17 @@ void *malloc(size_t __size) {
 
 #else
 
-  /* TODO: implement */
+  // TODO: implement
+
+#ifdef USE_MIMOSA
+
+  return heap_malloc(&appheap, __size);
+
+#else
 
   {
 #define MB (1<<20)
-#define HEAP_SIZE 10*MB /* needs to be at least 5*MB */
+#define HEAP_SIZE 10*MB // needs to be at least 5*MB
 
     static char heap[HEAP_SIZE];
     static int alloc = HEAP_SIZE;
@@ -38,6 +60,8 @@ void *malloc(size_t __size) {
       return (void*)(heap+alloc);
     }
   }
+
+#endif
 
 #endif
 #endif
@@ -61,7 +85,15 @@ void free(void *__ptr) {
 
 #else
 
-  /* TODO: implement */
+#ifdef USE_MIMOSA
+
+  return heap_free(&appheap, __ptr);
+
+#else
+
+  // TODO: implement
+
+#endif
 
 #endif
 #endif
@@ -85,13 +117,13 @@ void exit(int __status) {
 
 #else
 
-  /* TODO: implement */
+  // TODO: implement
   for (;;) ;
 
 #endif
 #endif
 
-  /*NOTREACHED*/
+  // NOTREACHED
 }
 
 char *getenv(const char *__name) {
@@ -112,7 +144,7 @@ char *getenv(const char *__name) {
 
 #else
 
-  /* TODO: implement */
+  // TODO: implement
   return NULL;
 
 #endif
@@ -137,7 +169,7 @@ int system(const char *__command) {
 
 #else
 
-  /* TODO: implement */
+  // TODO: implement
   return 0;
 
 #endif
@@ -147,6 +179,12 @@ int system(const char *__command) {
 #ifndef USE_LIBC_LINK
 
 void libc_init_stdlib(void) {
+
+#ifdef USE_MIMOSA
+
+  heap_init(&appheap, CAST(void*,32*(1<<20)), 256*(1<<20));
+
+#endif
 }
 
 #endif

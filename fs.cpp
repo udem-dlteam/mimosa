@@ -300,7 +300,7 @@ static error_code next_FAT_section(file* f) {
   error_code err;
 
   if (fs->kind == FAT12_FS) {
-    debug_write("Reading the next FAT12 section");
+    //debug_write("Reading the next FAT12 section");
     offset = n + (n >> 1);
 
     sector_pos =
@@ -334,9 +334,12 @@ static error_code next_FAT_section(file* f) {
 
     if (cluster >= 0xff8) return EOF_ERROR;
   } else {
+
     if (fs->kind == FAT16_FS) {
+      //debug_write("Reading the next FAT16 section");
       offset = n * 2;
     } else {
+      //debug_write("Reading the next FAT32 section");
       offset = n * 4;
     }
 
@@ -434,7 +437,7 @@ error_code read_file(file* f, void* buf, uint32 count) {
             f->current_section_pos += left2;
             f->current_pos += left2;
             n -= left2;
-            p += left2; // We read chars, skip to the next part
+            p += left2; // We read bytes, skip to the next part
           }
         }
 

@@ -11,7 +11,7 @@ typedef struct {
 } DIR;
 
 struct dirent {
-  char d_name[256]; /* Null-terminated filename */
+  char d_name[256]; // Null-terminated filename
 };
 
 #endif
@@ -22,10 +22,8 @@ extern int closedir(DIR *__dirp);
 
 #ifndef USE_LIBC_LINK
 
-#include "include/libc_link.h"
-
 extern void libc_init_dirent(void);
 
 #endif
 
-#endif /* dirent.h  */
+#endif // dirent.h

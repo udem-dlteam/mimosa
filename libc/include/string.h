@@ -16,4 +16,4 @@ extern void libc_init_string(void);
 
 #endif
 
-#endif /* string.h */
+#endif // string.h

@@ -19,7 +19,7 @@ double acos(double __x) {
 
 #else
 
-  /* TODO: implement */
+  // TODO: implement
   return 0.0;
 
 #endif
@@ -44,7 +44,7 @@ double acosh(double __x) {
 
 #else
 
-  /* TODO: implement */
+  // TODO: implement
   return 0.0;
 
 #endif
@@ -69,7 +69,7 @@ double asin(double __x) {
 
 #else
 
-  /* TODO: implement */
+  // TODO: implement
   return 0.0;
 
 #endif
@@ -94,7 +94,7 @@ double asinh(double __x) {
 
 #else
 
-  /* TODO: implement */
+  // TODO: implement
   return 0.0;
 
 #endif
@@ -119,7 +119,7 @@ double atan(double __x) {
 
 #else
 
-  /* TODO: implement */
+  // TODO: implement
   return 0.0;
 
 #endif
@@ -144,7 +144,7 @@ double atan2(double __y, double __x) {
 
 #else
 
-  /* TODO: implement */
+  // TODO: implement
   return 0.0;
 
 #endif
@@ -169,7 +169,7 @@ double atanh(double __x) {
 
 #else
 
-  /* TODO: implement */
+  // TODO: implement
   return 0.0;
 
 #endif
@@ -194,7 +194,7 @@ double ceil(double __x) {
 
 #else
 
-  /* TODO: implement */
+  // TODO: implement
   return 0.0;
 
 #endif
@@ -219,7 +219,7 @@ double cos(double __x) {
 
 #else
 
-  /* TODO: implement */
+  // TODO: implement
   return 0.0;
 
 #endif
@@ -244,7 +244,7 @@ double cosh(double __x) {
 
 #else
 
-  /* TODO: implement */
+  // TODO: implement
   return 0.0;
 
 #endif
@@ -269,7 +269,7 @@ double exp(double __x) {
 
 #else
 
-  /* TODO: implement */
+  // TODO: implement
   return 0.0;
 
 #endif
@@ -294,7 +294,7 @@ double expm1(double __x) {
 
 #else
 
-  /* TODO: implement */
+  // TODO: implement
   return 0.0;
 
 #endif
@@ -319,7 +319,7 @@ double fabs(double __x) {
 
 #else
 
-  /* TODO: implement */
+  // TODO: implement
   return 0.0;
 
 #endif
@@ -344,7 +344,7 @@ double floor(double __x) {
 
 #else
 
-  /* TODO: implement */
+  // TODO: implement
   return 0.0;
 
 #endif
@@ -369,7 +369,7 @@ double hypot(double __x, double __y) {
 
 #else
 
-  /* TODO: implement */
+  // TODO: implement
   return 0.0;
 
 #endif
@@ -394,7 +394,7 @@ int ilogb(double __x) {
 
 #else
 
-  /* TODO: implement */
+  // TODO: implement
   return 0;
 
 #endif
@@ -419,7 +419,7 @@ double log(double __x) {
 
 #else
 
-  /* TODO: implement */
+  // TODO: implement
   return 0.0;
 
 #endif
@@ -444,7 +444,7 @@ double log1p(double __x) {
 
 #else
 
-  /* TODO: implement */
+  // TODO: implement
   return 0.0;
 
 #endif
@@ -469,7 +469,7 @@ double modf(double __x, double *__iptr) {
 
 #else
 
-  /* TODO: implement */
+  // TODO: implement
   return 0.0;
 
 #endif
@@ -494,7 +494,7 @@ double pow(double __x, double __y) {
 
 #else
 
-  /* TODO: implement */
+  // TODO: implement
   return 0.0;
 
 #endif
@@ -519,7 +519,7 @@ double sin(double __x) {
 
 #else
 
-  /* TODO: implement */
+  // TODO: implement
   return 0.0;
 
 #endif
@@ -544,7 +544,7 @@ double sinh(double __x) {
 
 #else
 
-  /* TODO: implement */
+  // TODO: implement
   return 0.0;
 
 #endif
@@ -569,7 +569,7 @@ double sqrt(double __x) {
 
 #else
 
-  /* TODO: implement */
+  // TODO: implement
   return 0.0;
 
 #endif
@@ -594,7 +594,7 @@ double tan(double __x) {
 
 #else
 
-  /* TODO: implement */
+  // TODO: implement
   return 0.0;
 
 #endif
@@ -619,7 +619,7 @@ double tanh(double __x) {
 
 #else
 
-  /* TODO: implement */
+  // TODO: implement
   return 0.0;
 
 #endif
@@ -644,7 +644,7 @@ double scalbn(double __x, int __exp) {
 
 #else
 
-  /* TODO: implement */
+  // TODO: implement
   return 0.0;
 
 #endif

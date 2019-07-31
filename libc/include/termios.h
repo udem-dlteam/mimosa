@@ -12,17 +12,17 @@ typedef unsigned int  tcflag_t;
 
 #define NCCS 32
 struct termios {
-  tcflag_t c_iflag; /* input mode flags */
-  tcflag_t c_oflag; /* output mode flags */
-  tcflag_t c_cflag; /* control mode flags */
-  tcflag_t c_lflag; /* local mode flags */
-  cc_t c_line;      /* line discipline */
-  cc_t c_cc[NCCS];  /* control characters */
-  speed_t c_ispeed; /* input speed */
-  speed_t c_ospeed; /* output speed */
+  tcflag_t c_iflag; // input mode flags
+  tcflag_t c_oflag; // output mode flags
+  tcflag_t c_cflag; // control mode flags
+  tcflag_t c_lflag; // local mode flags
+  cc_t c_line;      // line discipline
+  cc_t c_cc[NCCS];  // control characters
+  speed_t c_ispeed; // input speed
+  speed_t c_ospeed; // output speed
 };
 
-/* c_cc characters */
+// c_cc characters
 #define VINTR    0
 #define VQUIT    1
 #define VERASE   2
@@ -41,7 +41,7 @@ struct termios {
 #define VLNEXT   15
 #define VEOL2    16
 
-/* c_iflag bits */
+// c_iflag bits
 #define IGNBRK  0000001
 #define BRKINT  0000002
 #define IGNPAR  0000004
@@ -58,7 +58,7 @@ struct termios {
 #define IMAXBEL 0020000
 #define IUTF8   0040000
 
-/* c_oflag bits */
+// c_oflag bits
 #define OPOST   0000001
 #define OLCUC   0000002
 #define ONLCR   0000004
@@ -68,7 +68,7 @@ struct termios {
 #define OFILL   0000100
 #define OFDEL   0000200
 
-/* c_cflag bit meaning */
+// c_cflag bit meaning
 #define B0     0000000
 #define B50    0000001
 #define B75    0000002
@@ -97,7 +97,7 @@ struct termios {
 #define HUPCL  0002000
 #define CLOCAL 0004000
 
-/* c_lflag bits */
+// c_lflag bits
 #define ISIG    0000001
 #define ICANON  0000002
 #define ECHO    0000010
@@ -134,4 +134,4 @@ extern void libc_init_termios(void);
 
 #endif
 
-#endif /* termios.h */
+#endif // termios.h
