@@ -51,11 +51,16 @@ FILE *fopen(const char *__restrict __filename,
 
     return &FILE_root_dir;
   } else {
-
-    // It is OK to return NULL for other files (of course this means
-    // files can't be accessed).
-
-    return NULL;
+    
+    error_code err;
+    file* f;
+    if(HAS_NO_ERROR(err = open_file(CAST(native_string, __filename), &f))) {
+      FILE* gambit_file = CAST(FILE*, kmalloc(sizeof(FILE)));
+      gambit_file->f = f;
+      return gambit_file;
+    } else {
+      return NULL;
+    }
   }
 
 #endif
@@ -116,7 +121,18 @@ size_t fread(void *__restrict __ptr, size_t __size, size_t __n,
       i++;
     }
   } else {
-    debug_write("Incorrect stream");
+    error_code err;
+    file* f = __stream->f;
+    uint32 count = __n * __size;
+
+    if(ERROR(err = read_file(f, __ptr, count))) {
+      // fread interface has 0 for an error
+      i = 0;
+      __stream->err = err;
+    } else {
+      // Number of items read, not byte count
+      i = err / __size;
+    }
   }
 
   return i;
@@ -144,7 +160,7 @@ size_t fwrite(const void *__restrict __ptr, size_t __size,
 #else
 
   // TODO: implement writing to files other than stdout/stderr
-
+  size_t t;
   if (__stream == &FILE_stdout || __stream == &FILE_stderr) {
 
     char *p = (char*)__ptr;
@@ -153,6 +169,19 @@ size_t fwrite(const void *__restrict __ptr, size_t __size,
     while (n > 0) {
       libc_wr_char(1, *p++);
       n--;
+    }
+    t = __n;
+  } else {
+    error_code err;
+    file *f = __stream->f;
+    uint32 count = __size * __n;
+
+    if (ERROR(err = write_file(f, CAST(void *, __ptr), count))) {
+      __stream->err = err;
+      t = 0;
+    } else {
+      // No of items returned
+      t = err / __size;
     }
   }
 
@@ -181,6 +210,7 @@ int fclose(FILE *__restrict __stream) {
 #else
 
   // TODO: implement
+  // Success is 0. EOF is an error. See ferror for an error
   return 0;
 
 #endif
@@ -281,7 +311,7 @@ int ferror(FILE *__restrict __stream) {
 #else
 
   // TODO: implement
-  return 0;
+  return ERROR(__stream->err);
 
 #endif
 #endif
@@ -305,8 +335,7 @@ int feof(FILE *__restrict __stream) {
 
 #else
 
-  // TODO: implement
-  return 0;
+  return __stream->err == EOF_ERROR;
 
 #endif
 #endif
@@ -330,7 +359,7 @@ void clearerr(FILE *__restrict __stream) {
 
 #else
 
-  // TODO: implement
+  __stream->err = NO_ERROR;
 
 #endif
 #endif

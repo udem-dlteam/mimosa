@@ -5,10 +5,15 @@
 #include "include/libc_header.h"
 #include "include/stddef.h"
 
+#ifdef USE_MIMOSA
+#include "fs.h"
+#endif
+
 #ifndef USE_HOST_LIBC
 
 typedef struct {
-  int state;
+  file* f;
+  error_code err;
 } FILE;
 
 #endif

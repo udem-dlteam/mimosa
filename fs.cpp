@@ -895,12 +895,12 @@ static void mount_all_partitions() {
 
 //-----------------------------------------------------------------------------
 
-DIR* opendir(native_string path) {
+DIR* opendir(const char* path) {
   file* f;
   DIR* dir;
   error_code err;
 
-  if (ERROR(err = open_file(path, &f))) {
+  if (ERROR(err = open_file(CAST(native_string, path), &f))) {
     return NULL;
   }
 

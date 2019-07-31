@@ -1,6 +1,8 @@
 #include "include/libc_common.h"
 #include "include/dirent.h"
 
+#ifndef USE_MIMOSA
+
 DIR *opendir(const char *__name) {
 
 #ifdef USE_LIBC_LINK
@@ -75,6 +77,8 @@ int closedir(DIR *__dirp) {
 #endif
 #endif
 }
+
+#endif
 
 #ifndef USE_LIBC_LINK
 
