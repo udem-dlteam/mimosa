@@ -146,7 +146,7 @@ void ide_irq(ide_controller* ctrl) {
 
 extern "C" void irq14() {
 #ifdef SHOW_INTERRUPTS
-  term_write(cout, "\033[41m irq14 \033[0m";
+  term_write(cout, "\033[41m irq14 \033[0m");
 #endif
 
   ACKNOWLEDGE_IRQ(14);
@@ -160,7 +160,7 @@ extern "C" void irq14() {
 
 extern "C" void irq15() {
 #ifdef SHOW_INTERRUPTS
-  term_write(cout, "\033[41m irq15 \033[0m";
+  term_write(cout, "\033[41m irq15 \033[0m");
 #endif
 
   ACKNOWLEDGE_IRQ(15);
@@ -414,238 +414,261 @@ static void setup_ide_device(ide_controller* ctrl, ide_device* dev, uint8 id) {
 
 #ifdef SHOW_IDE_INFO
 
-  if (dev->kind == IDE_DEVICE_ATA) {
-    if ((ident[0] & (1 << 15)) == 0) term_write(cout, "  ATA device\n");
-  } else {
-    if ((ident[0] & (3 << 14)) == (2 << 14))
-      term_write(cout, "  ATAPI device\n");
-  }
+  if (dev->kind == IDE_DEVICE_ATA)
+    {
+      if ((ident[0] & (1<<15)) == 0)
+        term_write(cout, "  ATA device\n");
+    }
+  else
+    {
+      if ((ident[0] & (3<<14)) == (2<<14))
+        term_write(cout, "  ATAPI device\n");
+    }
 
-  if ((ident[0] & (1 << 7)) == 1)
+  if ((ident[0] & (1<<7)) == 1)
     term_write(cout, "  removable media device\n");
 
 #if 0
 
   if ((ident[0] & (1<<6)) == 1)
-    term_write(cout, "  not removable controller and/or device\n";
+    term_write(cout, "  not removable controller and/or device\n");
 
 #endif
 
-  if ((ident[0] & (1 << 2)) == 1) term_write(cout, "  response incomplete\n");
+  if ((ident[0] & (1<<2)) == 1)
+    term_write(cout, "  response incomplete\n");
 
-  if (dev->kind == IDE_DEVICE_ATA) {
-    term_write(cout, "  Number of logical cylinders = ");
-    term_write(cout, ident[1]);
-    term_write(cout, "\n");
-    term_write(cout, "  Number of logical heads = ");
-    term_write(cout, ident[3]);
-    term_writeline(cout);
-    term_write(cout, "  Number of logical sectors per logical track = ");
-    term_write(cout, ident[6]);
-    term_writeline(cout);
-  }
-
-  term_write(cout, "  Serial number = ");
-  term_write(cout, dev->serial_num);
-  term_writeline(cout);
-  term_write(cout, "  Firmware revision = ");
-  term_write(cout, dev->firmware_rev);
-  term_writeline(cout);
-  term_write(cout, "  Model number = ");
-  term_write(cout, dev->model_num);
-  term_writeline(cout);
-#if 0
-
-  term_write(cout, "  word 47 hi (should be 128) = " << (ident[47] >> 8) << "\n";
-  term_write(cout, "  Maximum number of sectors that shall be transferred per interrupt on READ/WRITE MULTIPLE commands = " << (ident[47] & 0xff) << "\n";
-
-#endif
-
-  if (dev->kind == IDE_DEVICE_ATA) {
-    if (ident[53] & (1 << 0)) {
-      term_write(cout, "  Number of current logical cylinders = ");
-      term_write(cout, ident[54]);
-      term_writeline(cout);
-      term_write(cout, "  Number of current logical heads = ");
-      term_write(cout, ident[55]);
-      term_writeline(cout);
-      term_write(cout, "  Number of current logical sectors per track = ");
-      term_write(cout, ident[56]);
-      term_writeline(cout);
-      term_write(cout, "  Current capacity in sectors = ");
-      term_write(cout, (CAST(uint32, ident[58]) << 16) + ident[57]);
-      term_writeline(cout);
+  if (dev->kind == IDE_DEVICE_ATA)
+    {
+      term_write(cout, "  Number of logical cylinders = ") << ident[1] << "\n";
+      term_write(cout, "  Number of logical heads = ") << ident[3] << "\n";
+      term_write(cout, "  Number of logical sectors per logical track = ") << ident[6] << "\n";
     }
 
-    term_write(cout,
-               "  Total number of user addressable sectors (LBA mode only) = ");
-    term_write(cout, (CAST(uint32, ident[61]) << 16) + ident[60]);
-    term_writeline(cout);
-  }
+  term_write(cout, "  Serial number = ") << dev->serial_num << "\n";
+  term_write(cout, "  Firmware revision = ") << dev->firmware_rev << "\n";
+  term_write(cout, "  Model number = ") << dev->model_num << "\n";
 
-  if (ident[63] & (1 << 10))
+#if 0
+
+  term_write(cout, "  word 47 hi (should be 128) = ") << (ident[47] >> 8) << "\n";
+  term_write(cout, "  Maximum number of sectors that shall be transferred per interrupt on READ/WRITE MULTIPLE commands = ") << (ident[47] & 0xff) << "\n";
+
+#endif
+
+  if (dev->kind == IDE_DEVICE_ATA)
+    {
+      if (ident[53] & (1<<0))
+        {
+          term_write(cout, "  Number of current logical cylinders = ") << ident[54] << "\n";
+          term_write(cout, "  Number of current logical heads = ") << ident[55] << "\n";
+          term_write(cout, "  Number of current logical sectors per track = ") << ident[56] << "\n";
+          term_write(cout, "  Current capacity in sectors = ") << (CAST(uint32,ident[58])<<16)+ident[57] << "\n";
+        }
+
+      term_write(cout, "  Total number of user addressable sectors (LBA mode only) = ") << (CAST(uint32,ident[61])<<16)+ident[60] << "\n";
+    }
+
+  if (ident[63] & (1<<10))
     term_write(cout, "  Multiword DMA mode 2 is selected\n");
 
-  if (ident[63] & (1 << 9))
+  if (ident[63] & (1<<9))
     term_write(cout, "  Multiword DMA mode 1 is selected\n");
 
-  if (ident[63] & (1 << 8))
+  if (ident[63] & (1<<8))
     term_write(cout, "  Multiword DMA mode 0 is selected\n");
 
-  if (ident[63] & (1 << 2))
+  if (ident[63] & (1<<2))
     term_write(cout, "  Multiword DMA mode 2 and below are supported\n");
 
-  if (ident[63] & (1 << 1))
+  if (ident[63] & (1<<1))
     term_write(cout, "  Multiword DMA mode 1 and below are supported\n");
 
-  if (ident[63] & (1 << 0))
+  if (ident[63] & (1<<0))
     term_write(cout, "  Multiword DMA mode 0 is supported\n");
 
-  term_write(cout, "  Maximum queue depth � 1 = ");
-  term_write(cout, (ident[75] & 31));
+  term_write(cout, "  Maximum queue depth � 1 = ") << (ident[75]&31) << "\n";
 
-  if (ident[80] & (1 << 5)) term_write(cout, "  supports ATA/ATAPI-5\n");
+  if (ident[80] & (1<<5))
+    term_write(cout, "  supports ATA/ATAPI-5\n");
 
-  if (ident[80] & (1 << 4)) term_write(cout, "  supports ATA/ATAPI-4\n");
+  if (ident[80] & (1<<4))
+    term_write(cout, "  supports ATA/ATAPI-4\n");
 
-  if (ident[80] & (1 << 3)) term_write(cout, "  supports ATA-3\n");
+  if (ident[80] & (1<<3))
+    term_write(cout, "  supports ATA-3\n");
 
-  if (ident[80] & (1 << 2)) term_write(cout, "  supports ATA-2\n");
+  if (ident[80] & (1<<2))
+    term_write(cout, "  supports ATA-2\n");
 
-  term_write(cout, "  Minor version number = ");
-  term_write(cout, ident[81]);
+  term_write(cout, "  Minor version number = ") << ident[81] << "\n";
 
   term_write(cout, "  supports:");
 
-  if (ident[82] & (1 << 14)) term_write(cout, " NOP command,");
+  if (ident[82] & (1<<14))
+    term_write(cout, " NOP command,");
 
-  if (ident[82] & (1 << 13)) term_write(cout, " READ BUFFER command,");
+  if (ident[82] & (1<<13))
+    term_write(cout, " READ BUFFER command,");
 
-  if (ident[82] & (1 << 12)) term_write(cout, " WRITE BUFFER command,");
+  if (ident[82] & (1<<12))
+    term_write(cout, " WRITE BUFFER command,");
 
-  if (ident[82] & (1 << 10))
+  if (ident[82] & (1<<10))
     term_write(cout, " Host Protected Area feature set,");
 
-  if (ident[82] & (1 << 9)) term_write(cout, " DEVICE RESET command,");
+  if (ident[82] & (1<<9))
+    term_write(cout, " DEVICE RESET command,");
 
-  if (ident[82] & (1 << 8)) term_write(cout, " SERVICE interrupt,");
+  if (ident[82] & (1<<8))
+    term_write(cout, " SERVICE interrupt,");
 
-  if (ident[82] & (1 << 7)) term_write(cout, " release interrupt,");
+  if (ident[82] & (1<<7))
+    term_write(cout, " release interrupt,");
 
-  if (ident[82] & (1 << 6)) term_write(cout, " look-ahead,");
+  if (ident[82] & (1<<6))
+    term_write(cout, " look-ahead,");
 
-  if (ident[82] & (1 << 5)) term_write(cout, " write cache,");
+  if (ident[82] & (1<<5))
+    term_write(cout, " write cache,");
 
-  if (ident[82] & (1 << 3)) term_write(cout, " Power Management feature set,");
+  if (ident[82] & (1<<3))
+    term_write(cout, " Power Management feature set,");
 
-  if (ident[82] & (1 << 2)) term_write(cout, " Removable Media feature set,");
+  if (ident[82] & (1<<2))
+    term_write(cout, " Removable Media feature set,");
 
-  if (ident[82] & (1 << 1)) term_write(cout, " Security Mode feature set,");
+  if (ident[82] & (1<<1))
+    term_write(cout, " Security Mode feature set,");
 
-  if (ident[82] & (1 << 0)) term_write(cout, " SMART feature set,");
+  if (ident[82] & (1<<0))
+    term_write(cout, " SMART feature set,");
 
-  if (ident[83] & (1 << 8)) term_write(cout, " SET MAX security extension,");
+  if (ident[83] & (1<<8))
+    term_write(cout, " SET MAX security extension,");
 
-  if (ident[83] & (1 << 6))
-    term_write(cout,
-               " SET FEATURES subcommand required to spinup after power-up,");
+  if (ident[83] & (1<<6))
+    term_write(cout, " SET FEATURES subcommand required to spinup after power-up,");
 
-  if (ident[83] & (1 << 5))
+  if (ident[83] & (1<<5))
     term_write(cout, " Power-Up In Standby feature set,");
 
-  if (ident[83] & (1 << 4))
+  if (ident[83] & (1<<4))
     term_write(cout, " Removable Media Status Notification feature set,");
 
-  if (ident[83] & (1 << 3))
+  if (ident[83] & (1<<3))
     term_write(cout, " Advanced Power Management feature set,");
 
-  if (ident[83] & (1 << 2)) term_write(cout, " CFA feature set,");
+  if (ident[83] & (1<<2))
+    term_write(cout, " CFA feature set,");
 
-  if (ident[83] & (1 << 1)) term_write(cout, " READ/WRITE DMA QUEUED,");
+  if (ident[83] & (1<<1))
+    term_write(cout, " READ/WRITE DMA QUEUED,");
 
-  if (ident[83] & (1 << 0)) term_write(cout, " DOWNLOAD MICROCODE command,");
+  if (ident[83] & (1<<0))
+    term_write(cout, " DOWNLOAD MICROCODE command,");
 
   term_write(cout, "\n");
 
   term_write(cout, "  enabled:");
 
-  if (ident[85] & (1 << 14)) term_write(cout, " NOP command,");
+  if (ident[85] & (1<<14))
+    term_write(cout, " NOP command,");
 
-  if (ident[85] & (1 << 13)) term_write(cout, " READ BUFFER command,");
+  if (ident[85] & (1<<13))
+    term_write(cout, " READ BUFFER command,");
 
-  if (ident[85] & (1 << 12)) term_write(cout, " WRITE BUFFER command,");
+  if (ident[85] & (1<<12))
+    term_write(cout, " WRITE BUFFER command,");
 
-  if (ident[85] & (1 << 10))
+  if (ident[85] & (1<<10))
     term_write(cout, " Host Protected Area feature set,");
 
-  if (ident[85] & (1 << 9)) term_write(cout, " DEVICE RESET command,");
+  if (ident[85] & (1<<9))
+    term_write(cout, " DEVICE RESET command,");
 
-  if (ident[85] & (1 << 8)) term_write(cout, " SERVICE interrupt,");
+  if (ident[85] & (1<<8))
+    term_write(cout, " SERVICE interrupt,");
 
-  if (ident[85] & (1 << 7)) term_write(cout, " release interrupt,");
+  if (ident[85] & (1<<7))
+    term_write(cout, " release interrupt,");
 
-  if (ident[85] & (1 << 6)) term_write(cout, " look-ahead,");
+  if (ident[85] & (1<<6))
+    term_write(cout, " look-ahead,");
 
-  if (ident[85] & (1 << 5)) term_write(cout, " write cache,");
+  if (ident[85] & (1<<5))
+    term_write(cout, " write cache,");
 
-  if (ident[85] & (1 << 3)) term_write(cout, " Power Management feature set,");
+  if (ident[85] & (1<<3))
+    term_write(cout, " Power Management feature set,");
 
-  if (ident[85] & (1 << 2)) term_write(cout, " Removable Media feature set,");
+  if (ident[85] & (1<<2))
+    term_write(cout, " Removable Media feature set,");
 
-  if (ident[85] & (1 << 1)) term_write(cout, " Security Mode feature set,");
+  if (ident[85] & (1<<1))
+    term_write(cout, " Security Mode feature set,");
 
-  if (ident[85] & (1 << 0)) term_write(cout, " SMART feature set,");
+  if (ident[85] & (1<<0))
+    term_write(cout, " SMART feature set,");
 
-  if (ident[86] & (1 << 8)) term_write(cout, " SET MAX security extension,");
+  if (ident[86] & (1<<8))
+    term_write(cout, " SET MAX security extension,");
 
-  if (ident[86] & (1 << 6))
-    term_write(cout,
-               " SET FEATURES subcommand required to spin-up after power-up,");
+  if (ident[86] & (1<<6))
+    term_write(cout, " SET FEATURES subcommand required to spin-up after power-up,");
 
-  if (ident[86] & (1 << 5))
+  if (ident[86] & (1<<5))
     term_write(cout, " Power-Up In Standby feature set,");
 
-  if (ident[86] & (1 << 4))
+  if (ident[86] & (1<<4))
     term_write(cout, " Removable Media Status Notification feature set,");
 
-  if (ident[86] & (1 << 3))
+  if (ident[86] & (1<<3))
     term_write(cout, " Advanced Power Management feature set,");
 
-  if (ident[86] & (1 << 2)) term_write(cout, " CFA feature set,");
+  if (ident[86] & (1<<2))
+    term_write(cout, " CFA feature set,");
 
-  if (ident[86] & (1 << 1)) term_write(cout, " READ/WRITE DMA QUEUED command,");
+  if (ident[86] & (1<<1))
+    term_write(cout, " READ/WRITE DMA QUEUED command,");
 
-  if (ident[86] & (1 << 0)) term_write(cout, " DOWNLOAD MICROCODE command,");
+  if (ident[86] & (1<<0))
+    term_write(cout, " DOWNLOAD MICROCODE command,");
 
   term_write(cout, "\n");
 
-  if (ident[53] & (1 << 2)) {
-    if (ident[88] & (1 << 12))
+  if (ident[53] & (1<<2))
+    {
+    if (ident[88] & (1<<12))
       term_write(cout, "  Ultra DMA mode 4 is selected\n");
 
-    if (ident[88] & (1 << 11))
-      term_write(cout, "  Ultra DMA mode 3 is selected\n");
+      if (ident[88] & (1<<11))
+        term_write(cout, "  Ultra DMA mode 3 is selected\n");
 
-    if (ident[88] & (1 << 10))
-      term_write(cout, "  Ultra DMA mode 2 is selected\n");
+      if (ident[88] & (1<<10))
+        term_write(cout, "  Ultra DMA mode 2 is selected\n");
 
-    if (ident[88] & (1 << 9))
-      term_write(cout, "  Ultra DMA mode 1 is selected\n");
+      if (ident[88] & (1<<9))
+        term_write(cout, "  Ultra DMA mode 1 is selected\n");
 
-    if (ident[88] & (1 << 8))
-      term_write(cout, "  Ultra DMA mode 0 is selected\n");
+      if (ident[88] & (1<<8))
+        term_write(cout, "  Ultra DMA mode 0 is selected\n");
 
-    if (ident[88] & (1 << 4))
-      term_write(cout, "  Ultra DMA mode 4 and below are supported\n");
+      if (ident[88] & (1<<4))
+        term_write(cout, "  Ultra DMA mode 4 and below are supported\n");
 
-    if (ident[88] & (1 << 3))
-      term_write(cout, "  Ultra DMA mode 3 and below are supported\n");
+      if (ident[88] & (1<<3))
+        term_write(cout, "  Ultra DMA mode 3 and below are supported\n");
 
-    if (ident[88] & (1 << 2))
-      term_write(cout, "  Ultra DMA mode 2 and below are supported\n");
+      if (ident[88] & (1<<2))
+        term_write(cout, "  Ultra DMA mode 2 and below are supported\n");
 
-    if (ident[88] & (1 << 1))
-      term_write(cout, "  Ultra DMA mode 1 and below are supported\n");
+      if (ident[88] & (1<<1))
+        term_write(cout, "  Ultra DMA mode 1 and below are supported\n");
+
+      if (ident[88] & (1<<0))
+        term_write(cout, "  Ultra DMA mode 0 is supported\n");
+    }
 
     if (ident[88] & (1 << 0))
       term_write(cout, "  Ultra DMA mode 0 is supported\n");
@@ -787,18 +810,18 @@ static void setup_ide_controller(ide_controller* ctrl, uint8 id) {
   for (i = 0; i < IDE_DEVICES_PER_CONTROLLER; i++) {
 #ifdef SHOW_IDE_INFO
 
-    if (ctrl->device[i].kind != IDE_DEVICE_ABSENT) {
-      term_write(cout, "IDE");
-      term_write(cout, ctrl->id);
-      term_write(cout, ".");
-      term_write(cout, "i");
+      if (ctrl->device[i].kind != IDE_DEVICE_ABSENT)
+        {
+          term_write(cout, "ide");
+          term_write(cout, ctrl->id);
+          term_write(cout, ".");
+          term_write(cout,i);
 
-      if (ctrl->device[i].kind == IDE_DEVICE_ATA) {
-        term_write(cout, " is ATA\n");
-      } else {
-        term_write(cout, " is ATAPI\n");
-      }
-    }
+          if (ctrl->device[i].kind == IDE_DEVICE_ATA)
+            term_write(cout, " is ATA\n");
+          else
+            term_write(cout, " is ATAPI\n");
+        }
 
 #endif
 

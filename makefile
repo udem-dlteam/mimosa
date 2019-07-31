@@ -3,10 +3,10 @@
 OS_NAME = "\"MIMOSA version 1.2\""
 KERNEL_START = 0x20000
 
-KERNEL_OBJECTS = kernel.o main.o fs.o ide.o disk.o thread.o chrono.o ps2.o term.o video.o intr.o rtlib.o fat32.o libc/libc.o $(NETWORK_OBJECTS)
+KERNEL_OBJECTS = kernel.o main.o fs.o ide.o disk.o thread.o chrono.o ps2.o term.o video.o intr.o rtlib.o fat32.o libc/libc.o uart.o $(NETWORK_OBJECTS)
 NETWORK_OBJECTS =
 #NETWORK_OBJECTS = eepro100.o tulip.o timer2.o misc.o pci.o config.o net.o
-DEFS = -DINCLUDE_EEPRO100 
+DEFS = -DUSE_IRQ4_FOR_UART -DUSE_IRQ1_FOR_KEYBOARD -DINCLUDE_EEPRO100 
 #DEFS = -DINCLUDE_TULIP
 #DEFS = -DINCLUDE_TULIP -DINCLUDE_EEPRO100 
 
@@ -146,3 +146,5 @@ libc/libc.o: libc/libc.cpp libc/include/libc_link.h libc/src/libc_support.c \
 			 libc/src/libc_link.c libc/src/dirent.c libc/src/errno.c libc/src/math.c \
 			 libc/src/setjmp.c libc/src/stdio.c libc/src/stdlib.c libc/src/string.c \
 			 libc/src/time.c libc/src/unistd.c libc/src/termios.c
+
+uart.o: uart.cpp include/term.h include/general.h include/uart.h include/asm.h

@@ -150,7 +150,7 @@ void setup_intr ()
 void irq0 ()
 {
 #ifdef SHOW_INTERRUPTS
-  cout << "\033[41m irq0 \033[0m";
+  term_write(cout, "\033[41m irq0 \033[0m");
 #endif
 
   ACKNOWLEDGE_IRQ(0);
@@ -163,7 +163,7 @@ void irq0 ()
 void irq1 ()
 {
 #ifdef SHOW_INTERRUPTS
-  cout << "\033[41m irq1 \033[0m";
+  term_write(cout, "\033[41m irq1 \033[0m");
 #endif
 
   ACKNOWLEDGE_IRQ(1);
@@ -174,34 +174,39 @@ void irq1 ()
 void irq2 ()
 {
 #ifdef SHOW_INTERRUPTS
-  cout << "\033[41m irq2 \033[0m";
+  term_write(cout, "\033[41m irq2 \033[0m");
 #endif
 
   ACKNOWLEDGE_IRQ(2);
 }
 
-void irq3 ()
-{
+#ifndef USE_IRQ3_FOR_UART
+void irq3() {
 #ifdef SHOW_INTERRUPTS
-  cout << "\033[41m irq3 \033[0m";
+  term_write(cout, "\033[41m irq3 \033[0m");
 #endif
 
   ACKNOWLEDGE_IRQ(3);
 }
+#endif
+
+#ifndef USE_IRQ4_FOR_UART 
 
 void irq4 ()
 {
 #ifdef SHOW_INTERRUPTS
-  cout << "\033[41m irq4 \033[0m";
+  term_write(cout, "\033[41m irq4 \033[0m");
 #endif
 
   ACKNOWLEDGE_IRQ(4);
 }
 
+#endif
+
 void irq5 ()
 {
 #ifdef SHOW_INTERRUPTS
-  cout << "\033[41m irq5 \033[0m";
+  term_write(cout, "\033[41m irq5 \033[0m");
 #endif
 
   ACKNOWLEDGE_IRQ(5);
@@ -210,7 +215,7 @@ void irq5 ()
 void irq6 ()
 {
 #ifdef SHOW_INTERRUPTS
-  cout << "\033[41m irq6 \033[0m";
+  term_write(cout, "\033[41m irq6 \033[0m");
 #endif
 
   ACKNOWLEDGE_IRQ(6);
@@ -219,7 +224,7 @@ void irq6 ()
 void irq7 ()
 {
 #ifdef SHOW_INTERRUPTS
-  cout << "\033[41m irq7 \033[0m";
+  term_write(cout, "\033[41m irq7 \033[0m");
 #endif
 
   ACKNOWLEDGE_IRQ(7);
@@ -230,7 +235,7 @@ void irq7 ()
 void irq8 ()
 {
 #ifdef SHOW_INTERRUPTS
-  cout << "\033[41m irq8 \033[0m";
+  term_write(cout, "\033[41m irq8 \033[0m");
 #endif
 
   ACKNOWLEDGE_IRQ(8);
@@ -241,7 +246,7 @@ void irq8 ()
 void irq9 ()
 {
 #ifdef SHOW_INTERRUPTS
-  cout << "\033[41m irq9 \033[0m";
+  term_write(cout, "\033[41m irq9 \033[0m");
 #endif
 
   ACKNOWLEDGE_IRQ(9);
@@ -250,7 +255,7 @@ void irq9 ()
 void irq10 ()
 {
 #ifdef SHOW_INTERRUPTS
-  cout << "\033[41m irq10 \033[0m";
+  term_write(cout, "\033[41m irq10 \033[0m");
 #endif
 
   ACKNOWLEDGE_IRQ(10);
@@ -259,7 +264,7 @@ void irq10 ()
 void irq11 ()
 {
 #ifdef SHOW_INTERRUPTS
-  cout << "\033[41m irq11 \033[0m";
+  term_write(cout, "\033[41m irq11 \033[0m");
 #endif
 
   ACKNOWLEDGE_IRQ(11);
@@ -270,7 +275,7 @@ void irq11 ()
 void irq12 ()
 {
 #ifdef SHOW_INTERRUPTS
-  cout << "\033[41m irq12 \033[0m";
+  term_write(cout, "\033[41m irq12 \033[0m");
 #endif
 
   ACKNOWLEDGE_IRQ(12);
@@ -281,7 +286,7 @@ void irq12 ()
 void irq13 ()
 {
 #ifdef SHOW_INTERRUPTS
-  cout << "\033[41m irq13 \033[0m";
+  term_write(cout, "\033[41m irq13 \033[0m");
 #endif
 
   ACKNOWLEDGE_IRQ(13);
@@ -292,7 +297,7 @@ void irq13 ()
 void irq14 ()
 {
 #ifdef SHOW_INTERRUPTS
-  cout << "\033[41m irq14 \033[0m";
+  term_write(cout, "\033[41m irq14 \033[0m");
 #endif
 
   ACKNOWLEDGE_IRQ(14);
@@ -305,7 +310,7 @@ void irq14 ()
 void irq15 ()
 {
 #ifdef SHOW_INTERRUPTS
-  cout << "\033[41m irq15 \033[0m";
+  term_write(cout, "\033[41m irq15 \033[0m");
 #endif
 
   ACKNOWLEDGE_IRQ(15);
@@ -318,7 +323,7 @@ void irq15 ()
 void APIC_timer_irq ()
 {
 #ifdef SHOW_INTERRUPTS
-  cout << "\033[41m APIC timer irq \033[0m";
+  term_write(cout, "\033[41m APIC timer irq \033[0m");
 #endif
 
   APIC_EOI = 0;
@@ -329,7 +334,7 @@ void APIC_timer_irq ()
 void APIC_spurious_irq ()
 {
 #ifdef SHOW_INTERRUPTS
-  cout << "\033[41m APIC spurious irq \033[0m";
+  term_write(cout, "\033[41m APIC spurious irq \033[0m");
 #endif
 
   APIC_EOI = 0;
