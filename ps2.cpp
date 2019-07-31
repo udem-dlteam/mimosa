@@ -390,8 +390,6 @@ void irq12 ()
   term_write(cout, "\033[41m irq12 \033[0m");
 #endif
 
-  debug_write("IRQ12");
-
   ACKNOWLEDGE_IRQ(12);
 
 #ifdef ENABLE_MOUSE

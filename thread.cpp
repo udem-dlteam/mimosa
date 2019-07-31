@@ -43,36 +43,42 @@ void mutex::lock() {
 }
 
 bool mutex::lock_or_timeout(time timeout) {
-#if 0
-  disable_interrupts ();
+// #if 0
+//   disable_interrupts ();
 
-  if (_locked)
-    {
-      do
-        {
-          if (!less_time (current_time_no_interlock (), timeout))
-            {
-              enable_interrupts ();
-              return FALSE;
-            }
+//   if (_locked)
+//     {
+//       do
+//         {
+//           if (!less_time (current_time_no_interlock (), timeout))
+//             {
+//               enable_interrupts ();
+//               return FALSE;
+//             }
 
-          enable_interrupts ();
-          thread::yield ();
-          disable_interrupts ();
-        } while (_locked);
-    }
+//           enable_interrupts ();
+//           thread::yield ();
+//           disable_interrupts ();
+//         } while (_locked);
+//     }
 
-  _locked = TRUE;
+//   _locked = TRUE;
 
-  enable_interrupts ();
+//   enable_interrupts ();
 
-  return TRUE;
-#else
+//   return TRUE;
+// #else
   disable_interrupts();
 
   thread* current = sched_current_thread;
 
   if (_locked) {
+    
+    if(timeout.n == 0) {
+      enable_interrupts();
+      return FALSE;
+    }
+
     if (!less_time(current_time_no_interlock(), timeout)) {
       enable_interrupts();
       return FALSE;
@@ -96,7 +102,7 @@ bool mutex::lock_or_timeout(time timeout) {
   enable_interrupts();
 
   return TRUE;
-#endif
+// #endif
 }
 
 void mutex::unlock() {
