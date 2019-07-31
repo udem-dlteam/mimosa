@@ -405,8 +405,6 @@ static error_code next_FAT_section(file* f) {
 error_code  write_file(file* f, void* buff, uint32 count) {
   error_code err = NO_ERROR;
   file_system* fs = f->fs;
-  ide_device* dev = fs->_.FAT121632.d->_.ide.dev;
-  cache_block* cb;
 
   if (count < 1) return err;
 
@@ -429,7 +427,6 @@ error_code  write_file(file* f, void* buff, uint32 count) {
             } else {
               // Writing a file should not OEF, we allocate more
               uint32 cluster;
-              uint32 value;
 
               if (ERROR(err = fat_32_find_first_empty_cluster(fs, &cluster))) {
                 return err;
@@ -635,7 +632,6 @@ error_code
 create_file(native_string path, file** result) {
   error_code err;
   file_system* fs;
-  file* f;
 
   if (fs_mod.nb_mounted_fs == 0) {
     return FNF_ERROR;
