@@ -14,7 +14,7 @@ void init_serial(int com_port) {
 
   if (!(com_port == COM1_PORT_BASE || com_port == COM2_PORT_BASE ||
         com_port == COM3_PORT_BASE || com_port == COM4_PORT_BASE)) {
-    fatal_error("Trying to init a serial port with an invalid COM port...");
+    panic(L"Trying to init a serial port with an invalid COM port...");
   }
 
   outb(0x00, com_port + UART_8250_IER);  // Disable all interrupts
@@ -72,7 +72,7 @@ void _handle_interrupt(uint16 port, uint8 com_index, uint8 iir) {
       break;
 
     default:
-      fatal_error("Illegal UART interrupt cause");
+      panic(L"Illegal UART interrupt cause");
       break;
   }
 }
@@ -96,7 +96,7 @@ void irq3() {
   } else if (UART_IIR_PENDING(com4_iir)) {
     _handle_interrupt(COM4_PORT_BASE, 4, com4_iir);
   } else {
-    fatal_error("Misconfiguration of IRQ3.");
+    panic(L"Misconfiguration of IRQ3.");
   }
 }
 
@@ -116,7 +116,7 @@ void irq4() {
   } else if (UART_IIR_PENDING(com3_iir)) {
     _handle_interrupt(COM3_PORT_BASE, 3, com3_iir);
   } else {
-    fatal_error("Misconfiguration of IRQ4.");
+    panic(L"Misconfiguration of IRQ4.");
   }
 }
 #endif
