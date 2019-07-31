@@ -108,7 +108,7 @@ struct libc_link {
 
   // time.h
   clock_t (*_clock)(void);
-  time_t (*_time)(time_t *__timer);
+  void (*_time)(void *__timer); // TODO remove 
 //  int (*_nanosleep)(const struct timespec *__requested_time,
 //                    struct timespec *__remaining);
 //  int (*_clock_getres)(clockid_t __clock_id, struct timespec *__res);

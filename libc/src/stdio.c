@@ -5,6 +5,7 @@
 
 #include "ps2.h"
 #include "general.h"
+#include "rtlib.h"
 
 #endif
 

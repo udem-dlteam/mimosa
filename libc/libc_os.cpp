@@ -1,7 +1,7 @@
 //#define ENABLE_LIBC_TRACE
 #define USE_MIMOSA
-#undef REDIRECT_PREFIX
-#define REDIRECT_PREFIX libc_
+// #undef REDIRECT_PREFIX
+// #define REDIRECT_PREFIX libc_
 
 #include "include/libc_link.h"
 

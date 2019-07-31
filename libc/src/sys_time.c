@@ -1,9 +1,9 @@
 #include "include/libc_common.h"
 #include "include/sys/time.h"
 
-int gettimeofday(struct timeval *__restrict __tv,
-                 struct timezone *__tz) {
-
+#ifndef USE_MIMOSA
+extern "C" int gettimeofday(struct timeval *__restrict __tv,
+                            struct timezone *__tz) {
 #ifdef USE_LIBC_LINK
 
   return LIBC_LINK._gettimeofday(__tv, __tz);
@@ -26,10 +26,9 @@ int gettimeofday(struct timeval *__restrict __tv,
 #endif
 #endif
 }
+#endif
 
-int settimeofday(const struct timeval *__tv,
-                 const struct timezone *__tz) {
-
+int settimeofday(const struct timeval *__tv, const struct timezone *__tz) {
 #ifdef USE_LIBC_LINK
 
   return LIBC_LINK._settimeofday(__tv, __tz);
@@ -53,9 +52,7 @@ int settimeofday(const struct timeval *__tv,
 #endif
 }
 
-int getitimer(int __which,
-              struct itimerval *__value) {
-
+int getitimer(int __which, struct itimerval *__value) {
 #ifdef USE_LIBC_LINK
 
   return LIBC_LINK._getitimer(__which, __value);
@@ -79,10 +76,8 @@ int getitimer(int __which,
 #endif
 }
 
-int setitimer(int __which,
-              const struct itimerval *__restrict __new,
+int setitimer(int __which, const struct itimerval *__restrict __new,
               struct itimerval *__restrict __old) {
-
 #ifdef USE_LIBC_LINK
 
   return LIBC_LINK._setitimer(__which, __new, __old);
@@ -108,7 +103,6 @@ int setitimer(int __which,
 
 #ifndef USE_LIBC_LINK
 
-void libc_init_sys_time(void) {
-}
+void libc_init_sys_time(void) {}
 
 #endif

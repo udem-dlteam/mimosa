@@ -95,7 +95,6 @@
 
 // time.h
 #define clock REDIRECT_NAME(clock)
-#define time REDIRECT_NAME(time)
 #define nanosleep REDIRECT_NAME(nanosleep)
 #define clock_getres REDIRECT_NAME(clock_getres)
 #define clock_gettime REDIRECT_NAME(clock_gettime)

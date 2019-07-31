@@ -4,25 +4,25 @@
 
 #include "include/libc_header.h"
 
-#ifndef USE_HOST_LIBC
+#ifdef USE_MIMOSA
 
-typedef int32 clock_t;
-typedef int32 time_t;
-typedef int32 clockid_t;
-
-struct timespec {
-  int32 ts_sec;  // seconds
-  int32 ts_nsec; // nanoseconds
-};
-
-#define CLOCK_REALTIME  0
-#define CLOCK_MONOTONIC 1
+#include "chrono.h"
 
 #endif
 
-extern clock_t clock(void);
 
-extern time_t time(time_t *__timer);
+struct timespec {
+  int32 ts_sec;   // seconds
+  int32 ts_nsec;  // nanoseconds
+};
+
+typedef int32 clock_t;
+typedef int32 clockid_t;
+
+#define CLOCK_REALTIME 0
+#define CLOCK_MONOTONIC 1
+
+extern clock_t clock(void);
 
 extern int nanosleep(const struct timespec *__requested_time,
                      struct timespec *__remaining);
@@ -37,4 +37,4 @@ extern void libc_init_time(void);
 
 #endif
 
-#endif // time.h
+#endif  // time.h

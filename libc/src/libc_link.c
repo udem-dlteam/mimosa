@@ -105,7 +105,6 @@ void libc_init(void) {
 
   // time.h
   LIBC_LINK._clock = clock;
-  LIBC_LINK._time = time;
   LIBC_LINK._nanosleep = nanosleep;
   LIBC_LINK._clock_getres = clock_getres;
   LIBC_LINK._clock_gettime = clock_gettime;
@@ -123,8 +122,6 @@ void libc_init(void) {
   LIBC_LINK._getrusage = getrusage;
 
   // sys/time.h
-  LIBC_LINK._clock = clock;
-  LIBC_LINK._time = time;
   LIBC_LINK._gettimeofday = gettimeofday;
   LIBC_LINK._settimeofday = settimeofday;
   LIBC_LINK._getitimer = getitimer;
