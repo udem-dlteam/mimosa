@@ -8,15 +8,15 @@
 
 //-----------------------------------------------------------------------------
 
-#include "general.h"
-#include "term.h"
-#include "thread.h"
 #include "chrono.h"
 #include "disk.h"
-#include "fs.h"
 #include "fat32.h"
+#include "fs.h"
+#include "general.h"
 #include "ps2.h"
 #include "rtlib.h"
+#include "term.h"
+#include "thread.h"
 
 int main() {
 
@@ -34,7 +34,7 @@ int main() {
   //   if (NO_ERROR == open_file(file_name, &f)) {
   //     // need free... lets use the static buff
 
-  //     uint8* buff = (uint8*) kmalloc(f->length * sizeof(char));
+  file* f;
 
   //     debug_write("[COPYPASTA] File length:");
   //     debug_write(f->length);
@@ -61,10 +61,24 @@ int main() {
   //   }
   // }
 
-  // __asm__ __volatile__("int $6" : : : "memory");
+  __surround_with_debug_t("Actual file write...", {
+    if (ERROR(err = write_file(f, buff, 1024))) {
+      term_write(cout, "Failed to write the content to the file: err= ");
+      term_write(cout, err);
+      term_writeline(cout);
+    } else {
+      term_write(cout, "Success writing!");
+      term_writeline(cout);
+    }
+  });
 
+  // close_file(f);
+
+  file_reset_cursor(f);
+  // if (HAS_NO_ERROR(err = open_file("TESTTTT.TXT", &f))) {
   {
-    native_string file_name = "GSI.EXE";
+    char* b[2];
+    b[1] = '\0';
 
     file* prog;
     if (NO_ERROR == open_file(file_name, &prog)) {
@@ -72,39 +86,64 @@ int main() {
       term_write(&tty, file_name);
       term_writeline(&tty);
 
-      // TODO:
-      // The program thread needs to be aware of what its doing
-      uint32 len = prog->length;
-      uint8* code = (uint8*)GAMBIT_START;
+    file_set_to_absolute_position(f, 511);
+    read_file(f, b, 1);
+    b[1] = '\0';
+    term_write(cout, "Reading: ");
+    term_write(cout, CAST(native_string, b));
+    term_writeline(cout);
 
-      debug_write("File length: ");
-      debug_write(len);
+    file_set_to_absolute_position(f, 513);
+    read_file(f, b, 1);
+    b[1] = '\0';
+    term_write(cout, "Reading: ");
+    term_write(cout, CAST(native_string, b));
+    term_writeline(cout);
+    b[1] = '\0';
 
-      error_code err;
-      if (ERROR(err = read_file(prog, code, len))) {
-        fatal_error("ERR");
-      }
+    file_set_to_absolute_position(f, 1021);
+    read_file(f, b, 1);
+    b[1] = '\0';
+    term_write(cout, "Reading: ");
+    term_write(cout, CAST(native_string, b));
+    term_writeline(cout);
 
-      term_write(cout, "File loaded. Starting program at: ");
-      term_write(cout, code);
-      
-      thread::sleep(1000);
+    file_set_to_absolute_position(f, 615);
+    read_file(f, b, 1);
+    b[1] = '\0';
+    term_write(cout, "Reading: ");
+    term_write(cout, CAST(native_string, b));
+    term_writeline(cout);
 
-      for (int i = 0; i < 5; ++i) {
-        term_writeline(cout);
-      }
+    term_write(cout, "The position was...");
+    term_write(cout, f->current_pos);
+    term_writeline(cout);
+    file_set_to_absolute_position(f, 1);
+    term_write(cout, "The position is now...");
+    term_write(cout, f->current_pos);
+    term_writeline(cout);
 
-      program_thread* task = new program_thread(CAST(libc_startup_fn, code));
-      task->start();
+    read_file(f, b, 1);
+    b[1] = '\0';
+    term_write(cout, "Reading: ");
+    term_write(cout, CAST(native_string, b));
+    term_writeline(cout);
 
     } else {
       term_write(&tty, "\r\n Failed to open the program.\r\n");
     }
   }
+  // } else {
+  // term_write(cout, "Failed to write the file: ");
+  // term_write(cout, err);
+  // term_writeline(cout);
+  // for(;;);
+  // }
+  term_run(tty);
 
   // Never exit, but never do anything either
-  for(;;) thread::yield();
-  
+  for (;;) thread::yield();
+
   return 0;
 }
 

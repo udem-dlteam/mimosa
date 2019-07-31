@@ -86,24 +86,46 @@ void ide_irq(ide_controller* ctrl) {
   entry = &ctrl->cmd_queue[0];  // We only handle one operation at a time
   dev = entry->dev;
   base = ide_controller_map[ctrl->id].base;
-  p = CAST(uint16*, entry->_.read_sectors.buf);
+
+  cmd_type type = entry->cmd;
+
+  if (type == cmd_read_sectors) {
+    p = CAST(uint16*, entry->_.read_sectors.buf);
+  } else if (type == cmd_write_sectors) {
+    p = CAST(uint16*, entry->_.write_sectors.buf);
+  } else {
+    panic(L"[IDE.CPP] Unknown command type...");
+  }
 
   s = inb(base + IDE_STATUS_REG);
 
   if (s & IDE_STATUS_ERR) {
-#if 0
-      uint8 err = inb (base + IDE_ERROR_REG);
-      term_write(cout, "***ERROR***\n");
-      if (err & IDE_ERROR_BBK)   term_write(cout, "Bad block mark detected in sector's ID field\n");
-      if (err & IDE_ERROR_UNC)   term_write(cout, "Uncorrectable data error encountered\n");
-      if (err & IDE_ERROR_IDNF)  term_write(cout, "Requested sector's ID field not found\n");
-      if (err & IDE_ERROR_ABRT)  term_write(cout, "Command aborted (status error or invalid cmd)\n");
-      if (err & IDE_ERROR_TK0NF) term_write(cout, "Track 0 not found during recalibrate command\n");
-      if (err & IDE_ERROR_AMNF)  term_write(cout, "Data address mark not found after ID field\n");
+#ifdef SHOW_DISK_INFO
+    uint8 err = inb(base + IDE_ERROR_REG);
+
+    term_write(cout, "***IDE ERROR***\n");
+
+    if (err & IDE_ERROR_BBK)
+      term_write(cout, "Bad block mark detected in sector's ID field\n");
+    if (err & IDE_ERROR_UNC)
+      term_write(cout, "Uncorrectable data error encountered\n");
+    if (err & IDE_ERROR_IDNF)
+      term_write(cout, "Requested sector's ID field not found\n");
+    if (err & IDE_ERROR_ABRT)
+      term_write(cout, "Command aborted (status error or invalid cmd)\n");
+    if (err & IDE_ERROR_TK0NF)
+      term_write(cout, "Track 0 not found during recalibrate command\n");
+    if (err & IDE_ERROR_AMNF)
+      term_write(cout, "Data address mark not found after ID field\n");
 #endif
 
-    entry->_.read_sectors.err = UNKNOWN_ERROR;
-  } else {
+    if (type == cmd_read_sectors) {
+      entry->_.read_sectors.err = UNKNOWN_ERROR;
+    } else if (type == cmd_write_sectors) {
+      entry->_.write_sectors.err = UNKNOWN_ERROR;
+      panic(L"[IDE.CPP] Unknown command type...");
+    }
+  } else if(type == cmd_read_sectors) {
     for (i = entry->_.read_sectors.count << (IDE_LOG2_SECTOR_SIZE - 1); i > 0;
          i--)
       *p++ = inw(base + IDE_DATA_REG);
@@ -112,6 +134,8 @@ void ide_irq(ide_controller* ctrl) {
       entry->_.read_sectors.err = UNKNOWN_ERROR;
     else
       entry->_.read_sectors.err = NO_ERROR;
+  } else if (type == cmd_write_sectors) {
+    // Nothing, it's only a flush command
   }
 
   entry->done->mutexless_signal();
@@ -146,7 +170,7 @@ extern "C" void irq15() {
 
 #endif
 
-error_code ide_read_sectors(ide_device* dev, uint32 lba, void* buf,
+error_code  ide_read_sectors(ide_device* dev, uint32 lba, void* buf,
                             uint32 count) {
   error_code err = NO_ERROR;
 
@@ -187,7 +211,62 @@ error_code ide_read_sectors(ide_device* dev, uint32 lba, void* buf,
   return err;
 }
 
-static void swap_and_trim(native_string dst, uint16* src, uint32 len) {
+error_code  ide_write_sectors(ide_device* dev, uint32 lba, void* buf,
+                             uint32 count) {
+  error_code err = NO_ERROR;
+
+  ASSERT_INTERRUPTS_ENABLED();  // Interrupts should be enabled at this point
+
+  if (count > 0) {
+    ide_controller* ctrl = dev->ctrl;
+    uint16 base = ide_controller_map[ctrl->id].base;
+    ide_cmd_queue_entry* entry;
+
+    disable_interrupts();
+
+
+    if (count > 256) count = 256;
+
+    entry = ide_cmd_queue_alloc(dev);
+    entry->cmd = cmd_write_sectors;
+    entry->_.write_sectors.buf = buf;
+    entry->_.write_sectors.count = count;
+
+    outb(IDE_DEV_HEAD_LBA | IDE_DEV_HEAD_DEV(dev->id) | (lba >> 24),
+         base + IDE_DEV_HEAD_REG);
+    outb(count, base + IDE_SECT_COUNT_REG);
+    outb(lba, base + IDE_SECT_NUM_REG);
+    outb((lba >> 8), base + IDE_CYL_LO_REG);
+    outb((lba >> 16), base + IDE_CYL_HI_REG);
+    outb(IDE_WRITE_SECTORS_CMD, base + IDE_COMMAND_REG);
+
+    uint16* p = CAST(uint16*, entry->_.write_sectors.buf);
+
+    for (int i = entry->_.write_sectors.count << (IDE_LOG2_SECTOR_SIZE - 1); i > 0; i--) {
+      outw(*p++, base + IDE_DATA_REG);
+    }
+
+    if (inb(base + IDE_ALT_STATUS_REG) & IDE_STATUS_DRQ) {
+      entry->_.write_sectors.err = UNKNOWN_ERROR;
+    } else {
+      entry->_.write_sectors.err = NO_ERROR;
+    }
+
+    outb(IDE_FLUSH_CACHE_CMD, base + IDE_COMMAND_REG);
+    entry->done->mutexless_wait();
+
+    err = entry->_.write_sectors.err;
+
+    ide_cmd_queue_free(entry);
+
+    enable_interrupts();
+  };
+
+  return err;
+}
+
+static void swap_and_trim (native_string dst, uint16* src, uint32 len)
+{
   uint32 i;
   uint32 end = 0;
 
@@ -215,10 +294,12 @@ static void setup_ide_device(ide_controller* ctrl, ide_device* dev, uint8 id) {
   // perform an IDENTIFY DEVICE or IDENTIFY PACKET DEVICE command
 
   outb(IDE_DEV_HEAD_IBM | IDE_DEV_HEAD_DEV(dev->id), base + IDE_DEV_HEAD_REG);
-  if (dev->kind == IDE_DEVICE_ATA)
+
+  if (dev->kind == IDE_DEVICE_ATA) {
     outb(IDE_IDENTIFY_DEVICE_CMD, base + IDE_COMMAND_REG);
-  else
+  } else {
     outb(IDE_IDENTIFY_PACKET_DEVICE_CMD, base + IDE_COMMAND_REG);
+  }
 
   for (j = 1000000; j > 0; j--)  // wait up to 1 second for a response
   {
@@ -266,6 +347,15 @@ static void setup_ide_device(ide_controller* ctrl, ide_device* dev, uint8 id) {
           (CAST(uint32, ident[58]) << 16) + ident[57];
     }
   }
+
+  term_write(cout, "  word 47 hi (should be 128) = ");
+  term_write(cout, (ident[47] >> 8));
+  term_writeline(cout);
+  term_write(cout,
+             "  Maximum number of sectors that shall be transferred per "
+             "interrupt on READ/WRITE MULTIPLE commands = ");
+  term_write(cout, (ident[47] & 0xff));
+  term_writeline(cout);
 
 #ifdef SHOW_IDE_INFO
 

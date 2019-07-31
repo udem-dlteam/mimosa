@@ -45,6 +45,8 @@ typedef int32 ssize_t;
 #define as_uint32(x) \
 ((((((CAST(uint32,(x)[3])<<8)+(x)[2])<<8)+(x)[1])<<8)+(x)[0])
 
+#define as_uint8(x, i) (((x) & ((0xFF) << ((i) << 3))) >> ((i) << 3))
+
 //-----------------------------------------------------------------------------
 
 // Error codes.
@@ -57,11 +59,13 @@ typedef int32 error_code;
 #define MEM_ERROR     (-2)
 #define FNF_ERROR     (-3)
 #define EOF_ERROR     (-4)
-#define UNKNOWN_ERROR (-5)
+#define DISK_OUT_OF_SPACE (-5)
+#define UNKNOWN_ERROR (-6)
 
 #define NOP() do { __asm__ __volatile__ ("NOP" : : : "memory");} while(0)
 
-#define ERROR(x) ((x)<0)
+#define HAS_NO_ERROR(x) ((x) >= 0)
+#define ERROR(x) ((x) < 0)
 
 //-----------------------------------------------------------------------------
 
@@ -121,6 +125,8 @@ typedef int32 error_code;
 // #define SHOW_DISK_INFO
 // #define CHECK_ASSERTIONS
 // #define PRINT_ASSERTIONS
+#define USE_CACHE_BLOCK_MAID
+#define USE_BLOCK_REF_COUNTER_FREE
 #define SHOW_UART_MESSAGES
 #define RED_PANIC_SCREEN
 #define ENABLE_DEBUG_WRITE
@@ -135,6 +141,13 @@ typedef int32 error_code;
 
 // #define ENABLE_LIBC_TRACE
 //-----------------------------------------------------------------------------
+
+#ifndef USE_CACHE_BLOCK_MAID
+#ifndef USE_BLOCK_REF_COUNTER_FREE
+#error "A cache block cleaning strategy must be defined"
+#endif
+#endif
+
 #endif
 
 // Local Variables: //

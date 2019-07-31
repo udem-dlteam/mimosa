@@ -34,6 +34,7 @@ void mutex::lock() {
   disable_interrupts();
 
   if (_locked) {
+    debug_write("Mutex locked!");
     save_context(_sched_suspend_on_wait_queue, this);
   } else {
     _locked = TRUE;
@@ -41,64 +42,67 @@ void mutex::lock() {
   enable_interrupts();
 }
 
-bool mutex::lock_or_timeout (time timeout)
-{
-#if 0
-  disable_interrupts ();
+bool mutex::lock_or_timeout(time timeout) {
+// #if 0
+//   disable_interrupts ();
 
-  if (_locked)
-    {
-      do
-        {
-          if (!less_time (current_time_no_interlock (), timeout))
-            {
-              enable_interrupts ();
-              return FALSE;
-            }
+//   if (_locked)
+//     {
+//       do
+//         {
+//           if (!less_time (current_time_no_interlock (), timeout))
+//             {
+//               enable_interrupts ();
+//               return FALSE;
+//             }
 
-          enable_interrupts ();
-          thread::yield ();
-          disable_interrupts ();
-        } while (_locked);
-    }
+//           enable_interrupts ();
+//           thread::yield ();
+//           disable_interrupts ();
+//         } while (_locked);
+//     }
 
-  _locked = TRUE;
+//   _locked = TRUE;
 
-  enable_interrupts ();
+//   enable_interrupts ();
 
-  return TRUE;
-#else
-  disable_interrupts ();
+//   return TRUE;
+// #else
+  disable_interrupts();
 
   thread* current = sched_current_thread;
 
-  if (_locked)
-    {
-      if (!less_time (current_time_no_interlock (), timeout))
-        {
-          enable_interrupts ();
-          return FALSE;
-        }
-
-      current->_timeout = timeout;
-      current->_did_not_timeout = TRUE;
-
-      wait_queue_remove (current);
-      wait_queue_insert (current, this);
-      debug_write("LN 91");
-      save_context (_sched_suspend_on_sleep_queue, NULL);
-
-      enable_interrupts ();
-
-      return current->_did_not_timeout;
+  if (_locked) {
+    
+    if(timeout.n == 0) {
+      enable_interrupts();
+      return FALSE;
     }
+
+    if (!less_time(current_time_no_interlock(), timeout)) {
+      enable_interrupts();
+      return FALSE;
+    }
+
+    current->_timeout = timeout;
+    current->_did_not_timeout = TRUE;
+
+    wait_queue_remove(current);
+    wait_queue_insert(current, this);
+    debug_write("LN 91");
+    save_context(_sched_suspend_on_sleep_queue, NULL);
+
+    enable_interrupts();
+
+    return _locked = current->_did_not_timeout;
+  }
 
   _locked = TRUE;
 
-  enable_interrupts ();
+  enable_interrupts();
 
   return TRUE;
-#endif
+// #endif
 }
 
 void mutex::unlock() {
@@ -265,15 +269,16 @@ void condvar::mutexless_signal() {
 
 thread::thread ()
 {
+  debug_write("Allocating Thread...");
   static const int stack_size = 65536 << 1; // size of thread stacks in bytes
 
   mutex_queue_init (this);
   sleep_queue_detach (this);
 
-  uint32* s = CAST(uint32*,kmalloc (stack_size));
+  uint32* s = CAST(uint32*, kmalloc(stack_size));
 
   if (s == NULL)
-    fatal_error ("out of memory");
+    panic(L"out of memory");
 
   _stack = s;
 
@@ -435,7 +440,7 @@ void _sched_resume_next_thread() {
     restore_context(current->_sp); // never returns
   }
 
-  fatal_error("Deadlock detected");
+  panic(L"Deadlock detected");
 }
 
 
@@ -496,7 +501,7 @@ void sched_setup(void_fn continuation) {
   _sched_setup_timer ();
   __asm__ __volatile__ ("int $0xD0":::"memory");
   // ** NEVER REACHED **
-  fatal_error("sched_setup should never return");
+  panic(L"sched_setup should never return");
 }
 
 void sched_stats() {
@@ -601,7 +606,7 @@ void _sched_run_thread() {
   _sched_resume_next_thread();
 
   // ** NEVER REACHED ** (this function never returns)
-  fatal_error("_sched_run_thread() should never return");
+  panic(L"_sched_run_thread() should never return");
 }
 
 void _sched_switch_to_next_thread(uint32 cs, uint32 eflags, uint32* sp,
@@ -615,7 +620,7 @@ void _sched_switch_to_next_thread(uint32 cs, uint32 eflags, uint32* sp,
   _sched_resume_next_thread();
 
   // ** NEVER REACHED ** (this function never returns)
-  fatal_error("_sched_switch_to_next_thread is never supposed to return");
+  panic(L"_sched_switch_to_next_thread is never supposed to return");
 }
 
 void _sched_suspend_on_wait_queue(uint32 cs, uint32 eflags, uint32* sp,
@@ -630,7 +635,7 @@ void _sched_suspend_on_wait_queue(uint32 cs, uint32 eflags, uint32* sp,
   _sched_resume_next_thread();
 
   // ** NEVER REACHED ** (this function never returns)
-  fatal_error("_sched_suspend_on_wait_queue is never supposed to return");
+  panic(L"_sched_suspend_on_wait_queue is never supposed to return");
 }
 
 void _sched_suspend_on_sleep_queue(uint32 cs, uint32 eflags, uint32* sp,
@@ -644,7 +649,7 @@ void _sched_suspend_on_sleep_queue(uint32 cs, uint32 eflags, uint32* sp,
   _sched_resume_next_thread();
 
   // ** NEVER REACHED ** (this function never returns)
-  fatal_error("_sched_suspend_on_sleep_queue is never supposed to return");
+  panic(L"_sched_suspend_on_sleep_queue is never supposed to return");
 }
 
 void _sched_setup_timer() {
@@ -741,8 +746,15 @@ void _sched_timer_elapsed() {
     {
       thread* t = sleep_queue_head (sleepq);
 
-      if (t == NULL || less_time (now, t->_timeout))
+      if (t == NULL || less_time (now, t->_timeout)) {
+        // if(NULL == t) {
+        //   debug_write("Sleep queue head is null");
+        // } else {
+        //   debug_write("Awaken before the time");
+        // }
+
         break;
+      }
 
       t->_did_not_timeout = FALSE;
       sleep_queue_remove (t);
@@ -773,11 +785,12 @@ void _sched_timer_elapsed() {
     if (less_time(now, current->_end_of_quantum)) {
       //      cout << "timer is fast\n";/////////////
       _sched_set_timer(current->_end_of_quantum, now);
-    } else {  // cout << "f";//////////
-      // debug_write("LN 794");
-      save_context(_sched_switch_to_next_thread, NULL);
-      // cout << "F";
     }
+    // else {  // cout << "f";//////////
+    //   // debug_write("LN 794");
+    //   save_context(_sched_switch_to_next_thread, NULL);
+    //   // cout << "F";
+    // }
 }
 
 uint32 thread::code() {

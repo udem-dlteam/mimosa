@@ -355,8 +355,19 @@ void interrupt_handle(interrupt_data data) {
   debug_write(" INT ARG: ");
   debug_write(data.error_code);
   debug_write("\n\r");
-  
-  fatal_error("CPU exception occured :<(");
+
+  bool handled = TRUE;
+
+  switch (data.int_no) {
+    default:
+      // All CPU faults not managed should crash the system
+      handled = FALSE;
+      break;
+  }
+
+  if(!handled) {
+    panic(L"Unhandled CPU exception");
+  }
 }
 
 //-----------------------------------------------------------------------------

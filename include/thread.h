@@ -37,7 +37,7 @@ typedef struct user_func_table {
       debug_write(__FILE__);                              \
       debug_write(":");                                   \
       debug_write(__LINE__);                              \
-      fatal_error("FAILED ASSERT_INTERRUPTS_DISABLED\n"); \
+      panic(L"FAILED ASSERT_INTERRUPTS_DISABLED\n"); \
     }                                                     \
   } while (0)
 
@@ -47,7 +47,7 @@ typedef struct user_func_table {
       debug_write(__FILE__);                             \
       debug_write(":");                                  \
       debug_write(__LINE__);                             \
-      fatal_error("FAILED ASSERT_INTERRUPTS_ENABLED\n"); \
+      panic(L"FAILED ASSERT_INTERRUPTS_ENABLED\n"); \
     }                                                    \
   } while (0)
 
@@ -183,11 +183,11 @@ do {                                                                          \
 
 #endif
 
-          //-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
 
-          // Available thread priorities.
+// Available thread priorities.
 
-          typedef int priority;
+typedef int priority;
 
 #define low_priority    0
 #define normal_priority 100

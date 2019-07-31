@@ -85,6 +85,12 @@ void debug_write(native_string x);
 
 void term_run(term* term);
 
+size_t strlen(char* str);
+
+unsigned char strcmpl(char* a, char* b, size_t sz);
+
+unsigned char strcmp(char* a, char* b);
+
 //-----------------------------------------------------------------------------
 
 #define __surround_with_debug(code) \

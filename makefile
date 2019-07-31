@@ -36,10 +36,10 @@ createimg:
 	ssh administrator@localhost -p 10022 "cat mimosa-build/floppy.img" > mimosa-build/floppy.img
 
 run:
-	qemu-system-i386 -s -m 4096 -hda mimosa-build/floppy.img -serial tcp:localhost:4444,server,nowait
+	qemu-system-i386 -s -m 1G -hda mimosa-build/floppy.img -debugcon stdio
 
 debug:
-	qemu-system-i386 -s -S -m 4096 -hda mimosa-build/floppy.img -debugcon stdio
+	qemu-system-i386 -s -S -m 1G -hda mimosa-build/floppy.img -debugcon stdio
 
 mf:
 	make clean

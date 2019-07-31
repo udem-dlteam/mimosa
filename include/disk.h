@@ -24,6 +24,16 @@
 #define MAX_NB_DISKS 32
 #define DISK_LOG2_BLOCK_SIZE 9
 
+class cache_block_maid : public thread {
+ public:
+  cache_block_maid();
+
+  virtual native_string name();
+
+ protected:
+  virtual void run();
+};
+
 const struct {
   uint8 type;
   native_string name;
@@ -137,6 +147,7 @@ typedef struct cache_block_struct
     condvar* cv;
     error_code err;
     uint8 buf[1 << DISK_LOG2_BLOCK_SIZE];
+    uint8 dirty : 1;
   } cache_block;
 
 disk* disk_alloc ();
@@ -155,6 +166,9 @@ error_code disk_read_sectors
    uint32 sector_pos,
    void* buf,
    uint32 count);
+
+error_code disk_write_sectors(disk* d, uint32 sector_pos, void* sector_buff,
+                              uint32 sector_count);
 
 error_code disk_cache_block_acquire
   (disk* d,

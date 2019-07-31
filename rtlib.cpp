@@ -34,20 +34,17 @@ raw_bitmap_in_memory mouse_save;
 
 //-----------------------------------------------------------------------------
 
-void fatal_error (native_string msg)
+void panic (unicode_string msg)
 {
   __asm__ __volatile__ ("cli" : : : "memory");
-  debug_write(msg);
 
   #ifdef RED_PANIC_SCREEN
     raw_bitmap_fill_rect((raw_bitmap*)&screen, 0, 0, 640, 480, &pattern_red);
 
-    font_draw_string(&font_mono_6x13, &screen.super, 640 / 2, 480 / 2,
-                     CAST(unicode_string, msg), &pattern_white, &pattern_black);
+    font_draw_string(&font_mono_6x13, &screen.super, 0, 0, msg, &pattern_white, &pattern_black);
 #endif
   
-  for (;;) ; // freeze execution
-
+  for (;;) NOP(); // freeze execution
   // ** NEVER REACHED ** (this function never returns)
 }
 
@@ -206,13 +203,13 @@ extern "C" void* memcpy (void* dest, const void* src, size_t n)
 extern "C"
 void __pure_virtual ()
 {
-  fatal_error ("pure virtual function called");
+  panic(L"pure virtual function called");
 }
 
 extern "C"
 void __cxa_pure_virtual ()
 {
-  fatal_error ("pure virtual function called");
+  panic(L"pure virtual function called");
 }
 
 //-----------------------------------------------------------------------------
@@ -378,7 +375,7 @@ static void identify_cpu ()
     term_write(cout, "/");
     term_write(cout, _cpu_bus_multiplier.den);
     term_write(cout, " is not an integer!\n");
-    fatal_error("CPU/bus clock multiplier is not an integer\n");
+    panic(L"CPU/bus clock multiplier is not an integer\n");
   }
 
 #endif
@@ -391,7 +388,6 @@ class idle_thread : public thread
   public:
 
     idle_thread ();
-
   protected:
     virtual void run ();
   };
@@ -428,12 +424,18 @@ void __rtlib_setup ()
   term_write(cout, "Loading up the file system...\n");
   setup_fs ();
   //setup_net ();
+  // FS is loaded, now load the cache maid
+
+#ifdef USE_CACHE_BLOCK_MAID
+  term_write(cout, "Loading the cache block maid...\n");
+  (new cache_block_maid)->start();
+#endif
 
   main ();
 
   __do_global_dtors ();
 
-  fatal_error ("System termination");
+  panic(L"System termination");
 }
 
 //-----------------------------------------------------------------------------

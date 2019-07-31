@@ -167,9 +167,6 @@ static volatile int circular_buffer_lo = 0;
 static volatile int circular_buffer_hi = 0;
 static condvar* circular_buffer_cv;
 
-#pragma GCC push_options
-#pragma GCC optimize ("O0")
-
 static void keypress(uint8 ch) {
   // debug_write("[START] Keypress");
 
@@ -260,7 +257,8 @@ native_char readline() {
       // The newline terminates the input
       term_write(io, "\n\r");
       line_buffer[buffer_write_pos++] = '\n';
-      line_buffer[buffer_write_pos + 1] = '\0';
+      /* We want the \0 to be included */
+      line_buffer[buffer_write_pos++] = '\0';
       buffer_flush = true;
     } else if (ASCII_BACKSPACE == c) {
       // Don't overrun the Gambit term.
@@ -279,8 +277,6 @@ native_char readline() {
     }
   }
 }
-
-#pragma GCC pop_options
 
 static void process_keyboard_data(uint8 data) {
 

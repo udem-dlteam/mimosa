@@ -18,6 +18,23 @@
 
 //-----------------------------------------------------------------------------
 
+#define CPU_EX_DIV_BY_ZERO 0x00
+#define CPU_EX_DEBUG 0x01
+#define CPU_EX_NMI 0x02
+#define CPU_EX_BREAKPOINT 0x03
+#define CPU_EX_OVERFLOW 0x04
+#define CPU_EX_BOUND_RANGE_EXCEEDED 0x05
+#define CPU_EX_INVALID_OPCODE 0x06
+#define CPU_EX_DEV_NOT_AVAIL 0x07
+#define CPU_EX_DOUBLE_FAULT 0x08
+#define CPU_EX_COPROC_SEG_OVERRUN 0x09
+#define CPU_EX_INVALID_TSS 0x0A
+#define CPU_EX_SEGMENT_NO_PRESENT 0x0B
+#define CPU_EX_STACK_SEGMENT_FAULT 0x0C
+#define CPU_EX_GENERAL_PROTECTION_FAULT 0x0D
+#define CPU_EX_PAGE_FAULT 0x0E
+#define CPU_EX_RESERVED 0x0F
+
 typedef struct interrupt_data {
   uint32 ds;
   uint32 edi, esi, ebp, esp, ebx, edx, ecx, eax;
