@@ -182,7 +182,15 @@ again:
       cb = CAST(cache_block*,
                 CAST(uint8*, LRU_probe) -
                     (CAST(uint8*, &cb->LRU_deq) - CAST(uint8*, cb)));
+
+#ifdef USE_BLOCK_REF_COUNTER_FREE
       if (cb->refcount == 0) break;
+#else
+      // If we dont use the reference counting,
+      // we cannot allocate dirty blocks
+      if ((cb->refcount == 0) && (!cb->dirty)) break;
+#endif
+
       LRU_probe = LRU_probe->prev;
     }
 
