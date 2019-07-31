@@ -126,6 +126,7 @@ typedef int32 error_code;
 // #define CHECK_ASSERTIONS
 // #define PRINT_ASSERTIONS
 #define USE_CACHE_BLOCK_MAID
+#define USE_BLOCK_REF_COUNTER_FREE
 #define SHOW_UART_MESSAGES
 #define RED_PANIC_SCREEN
 #define ENABLE_DEBUG_WRITE
@@ -140,6 +141,13 @@ typedef int32 error_code;
 
 // #define ENABLE_LIBC_TRACE
 //-----------------------------------------------------------------------------
+
+#ifndef USE_CACHE_BLOCK_MAID
+#ifndef USE_BLOCK_REF_COUNTER_FREE
+#error "A cache block cleaning strategy must be defined"
+#endif
+#endif
+
 #endif
 
 // Local Variables: //

@@ -243,21 +243,21 @@ again:
 static error_code flush_block(cache_block* block, time timeout) {
   error_code err = NO_ERROR;
 
-  if(!block->dirty) {
+  if (!block->dirty) {
     return err;
   }
 
   if (block->mut->lock_or_timeout(timeout)) {
-    debug_write("Block lock acquired");
-    if (HAS_NO_ERROR(err = disk_write_sectors(block->d, block->sector_pos,
-                                              block->buf, 1))) {
-      block->dirty = 0;
-      err = 1; // We flushed a single block
+    // Make sure it hasn't been cleaned in the wait
+    if (block->dirty) {
+      if (HAS_NO_ERROR(err = disk_write_sectors(block->d, block->sector_pos,
+                                                block->buf, 1))) {
+        block->dirty = 0;
+        err = 1;  // We flushed a single block
+      }
     }
 
     block->mut->unlock();
-  } else {
-    debug_write("Block lock not acquired");
   }
 
   return err;
@@ -267,11 +267,19 @@ error_code disk_cache_block_release(cache_block* block) {
   error_code err = NO_ERROR;
   uint32 n;
 
+#ifdef USE_BLOCK_REF_COUNTER_FREE
   if (block->refcount == 1) {
     // we are the last reference to this block
-    // this means we don't need any lock on it
-    // flush_block(block, seconds_to_time(0));
+    // this means we don't need any lock on it.
+    // If the cache block maid is activated, we
+    // will never have to wait on a lock, since
+    // we are the last reference to it.
+    // However, it is possible that we wait because
+    // of the maid.
+
+    flush_block(block, seconds_to_time(0));
   }
+#endif
 
   if(HAS_NO_ERROR(err)) {
     disk_mod.cache_mut->lock();

@@ -217,7 +217,7 @@ error_code __attribute__((optimize("O0"))) ide_write_sectors(ide_device* dev, ui
 
   ASSERT_INTERRUPTS_ENABLED();  // Interrupts should be enabled at this point
 
-  __surround_with_debug_t("IDE WRITE...", {if (count > 0) {
+  if (count > 0) {
     ide_controller* ctrl = dev->ctrl;
     uint16 base = ide_controller_map[ctrl->id].base;
     ide_cmd_queue_entry* entry;
@@ -260,63 +260,8 @@ error_code __attribute__((optimize("O0"))) ide_write_sectors(ide_device* dev, ui
     ide_cmd_queue_free(entry);
 
     enable_interrupts();
-  }});
+  };
 
-  return err;
-}
-
-error_code __attribute__((optimize("O0"))) ide_write(ide_device* dev, uint32 lba, uint32 wrt_offset, uint32 count, void* buff) {
-  error_code err = UNIMPL_ERROR;
-//   uint32 sector_count;
-
-//   if(count < 1) {
-//     return err;
-//   }
-
-//   lba += wrt_offset / (1 << IDE_LOG2_SECTOR_SIZE);
-//   wrt_offset = wrt_offset % (1 << IDE_LOG2_SECTOR_SIZE);
-
-//   uint32 sector_sz = (1 << IDE_LOG2_SECTOR_SIZE);
-
-//   if (count == sector_sz) {
-//     sector_count = 1;
-//   } else {
-//     sector_count = count / (1 << IDE_LOG2_SECTOR_SIZE) + 1;
-//   }
-
-//   // TODO loop for sector count > 1?
-
-//   if(sector_count > 1) {
-//     debug_write(count);
-//     panic(L"Writing more than a single sector is not implemented");
-//     return UNIMPL_ERROR;
-//   }
-
-//   uint8* sect_buff = (uint8*)kmalloc(
-//       sizeof(uint8) * (1 << IDE_LOG2_SECTOR_SIZE) * sector_count);
-
-//   if(NULL == sect_buff) {
-//     err = MEM_ERROR;
-//     return err;
-//   }
-
-//   // Read the sectors currently on the disk
-//   if(ERROR(err = ide_read_sectors(dev, lba, sect_buff, sector_count))) {
-//     goto ide_write_end;
-//   }
-
-//   // Replace the content
-//   memcpy(sect_buff + wrt_offset, buff, count);
-//   // Rewrite the sectors
-//   if(ERROR(err = disk_write_sectors(fs->d, lba, sect_buff, sector_count))) {
-//     goto ide_write_end;
-//   }
-
-// ide_write_end:
-//   if (NULL != sect_buff) {
-//     kfree(sect_buff);
-//   }
-  
   return err;
 }
 

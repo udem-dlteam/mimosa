@@ -149,10 +149,7 @@ typedef struct ide_controller_struct
 
   error_code ide_write_sectors(ide_device* dev, uint32 sector_pos, void* buf,
                                uint32 count);
-
-  error_code ide_write(ide_device* dev, uint32 lba, uint32 wrt_offset,
-                       uint32 count, void* buff);
-
+                               
   void setup_ide();
 
   //-----------------------------------------------------------------------------
