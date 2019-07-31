@@ -272,7 +272,7 @@ thread::thread ()
   uint32* s = CAST(uint32*, kmalloc(stack_size));
 
   if (s == NULL)
-    fatal_error ("out of memory");
+    panic(L"out of memory");
 
   _stack = s;
 

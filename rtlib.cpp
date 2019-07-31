@@ -38,7 +38,7 @@ raw_bitmap_in_memory mouse_save;
 
 //-----------------------------------------------------------------------------
 
-void fatal_error (unicode_string msg)
+void panic (unicode_string msg)
 {
   __asm__ __volatile__ ("cli" : : : "memory");
 
@@ -185,13 +185,13 @@ extern "C" void* memcpy (void* dest, const void* src, size_t n)
 extern "C"
 void __pure_virtual ()
 {
-  fatal_error ("pure virtual function called");
+  panic(L"pure virtual function called");
 }
 
 extern "C"
 void __cxa_pure_virtual ()
 {
-  fatal_error ("pure virtual function called");
+  panic(L"pure virtual function called");
 }
 
 //-----------------------------------------------------------------------------
@@ -415,7 +415,7 @@ void __rtlib_setup ()
 
   __do_global_dtors ();
 
-  fatal_error (L"System termination");
+  panic(L"System termination");
 }
 
 //-----------------------------------------------------------------------------
