@@ -26,31 +26,6 @@ clock_t clock(void) {
 #endif
 }
 
-time_t time(time_t *__timer) {
-
-#ifdef USE_LIBC_LINK
-
-  return LIBC_LINK._time(__timer);
-
-#else
-
-  libc_trace("time");
-
-#ifdef USE_HOST_LIBC
-
-#undef time
-
-  return time(__timer);
-
-#else
-
-  // TODO: implement
-  return 0;
-
-#endif
-#endif
-}
-
 int nanosleep(const struct timespec *__requested_time,
               struct timespec *__remaining) {
 

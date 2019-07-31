@@ -2,20 +2,11 @@
 #include "include/stdlib.h"
 
 #ifdef USE_MIMOSA
-
-struct heap {
-  void *start;
-  size_t size;
-  size_t alloc;
-};
-
-void heap_init(struct heap *h, void *start, size_t size);
-void *heap_malloc(struct heap *h, size_t size);
-void heap_free(struct heap *h, void *ptr);
-
+#include "heap.h"
 struct heap appheap;
 
 #endif
+
 
 void *malloc(size_t __size) {
 

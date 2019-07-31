@@ -4,6 +4,9 @@
 
 #include "include/libc_header.h"
 
+#ifdef USE_MIMOSA
+#include "fs.h"
+#else
 #ifndef USE_HOST_LIBC
 
 typedef struct {
@@ -11,14 +14,14 @@ typedef struct {
 } DIR;
 
 struct dirent {
-  char d_name[256]; // Null-terminated filename
+  char d_name[256];  // Null-terminated filename
 };
 
 #endif
-
-extern DIR *opendir(const char *__name);
+extern DIR *opendir(char *__name);
 extern struct dirent *readdir(DIR *__dirp);
 extern int closedir(DIR *__dirp);
+#endif
 
 #ifndef USE_LIBC_LINK
 

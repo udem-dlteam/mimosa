@@ -5,12 +5,19 @@
 #include "include/libc_header.h"
 #include "include/stddef.h"
 
+#ifdef USE_MIMOSA
+
+#include "fs.h"
+
+#else
+
 #ifndef USE_HOST_LIBC
 
 struct stat {
   int state;
 };
 
+#endif
 #endif
 
 extern char *getcwd(char *__buf, size_t __size);

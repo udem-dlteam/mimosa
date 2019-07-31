@@ -29,21 +29,10 @@ uint8 log2 (uint32 n);
 
 // Memory management.
 
-struct heap {
-  void *start;
-  size_t size;
-  size_t alloc;
-};
-
-void heap_init(struct heap *h, void *start, size_t size);
-void *heap_malloc(struct heap *h, size_t size);
-void heap_free(struct heap *h, void *ptr);
-
 void* kmalloc(size_t size);
 void kfree(void* ptr);
 
-extern "C"
-void* memcpy(void* dest, const void* src, size_t n);
+extern "C" void* memcpy(void* dest, const void* src, size_t n);
 
 //-----------------------------------------------------------------------------
 

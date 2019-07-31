@@ -9,6 +9,7 @@
 //-----------------------------------------------------------------------------
 
 #include "rtlib.h"
+#include "heap.h"
 #include "intr.h"
 #include "chrono.h"
 #include "ide.h"
