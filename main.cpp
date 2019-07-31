@@ -19,66 +19,12 @@
 #include "thread.h"
 
 int main() {
-
   term tty;
 
-  term_init(&tty, 0, 366, 80, 13,
-            &font_mono_5x7, &font_mono_5x7,
-            L"tty", TRUE);
+  term_init(&tty, 0, 366, 80, 13, &font_mono_5x7, &font_mono_5x7, L"tty", TRUE);
 
-  // term_run(&tty);
-
-  // {
-  //   native_string file_name = "COPYPA.TXT";
-  //   file* f;
-  //   if (NO_ERROR == open_file(file_name, &f)) {
-  //     // need free... lets use the static buff
-
-  file* f;
-
-  //     debug_write("[COPYPASTA] File length:");
-  //     debug_write(f->length);
-  //     debug_write(f->current_cluster);
-  //     debug_write(f->current_section_length);
-  //     debug_write(f->current_section_pos);
-  //     debug_write(f->current_section_start);
-      
-  //     error_code err;
-  //     debug_write("Starting to read the file...");
-  //     if (ERROR(err = read_file(f, buff, f->length))) {
-  //       term_write(&tty, "ERROR WHILE READING:\n");
-  //       term_write(&tty, err);
-  //       fatal_error("ERR");
-  //     }
-  //     debug_write("Done writing... printing soon");
-
-  //     term_write(&tty, '---\n\r');
-  //     term_write(&tty, CAST(native_string, buff + f->length - 100));
-  //     term_write(&tty, "!");
-  //     term_write(&tty, "\n\r----");
-  //   } else {
-  //     term_write(&tty, "\r\n Failed to read the file.\r\n");
-  //   }
-  // }
-
-  __surround_with_debug_t("Actual file write...", {
-    if (ERROR(err = write_file(f, buff, 1024))) {
-      term_write(cout, "Failed to write the content to the file: err= ");
-      term_write(cout, err);
-      term_writeline(cout);
-    } else {
-      term_write(cout, "Success writing!");
-      term_writeline(cout);
-    }
-  });
-
-  // close_file(f);
-
-  file_reset_cursor(f);
-  // if (HAS_NO_ERROR(err = open_file("TESTTTT.TXT", &f))) {
   {
-    char* b[2];
-    b[1] = '\0';
+    native_string file_name = "GSI.EXE";
 
     file* prog;
     if (NO_ERROR == open_file(file_name, &prog)) {
@@ -86,60 +32,35 @@ int main() {
       term_write(&tty, file_name);
       term_writeline(&tty);
 
-    file_set_to_absolute_position(f, 511);
-    read_file(f, b, 1);
-    b[1] = '\0';
-    term_write(cout, "Reading: ");
-    term_write(cout, CAST(native_string, b));
-    term_writeline(cout);
+      // TODO:
+      // The program thread needs to be aware of what its doing
+      uint32 len = prog->length;
+      uint8* code = (uint8*)GAMBIT_START;
 
-    file_set_to_absolute_position(f, 513);
-    read_file(f, b, 1);
-    b[1] = '\0';
-    term_write(cout, "Reading: ");
-    term_write(cout, CAST(native_string, b));
-    term_writeline(cout);
-    b[1] = '\0';
+      debug_write("File length: ");
+      debug_write(len);
 
-    file_set_to_absolute_position(f, 1021);
-    read_file(f, b, 1);
-    b[1] = '\0';
-    term_write(cout, "Reading: ");
-    term_write(cout, CAST(native_string, b));
-    term_writeline(cout);
+      error_code err;
+      if (ERROR(err = read_file(prog, code, len))) {
+        panic(L"ERR");
+      }
 
-    file_set_to_absolute_position(f, 615);
-    read_file(f, b, 1);
-    b[1] = '\0';
-    term_write(cout, "Reading: ");
-    term_write(cout, CAST(native_string, b));
-    term_writeline(cout);
+      term_write(cout, "File loaded. Starting program at: ");
+      term_write(cout, code);
 
-    term_write(cout, "The position was...");
-    term_write(cout, f->current_pos);
-    term_writeline(cout);
-    file_set_to_absolute_position(f, 1);
-    term_write(cout, "The position is now...");
-    term_write(cout, f->current_pos);
-    term_writeline(cout);
+      thread::sleep(1000);
 
-    read_file(f, b, 1);
-    b[1] = '\0';
-    term_write(cout, "Reading: ");
-    term_write(cout, CAST(native_string, b));
-    term_writeline(cout);
+      for (int i = 0; i < 5; ++i) {
+        term_writeline(cout);
+      }
+
+      program_thread* task = new program_thread(CAST(libc_startup_fn, code));
+      task->start();
 
     } else {
       term_write(&tty, "\r\n Failed to open the program.\r\n");
     }
   }
-  // } else {
-  // term_write(cout, "Failed to write the file: ");
-  // term_write(cout, err);
-  // term_writeline(cout);
-  // for(;;);
-  // }
-  term_run(tty);
 
   // Never exit, but never do anything either
   for (;;) thread::yield();
