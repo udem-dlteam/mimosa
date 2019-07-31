@@ -4,7 +4,7 @@
 #include "general.h"
 #include "rtlib.h"
 
-error_code __attribute__((optimize("O0")))
+error_code 
 fat_32_create_empty_file(file_system* fs, native_string name, native_string ext,
                          file** result) {
   FAT_directory_entry de;
@@ -92,7 +92,7 @@ fat_32_create_empty_file(file_system* fs, native_string name, native_string ext,
   return err;
 }
 
-error_code __attribute__((optimize("O0")))
+error_code 
 fat_32_open_root_dir(file_system* fs, file* f) {
 #ifdef SHOW_DISK_INFO
   term_write(cout, "Loading FAT32 root dir\n\r");

@@ -164,9 +164,6 @@ static volatile int circular_buffer_lo = 0;
 static volatile int circular_buffer_hi = 0;
 static condvar* circular_buffer_cv;
 
-#pragma GCC push_options
-#pragma GCC optimize ("O0")
-
 static void keypress(uint8 ch) {
   // debug_write("[START] Keypress");
 
@@ -277,8 +274,6 @@ native_char readline() {
     }
   }
 }
-
-#pragma GCC pop_options
 
 static void process_keyboard_data(uint8 data) {
 

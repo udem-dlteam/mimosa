@@ -170,7 +170,7 @@ extern "C" void irq15() {
 
 #endif
 
-error_code __attribute__((optimize("O0"))) ide_read_sectors(ide_device* dev, uint32 lba, void* buf,
+error_code  ide_read_sectors(ide_device* dev, uint32 lba, void* buf,
                             uint32 count) {
   error_code err = NO_ERROR;
 
@@ -211,7 +211,7 @@ error_code __attribute__((optimize("O0"))) ide_read_sectors(ide_device* dev, uin
   return err;
 }
 
-error_code __attribute__((optimize("O0"))) ide_write_sectors(ide_device* dev, uint32 lba, void* buf,
+error_code  ide_write_sectors(ide_device* dev, uint32 lba, void* buf,
                              uint32 count) {
   error_code err = NO_ERROR;
 

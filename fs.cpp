@@ -33,7 +33,7 @@ static fs_module fs_mod;
 
 // FAT file system implementation.
 
-error_code __attribute__((optimize("O0")))
+error_code 
 open_root_dir(file_system* fs, file** result) {
   file* f = CAST(file*, kmalloc(sizeof(file)));
 
@@ -402,7 +402,7 @@ static error_code next_FAT_section(file* f) {
   return NO_ERROR;
 }
 
-error_code __attribute__((optimize("O0"))) write_file(file* f, void* buff, uint32 count) {
+error_code  write_file(file* f, void* buff, uint32 count) {
   error_code err = NO_ERROR;
   file_system* fs = f->fs;
   ide_device* dev = fs->_.FAT121632.d->_.ide.dev;
@@ -631,7 +631,7 @@ error_code read_file(file* f, void* buf, uint32 count) {
   return 0;
 }
 
-error_code __attribute__((optimize("O0")))
+error_code 
 create_file(native_string path, file** result) {
   error_code err;
   file_system* fs;
