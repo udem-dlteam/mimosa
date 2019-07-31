@@ -37,9 +37,6 @@ int main() {
       uint32 len = prog->length;
       uint8* code = (uint8*)GAMBIT_START;
 
-      debug_write("File length: ");
-      debug_write(len);
-
       error_code err;
       if (ERROR(err = read_file(prog, code, len))) {
         panic(L"ERR");

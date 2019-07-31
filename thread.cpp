@@ -269,7 +269,6 @@ void condvar::mutexless_signal() {
 
 thread::thread ()
 {
-  debug_write("Allocating Thread...");
   static const int stack_size = 65536 << 1; // size of thread stacks in bytes
 
   mutex_queue_init (this);
