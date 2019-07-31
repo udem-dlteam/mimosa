@@ -94,7 +94,7 @@ void ide_irq(ide_controller* ctrl) {
   } else if (type == cmd_write_sectors) {
     p = CAST(uint16*, entry->_.write_sectors.buf);
   } else {
-    fatal_error("[IDE.CPP] Unknown command type...");
+    panic(L"[IDE.CPP] Unknown command type...");
   }
 
   s = inb(base + IDE_STATUS_REG);
@@ -123,7 +123,7 @@ void ide_irq(ide_controller* ctrl) {
       entry->_.read_sectors.err = UNKNOWN_ERROR;
     } else if (type == cmd_write_sectors) {
       entry->_.write_sectors.err = UNKNOWN_ERROR;
-      fatal_error("[IDE.CPP] Unknown command type...");
+      panic(L"[IDE.CPP] Unknown command type...");
     }
   } else if(type == cmd_read_sectors) {
     for (i = entry->_.read_sectors.count << (IDE_LOG2_SECTOR_SIZE - 1); i > 0;
@@ -288,7 +288,7 @@ error_code __attribute__((optimize("O0"))) ide_write(ide_device* dev, uint32 lba
 
 //   if(sector_count > 1) {
 //     debug_write(count);
-//     fatal_error("Writing more than a single sector is not implemented");
+//     panic(L"Writing more than a single sector is not implemented");
 //     return UNIMPL_ERROR;
 //   }
 

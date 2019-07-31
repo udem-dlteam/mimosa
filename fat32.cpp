@@ -210,7 +210,7 @@ error_code fat_32_get_fat_link_value(file_system* fs, uint32 cluster,
   uint16 entries_per_sector = (1 << fs->_.FAT121632.log2_bps) >> 2;
 
   if (cluster < 2) {
-    fatal_error("Cannot inspect lower than the second cluster entry");
+    panic(L"Cannot inspect lower than the second cluster entry");
   }
 
   if (ERROR(err = disk_cache_block_acquire(d, 0, &cb))) return err;
@@ -238,7 +238,7 @@ error_code fat_32_set_fat_link_value(file_system* fs, uint32 cluster,
   uint8 wrt_buff[4];
 
   if (cluster < 2) {
-    fatal_error("Cannot inspect lower than the second cluster entry");
+    panic(L"Cannot inspect lower than the second cluster entry");
   }
 
   if (ERROR(err = disk_cache_block_acquire(d, 0, &cb))) return err;

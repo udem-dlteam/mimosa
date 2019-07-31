@@ -645,7 +645,7 @@ create_file(native_string path, file** result) {
   switch (fs->kind) {
     case FAT12_FS:
     case FAT16_FS:
-      fatal_error("Not supported");
+      panic(L"Not supported");
       break;
     case FAT32_FS:
       err = fat_32_create_empty_file(fs, "TESTTTT", "TXT", result);

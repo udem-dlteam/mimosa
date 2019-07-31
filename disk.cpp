@@ -242,9 +242,12 @@ again:
 
 static error_code flush_block(cache_block* block, time timeout) {
   error_code err = NO_ERROR;
-  
-  debug_write("Trying to acquire block lock");
-  if (block->dirty && block->mut->lock_or_timeout(timeout)) {
+
+  if(!block->dirty) {
+    return err;
+  }
+
+  if (block->mut->lock_or_timeout(timeout)) {
     debug_write("Block lock acquired");
     if (HAS_NO_ERROR(err = disk_write_sectors(block->d, block->sector_pos,
                                               block->buf, 1))) {
@@ -252,12 +255,10 @@ static error_code flush_block(cache_block* block, time timeout) {
       err = 1; // We flushed a single block
     }
 
+    block->mut->unlock();
   } else {
     debug_write("Block lock not acquired");
   }
-
-  block->mut->unlock();
-
 
   return err;
 }
@@ -478,7 +479,7 @@ void setup_disk() {
     cache_block_deq* hash_bucket_deq;
     cache_block* cb = CAST(cache_block*, kmalloc(sizeof(cache_block)));
 
-    if (cb == NULL) fatal_error("can't allocate disk cache");
+    if (cb == NULL) panic(L"can't allocate disk cache");
 
     LRU_deq = &cb->LRU_deq;
     hash_bucket_deq = &cb->hash_bucket_deq;
@@ -514,8 +515,7 @@ void cache_block_maid::run() {
   cache_block_deq* lru_probe;
   for (;;) {
     uint32 flushed_count = 0;
-    thread::sleep(seconds_to_time(60).n); 
-    thread::yield();
+    thread::sleep(seconds_to_time(60).n);
     
     if(disk_mod.cache_mut->lock_or_timeout(seconds_to_time(60))) {
       cb = NULL;

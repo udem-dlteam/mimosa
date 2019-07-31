@@ -17,7 +17,7 @@
 
 // Error handling.
 
-void fatal_error (native_string msg);
+void panic(unicode_string msg);
 
 //-----------------------------------------------------------------------------
 

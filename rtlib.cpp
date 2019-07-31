@@ -38,10 +38,9 @@ raw_bitmap_in_memory mouse_save;
 
 //-----------------------------------------------------------------------------
 
-void fatal_error (native_string msg)
+void fatal_error (unicode_string msg)
 {
   __asm__ __volatile__ ("cli" : : : "memory");
-  debug_write(msg);
 
   #ifdef RED_PANIC_SCREEN
     raw_bitmap_fill_rect((raw_bitmap*)&screen, 0, 0, 640, 480, &pattern_red);
@@ -358,7 +357,7 @@ static void identify_cpu ()
     term_write(cout, "/");
     term_write(cout, _cpu_bus_multiplier.den);
     term_write(cout, " is not an integer!\n");
-    fatal_error("CPU/bus clock multiplier is not an integer\n");
+    panic(L"CPU/bus clock multiplier is not an integer\n");
   }
 
 #endif
@@ -416,7 +415,7 @@ void __rtlib_setup ()
 
   __do_global_dtors ();
 
-  fatal_error ("System termination");
+  fatal_error (L"System termination");
 }
 
 //-----------------------------------------------------------------------------

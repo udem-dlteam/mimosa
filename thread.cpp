@@ -263,12 +263,13 @@ void condvar::mutexless_signal() {
 
 thread::thread ()
 {
+  debug_write("Allocating Thread...");
   static const int stack_size = 65536 << 1; // size of thread stacks in bytes
 
   mutex_queue_init (this);
   sleep_queue_detach (this);
 
-  uint32* s = CAST(uint32*,kmalloc (stack_size));
+  uint32* s = CAST(uint32*, kmalloc(stack_size));
 
   if (s == NULL)
     fatal_error ("out of memory");
@@ -433,7 +434,7 @@ void _sched_resume_next_thread() {
     restore_context(current->_sp); // never returns
   }
 
-  fatal_error("Deadlock detected");
+  panic(L"Deadlock detected");
 }
 
 
@@ -494,7 +495,7 @@ void sched_setup(void_fn continuation) {
   _sched_setup_timer ();
   __asm__ __volatile__ ("int $0xD0":::"memory");
   // ** NEVER REACHED **
-  fatal_error("sched_setup should never return");
+  panic(L"sched_setup should never return");
 }
 
 void sched_stats() {
@@ -599,7 +600,7 @@ void _sched_run_thread() {
   _sched_resume_next_thread();
 
   // ** NEVER REACHED ** (this function never returns)
-  fatal_error("_sched_run_thread() should never return");
+  panic(L"_sched_run_thread() should never return");
 }
 
 void _sched_switch_to_next_thread(uint32 cs, uint32 eflags, uint32* sp,
@@ -613,7 +614,7 @@ void _sched_switch_to_next_thread(uint32 cs, uint32 eflags, uint32* sp,
   _sched_resume_next_thread();
 
   // ** NEVER REACHED ** (this function never returns)
-  fatal_error("_sched_switch_to_next_thread is never supposed to return");
+  panic(L"_sched_switch_to_next_thread is never supposed to return");
 }
 
 void _sched_suspend_on_wait_queue(uint32 cs, uint32 eflags, uint32* sp,
@@ -628,7 +629,7 @@ void _sched_suspend_on_wait_queue(uint32 cs, uint32 eflags, uint32* sp,
   _sched_resume_next_thread();
 
   // ** NEVER REACHED ** (this function never returns)
-  fatal_error("_sched_suspend_on_wait_queue is never supposed to return");
+  panic(L"_sched_suspend_on_wait_queue is never supposed to return");
 }
 
 void _sched_suspend_on_sleep_queue(uint32 cs, uint32 eflags, uint32* sp,
@@ -642,7 +643,7 @@ void _sched_suspend_on_sleep_queue(uint32 cs, uint32 eflags, uint32* sp,
   _sched_resume_next_thread();
 
   // ** NEVER REACHED ** (this function never returns)
-  fatal_error("_sched_suspend_on_sleep_queue is never supposed to return");
+  panic(L"_sched_suspend_on_sleep_queue is never supposed to return");
 }
 
 void _sched_setup_timer() {
@@ -772,7 +773,7 @@ void _sched_timer_elapsed() {
       //      cout << "timer is fast\n";/////////////
       _sched_set_timer(current->_end_of_quantum, now);
     } else {  // cout << "f";//////////
-      // debug_write("LN 794");
+      debug_write("LN 794");
       save_context(_sched_switch_to_next_thread, NULL);
       // cout << "F";
     }
