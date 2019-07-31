@@ -450,9 +450,9 @@ error_code __attribute__((optimize("O0"))) write_file(file* f, void* buff, uint3
               // Retry to fetch the next cluster
               if (ERROR(err = next_FAT_section(f))) {
                 if (err == EOF_ERROR) {
-                  fatal_error(
-                      "Failed to allocate a new FAT cluster, but no error was "
-                      "returned");
+                  panic(
+                      L"Failed to allocate a new FAT cluster, but no error was "
+                      L"returned");
                 } else {
                   return err;
                 }
