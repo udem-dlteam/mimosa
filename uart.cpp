@@ -120,7 +120,7 @@ static void read_msr(uint16 port){
   //if( UART_MSR_DELTA_CLEAR_TO_SEND(c) ){}
 }
 
-static void THR_handle(uint16 port){
+static void handle_thr(uint16 port){
   // bit 5 in LSR used to check if info must be written to THR or read from IIR
   if( UART_THR_GET_ACTION( inb( port + UART_8250_LSR ))){
     //TODO : if fifo is enabled , then more than one character can be written to THR
@@ -206,7 +206,7 @@ void _handle_interrupt(uint16 port, uint8 com_index, uint8 iir) {
     // priority : next to lowest
     // Reading interrupt indentification register(IIR)
     // or writing to Transmit Holding Buffer (THR)
-    THR_handle(port);
+    handle_thr(port);
     break;
   case UART_IIR_RCV_LINE:
     // Error or Break
@@ -235,7 +235,6 @@ void _handle_interrupt(uint16 port, uint8 com_index, uint8 iir) {
   }
 }
 
-
 #ifdef USE_IRQ4_FOR_UART
 
 void irq3() {
@@ -249,11 +248,17 @@ void irq3() {
   uint8 com2_iir = inb(COM2_PORT_BASE + UART_8250_IIR);
   uint8 com4_iir = inb(COM4_PORT_BASE + UART_8250_IIR);
 
+  bool caught_something = FALSE;
+  
   if (UART_IIR_PENDING(com2_iir)) {
+    caught_something = TRUE;
     _handle_interrupt(COM2_PORT_BASE, 2, com2_iir);
-  } else if (UART_IIR_PENDING(com4_iir)) {
+  }
+  if (UART_IIR_PENDING(com4_iir)) {
+    caught_something = TRUE;
     _handle_interrupt(COM4_PORT_BASE, 4, com4_iir);
-  } else {
+  }
+  i(!(caught_something)){
     fatal_error("Misconfiguration of IRQ3.");
   }
 }
@@ -269,11 +274,17 @@ void irq4() {
   uint8 com1_iir = inb(COM1_PORT_BASE + UART_8250_IIR);
   uint8 com3_iir = inb(COM3_PORT_BASE + UART_8250_IIR);
 
+  bool caught_something = FALSE;
+  
   if (UART_IIR_PENDING(com1_iir)) {
+    caught_something = TRUE;
     _handle_interrupt(COM1_PORT_BASE, 1, com1_iir);
-  } else if (UART_IIR_PENDING(com3_iir)) {
+  }
+  if (UART_IIR_PENDING(com3_iir)) {
+    caught_something = TRUE;
     _handle_interrupt(COM3_PORT_BASE, 3, com3_iir);
-  } else {
+  }
+  if (!(caught_something)){
     fatal_error("Misconfiguration of IRQ4.");
   }
 }
