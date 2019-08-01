@@ -442,8 +442,7 @@ void sys_irq (void* esp)///////////////// AMD... why do we need this hack???
 }
 
 void _sched_resume_next_thread() {
-  CLI();
-  // ASSERT_INTERRUPTS_DISABLED();  // Interrupts should be disabled at this point
+  ASSERT_INTERRUPTS_DISABLED();  // Interrupts should be disabled at this point
 
   debug_write("Resuming the next thread");
 
@@ -614,7 +613,7 @@ void _sched_yield_if_necessary() {
 }
 
 void _sched_run_thread() {
-  STI();
+  enable_interrupts();
 
   sched_current_thread->run();
   sched_current_thread->_terminated = TRUE;
