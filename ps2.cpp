@@ -217,7 +217,7 @@ unicode_char getchar() {
 
   sched_stats();
 
-  __surround_with_debug_t("getchar", {
+  // __surround_with_debug_t("getchar", {
     disable_interrupts();
 
     while (circular_buffer_lo == circular_buffer_hi) {
@@ -232,7 +232,7 @@ unicode_char getchar() {
 
     circular_buffer_cv->mutexless_signal();
     enable_interrupts();
-  });
+  // });
 
   return result;
 }
