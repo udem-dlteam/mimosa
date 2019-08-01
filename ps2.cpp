@@ -214,7 +214,6 @@ unicode_char getchar() {
   while (circular_buffer_lo == circular_buffer_hi) {
     circular_buffer_cv->mutexless_wait();
   }
-
   unicode_char result = circular_buffer[circular_buffer_lo];
 
   circular_buffer_lo = (circular_buffer_lo + 1) % BUFFER_SIZE;

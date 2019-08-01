@@ -245,11 +245,11 @@ void condvar::broadcast() {
 void condvar::mutexless_wait() {
   ASSERT_INTERRUPTS_DISABLED();  // Interrupts should be disabled at this point
 
-  CLI();
   debug_write("LN 248");
   save_context(_sched_suspend_on_wait_queue, this);
-
-  ASSERT_INTERRUPTS_DISABLED();  // Interrupts should be disabled at this point
+  // Save context will change the interrupt status
+  // We need to redisable it, since it is what is expected from mutexless wait
+  disable_interrupts();
 }
 
 void condvar::mutexless_signal() {
