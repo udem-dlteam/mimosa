@@ -444,8 +444,6 @@ void _sched_resume_next_thread() {
   // debug_write("Resuming the next thread");
 
   thread* current = wait_queue_head(readyq);
-  debug_write("Waking up");
-  debug_write(current->name());
 
   if (current != NULL) {
     sched_current_thread = current;
@@ -519,6 +517,8 @@ void sched_setup(void_fn continuation) {
   panic(L"sched_setup should never return");
 }
 
+extern condvar* circular_buffer_cv;
+
 void sched_stats() {
   disable_interrupts();
 
@@ -526,65 +526,50 @@ void sched_stats() {
   int m = 0;
   int p = 0;
 
-  term_write(cout, "(");
+  term_write(cout, "ReadyQ DUMP:");
 
   {
     wait_mutex_node* t = readyq->_next_in_wait_queue;
     while (t != readyq) {
       term_write(cout, CAST(thread*, t)->name());
+      term_write(cout, " ");
       n++;
       t = t->_next_in_wait_queue;
     }
   }
 
-  term_write(cout, " ");
+  term_writeline(cout);
+
+  term_write(cout, "SleepQ DUMP:");
 
   {
     wait_mutex_sleep_node* t = sleepq->_next_in_sleep_queue;
     while (t != sleepq) {
       term_write(cout, CAST(thread*, t)->name());
+      term_write(cout, " ");
       m++;
       t = t->_next_in_sleep_queue;
     }
   }
 
-  term_write(cout, " ");
+  term_writeline(cout);
+  term_write(cout, "Circular BUFFER condvar:");
 
   {
-    for (int i = 0; i < mn; i++) {
-      wait_mutex_node* t = mtab[i]->_next_in_wait_queue;
-      while (t != mtab[i]) {
-        term_write(cout, "m");
-        term_write(cout, i);
-        term_write(cout, "=");
-        term_write(cout, CAST(thread*, t)->name());
-        term_write(cout, " ");
-        p++;
-        t = t->_next_in_wait_queue;
-      }
+    wait_mutex_node* t = circular_buffer_cv->_next_in_wait_queue;
+    while (t != circular_buffer_cv) {
+      term_write(cout, CAST(thread*, t)->name());
+      term_write(cout, " ");
+      m++;
+      t = t->_next_in_wait_queue;
     }
   }
 
-  {
-    for (int i = 0; i < cn; i++) {
-      wait_mutex_node* t = ctab[i]->_next_in_wait_queue;
-      while (t != ctab[i]) {
-        term_write(cout, "c");
-        term_write(cout, i);
-        term_write(cout, "=");
-        term_write(cout, CAST(thread*, t)->name());
-        term_write(cout, " ");
-        p++;
-        t = t->_next_in_wait_queue;
-      }
-    }
-  }
+  term_writeline(cout);
 
-  term_write(cout, ")\n");
+  term_writeline(cout);
 
   enable_interrupts();
-
-  // cout << "(" << n << " " << m << " " << p << ")";
 }
 
 void sched_reg_mutex(mutex* m) {
@@ -643,8 +628,6 @@ void _sched_switch_to_next_thread(uint32 cs, uint32 eflags, uint32* sp,
   thread* current = sched_current_thread;
   
   current->_sp = sp;
-  debug_write("Putting to sleep");
-  debug_write(current->name());
   _sched_reschedule_thread(current);
   _sched_resume_next_thread();
 
@@ -660,6 +643,7 @@ void _sched_suspend_on_wait_queue(uint32 cs, uint32 eflags, uint32* sp,
   thread* current = sched_current_thread;
 
   current->_sp = sp;
+
   wait_queue_remove(current);
   wait_queue_insert(current, CAST(wait_queue*, q));
   _sched_resume_next_thread();
@@ -828,8 +812,7 @@ void _sched_timer_elapsed() {
 }
 
 uint32 thread::code() {
-  int i = 5;
-  return 0;
+  return NULL;
 }
 
 program_thread::program_thread(libc_startup_fn code) {

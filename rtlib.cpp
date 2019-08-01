@@ -389,6 +389,7 @@ class idle_thread : public thread
   public:
 
     idle_thread ();
+    virtual native_string name();
   protected:
     virtual void run ();
   };
@@ -397,12 +398,16 @@ idle_thread::idle_thread()
 {
 }
 
+native_string idle_thread::name() {
+  return "idle_thread";
+}
+
 void idle_thread::run() {
   debug_write("IDLE thread run start");
   ASSERT_INTERRUPTS_ENABLED();
   for (;;) {
     ASSERT_INTERRUPTS_ENABLED();
-    __debug_marker();
+    // __debug_marker();
     thread::yield();
   }
 }

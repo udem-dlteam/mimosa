@@ -165,7 +165,7 @@ static volatile unicode_char circular_buffer[BUFFER_SIZE];
 static volatile native_char line_buffer[LINE_BUFFER_SIZE];
 static volatile int circular_buffer_lo = 0;
 static volatile int circular_buffer_hi = 0;
-static condvar* circular_buffer_cv;
+condvar* circular_buffer_cv;
 
 static void keypress(uint8 ch) {
   // debug_write("[START] Keypress");
@@ -214,6 +214,8 @@ getchar0_done:
 unicode_char getchar() {
   ASSERT_INTERRUPTS_ENABLED();
   unicode_char result;
+
+  sched_stats();
 
   __surround_with_debug_t("getchar", {
     disable_interrupts();
