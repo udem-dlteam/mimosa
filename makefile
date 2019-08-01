@@ -24,11 +24,11 @@ GPP_OPTIONS = $(GCC_OPTIONS) -fno-rtti -fno-builtin -fno-exceptions -nostdinc++
 
 all: bin_files
 
-rebuild: build createimg
+rebuild: build createimg run
 
 build:
 	mkdir -p mimosa-build
-	tar --exclude='*.img' -cf  - .  | ssh administrator@localhost -p 10022 "cd mimosa-build;tar xf -;rm kernel.bin; rm kernel.elf;make"
+	tar --exclude='*.img' -cf  - .  | ssh administrator@localhost -p 10022 "cd mimosa-build;tar xf -;rm -f kernel.bin; rm -f kernel.elf;make"
 	# ssh administrator@localhost -p 10022 "cat mimosa-build/bootsect.bin" > mimosa-build/bootsect.bin
 	# ssh administrator@localhost -p 10022 "cat mimosa-build/kernel.bin"   > mimosa-build/kernel.bin
 	ssh administrator@localhost -p 10022 "cat mimosa-build/kernel.elf"   > mimosa-build/kernel.elf
