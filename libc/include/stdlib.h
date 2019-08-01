@@ -23,4 +23,4 @@ extern void libc_init_stdlib(void);
 
 #endif
 
-#endif /* stdlib.h */
+#endif // stdlib.h

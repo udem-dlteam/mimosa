@@ -19,7 +19,7 @@ char *getcwd(char *__buf, size_t __size) {
 
 #else
 
-  /* TODO: implement */
+  // TODO: implement
   __buf[0] = '/';
   __buf[1] = '\0';
   return __buf;
@@ -46,7 +46,7 @@ int mkdir(const char *__pathname, mode_t __mode) {
 
 #else
 
-  /* TODO: implement */
+  // TODO: implement
   return 0;
 
 #endif
@@ -71,7 +71,7 @@ int remove(const char *__pathname) {
 
 #else
 
-  /* TODO: implement */
+  // TODO: implement
   return 0;
 
 #endif
@@ -96,7 +96,7 @@ int lstat(const char *__pathname, struct_stat *__buf) {
 
 #else
 
-  /* TODO: implement */
+  // TODO: implement
   return 0;
 
 #endif
@@ -121,7 +121,32 @@ int stat(const char *__pathname, struct_stat *__buf) {
 
 #else
 
-  /* TODO: implement */
+  // TODO: implement
+  return 0;
+
+#endif
+#endif
+}
+
+int isatty(int __fd) {
+
+#ifdef USE_LIBC_LINK
+
+  return LIBC_LINK._isatty(__fd);
+
+#else
+
+  libc_trace("isatty");
+
+#ifdef USE_HOST_LIBC
+
+#undef isatty
+
+  return isatty(__fd);
+
+#else
+
+  // TODO: implement
   return 0;
 
 #endif

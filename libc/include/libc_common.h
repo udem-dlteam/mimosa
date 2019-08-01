@@ -25,4 +25,4 @@ extern void libc_trace_(const char *msg);
 
 #include "include/libc_link.h"
 
-#endif /* libc_common.h */
+#endif // libc_common.h

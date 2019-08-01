@@ -1,6 +1,8 @@
 #include "include/libc_common.h"
 #include "include/dirent.h"
 
+#ifndef USE_MIMOSA
+
 DIR *opendir(const char *__name) {
 
 #ifdef USE_LIBC_LINK
@@ -19,7 +21,7 @@ DIR *opendir(const char *__name) {
 
 #else
 
-  /* TODO: implement */
+  // TODO: implement
   return NULL;
 
 #endif
@@ -44,7 +46,7 @@ struct dirent *readdir(DIR *__dirp) {
 
 #else
 
-  /* TODO: implement */
+  // TODO: implement
   return NULL;
 
 #endif
@@ -69,12 +71,14 @@ int closedir(DIR *__dirp) {
 
 #else
 
-  /* TODO: implement */
+  // TODO: implement
   return 0;
 
 #endif
 #endif
 }
+
+#endif
 
 #ifndef USE_LIBC_LINK
 

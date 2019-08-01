@@ -161,7 +161,7 @@ typedef struct DIR_struct {
   file* f;
 } DIR;
 
-DIR* opendir(native_string path);
+DIR* opendir(const char* path);
 struct dirent* readdir(DIR* dir);
 error_code closedir(DIR* dir);
 

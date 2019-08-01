@@ -19,7 +19,7 @@ int tcgetattr(int __fd, struct termios *__termios_p) {
 
 #else
 
-  /* TODO: implement */
+  // TODO: implement
   return 0;
 
 #endif
@@ -45,7 +45,7 @@ int tcsetattr(int __fd, int __optional_actions,
 
 #else
 
-  /* TODO: implement */
+  // TODO: implement
   return 0;
 
 #endif
@@ -70,7 +70,7 @@ int cfsetospeed(struct termios *__termios_p, speed_t __speed) {
 
 #else
 
-  /* TODO: implement */
+  // TODO: implement
   return 0;
 
 #endif
@@ -95,7 +95,7 @@ int cfsetispeed(struct termios *__termios_p, speed_t __speed) {
 
 #else
 
-  /* TODO: implement */
+  // TODO: implement
   return 0;
 
 #endif

@@ -6,8 +6,8 @@
 // Revision History
 // 22 Sep 01  initial version (Marc Feeley)
 
-#ifndef TIME_H
-#define TIME_H
+#ifndef CHRONO_H
+#define CHRONO_H
 
 //-----------------------------------------------------------------------------
 

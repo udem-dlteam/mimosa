@@ -14,4 +14,4 @@
 #endif
 #define ULLONG_MAX 18446744073709551615ULL
 
-#endif /* limits.h  */
+#endif // limits.h

@@ -29,11 +29,10 @@ uint8 log2 (uint32 n);
 
 // Memory management.
 
-void* kmalloc (size_t size);
-void kfree (void* ptr);
+void* kmalloc(size_t size);
+void kfree(void* ptr);
 
-extern "C"
-void* memcpy (void* dest, const void* src, size_t n);
+extern "C" void* memcpy(void* dest, const void* src, size_t n);
 
 //-----------------------------------------------------------------------------
 

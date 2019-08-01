@@ -9,6 +9,7 @@
 //-----------------------------------------------------------------------------
 
 #include "rtlib.h"
+#include "heap.h"
 #include "intr.h"
 #include "chrono.h"
 #include "ide.h"
@@ -17,14 +18,10 @@
 #include "ps2.h"
 #include "term.h"
 #include "thread.h"
-#include "mono_5x7.h"
-#include "mono_6x9.h"
 #include "video.h"
 
 void __rtlib_setup (); // forward declaration
 
-font_c font_mono_5x7;
-font_c font_mono_6x9;
 term term_console;
 video screen;
 
@@ -45,7 +42,7 @@ void panic (unicode_string msg)
   #ifdef RED_PANIC_SCREEN
     raw_bitmap_fill_rect((raw_bitmap*)&screen, 0, 0, 640, 480, &pattern_red);
 
-    font_draw_string(&font_mono_6x9, &screen.super, 0, 0, msg, &pattern_white, &pattern_black);
+    font_draw_string(&font_mono_6x13, &screen.super, 0, 0, msg, &pattern_white, &pattern_black);
 #endif
   
   for (;;) NOP(); // freeze execution
@@ -104,22 +101,46 @@ uint8 log2 (uint32 n)
 
 // Memory management functions.
 
-// For now, a simple linear allocator is used.  Memory is never reclaimed.
+// A simple heap manager that doesn't reclaim memory
 
-static uint32 alloc_ptr = 0xB * (1<<20); // start at 1MB
-
-void* kmalloc (size_t size)
-{
-  uint32 ptr = alloc_ptr;
-
-  alloc_ptr = ptr + ((size + 7) & ~7);
-
-  return CAST(void*,ptr);
+void heap_init(struct heap *h, void *start, size_t size) {
+  h->start = start;
+  h->size = size;
+  h->alloc = 0;
 }
 
-void kfree (void* ptr)
-{
-  // Not implemented yet.
+void *heap_malloc(struct heap *h, size_t size) {
+
+  size_t a = h->alloc;
+
+  // maintain word alignment
+  size = (size + sizeof(void*) - 1) & ~(sizeof(void*) - 1);
+
+  if (a + size > h->size) {
+    debug_write("HEAP OVERFLOW");
+    return NULL; // heap overflow
+  }
+
+  h->alloc = a + size;
+
+  return CAST(void*,CAST(char*,h->start)+a);
+}
+
+void heap_free(struct heap *h, void *ptr) {
+}
+
+struct heap kheap; // kernel heap
+
+void* kmalloc(size_t size) {
+  return heap_malloc(&kheap, size);
+}
+
+void kfree(void* ptr) {
+  heap_free(&kheap, ptr);
+}
+
+static void setup_kheap() {
+  heap_init(&kheap, CAST(void*,11*(1<<20)), 5*(1<<20));
 }
 
 // Implementation of the C++ "new" operator.
@@ -224,21 +245,20 @@ void __do_global_ctors ()
   _raw_bitmap_vtable._select_layer = _raw_bitmap_select_layer;
   
   // Screen
-  screen = new_video(18);
+  video_init(&screen);
 
   raw_bitmap_fill_rect(&screen.super, 0, 0, screen.super._width,
                        screen.super._height, &pattern_gray50);
 
-  mouse_save = new_raw_bitmap_in_memory(
-    mouse_bitmap, MOUSE_WIDTH_IN_BITMAP_WORDS << LOG2_BITMAP_WORD_WIDTH,
-    MOUSE_HEIGHT, 4);
-
-  // Create the fonts that might be used
-  font_mono_5x7 = create_mono_5x7();
-  font_mono_6x9 = create_mono_6x9();
+  raw_bitmap_in_memory_init
+    (&mouse_save,
+     mouse_bitmap, MOUSE_WIDTH_IN_BITMAP_WORDS << LOG2_BITMAP_WORD_WIDTH,
+     MOUSE_HEIGHT, 4);
 
   // Create the console terminal
-  term_console = new_term(0, 0, 80, 30, &font_mono_6x9, L"console", true);
+  term_init(&term_console, 0, 0, 80, 25,
+            &font_mono_6x13, &font_mono_6x13B,
+            L"console", TRUE);
 }
 
 void __do_global_dtors ()
@@ -266,6 +286,7 @@ extern "C"
 void __rtlib_entry ()
 {
   setup_bss ();
+  setup_kheap ();
   setup_intr ();
   setup_time ();
 

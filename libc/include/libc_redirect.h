@@ -8,17 +8,17 @@
 #define CONCAT(a,b)CONCAT2(a,b)
 #define CONCAT2(a,b)a##b
 
-/* dirent.h */
+// dirent.h
 #define opendir REDIRECT_NAME(opendir)
 #define readdir REDIRECT_NAME(readdir)
 #define closedir REDIRECT_NAME(closedir)
 
-/* errno.h */
+// errno.h
 #if 0
 #define errno REDIRECT_NAME(errno)
 #endif
 
-/* math.h */
+// math.h
 #define acos REDIRECT_NAME(acos)
 #define acosh REDIRECT_NAME(acosh)
 #define asin REDIRECT_NAME(asin)
@@ -46,11 +46,14 @@
 #define tanh REDIRECT_NAME(tanh)
 #define scalbn REDIRECT_NAME(scalbn)
 
-/* setjmp.h */
+// setjmp.h
 #define setjmp REDIRECT_NAME(setjmp)
 #define longjmp REDIRECT_NAME(longjmp)
 
-/* stdio.h */
+// signal.h
+#define signal REDIRECT_NAME(signal)
+
+// stdio.h
 #define fopen REDIRECT_NAME(fopen)
 #define fdopen REDIRECT_NAME(fdopen)
 #define fread REDIRECT_NAME(fread)
@@ -62,6 +65,7 @@
 #define ferror REDIRECT_NAME(ferror)
 #define feof REDIRECT_NAME(ferror)
 #define clearerr REDIRECT_NAME(clearerr)
+#define fileno REDIRECT_NAME(fileno)
 #define setbuf REDIRECT_NAME(setbuf)
 #define rename REDIRECT_NAME(rename)
 #define fprintf REDIRECT_NAME(fprintf)
@@ -72,34 +76,47 @@
 #define stderr REDIRECT_NAME(stderr)
 #endif
 
-/* stdlib.h */
+// stdlib.h
 #define malloc REDIRECT_NAME(malloc)
 #define free REDIRECT_NAME(free)
 #define exit REDIRECT_NAME(exit)
 #define getenv REDIRECT_NAME(getenv)
 #define system REDIRECT_NAME(system)
 
-/* string.h */
+// string.h
 #define memcpy REDIRECT_NAME(memcpy)
 #define memmove REDIRECT_NAME(memmove)
 
-/* termios.h */
+// termios.h
 #define tcgetattr REDIRECT_NAME(tcgetattr)
 #define tcsetattr REDIRECT_NAME(tcsetattr)
 #define cfsetospeed REDIRECT_NAME(cfsetospeed)
 #define cfsetispeed REDIRECT_NAME(cfsetispeed)
 
-/* time.h */
+// time.h
 #define clock REDIRECT_NAME(clock)
-#define time REDIRECT_NAME(time)
+#define nanosleep REDIRECT_NAME(nanosleep)
+#define clock_getres REDIRECT_NAME(clock_getres)
+#define clock_gettime REDIRECT_NAME(clock_gettime)
+#define clock_settime REDIRECT_NAME(clock_settime)
 
-/* unistd.h */
+// unistd.h
 #define getcwd REDIRECT_NAME(getcwd)
 #define mkdir REDIRECT_NAME(mkdir)
 #define remove REDIRECT_NAME(remove)
 #define stat REDIRECT_NAME(stat)
 #define lstat REDIRECT_NAME(lstat)
+#define isatty REDIRECT_NAME(isatty)
+
+// sys/resource.h
+#define getrusage REDIRECT_NAME(getrusage)
+
+// sys/time.h
+#define gettimeofday REDIRECT_NAME(gettimeofday)
+#define settimeofday REDIRECT_NAME(settimeofday)
+#define getitimer REDIRECT_NAME(getitimer)
+#define setitimer REDIRECT_NAME(setitimer)
 
 #endif
 
-#endif /* libc_redirect.h */
+#endif // libc_redirect.h

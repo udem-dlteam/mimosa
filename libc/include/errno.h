@@ -4,10 +4,10 @@
 
 #include "include/libc_header.h"
 
-#define ENOENT           2      /* No such file or directory */
-#define EINTR            4      /* Interrupted system call */
-#define EAGAIN          11      /* Try again */
-#define EEXIST          17      /* File exists */
+#define ENOENT 2  // No such file or directory
+#define EINTR  4  // Interrupted system call
+#define EAGAIN 11 // Try again
+#define EEXIST 17 // File exists
 
 extern int errno;
 
@@ -19,12 +19,10 @@ extern int errno;
 
 #ifndef USE_HOST_LIBC
 
-#include "include/libc_link.h"
-
 extern void libc_init_errno(void);
 
 #endif
 
 #endif
 
-#endif /* errno.h  */
+#endif // errno.h

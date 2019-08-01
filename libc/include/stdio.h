@@ -5,10 +5,15 @@
 #include "include/libc_header.h"
 #include "include/stddef.h"
 
+#ifdef USE_MIMOSA
+#include "fs.h"
+#endif
+
 #ifndef USE_HOST_LIBC
 
 typedef struct {
-  int state;
+  file* f;
+  error_code err;
 } FILE;
 
 #endif
@@ -38,6 +43,8 @@ extern int feof(FILE *__restrict __stream);
 
 extern void clearerr(FILE *__restrict __stream);
 
+extern int fileno(FILE *__restrict __stream);
+
 extern void setbuf(FILE *__restrict __stream, char *__restrict __buf);
 
 extern int rename(const char *__oldpath, const char *__newpath);
@@ -64,4 +71,4 @@ extern void libc_init_stdio(void);
 
 #endif
 
-#endif /* stdio.h */
+#endif // stdio.h
