@@ -816,14 +816,6 @@ void _sched_timer_elapsed() {
   }
 #endif
 
-    if (less_time(now, current->_end_of_quantum)) {
-      //      cout << "timer is fast\n";/////////////
-      _sched_set_timer(current->_end_of_quantum, now);
-    } else {  // cout << "f";//////////
-      debug_write("LN 794");
-      save_context(_sched_switch_to_next_thread, NULL);
-      //   // cout << "F";
-    }
   thread* current = sched_current_thread;
 
   if (less_time(now, current->_end_of_quantum)) {
