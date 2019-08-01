@@ -137,8 +137,45 @@ static error_code normalize_path(native_string path, native_string new_path) {
   return NO_ERROR;
 }
 
-error_code open_file(native_string path, file** result) {
+bool parse_mode(native_string mode, file_mode* result) {
+  bool success = TRUE;
+  file_mode f_mode = 0;
+
+  native_char first = mode[0];
+
+  if(success = ('\0' != first)) {
+    native_char snd = mode[1];
+
+    switch (snd) {
+      case 'r':
+        f_mode = MODE_READ;
+        break;
+      case 'w':
+        f_mode = MODE_TRUNC;
+        break;
+      case 'a':
+        f_mode = MODE_APPEND;
+        break;
+      default:
+        success = FALSE;
+        return success;
+        break;
+    }
+
+    native_char thrd = mode[2];
+    if('+' == thrd) {
+      f_mode |= MODE_PLUS;
+    }
+  }
+
+  *result = f_mode;
+  return success;
+}
+
+error_code open_file(native_string path, native_string mode, file** result) {
+  error_code err = NO_ERROR;
   file_system* fs;
+  file_mode md;
   file* f;
 
   if (fs_mod.nb_mounted_fs == 0) {
@@ -147,12 +184,15 @@ error_code open_file(native_string path, file** result) {
 
   fs = fs_mod.mounted_fs[0];
 
+  if(!parse_mode(mode, &md)) {
+    return UNKNOWN_ERROR;  // TODO!
+  }
+
   switch (fs->kind) {
     case FAT12_FS:
     case FAT16_FS:
     case FAT32_FS: {
       FAT_directory_entry de;
-      error_code err;
       native_char normalized_path[NAME_MAX + 1];
       native_string p = normalized_path;
 
@@ -900,7 +940,7 @@ DIR* opendir(const char* path) {
   DIR* dir;
   error_code err;
 
-  if (ERROR(err = open_file(CAST(native_string, path), &f))) {
+  if (ERROR(err = open_file(CAST(native_string, path),"r", &f))) {
     return NULL;
   }
 
@@ -1122,7 +1162,7 @@ error_code stat(native_string path, struct stat* buf) {
   file* f;
   error_code err;
 
-  if (ERROR(err = open_file(path, &f))) return err;
+  if (ERROR(err = open_file(path, "r", &f))) return err;
 
   buf->st_mode = f->mode;
   buf->st_size = f->length;
