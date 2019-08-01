@@ -867,141 +867,172 @@ irq0_intr:
 
   .globl irq0
 
+  cli
   pusha
   call  irq0
   popa
+  sti
   iret
 
 irq1_intr:
 
   .globl irq1
 
+  cli
   pusha
   call  irq1
   popa
+  sti
   iret
 
 irq2_intr:
 
   .globl irq2
 
+  cli
   pusha
   call  irq2
   popa
+  sti
   iret
 
 irq3_intr:
 
   .globl irq3
 
+  cli
   pusha
   call  irq3
   popa
+  sti
   iret
 
 irq4_intr:
 
   .globl irq4
 
+  cli
   pusha
   call  irq4
   popa
+  sti
   iret
 
 irq5_intr:
 
   .globl irq5
 
- pusha
+  cli
+  pusha
   call  irq5
   popa
+  sti
   iret
 
 irq6_intr:
 
   .globl irq6
 
+  cli
   pusha
   call  irq6
   popa
+  sti
   iret
 
 irq7_intr:
 
   .globl irq7
 
+  cli
   pusha
   call  irq7
   popa
+  sti
   iret
 
 irq8_intr:
 
   .globl irq8
 
- pusha
+  cli
+  pusha
   call  irq8
   popa
+  sti
   iret
 
 irq9_intr:
 
   .globl irq9
 
+  cli
   pusha
   call  irq9
   popa
+  sti
   iret
 
 irq10_intr:
 
   .globl irq10
 
- pusha
+  cli
+  pusha
   call  irq10
   popa
+  sti
   iret
 
 irq11_intr:
 
   .globl irq11
 
+  cli
   pusha
   call  irq11
   popa
+  sti
   iret
 
 irq12_intr:
 
   .globl irq12
 
+  cli
   pusha
   call  irq12
   popa
+  sti
   iret
 
 irq13_intr:
 
   .globl irq13
 
+  cli
   pusha
   call  irq13
   popa
+  sti
   iret
 
 irq14_intr:
 
   .globl irq14
 
+  cli
   pusha
   call  irq14
   popa
+  sti
   iret
 
 irq15_intr:
 
   .globl irq15
 
+  cli
   pusha
   call  irq15
   popa
