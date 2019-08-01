@@ -257,8 +257,8 @@ void condvar::mutexless_signal() {
   thread* t = wait_queue_head(CAST(wait_queue*, this));
 
   if (t != NULL) {
-    sleep_queue_remove(t);
-    sleep_queue_detach(t);
+    wait_queue_remove(t);
+    wait_queue_detach(t);
     _sched_reschedule_thread(t);
     _sched_yield_if_necessary();
   }
