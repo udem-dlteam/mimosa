@@ -20,6 +20,8 @@
 
 int main() {
 
+  ASSERT_INTERRUPTS_ENABLED();
+
   debug_write("Main hit");
 
   term* tty = &new_term(0, 320, 80, 10, &font_mono_6x9, L"tty", true);

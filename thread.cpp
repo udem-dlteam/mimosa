@@ -245,6 +245,7 @@ void condvar::broadcast() {
 void condvar::mutexless_wait() {
   ASSERT_INTERRUPTS_DISABLED();  // Interrupts should be disabled at this point
 
+  CLI();
   debug_write("LN 248");
   save_context(_sched_suspend_on_wait_queue, this);
 
@@ -329,9 +330,17 @@ thread::~thread ()
 }
 
 thread* thread::start() {
-  disable_interrupts ();
-  _sched_reschedule_thread(this);
-  _sched_yield_if_necessary();
+  // disable_interrupts();
+  CLI();
+
+  {
+    _sched_reschedule_thread(this);
+    _sched_yield_if_necessary();
+  }
+
+  // enable_interrupts();
+  STI();
+
   return this;
 }
 
@@ -344,10 +353,12 @@ void thread::join ()
 }
 
 void thread::yield() {
+
   disable_interrupts();
-  {  // cout << "e";////////////
-    save_context(_sched_switch_to_next_thread, NULL);
-    // cout << "E";
+
+  {
+    __surround_with_debug_t("YIELD",
+                            save_context(_sched_switch_to_next_thread, NULL););
   }
 
   enable_interrupts();
@@ -368,14 +379,16 @@ void thread::sleep(int64 timeout_nsecs) {
 #else
   disable_interrupts();
 
-  thread* current = sched_current_thread;
+  {
+    thread* current = sched_current_thread;
 
-  current->_timeout =
-      add_time(current_time_no_interlock(), nanoseconds_to_time(timeout_nsecs));
+    current->_timeout = add_time(current_time_no_interlock(),
+                                 nanoseconds_to_time(timeout_nsecs));
 
-  wait_queue_remove(current);
+    wait_queue_remove(current);
 
-  save_context(_sched_suspend_on_sleep_queue, NULL);
+    save_context(_sched_suspend_on_sleep_queue, NULL);
+  }
 
   enable_interrupts();
 #endif
@@ -429,7 +442,8 @@ void sys_irq (void* esp)///////////////// AMD... why do we need this hack???
 }
 
 void _sched_resume_next_thread() {
-  ASSERT_INTERRUPTS_DISABLED();  // Interrupts should be disabled at this point
+  CLI();
+  // ASSERT_INTERRUPTS_DISABLED();  // Interrupts should be disabled at this point
 
   debug_write("Resuming the next thread");
 
@@ -600,13 +614,18 @@ void _sched_yield_if_necessary() {
 }
 
 void _sched_run_thread() {
+  STI();
+
   sched_current_thread->run();
   sched_current_thread->_terminated = TRUE;
   sched_current_thread->_joiners.broadcast();
 
   disable_interrupts();
-  wait_queue_remove(sched_current_thread);
-  _sched_resume_next_thread();
+
+  {
+    wait_queue_remove(sched_current_thread);
+    _sched_resume_next_thread();
+  }
 
   // ** NEVER REACHED ** (this function never returns)
   panic(L"_sched_run_thread() should never return");
@@ -617,11 +636,7 @@ void _sched_switch_to_next_thread(uint32 cs, uint32 eflags, uint32* sp,
   ASSERT_INTERRUPTS_DISABLED();  // Interrupts should be disabled at this point
 
   thread* current = sched_current_thread;
-
-  if(NULL == current) {
-    debug_write("WOWZA");
-  }
-
+  
   current->_sp = sp;
   _sched_reschedule_thread(current);
   _sched_resume_next_thread();
@@ -745,7 +760,7 @@ void _sched_set_timer(time t, time now) {
 
 void _sched_timer_elapsed() {
    ASSERT_INTERRUPTS_DISABLED ();
-   disable_interrupts();
+   CLI();
 
    time now = current_time_no_interlock();
 

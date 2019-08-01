@@ -377,14 +377,19 @@ idle_thread::idle_thread()
 }
 
 void idle_thread::run() {
-  for (;;) thread::yield();
+  ASSERT_INTERRUPTS_ENABLED();
+  for (;;) {
+    ASSERT_INTERRUPTS_ENABLED();
+    thread::yield();
+  }
 }
 
 extern void libc_init(void);
 
 void __rtlib_setup ()
 { 
-  enable_interrupts();
+  STI();
+
   term_write(cout, "Initializing ");
   term_write(cout, "\033[46m");
   term_write(cout, OS_NAME);
@@ -393,7 +398,7 @@ void __rtlib_setup ()
   identify_cpu ();
   setup_ps2 ();
 
-  (new idle_thread)->start (); // need an idle thread to prevent deadlocks
+  (new idle_thread)->start(); // need an idle thread to prevent deadlocks
 
   term_write(cout, "Loading up LIBC\n");
   libc_init();
@@ -403,6 +408,7 @@ void __rtlib_setup ()
   setup_ide ();
   term_write(cout, "Loading up the file system...\n");
   setup_fs ();
+
   //setup_net ();
   // FS is loaded, now load the cache maid
 

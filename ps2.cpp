@@ -396,6 +396,8 @@ void irq12 ()
 
 void setup_ps2 ()
 {
+  term_write(cout, "Enabling PS2\n\r");
+
   circular_buffer_cv = new condvar;
 
   controller_config
@@ -426,6 +428,8 @@ void setup_ps2 ()
 #endif
         }
     }
+
+  term_write(cout, "PS2 enabled\n\r");
 }
 
 #endif

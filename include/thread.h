@@ -88,9 +88,13 @@ do { \
 
 #undef enable_interrupts
 
+#define STI() do {__asm__ __volatile__ ("sti" : : : "memory"); } while(0)
+#define CLI() do {__asm__ __volatile__ ("cli" : : : "memory"); } while(0)
+
 #define enable_interrupts() \
 do { \
      ASSERT_INTERRUPTS_DISABLED (); \
+     __asm__ __volatile__ ("sti" : : : "memory"); \
      __asm__ __volatile__ ("sti" : : : "memory"); \
    } while (0)
 
