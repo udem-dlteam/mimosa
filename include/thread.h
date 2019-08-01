@@ -27,6 +27,12 @@ typedef struct user_func_table {
 
 
 
+
+//-----------------------------------------------------------------------------
+
+#define STI() do {__asm__ __volatile__ ("sti" : : : "memory"); } while(0)
+#define CLI() do {__asm__ __volatile__ ("cli" : : : "memory"); } while(0)
+
 //-----------------------------------------------------------------------------
 
 #ifdef CHECK_ASSERTIONS
@@ -80,23 +86,19 @@ typedef struct user_func_table {
 
 #undef disable_interrupts
 
-#define disable_interrupts() \
-do { \
-     ASSERT_INTERRUPTS_ENABLED (); \
-     __asm__ __volatile__ ("cli" : : : "memory"); \
-   } while (0)
+#define disable_interrupts()     \
+  do {                           \
+    ASSERT_INTERRUPTS_ENABLED(); \
+    CLI();                       \
+  } while (0)
 
 #undef enable_interrupts
 
-#define STI() do {__asm__ __volatile__ ("sti" : : : "memory"); } while(0)
-#define CLI() do {__asm__ __volatile__ ("cli" : : : "memory"); } while(0)
-
-#define enable_interrupts() \
-do { \
-     ASSERT_INTERRUPTS_DISABLED (); \
-     __asm__ __volatile__ ("sti" : : : "memory"); \
-     __asm__ __volatile__ ("sti" : : : "memory"); \
-   } while (0)
+#define enable_interrupts()       \
+  do {                            \
+    ASSERT_INTERRUPTS_DISABLED(); \
+    STI();                        \
+  } while (0)
 
 // Save and restore the CPU state.
 

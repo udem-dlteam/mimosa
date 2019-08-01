@@ -381,6 +381,7 @@ void idle_thread::run() {
   ASSERT_INTERRUPTS_ENABLED();
   for (;;) {
     ASSERT_INTERRUPTS_ENABLED();
+    __debug_marker();
     thread::yield();
   }
 }

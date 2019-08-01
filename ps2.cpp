@@ -209,17 +209,25 @@ getchar0_done:
 }
 
 unicode_char getchar() {
-  disable_interrupts();
+  ASSERT_INTERRUPTS_ENABLED();
+  unicode_char result;
 
-  while (circular_buffer_lo == circular_buffer_hi) {
-    circular_buffer_cv->mutexless_wait();
-  }
-  unicode_char result = circular_buffer[circular_buffer_lo];
+  __surround_with_debug_t("getchar", {
+    disable_interrupts();
 
-  circular_buffer_lo = (circular_buffer_lo + 1) % BUFFER_SIZE;
+    while (circular_buffer_lo == circular_buffer_hi) {
+      // __surround_with_debug_t("Get char wait", {
+        circular_buffer_cv->mutexless_wait();
+      // });
+    }
 
-  circular_buffer_cv->mutexless_signal();
-  enable_interrupts();
+    result = circular_buffer[circular_buffer_lo];
+
+    circular_buffer_lo = (circular_buffer_lo + 1) % BUFFER_SIZE;
+
+    circular_buffer_cv->mutexless_signal();
+    enable_interrupts();
+  });
 
   return result;
 }
@@ -244,7 +252,9 @@ native_char readline() {
       }
     }
 
+    ASSERT_INTERRUPTS_ENABLED();
     char c = read[0] = getchar();
+    ASSERT_INTERRUPTS_ENABLED();
 
     if (IS_VISIBLE_CHAR(c)) {
       term_write(io, c);
@@ -308,9 +318,9 @@ static void process_keyboard_data(uint8 data) {
 
 void irq1 ()
 {
-#ifdef SHOW_INTERRUPTS
+// #ifdef SHOW_INTERRUPTS
   term_write(cout, "\033[41m irq1 \033[0m");
-#endif
+// #endif
 
   ACKNOWLEDGE_IRQ(1);
 

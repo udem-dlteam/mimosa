@@ -131,7 +131,9 @@ int main() {
   term_run(tty);
 
   // Never exit, but never do anything either
-  for (;;) thread::yield();
+  for (;;) {
+    thread::yield();
+  }
 
   return 0;
 }

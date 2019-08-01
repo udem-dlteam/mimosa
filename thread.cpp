@@ -245,7 +245,7 @@ void condvar::broadcast() {
 void condvar::mutexless_wait() {
   ASSERT_INTERRUPTS_DISABLED();  // Interrupts should be disabled at this point
 
-  debug_write("LN 248");
+  // debug_write("LN 248");
   save_context(_sched_suspend_on_wait_queue, this);
   
   ASSERT_INTERRUPTS_DISABLED();
@@ -262,6 +262,8 @@ void condvar::mutexless_signal() {
     _sched_reschedule_thread(t);
     _sched_yield_if_necessary();
   }
+
+  ASSERT_INTERRUPTS_DISABLED();
 }
 
 //-----------------------------------------------------------------------------
@@ -355,10 +357,7 @@ void thread::yield() {
 
   disable_interrupts();
 
-  {
-    __surround_with_debug_t("YIELD",
-                            save_context(_sched_switch_to_next_thread, NULL););
-  }
+  save_context(_sched_switch_to_next_thread, NULL);
 
   enable_interrupts();
 }
@@ -443,9 +442,11 @@ void sys_irq (void* esp)///////////////// AMD... why do we need this hack???
 void _sched_resume_next_thread() {
   ASSERT_INTERRUPTS_DISABLED();  // Interrupts should be disabled at this point
 
-  debug_write("Resuming the next thread");
+  // debug_write("Resuming the next thread");
 
   thread* current = wait_queue_head(readyq);
+  debug_write("Waking up");
+  debug_write(current->name());
 
   if (current != NULL) {
     sched_current_thread = current;
@@ -611,6 +612,8 @@ void _sched_yield_if_necessary() {
   if (t != sched_current_thread) {
     save_context(_sched_switch_to_next_thread, NULL);
   }
+  
+  ASSERT_INTERRUPTS_DISABLED();
 }
 
 void _sched_run_thread() {
@@ -641,6 +644,8 @@ void _sched_switch_to_next_thread(uint32 cs, uint32 eflags, uint32* sp,
   thread* current = sched_current_thread;
   
   current->_sp = sp;
+  debug_write("Putting to sleep");
+  debug_write(current->name());
   _sched_reschedule_thread(current);
   _sched_resume_next_thread();
 
