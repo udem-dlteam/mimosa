@@ -32,16 +32,17 @@
 #define COM4_PORT_BASE 0x2e8
 #define COM4_IRQ 3
 
-#define UART_8250_RBR 0
+//#define UART_16550_FCR 2
+//#define UART_16550_SCR 7
+#define UART_8250_RHR 0
 #define UART_8250_THR 0
 #define UART_8250_IER 1
 #define UART_8250_IIR 2
-#define UART_16550_FCR 2
 #define UART_8250_LCR 3
 #define UART_8250_MCR 4
 #define UART_8250_LSR 5
 #define UART_8250_MSR 6
-#define UART_16550_SCR 7
+
 #define UART_8250_DLL 0
 #define UART_8250_DLM 1
 
@@ -112,7 +113,6 @@
 void init_serial(int port);
 void send_serial(int com, char *);
 int serial_received(int com_port);
-char read_serial(int com_port);
 
 #endif
 

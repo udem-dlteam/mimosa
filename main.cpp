@@ -35,8 +35,9 @@ int main() {
   //   term_write(cout, "\r\n");
   //   send_serial(COM1_PORT_BASE, "A\n");
   // }
-  
+  send_serial(COM1_PORT_BASE, "test");
   term_write(cout, "Read");
+  send_serial(COM1_PORT_BASE, "test2");
   
   // Never exit, but never do anything either
   for(;;) thread::yield();

@@ -9,7 +9,11 @@
  * Source for writing 8250 UART drivers can be found at
  * https://en.wikibooks.org/wiki/Serial_Programming/8250_UART_Programming
  */
+int port_in_use = 0;
+
 void init_serial(int com_port) {
+
+  port_in_use = com_port;
 
   if (!(com_port == COM1_PORT_BASE || com_port == COM2_PORT_BASE ||
         com_port == COM3_PORT_BASE || com_port == COM4_PORT_BASE)) {
@@ -26,7 +30,7 @@ void init_serial(int com_port) {
   outb(0x0F, com_port + UART_8250_IER);  //                  (hi byte)
   outb(0x8E,
        com_port +
-           UART_8250_IIR);  //TODO Do not enable FIFO, clear them, with 14-byte threshold
+           UART_8250_IIR);  //Do not enable FIFO, clear them, with 14-byte threshold
   outb(0x08, com_port + UART_8250_MCR);  // IRQs enabled, RTS/DSR set
 
   switch (com_port) {
@@ -133,8 +137,8 @@ static void handle_thr(uint16 port){
 }
 
 // TODO: write characters read in buffer
-static void read_rbr(int com_port) {
-  while ((inb(com_port + UART_8250_LSR) & UART_8250_LSR_DR) == 0);
+static void read_RHR(int com_port) {
+  while (!(inb(com_port + UART_8250_LSR) & UART_8250_LSR_DR));
   //return inb(com_port);
   char c = (char)inb(com_port);
   
@@ -147,9 +151,9 @@ static void read_lsr(uint16 port){
   uint8 e = inb(port + UART_8250_LSR);
   
   if( UART_LSR_DATA_AVAILABLE(e) ){
-    //read (RBR)
+    //read (RHR)
     term_write(cout, "\r\nData Available\r\n");
-    read_rbr(port);
+    read_RHR(port);
   }
   if( UART_LSR_OVERRUN_ERROR(e) ){
     term_write(cout, "\r\nOVERRUN_ERROR\r\n");
@@ -183,7 +187,7 @@ void _handle_interrupt(uint16 port, uint8 com_index, uint8 iir) {
   term_write(cout, com_index);
   term_write(cout, " on port ");
   term_write(cout, port);
-  term_write(cout, " got data\n\r");
+  term_write(cout, " got data");
 #endif
 
   uint8 cause = UART_IIR_GET_CAUSE(iir);
@@ -196,7 +200,7 @@ void _handle_interrupt(uint16 port, uint8 com_index, uint8 iir) {
     //             line signal detect signals.
     // priority :lowest
     // Reading Modem Status Register (MSR) 
-    term_write(cout, "Read_modem_status_register");
+    term_write(cout, "\r\nRead_modem_status_register");
       read_msr(port);
     break;
   case UART_IIR_TRANSMITTER_HOLDING_REG:
@@ -206,6 +210,7 @@ void _handle_interrupt(uint16 port, uint8 com_index, uint8 iir) {
     // priority : next to lowest
     // Reading interrupt indentification register(IIR)
     // or writing to Transmit Holding Buffer (THR)
+    term_write(cout, "\r\nTransmitter_Holding_reg");
     handle_thr(port);
     break;
   case UART_IIR_RCV_LINE:
@@ -214,6 +219,7 @@ void _handle_interrupt(uint16 port, uint8 com_index, uint8 iir) {
     //             error, or break interrupt.
     // priority : highest
     // reading line status register
+    term_write(cout, "\r\nError or Break");
     read_lsr(port);
     break;
   case UART_IIR_DATA_AVAIL:
@@ -224,9 +230,14 @@ void _handle_interrupt(uint16 port, uint8 com_index, uint8 iir) {
     // timeout is available on new model.
     // This means that we need to read data
     // before the connection timeouts
-    // reading receive Buffer Register(RBR)
+    // reading receive Buffer Register(RHR)
+    term_write(cout, "\r\nData Avail\r\n");
+    read_RHR(port); // ***
+    break;
   case UART_IIR_TIMEOUT:
-    read_rbr(port);
+    term_write(cout, "\r\nTimeout\r\n");
+    //simple serial read
+    read_RHR(port);
     break;
 
   default:
@@ -258,7 +269,7 @@ void irq3() {
     caught_something = TRUE;
     _handle_interrupt(COM4_PORT_BASE, 4, com4_iir);
   }
-  i(!(caught_something)){
+  if(!(caught_something)){
     fatal_error("Misconfiguration of IRQ3.");
   }
 }
@@ -290,10 +301,12 @@ void irq4() {
 }
 #endif
 
+// test bit 3 of LSR to determine if last character in THR was shifted
+// out of the buffer before writing a character.
 void send_serial(int port, char* x) {
   while (*x != '\0') {
-    while ((inb(port + UART_8250_LSR) & UART_8250_LSR_THRE) == 0);
-    outb(*x, port);
+    while ((inb(port_in_use + UART_8250_LSR) & UART_8250_LSR_THRE) == 0);
+    outb(*x, port_in_use);
     x++;
   }
 }
