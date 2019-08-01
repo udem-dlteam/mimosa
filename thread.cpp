@@ -306,7 +306,7 @@ thread::thread ()
   }
 
   *--s = 0;              // the (dummy) return address of "run_thread"
-  *--s = eflags_reg ();  // space for "EFLAGS"
+  *--s = (eflags_reg() | (1 << 9));  // space for "EFLAGS"
   *--s = cs_reg ();      // space for "%cs"
   *--s = CAST(uint32,&_sched_run_thread); // to call "run_thread"
 
@@ -361,7 +361,7 @@ void thread::yield() {
                             save_context(_sched_switch_to_next_thread, NULL););
   }
 
-  enable_interrupts();
+  ASSERT_INTERRUPTS_ENABLED();
 }
 
 thread* thread::self() { return sched_current_thread; }
@@ -390,7 +390,7 @@ void thread::sleep(int64 timeout_nsecs) {
     save_context(_sched_suspend_on_sleep_queue, NULL);
   }
 
-  enable_interrupts();
+  ASSERT_INTERRUPTS_ENABLED();
 #endif
 }
 
@@ -597,12 +597,14 @@ void sched_reg_condvar(condvar* c) {
 }
 
 void _sched_reschedule_thread(thread* t) {
+  __debug_marker();
   ASSERT_INTERRUPTS_DISABLED();  // Interrupts should be disabled at this point
   wait_queue_remove(t);
   wait_queue_insert(t, readyq);
 }
 
 void _sched_yield_if_necessary() {
+  __debug_marker();
   ASSERT_INTERRUPTS_DISABLED();  // Interrupts should be disabled at this point
 
   thread* t = wait_queue_head(readyq);
@@ -613,11 +615,13 @@ void _sched_yield_if_necessary() {
 }
 
 void _sched_run_thread() {
-  enable_interrupts();
-
+  __debug_marker();
+  debug_write("Starting a thread");
   sched_current_thread->run();
   sched_current_thread->_terminated = TRUE;
   sched_current_thread->_joiners.broadcast();
+
+  panic(L"Thread is ded");
 
   disable_interrupts();
 
@@ -632,6 +636,7 @@ void _sched_run_thread() {
 
 void _sched_switch_to_next_thread(uint32 cs, uint32 eflags, uint32* sp,
                                   void* q) {
+  __debug_marker();
   ASSERT_INTERRUPTS_DISABLED();  // Interrupts should be disabled at this point
 
   thread* current = sched_current_thread;
@@ -646,7 +651,8 @@ void _sched_switch_to_next_thread(uint32 cs, uint32 eflags, uint32* sp,
 
 void _sched_suspend_on_wait_queue(uint32 cs, uint32 eflags, uint32* sp,
                                   void* q) {
-  ASSERT_INTERRUPTS_DISABLED();  // Interrupts should be disabled at this point
+ __debug_marker();
+ ASSERT_INTERRUPTS_DISABLED();  // Interrupts should be disabled at this point
 
   thread* current = sched_current_thread;
 
@@ -661,6 +667,7 @@ void _sched_suspend_on_wait_queue(uint32 cs, uint32 eflags, uint32* sp,
 
 void _sched_suspend_on_sleep_queue(uint32 cs, uint32 eflags, uint32* sp,
                                    void* dummy) {
+  __debug_marker();
   ASSERT_INTERRUPTS_DISABLED();  // Interrupts should be disabled at this point
 
   thread* current = sched_current_thread;
@@ -712,7 +719,7 @@ void _sched_setup_timer() {
 
 void _sched_set_timer(time t, time now) {
   // t must be >= now
-
+  __debug_marker();
   ASSERT_INTERRUPTS_DISABLED();
 
   int64 count;

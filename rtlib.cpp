@@ -377,6 +377,7 @@ idle_thread::idle_thread()
 }
 
 void idle_thread::run() {
+  debug_write("IDLE thread run start");
   ASSERT_INTERRUPTS_ENABLED();
   for (;;) {
     ASSERT_INTERRUPTS_ENABLED();
@@ -388,7 +389,8 @@ extern void libc_init(void);
 
 void __rtlib_setup ()
 { 
-  STI();
+  debug_write("__rtlib_setup");
+  ASSERT_INTERRUPTS_ENABLED();
 
   term_write(cout, "Initializing ");
   term_write(cout, "\033[46m");

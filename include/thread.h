@@ -31,24 +31,24 @@ typedef struct user_func_table {
 
 #ifdef CHECK_ASSERTIONS
 
-#define ASSERT_INTERRUPTS_DISABLED()                      \
-  do {                                                    \
-    if ((eflags_reg() & (1 << 9)) != 0) {                 \
-      debug_write(__FILE__);                              \
-      debug_write(":");                                   \
-      debug_write(__LINE__);                              \
+#define ASSERT_INTERRUPTS_DISABLED()                 \
+  do {                                               \
+    if ((eflags_reg() & (1 << 9)) != 0) {            \
+      debug_write(__FILE__);                         \
+      debug_write(":");                              \
+      debug_write(__LINE__);                         \
       panic(L"FAILED ASSERT_INTERRUPTS_DISABLED\n"); \
-    }                                                     \
+    }                                                \
   } while (0)
 
-#define ASSERT_INTERRUPTS_ENABLED()                      \
-  do {                                                   \
-    if ((eflags_reg() & (1 << 9)) != 1) {                \
-      debug_write(__FILE__);                             \
-      debug_write(":");                                  \
-      debug_write(__LINE__);                             \
+#define ASSERT_INTERRUPTS_ENABLED()                 \
+  do {                                              \
+    if (!(eflags_reg() & (1 << 9))) {               \
+      debug_write(__FILE__);                        \
+      debug_write(":");                             \
+      debug_write(__LINE__);                        \
       panic(L"FAILED ASSERT_INTERRUPTS_ENABLED\n"); \
-    }                                                    \
+    }                                               \
   } while (0)
 
 #else
@@ -172,18 +172,20 @@ do {                                                                          \
 
 #ifdef USE_RET_FOR_RESTORE_CONTEXT
 
-#define restore_context(sp)                                                   \
-do {                                                                          \
-     ASSERT_INTERRUPTS_DISABLED ();                                           \
-     __asm__ __volatile__                                                     \
-       ("movl  %0,%%esp  # Restore the stack pointer                       \n \
+#define restore_context(sp)                                                     \
+  do {                                                                          \
+    ASSERT_INTERRUPTS_DISABLED();                                               \
+    __asm__ __volatile__(                                                       \
+        "movl  %0,%%esp  # Restore the stack pointer                       \n \
          popl  %%ebx     # Get return address                              \n \
          popl  %%eax     # Discard %%cs                                    \n \
-         popfl                                                             \n \
-         jmp   *%%ebx    # Return from the ``call'' in ``save_context''"      \
-        :                                                                     \
-        : "g" (sp));                                                          \
-   } while (0)
+         popfl                                                                \n\
+         sti                                                                \n \
+         sti                                                                \n \
+         jmp   *%%ebx    # Return from the ``call'' in ``save_context''" \
+        :                                                                       \
+        : "g"(sp));                                                             \
+  } while (0)
 
 #endif
 

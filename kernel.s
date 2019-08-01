@@ -1089,6 +1089,12 @@ sys_intr:
   # make sure the C code does not affect ESP
   pushl %esp
   call  sys_irq
+  
+  debug_sys_intr_ret:
+  movb $'A', %al
+  outb %al, $0xe9
+
+  jmp debug_sys_intr_ret
   popl  %esp
   popa
   sti

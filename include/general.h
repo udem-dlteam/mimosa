@@ -130,6 +130,7 @@ typedef int32 error_code;
 #define SHOW_UART_MESSAGES
 // #define RED_PANIC_SCREEN
 #define ENABLE_DEBUG_WRITE
+// #define ENABLE_DEBUG_MARKER
 #define LOAD_GAMBIT
 #define ENABLE_MOUSE
 
