@@ -122,7 +122,8 @@ static error_code normalize_path(native_string path, native_string new_path) {
     } else {
       while (path[0] != '\0' && path[0] != '/') {
         if (i >= NAME_MAX) return FNF_ERROR;
-        new_path[i++] = *path++;
+        new_path[i++] = (*path >= 'a' && *path <= 'z') ? (*path - 32) : *path;
+        path++;
       }
       if (path[0] != '\0') {
         if (i >= NAME_MAX) return FNF_ERROR;

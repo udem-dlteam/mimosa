@@ -6,7 +6,7 @@ int libc_startup(int argc, char *argv[], char *env[]) {
   return main(argc, argv, env);
 }
 
-#ifndef USE_MIMOSA
+#ifndef USE_MIMOSA_LIBC_LINK
 struct libc_link LIBC_LINK;
 #endif
 

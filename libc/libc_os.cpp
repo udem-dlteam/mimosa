@@ -1,7 +1,16 @@
 //#define ENABLE_LIBC_TRACE
 #define USE_MIMOSA
+#define USE_MIMOSA_LIBC_LINK
 // #undef REDIRECT_PREFIX
 // #define REDIRECT_PREFIX libc_
+
+#ifdef USE_MIMOSA
+
+#include "general.h"
+#include "chrono.h"
+#include "ps2.h"
+
+#endif
 
 #include "include/libc_link.h"
 

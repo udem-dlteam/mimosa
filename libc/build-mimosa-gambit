@@ -37,13 +37,12 @@ echo "#define HAVE_GETTIMEOFDAY 1" >> conf.h
 echo "#define HAVE_SETITIMER 1"    >> conf.h
 echo "#define HAVE_SIGNAL 1"       >> conf.h
 
-echo "#define USE_LIBC_LINK" >> conf.h
 echo "#include \"include/libc_link.h\"" >> conf.h
 
 mv conf.h include/config.h
 
 echo "#!/bin/sh" > ccomp
-echo "$CCOMP -nostdinc -I `pwd`/.. -I `pwd`/../include -m32 -Wno-write-strings -ffreestanding \"\$@\"" >> ccomp
+echo "$CCOMP -nostdinc -I `pwd`/.. -I `pwd`/../include -m32 -Wno-write-strings -ffreestanding -DUSE_MIMOSA_LIBC_LINK -DUSE_LIBC_LINK \"\$@\"" >> ccomp
 
 cd lib
 make
@@ -63,10 +62,10 @@ cd ..
 
 cd ..
 
-gambit/ccomp -DUSE_LIBC_LINK -I . -c -o libc_app.o libc_app.c
+gambit/ccomp -I . -c -o libc_app.o libc_app.c
 
 ld -Ttext 0x100000 -m elf_i386 -o gsi.exe --omagic --entry=libc_startup --oformat binary libc_app.o gambit/gsi/_gsi_.o gambit/gsi/_gsi.o gambit/gsi/libgambitgsi.a gambit/lib/libgambit.a -lm
 
 ld -Ttext 0x100000 -m elf_i386 -o gsc.exe --omagic --entry=libc_startup --oformat binary libc_app.o gambit/gsc/_gsc_.o gambit/gsc/_gsc.o gambit/gsc/libgambitgsc.a gambit/lib/libgambit.a -lm
 
-#objdump -b binary -m i386 -D gsi.exe | head -20
+objdump -b binary -m i386 -D gsi.exe | head -20

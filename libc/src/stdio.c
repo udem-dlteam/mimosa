@@ -105,21 +105,28 @@ size_t fread(void *__restrict __ptr, size_t __size, size_t __n,
 #ifdef USE_HOST_LIBC
 
 #undef fread
+
   return fread(__ptr, __size, __n, __stream);
+
 #else
 
   // TODO: implement reading other files than stdin
 
-  int i = 0;
   if (__stream == &FILE_stdin) {
-    char *p = (char *)__ptr;
-    int n = __n;
+
+    unicode_char *p = CAST(unicode_char*,__ptr);
+    int n = __size * __n / sizeof(unicode_char);
+    int i = 0;
+
     while (i < n) {
       int c = getchar0(FALSE);
       if (c < 0) break;
       *p++ = c;
       i++;
     }
+
+    __n = i * sizeof(unicode_char) / __size;
+
   } else {
     error_code err;
     file* f = __stream->f;
@@ -127,15 +134,15 @@ size_t fread(void *__restrict __ptr, size_t __size, size_t __n,
 
     if(ERROR(err = read_file(f, __ptr, count))) {
       // fread interface has 0 for an error
-      i = 0;
+      __n = 0;
       __stream->err = err;
     } else {
       // Number of items read, not byte count
-      i = err / __size;
+      __n = err / __size;
     }
   }
 
-  return i;
+  return __n;
 #endif
 #endif
 }
@@ -160,17 +167,15 @@ size_t fwrite(const void *__restrict __ptr, size_t __size,
 #else
 
   // TODO: implement writing to files other than stdout/stderr
-  size_t t;
   if (__stream == &FILE_stdout || __stream == &FILE_stderr) {
 
-    char *p = (char*)__ptr;
-    int n = __size * __n;
+    unicode_char *p = CAST(unicode_char*,__ptr);
+    int n = __size * __n / sizeof(unicode_char);
 
     while (n > 0) {
       libc_wr_char(1, *p++);
       n--;
     }
-    t = __n;
   } else {
     error_code err;
     file *f = __stream->f;
@@ -178,10 +183,10 @@ size_t fwrite(const void *__restrict __ptr, size_t __size,
 
     if (ERROR(err = write_file(f, CAST(void *, __ptr), count))) {
       __stream->err = err;
-      t = 0;
+      __n = 0;
     } else {
       // No of items returned
-      t = err / __size;
+      __n = err / __size;
     }
   }
 

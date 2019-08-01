@@ -652,7 +652,8 @@ void _sched_suspend_on_sleep_queue(uint32 cs, uint32 eflags, uint32* sp,
 }
 
 void _sched_setup_timer() {
-   // When the timer elapses an interrupt is sent to the processor,
+
+  // When the timer elapses an interrupt is sent to the processor,
   // causing it to call the function "timer_elapsed".  This is how CPU
   // multiplexing is achieved.  Unfortunately, it takes quite a bit of
   // time to service an interrupt and this can be an important part of
@@ -735,8 +736,11 @@ void _sched_set_timer(time t, time now) {
 #endif
 }
 
+extern void send_signal(int sig); // from libc/src/signal.c
+
 void _sched_timer_elapsed() {
-   ASSERT_INTERRUPTS_DISABLED ();
+
+  ASSERT_INTERRUPTS_DISABLED ();
 
   time now = current_time_no_interlock ();
 
@@ -779,17 +783,16 @@ void _sched_timer_elapsed() {
       }
   }
 #endif
-    thread* current = sched_current_thread;
 
-    if (less_time(now, current->_end_of_quantum)) {
-      //      cout << "timer is fast\n";/////////////
-      _sched_set_timer(current->_end_of_quantum, now);
-    }
-    // else {  // cout << "f";//////////
-    //   // debug_write("LN 794");
-    //   save_context(_sched_switch_to_next_thread, NULL);
-    //   // cout << "F";
-    // }
+  thread* current = sched_current_thread;
+
+  if (less_time(now, current->_end_of_quantum)) {
+    //      cout << "timer is fast\n";/////////////
+    _sched_set_timer(current->_end_of_quantum, now);
+  } else {
+    send_signal(26); // send SIGVTALRM
+    save_context(_sched_switch_to_next_thread, NULL);
+  }
 }
 
 uint32 thread::code() {
@@ -807,9 +810,9 @@ native_string program_thread::name() {
 
 void program_thread::run() {
   debug_write("Running program thread");
-  int argc = 1;
-  static char* argv[] = {"app", NULL};
-  static char* env[] = {NULL};
+  static char* argv[] = { "app", "-:t4", NULL };
+  int argc = sizeof(argv) / sizeof(argv[0]) - 1;
+  static char* env[] = { NULL };
   _code(argc, argv, env);
   debug_write("End program thread");
 }
