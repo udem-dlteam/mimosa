@@ -87,6 +87,7 @@ bootsect.bin: bootsect.o
 	as --defsym OS_NAME=$(OS_NAME) --defsym KERNEL_START=$(KERNEL_START) --defsym KERNEL_SIZE=`cat kernel.bin | wc --bytes | sed -e "s/ //g"` -o $*.o $*.s
 
 clean:
+	ssh administrator@localhost -p 10022 "rm -rf mimosa-build;"
 	rm -rf mimosa-build
 	rm -f *.o *.asm *.bin *.tmp *.d
 
