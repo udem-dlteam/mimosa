@@ -245,6 +245,7 @@ void condvar::broadcast() {
 void condvar::mutexless_wait() {
   ASSERT_INTERRUPTS_DISABLED();  // Interrupts should be disabled at this point
 
+  debug_write("LN 248");
   save_context(_sched_suspend_on_wait_queue, this);
 
   ASSERT_INTERRUPTS_DISABLED();  // Interrupts should be disabled at this point
@@ -429,6 +430,8 @@ void sys_irq (void* esp)///////////////// AMD... why do we need this hack???
 
 void _sched_resume_next_thread() {
   ASSERT_INTERRUPTS_DISABLED();  // Interrupts should be disabled at this point
+
+  debug_write("Resuming the next thread");
 
   thread* current = wait_queue_head(readyq);
 
@@ -615,6 +618,10 @@ void _sched_switch_to_next_thread(uint32 cs, uint32 eflags, uint32* sp,
 
   thread* current = sched_current_thread;
 
+  if(NULL == current) {
+    debug_write("WOWZA");
+  }
+
   current->_sp = sp;
   _sched_reschedule_thread(current);
   _sched_resume_next_thread();
@@ -738,8 +745,9 @@ void _sched_set_timer(time t, time now) {
 
 void _sched_timer_elapsed() {
    ASSERT_INTERRUPTS_DISABLED ();
+   disable_interrupts();
 
-  time now = current_time_no_interlock ();
+   time now = current_time_no_interlock();
 
 #if 1
   for (;;)
@@ -785,12 +793,11 @@ void _sched_timer_elapsed() {
     if (less_time(now, current->_end_of_quantum)) {
       //      cout << "timer is fast\n";/////////////
       _sched_set_timer(current->_end_of_quantum, now);
+    } else {  // cout << "f";//////////
+      debug_write("LN 794");
+      save_context(_sched_switch_to_next_thread, NULL);
+      //   // cout << "F";
     }
-    // else {  // cout << "f";//////////
-    //   // debug_write("LN 794");
-    //   save_context(_sched_switch_to_next_thread, NULL);
-    //   // cout << "F";
-    // }
 }
 
 uint32 thread::code() {
