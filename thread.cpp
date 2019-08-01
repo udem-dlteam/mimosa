@@ -247,9 +247,8 @@ void condvar::mutexless_wait() {
 
   debug_write("LN 248");
   save_context(_sched_suspend_on_wait_queue, this);
-  // Save context will change the interrupt status
-  // We need to redisable it, since it is what is expected from mutexless wait
-  disable_interrupts();
+  
+  ASSERT_INTERRUPTS_DISABLED();
 }
 
 void condvar::mutexless_signal() {
@@ -361,7 +360,7 @@ void thread::yield() {
                             save_context(_sched_switch_to_next_thread, NULL););
   }
 
-  ASSERT_INTERRUPTS_ENABLED();
+  enable_interrupts();
 }
 
 thread* thread::self() { return sched_current_thread; }
@@ -390,7 +389,7 @@ void thread::sleep(int64 timeout_nsecs) {
     save_context(_sched_suspend_on_sleep_queue, NULL);
   }
 
-  ASSERT_INTERRUPTS_ENABLED();
+  enable_interrupts();
 #endif
 }
 

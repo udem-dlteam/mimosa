@@ -114,8 +114,7 @@ do {                                                                          \
          pushl %%cs             #  as expected by the ``iret'' instruction \n \
          call  %P0              #  so that ``iret'' can restore the context\n \
          addl  $8,%%esp         # Remove the third and fourth parameter    \n \
-         popa                                                              \n \
-         sti"                                                                 \
+         popa"                                                                \
         :                                                                     \
         : "i" (receiver), "g" (data)                                          \
         : "memory");                                                          \
@@ -180,8 +179,6 @@ do {                                                                          \
          popl  %%ebx     # Get return address                              \n \
          popl  %%eax     # Discard %%cs                                    \n \
          popfl                                                                \n\
-         sti                                                                \n \
-         sti                                                                \n \
          jmp   *%%ebx    # Return from the ``call'' in ``save_context''" \
         :                                                                       \
         : "g"(sp));                                                             \
