@@ -165,7 +165,7 @@ static volatile unicode_char circular_buffer[BUFFER_SIZE];
 static volatile native_char line_buffer[LINE_BUFFER_SIZE];
 static volatile int circular_buffer_lo = 0;
 static volatile int circular_buffer_hi = 0;
-static condvar* circular_buffer_cv;
+condvar* circular_buffer_cv;
 
 static void keypress(uint8 ch) {
   // debug_write("[START] Keypress");
@@ -212,13 +212,16 @@ getchar0_done:
 }
 
 unicode_char getchar() {
+  ASSERT_INTERRUPTS_ENABLED();
+  unicode_char result;
+
   disable_interrupts();
 
   while (circular_buffer_lo == circular_buffer_hi) {
     circular_buffer_cv->mutexless_wait();
   }
 
-  unicode_char result = circular_buffer[circular_buffer_lo];
+  result = circular_buffer[circular_buffer_lo];
 
   circular_buffer_lo = (circular_buffer_lo + 1) % BUFFER_SIZE;
 
@@ -248,7 +251,9 @@ native_char readline() {
       }
     }
 
+    ASSERT_INTERRUPTS_ENABLED();
     char c = read[0] = getchar();
+    ASSERT_INTERRUPTS_ENABLED();
 
     if (IS_VISIBLE_CHAR(c)) {
       term_write(io, c);
@@ -278,6 +283,8 @@ native_char readline() {
   }
 }
 
+extern void send_signal(int sig); // from libc/src/signal.c
+
 static void process_keyboard_data(uint8 data) {
 
   if (data >= KBD_SCANCODE_ESC && data <= KBD_SCANCODE_F12) {
@@ -301,6 +308,8 @@ static void process_keyboard_data(uint8 data) {
       if (seq == NULL) {
         uint8 ch = code & 0xff;
         keypress(ch);
+        if (ch == 3) // CTRL-C
+          send_signal(2); // send SIGINT
       } else {
         while (*seq != '\0')
           keypress(*seq++);
@@ -405,6 +414,8 @@ void irq12 ()
 
 void setup_ps2 ()
 {
+  term_write(cout, "Enabling PS2\n\r");
+
   circular_buffer_cv = new condvar;
 
   controller_config
@@ -435,6 +446,8 @@ void setup_ps2 ()
 #endif
         }
     }
+
+  term_write(cout, "PS2 enabled\n\r");
 }
 
 #endif

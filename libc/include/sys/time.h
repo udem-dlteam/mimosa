@@ -11,6 +11,8 @@
 
 #else
 
+#ifndef USE_HOST_LIBC
+
 struct timeval {
   int32 tv_sec;  // seconds
   int32 tv_usec; // microseconds
@@ -23,10 +25,6 @@ struct timezone {
 
 extern int gettimeofday(struct timeval *__restrict __tv, struct timezone *__tz);
 
-#endif
-
-#ifndef USE_HOST_LIBC
-
 #define ITIMER_REAL    0
 #define ITIMER_VIRTUAL 1
 #define ITIMER_PROF    2
@@ -35,6 +33,8 @@ struct itimerval {
   struct timeval it_interval;
   struct timeval it_value;
 };
+
+#endif
 
 #endif
 

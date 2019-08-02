@@ -7,12 +7,20 @@
 
 #ifndef USE_HOST_LIBC
 
-typedef int32 sigset_t;
+typedef uint32 sigset_t;
 typedef void (*__sighandler_t)(int);
+
+#define sigemptyset(sigs) *(sigs) = 0;
+#define sigaddset(sigs, sig) *(sigs) |= (CAST(sigset_t,1)<<(sig))
+#define sigdelset(sigs, sig) *(sigs) &= ~(CAST(sigset_t,1)<<(sig))
 
 #define SIG_ERR CAST(__sighandler_t,-1) // Error return
 #define SIG_DFL CAST(__sighandler_t, 0) // Default action
 #define SIG_IGN CAST(__sighandler_t, 1) // Ignore signal
+
+#define SIG_SETMASK 0
+#define SIG_BLOCK   1
+#define SIG_UNBLOCK 2
 
 #define SIGHUP          1       // Hangup (POSIX)
 #define SIGINT          2       // Interrupt (ANSI)

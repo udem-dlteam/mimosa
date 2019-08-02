@@ -122,7 +122,8 @@ static error_code normalize_path(native_string path, native_string new_path) {
     } else {
       while (path[0] != '\0' && path[0] != '/') {
         if (i >= NAME_MAX) return FNF_ERROR;
-        new_path[i++] = *path++;
+        new_path[i++] = (*path >= 'a' && *path <= 'z') ? (*path - 32) : *path;
+        path++;
       }
       if (path[0] != '\0') {
         if (i >= NAME_MAX) return FNF_ERROR;
@@ -233,6 +234,31 @@ error_code open_file(native_string path, native_string mode, file** result) {
 
         i = 0;
 
+        // TODO: make a better name parsing algorithm.
+        // TOOD: the idea here is to locate the last foward
+        // TOOD: slash, and parse starting there.
+        native_string scout = p;
+
+        while(scout[i] != '\0') {
+          if(scout[i] == '/') {
+            scout = scout + i;
+            i = 0;
+          }
+          i += 1;
+        }
+
+        i = 0;
+
+        if (scout[0] == '\0')
+          break;  // Invalid string
+        else if (scout[0] == '.') {
+          p = scout + 1;
+        } else {
+          p = scout;
+        }
+
+        // The next dot allowed is to identify the start
+        // of the extension
         while (*p != '\0' && *p != '.' && *p != '/') {
           if (i < 8) name[i] = *p;
           i++;
@@ -261,6 +287,7 @@ error_code open_file(native_string path, native_string mode, file** result) {
           if (de.DIR_Name[0] != 0xe5 && (de.DIR_Attr & FAT_ATTR_HIDDEN) == 0 &&
               (de.DIR_Attr & FAT_ATTR_VOLUME_ID) == 0) {
             // Compare the names
+
             for (i = 0; i < FAT_NAME_LENGTH; i++) {
               if (de.DIR_Name[i] != name[i]) break;
             }

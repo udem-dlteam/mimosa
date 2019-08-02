@@ -93,6 +93,18 @@ unsigned char strcmp(char* a, char* b);
 
 //-----------------------------------------------------------------------------
 
+#ifdef ENABLE_DEBUG_MARKER
+#define __debug_marker() \
+  do { \
+    term_write(cout, __FILE__); \
+    term_write(cout, ":");      \
+    term_write(cout, __LINE__); \
+    term_writeline(cout);       \
+  } while(0);
+#else
+#define __debug_marker() NOP()
+#endif
+
 #define __surround_with_debug(code) \
   do {                              \
     debug_write("SURROUND IN ");    \

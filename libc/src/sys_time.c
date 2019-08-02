@@ -14,14 +14,13 @@ extern "C" int gettimeofday(struct timeval *__restrict __tv,
 
 #ifdef USE_HOST_LIBC
 
-#undef gettimeofday
-
   return gettimeofday(__tv, __tz);
 
 #else
 
-  // TODO: implement
-  return 0;
+#undef gettimeofday
+
+  return gettimeofday(__tv, __tz);
 
 #endif
 #endif

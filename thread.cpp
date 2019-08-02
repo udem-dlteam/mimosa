@@ -34,8 +34,7 @@ void mutex::lock() {
   disable_interrupts();
 
   if (_locked) {
-    debug_write("Mutex locked!");
-    save_context(_sched_suspend_on_wait_queue, this);
+    save_context(_sched_suspend_on_wait_queue, CAST(wait_queue*, this));
   } else {
     _locked = TRUE;
   }
@@ -43,43 +42,13 @@ void mutex::lock() {
 }
 
 bool mutex::lock_or_timeout(time timeout) {
-// #if 0
-//   disable_interrupts ();
-
-//   if (_locked)
-//     {
-//       do
-//         {
-//           if (!less_time (current_time_no_interlock (), timeout))
-//             {
-//               enable_interrupts ();
-//               return FALSE;
-//             }
-
-//           enable_interrupts ();
-//           thread::yield ();
-//           disable_interrupts ();
-//         } while (_locked);
-//     }
-
-//   _locked = TRUE;
-
-//   enable_interrupts ();
-
-//   return TRUE;
-// #else
   disable_interrupts();
 
   thread* current = sched_current_thread;
 
   if (_locked) {
-    
-    if(timeout.n == 0) {
-      enable_interrupts();
-      return FALSE;
-    }
 
-    if (!less_time(current_time_no_interlock(), timeout)) {
+    if ((timeout.n == 0) | !less_time(current_time_no_interlock(), timeout)) {
       enable_interrupts();
       return FALSE;
     }
@@ -87,14 +56,18 @@ bool mutex::lock_or_timeout(time timeout) {
     current->_timeout = timeout;
     current->_did_not_timeout = TRUE;
 
+    // Remove it from whatever it's waiting
     wait_queue_remove(current);
-    wait_queue_insert(current, this);
-    debug_write("LN 91");
+    wait_queue_detach(current);
+    // Wait on the mutex: we are blocked until the mutex is freed
+    wait_queue_insert(current, CAST(wait_queue*, this));
+    // Sleep
     save_context(_sched_suspend_on_sleep_queue, NULL);
-
+    // 
     enable_interrupts();
 
     return _locked = current->_did_not_timeout;
+    // return FALSE;
   }
 
   _locked = TRUE;
@@ -136,11 +109,10 @@ condvar::condvar ()
   sched_reg_condvar(this);
 }
 
-void condvar::wait (mutex* m)
-{
-  disable_interrupts ();
+void condvar::wait(mutex* m) {
+  disable_interrupts();
 
-  thread* t = wait_queue_head (CAST(wait_queue*,m));
+  thread* t = wait_queue_head(CAST(wait_queue*, m));
 
   if (t == NULL) {
     m->_locked = FALSE;
@@ -150,23 +122,13 @@ void condvar::wait (mutex* m)
     _sched_reschedule_thread(t);
   }
 
-  // Why is this there???
-  // { //cout << "b";/////////
-
-  //     debug_write("LN 159");
-  // save_context (scheduler::suspend_on_wait_queue, this);
-  // //cout << "B";
-  // }
-
-  if (m->_locked) {  // cout << "c";///////////
-    debug_write("LN 166");
+  if (m->_locked) {
     save_context(_sched_suspend_on_wait_queue, m);
-    // cout << "C";
   } else {
     m->_locked = TRUE;
   }
 
-  enable_interrupts ();
+  enable_interrupts();
 }
 
 bool condvar::wait_or_timeout (mutex* m, time timeout)
@@ -175,7 +137,7 @@ bool condvar::wait_or_timeout (mutex* m, time timeout)
 
   thread* current = sched_current_thread;
 
-  thread* t = wait_queue_head (CAST(wait_queue*,m));
+  thread* t = wait_queue_head(CAST(wait_queue*,m));
 
   if (t == NULL) {
     m->_locked = FALSE;
@@ -194,9 +156,8 @@ bool condvar::wait_or_timeout (mutex* m, time timeout)
   current->_did_not_timeout = TRUE;
 
   wait_queue_remove (current);
-  wait_queue_insert (current, this);
+  wait_queue_insert (current, CAST(wait_queue*, this));
 
-  debug_write("LN 205");
   save_context(_sched_suspend_on_sleep_queue, NULL);
 
   ASSERT_INTERRUPTS_DISABLED ();
@@ -243,11 +204,12 @@ void condvar::broadcast() {
 }
 
 void condvar::mutexless_wait() {
-  ASSERT_INTERRUPTS_DISABLED();  // Interrupts should be disabled at this point
-
-  save_context(_sched_suspend_on_wait_queue, this);
-
-  ASSERT_INTERRUPTS_DISABLED();  // Interrupts should be disabled at this point
+  // Interrupts should be disabled at this point
+  ASSERT_INTERRUPTS_DISABLED();  
+  
+  save_context(_sched_suspend_on_wait_queue, CAST(wait_queue*, this));
+  
+  ASSERT_INTERRUPTS_DISABLED();
 }
 
 void condvar::mutexless_signal() {
@@ -261,6 +223,8 @@ void condvar::mutexless_signal() {
     _sched_reschedule_thread(t);
     _sched_yield_if_necessary();
   }
+
+  ASSERT_INTERRUPTS_DISABLED();
 }
 
 //-----------------------------------------------------------------------------
@@ -272,7 +236,8 @@ thread::thread ()
   static const int stack_size = 65536 << 1; // size of thread stacks in bytes
 
   mutex_queue_init (this);
-  sleep_queue_detach (this);
+  wait_queue_detach(this);
+  sleep_queue_detach(this);
 
   uint32* s = CAST(uint32*, kmalloc(stack_size));
 
@@ -303,7 +268,10 @@ thread::thread ()
   }
 
   *--s = 0;              // the (dummy) return address of "run_thread"
-  *--s = eflags_reg ();  // space for "EFLAGS"
+  *--s = (eflags_reg() | (1 << 9));  // space for "EFLAGS"
+  // We XOR the interrupt activated so the first thread start will
+  // have interrupts on regardless of the interrupt status
+  // of the creation site.
   *--s = cs_reg ();      // space for "%cs"
   *--s = CAST(uint32,&_sched_run_thread); // to call "run_thread"
 
@@ -327,9 +295,16 @@ thread::~thread ()
 }
 
 thread* thread::start() {
-  disable_interrupts ();
-  _sched_reschedule_thread(this);
-  _sched_yield_if_necessary();
+
+  disable_interrupts();
+
+  {
+    _sched_reschedule_thread(this);
+    _sched_yield_if_necessary();
+  }
+
+  enable_interrupts();
+
   return this;
 }
 
@@ -342,11 +317,10 @@ void thread::join ()
 }
 
 void thread::yield() {
+
   disable_interrupts();
-  {  // cout << "e";////////////
-    save_context(_sched_switch_to_next_thread, NULL);
-    // cout << "E";
-  }
+
+  save_context(_sched_switch_to_next_thread, NULL);
 
   enable_interrupts();
 }
@@ -366,14 +340,17 @@ void thread::sleep(int64 timeout_nsecs) {
 #else
   disable_interrupts();
 
-  thread* current = sched_current_thread;
+  {
+    thread* current = sched_current_thread;
 
-  current->_timeout =
-      add_time(current_time_no_interlock(), nanoseconds_to_time(timeout_nsecs));
+    current->_timeout = add_time(current_time_no_interlock(),
+                                 nanoseconds_to_time(timeout_nsecs));
 
-  wait_queue_remove(current);
+    wait_queue_remove(current);
+    wait_queue_detach(current);
 
-  save_context(_sched_suspend_on_sleep_queue, NULL);
+    save_context(_sched_suspend_on_sleep_queue, NULL);
+  }
 
   enable_interrupts();
 #endif
@@ -493,6 +470,7 @@ void sched_setup(void_fn continuation) {
   sleep_queue_init (sleepq);
 
   sched_primordial_thread = new primordial_thread (continuation);
+
   sched_current_thread = sched_primordial_thread;
 
   wait_queue_insert (sched_current_thread, readyq);
@@ -502,6 +480,8 @@ void sched_setup(void_fn continuation) {
   // ** NEVER REACHED **
   panic(L"sched_setup should never return");
 }
+
+extern condvar* circular_buffer_cv;
 
 void sched_stats() {
   disable_interrupts();
@@ -567,8 +547,6 @@ void sched_stats() {
   term_write(cout, ")\n");
 
   enable_interrupts();
-
-  // cout << "(" << n << " " << m << " " << p << ")";
 }
 
 void sched_reg_mutex(mutex* m) {
@@ -593,6 +571,8 @@ void _sched_yield_if_necessary() {
   if (t != sched_current_thread) {
     save_context(_sched_switch_to_next_thread, NULL);
   }
+  
+  ASSERT_INTERRUPTS_DISABLED();
 }
 
 void _sched_run_thread() {
@@ -601,8 +581,11 @@ void _sched_run_thread() {
   sched_current_thread->_joiners.broadcast();
 
   disable_interrupts();
-  wait_queue_remove(sched_current_thread);
-  _sched_resume_next_thread();
+
+  {
+    wait_queue_remove(sched_current_thread);
+    _sched_resume_next_thread();
+  }
 
   // ** NEVER REACHED ** (this function never returns)
   panic(L"_sched_run_thread() should never return");
@@ -613,7 +596,7 @@ void _sched_switch_to_next_thread(uint32 cs, uint32 eflags, uint32* sp,
   ASSERT_INTERRUPTS_DISABLED();  // Interrupts should be disabled at this point
 
   thread* current = sched_current_thread;
-
+  
   current->_sp = sp;
   _sched_reschedule_thread(current);
   _sched_resume_next_thread();
@@ -624,12 +607,14 @@ void _sched_switch_to_next_thread(uint32 cs, uint32 eflags, uint32* sp,
 
 void _sched_suspend_on_wait_queue(uint32 cs, uint32 eflags, uint32* sp,
                                   void* q) {
-  ASSERT_INTERRUPTS_DISABLED();  // Interrupts should be disabled at this point
+ ASSERT_INTERRUPTS_DISABLED();  // Interrupts should be disabled at this point
 
   thread* current = sched_current_thread;
 
   current->_sp = sp;
+
   wait_queue_remove(current);
+  wait_queue_detach(current);
   wait_queue_insert(current, CAST(wait_queue*, q));
   _sched_resume_next_thread();
 
@@ -652,7 +637,8 @@ void _sched_suspend_on_sleep_queue(uint32 cs, uint32 eflags, uint32* sp,
 }
 
 void _sched_setup_timer() {
-   // When the timer elapses an interrupt is sent to the processor,
+
+  // When the timer elapses an interrupt is sent to the processor,
   // causing it to call the function "timer_elapsed".  This is how CPU
   // multiplexing is achieved.  Unfortunately, it takes quite a bit of
   // time to service an interrupt and this can be an important part of
@@ -690,7 +676,6 @@ void _sched_setup_timer() {
 
 void _sched_set_timer(time t, time now) {
   // t must be >= now
-
   ASSERT_INTERRUPTS_DISABLED();
 
   int64 count;
@@ -735,8 +720,11 @@ void _sched_set_timer(time t, time now) {
 #endif
 }
 
+extern void send_signal(int sig); // from libc/src/signal.c
+
 void _sched_timer_elapsed() {
-   ASSERT_INTERRUPTS_DISABLED ();
+
+  ASSERT_INTERRUPTS_DISABLED ();
 
   time now = current_time_no_interlock ();
 
@@ -746,12 +734,6 @@ void _sched_timer_elapsed() {
       thread* t = sleep_queue_head (sleepq);
 
       if (t == NULL || less_time (now, t->_timeout)) {
-        // if(NULL == t) {
-        //   debug_write("Sleep queue head is null");
-        // } else {
-        //   debug_write("Awaken before the time");
-        // }
-
         break;
       }
 
@@ -779,22 +761,20 @@ void _sched_timer_elapsed() {
       }
   }
 #endif
-    thread* current = sched_current_thread;
 
-    if (less_time(now, current->_end_of_quantum)) {
-      //      cout << "timer is fast\n";/////////////
-      _sched_set_timer(current->_end_of_quantum, now);
-    }
-    // else {  // cout << "f";//////////
-    //   // debug_write("LN 794");
-    //   save_context(_sched_switch_to_next_thread, NULL);
-    //   // cout << "F";
-    // }
+  thread* current = sched_current_thread;
+
+  if (less_time(now, current->_end_of_quantum)) {
+    //      cout << "timer is fast\n";/////////////
+    _sched_set_timer(current->_end_of_quantum, now);
+  } else {
+    send_signal(26); // send SIGVTALRM
+    save_context(_sched_switch_to_next_thread, NULL);
+  }
 }
 
 uint32 thread::code() {
-  int i = 5;
-  return 0;
+  return NULL;
 }
 
 program_thread::program_thread(libc_startup_fn code) {
@@ -807,9 +787,9 @@ native_string program_thread::name() {
 
 void program_thread::run() {
   debug_write("Running program thread");
-  int argc = 1;
-  static char* argv[] = {"app", NULL};
-  static char* env[] = {NULL};
+  static char* argv[] = { "app", "-:t4", NULL };
+  int argc = sizeof(argv) / sizeof(argv[0]) - 1;
+  static char* env[] = { NULL };
   _code(argc, argv, env);
   debug_write("End program thread");
 }
