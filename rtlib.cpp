@@ -403,10 +403,7 @@ native_string idle_thread::name() {
 }
 
 void idle_thread::run() {
-  debug_write("IDLE thread run start");
-  ASSERT_INTERRUPTS_ENABLED();
   for (;;) {
-    ASSERT_INTERRUPTS_ENABLED();
     thread::yield();
   }
 }
