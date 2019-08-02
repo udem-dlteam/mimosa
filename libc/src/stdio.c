@@ -3,6 +3,7 @@
 
 #ifdef USE_MIMOSA
 
+#include "fs.h"
 #include "ps2.h"
 #include "general.h"
 #include "rtlib.h"
@@ -51,11 +52,11 @@ FILE *fopen(const char *__restrict __filename,
 
     return &FILE_root_dir;
   } else {
-    
     error_code err;
-    file* f;
-    if(HAS_NO_ERROR(err = open_file(CAST(native_string, __filename), &f))) {
-      FILE* gambit_file = CAST(FILE*, kmalloc(sizeof(FILE)));
+    file *f;
+    if (HAS_NO_ERROR(err = open_file(CAST(native_string, __filename),
+                                     CAST(native_string, __modes), &f))) {
+      FILE *gambit_file = CAST(FILE *, kmalloc(sizeof(FILE)));
       gambit_file->f = f;
       return gambit_file;
     } else {

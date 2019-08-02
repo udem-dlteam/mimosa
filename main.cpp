@@ -26,16 +26,13 @@ int main() {
   error_code err;
 
   file* f;
-
-  __surround_with_debug_t("Creating file", {
-    if (ERROR(err = create_file("", &f))) {
-      term_write(&tty, "Error while creating an empty file");
-      term_writeline(cout);
-    } else {
-      term_write(&tty, "Success while creating an empty file");
-      term_writeline(cout);
-    }
-  });
+  if (ERROR(err = open_file("test.txt", "a+", &f))) {
+    term_write(&tty, "Error while test.txt in append");
+    term_writeline(cout);
+  } else {
+    term_write(&tty, "Success while opening test.txt in append");
+    term_writeline(cout);
+  }
 
   native_char buff[1024];
   for (int i = 0; i < 1024; ++i) {

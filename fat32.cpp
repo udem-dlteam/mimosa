@@ -5,8 +5,7 @@
 #include "rtlib.h"
 
 error_code 
-fat_32_create_empty_file(file_system* fs, native_string name, native_string ext,
-                         file** result) {
+fat_32_create_empty_file(file_system* fs, uint8* name, file** result) {
   FAT_directory_entry de;
   error_code err;
   native_char normalized_path[NAME_MAX + 1];
@@ -54,8 +53,7 @@ fat_32_create_empty_file(file_system* fs, native_string name, native_string ext,
   // TODO get the right length to avoid an overrun
 
   // Copy the name
-  memcpy(de.DIR_Name, name, 7);
-  memcpy(de.DIR_Name + 8, ext, 3);
+  memcpy(de.DIR_Name, name, FAT_NAME_LENGTH);
 
   {  // Set the cluster in the descriptor
     uint16 cluster_hi = (cluster & 0xFFFF0000) >> 16;

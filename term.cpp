@@ -711,7 +711,7 @@ void term_run(term* term) {
       native_string file_name = &line[5];
 
       file* prog;
-      if (NO_ERROR == open_file(file_name, &prog)) {
+      if (NO_ERROR == open_file(file_name, "r+", &prog)) {
         term_write(term, "\r\n Starting program ");
         term_write(term, file_name);
         term_writeline(term);
@@ -722,7 +722,7 @@ void term_run(term* term) {
     } else if (strcmpl(line, CAT_CMD, 3)) {
       native_string file_name = &line[4];
       file* f;
-      if (NO_ERROR == open_file(file_name, &f)) {
+      if (NO_ERROR == open_file(file_name, "r+", &f)) {
         // need free... lets use the static buff
         read_file(f, buff, 2056);
         term_writeline(term);
