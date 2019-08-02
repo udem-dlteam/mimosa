@@ -426,7 +426,9 @@ void __rtlib_setup ()
   identify_cpu ();
   setup_ps2 ();
 
-  (new idle_thread)->start(); // need an idle thread to prevent deadlocks
+  idle_thread* the_idle = (new idle_thread);
+
+  the_idle->start(); // need an idle thread to prevent deadlocks
 
   term_write(cout, "Loading up LIBC\n");
   libc_init();

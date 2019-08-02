@@ -19,15 +19,6 @@
 
 const uint32 GAMBIT_START = 0x100000;
 
-typedef struct user_func_table {
-  void (*print_int)(int i);
-  void (*print_str)(char* str);
-  void (*print_int_ptr)(int* i);
-} user_func_table;
-
-
-
-
 //-----------------------------------------------------------------------------
 
 #define STI() do {__asm__ __volatile__ ("sti" : : : "memory"); } while(0)
@@ -701,14 +692,18 @@ void _sched_timer_elapsed();
 
 void _sched_resume_next_thread();
 
-
-
 void sys_irq(void* esp);
+
 #ifdef USE_PIT_FOR_TIMER
+
 void irq0();
+
 #endif
+
 #ifdef USE_APIC_FOR_TIMER
+
 void APIC_timer_irq();
+
 #endif
 
 //-----------------------------------------------------------------------
