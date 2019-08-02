@@ -355,6 +355,7 @@ void thread::sleep(int64 timeout_nsecs) {
                                  nanoseconds_to_time(timeout_nsecs));
 
     wait_queue_remove(current);
+    wait_queue_detach(current);
 
     save_context(_sched_suspend_on_sleep_queue, NULL);
   }
