@@ -138,179 +138,211 @@ static error_code normalize_path(native_string path, native_string new_path) {
   return NO_ERROR;
 }
 
-error_code open_file(native_string path, file** result) {
+static error_code create_file(uint8* name, file** result) {
+  error_code err;
   file_system* fs;
-  file* f;
 
   if (fs_mod.nb_mounted_fs == 0) {
     return FNF_ERROR;
   }
 
   fs = fs_mod.mounted_fs[0];
-
   switch (fs->kind) {
     case FAT12_FS:
     case FAT16_FS:
-    case FAT32_FS: {
-      FAT_directory_entry de;
-      error_code err;
-      native_char normalized_path[NAME_MAX + 1];
-      native_string p = normalized_path;
-
-      if (ERROR(err = normalize_path(path, normalized_path))) {
-#ifdef SHOW_DISK_INFO
-        term_write(cout, "Failed to normalize the path\n\r");
-#endif
-        return err;
-      }
-
-      if (ERROR(err = open_root_dir(fs, &f))) {
-#ifdef SHOW_DISK_INFO
-        term_write(cout, "Error loading the root dir: ");
-        term_write(cout, err);
-        term_writeline(cout);
-#endif
-        return err;
-      }
-
-#ifdef SHOW_DISK_INFO
-      term_write(cout, "\n\rOpened the root dir...");
-      term_writeline(cout);
-      term_write(cout, "Normalized name: '");
-      term_write(cout, normalized_path);
-      term_write(cout, "'\n\r");
-#endif
-
-      for (;;) {
-        uint8 name[FAT_NAME_LENGTH];
-        uint32 i;
-
-        if (*p != '\0' && (*p++ != '/' || !S_ISDIR(f->mode))) {
-          close_file(f);  // ignore error
-          return FNF_ERROR;
-        }
-
-        if (*p == '\0') break;
-
-        i = 0;
-
-        // TODO: make a better name parsing algorithm.
-        // TOOD: the idea here is to locate the last foward
-        // TOOD: slash, and parse starting there.
-        native_string scout = p;
-
-        while(scout[i] != '\0') {
-          if(scout[i] == '/') {
-            scout = scout + i;
-            i = 0;
-          }
-          i += 1;
-        }
-
-        i = 0;
-
-        if (scout[0] == '\0')
-          break;  // Invalid string
-        else if (scout[0] == '.') {
-          p = scout + 1;
-        } else {
-          p = scout;
-        }
-
-        // The next dot allowed is to identify the start
-        // of the extension
-        while (*p != '\0' && *p != '.' && *p != '/') {
-          if (i < 8) name[i] = *p;
-          i++;
-          p++;
-        }
-
-        while (i < 8) name[i++] = ' ';
-
-        i = 0;
-
-        if (*p == '.') {
-          p++;
-          while (*p != '\0' && *p != '/') {
-            if (i < 3) name[8 + i] = *p;
-            i++;
-            p++;
-          }
-        }
-
-        while (i < 3) name[8 + i++] = ' ';
-
-        file entry_file = *f;
-        while ((err = read_file(f, &de, sizeof(de))) == sizeof(de)) {
-          if (de.DIR_Name[0] == 0) break;  // No more entries
-          // Only verify the file if it's readable
-          if (de.DIR_Name[0] != 0xe5 && (de.DIR_Attr & FAT_ATTR_HIDDEN) == 0 &&
-              (de.DIR_Attr & FAT_ATTR_VOLUME_ID) == 0) {
-            // Compare the names
-
-            for (i = 0; i < FAT_NAME_LENGTH; i++) {
-              if (de.DIR_Name[i] != name[i]) break;
-            }
-
-            if (i == FAT_NAME_LENGTH) {
-              // All the characters have been compared successfuly
-              if (ERROR(err = close_file(f))) return err;
-              f = CAST(file*, kmalloc(sizeof(file)));
-              if (f == NULL) return MEM_ERROR;
-              f->fs = fs;
-              f->current_cluster =
-                  (CAST(uint32, as_uint16(de.DIR_FstClusHI)) << 16) +
-                  as_uint16(de.DIR_FstClusLO);
-              f->first_cluster = f->current_cluster;
-              f->current_section_start =
-                  fs->_.FAT121632.first_data_sector +
-                  ((f->current_cluster - 2) << fs->_.FAT121632.log2_spc);
-              f->current_section_length =
-                  1 << (fs->_.FAT121632.log2_bps + fs->_.FAT121632.log2_spc);
-              f->current_section_pos = 0;
-              f->current_pos = 0;
-              f->length = as_uint32(de.DIR_FileSize);
-
-              if (de.DIR_Attr & FAT_ATTR_DIRECTORY) {
-                f->mode = S_IFDIR;
-              } else {
-                f->mode = S_IFREG;
-              }
-
-              // Setup the entry file
-              f->entry.position = entry_file.current_pos;
-
-              goto found;
-            } else {
-              // Update the entry and position values
-              entry_file = *f;
-            }
-          }
-        }
-
-        close_file(f);  // ignore error
-
-        if (ERROR(err)) return err;
-
-        return FNF_ERROR;
-
-      found:;
-      }
-
+      panic(L"Not supported");
       break;
-    }
-
-    default:
-      return UNIMPL_ERROR;
+    case FAT32_FS:
+      err = fat_32_create_empty_file(fs, name, result);
+      break;
   }
 
-  *result = f;
-
-  return NO_ERROR;
+  return err;
 }
 
-error_code close_file(file* f) {
-  kfree(f);
+bool parse_mode(native_string mode, file_mode* result) {
+  bool success = TRUE;
+  file_mode f_mode = 0;
+  native_char first = mode[0];
+
+  if(success = ('\0' != first)) {
+
+    switch (first) {
+      case 'r':
+      case 'R':
+        f_mode = MODE_READ;
+        break;
+      case 'w':
+      case 'W':
+        f_mode = MODE_TRUNC;
+        break;
+      case 'a':
+      case 'A':
+        f_mode = MODE_APPEND;
+        break;
+      default:
+        success = FALSE;
+        return success;
+        break;
+    }
+
+    native_char snd = mode[1];
+    if('+' == snd) {
+      f_mode |= MODE_PLUS;
+    }
+  }
+
+  *result = f_mode;
+  return success;
+}
+
+static error_code fat_fetch_entry(file_system* fs, native_string path, file** result, uint8* name) {
+  error_code err = NO_ERROR;
+  FAT_directory_entry de;
+  native_char normalized_path[NAME_MAX + 1];
+  native_string p = normalized_path;
+  file* f;
+
+  if (ERROR(err = normalize_path(path, normalized_path))) {
+#ifdef SHOW_DISK_INFO
+    term_write(cout, "Failed to normalize the path\n\r");
+#endif
+    return err;
+  }
+
+  if (ERROR(err = open_root_dir(fs, &f))) {
+#ifdef SHOW_DISK_INFO
+    term_write(cout, "Error loading the root dir: ");
+    term_write(cout, err);
+    term_writeline(cout);
+#endif
+    return err;
+  }
+
+#ifdef SHOW_DISK_INFO
+  term_write(cout, "\n\rOpened the root dir...");
+  term_writeline(cout);
+  term_write(cout, "Normalized name: '");
+  term_write(cout, normalized_path);
+  term_write(cout, "'\n\r");
+#endif
+
+  for (;;) {
+    uint32 i;
+
+    if (*p != '\0' && (*p++ != '/' || !S_ISDIR(f->mode))) {
+      close_file(f);  // ignore error
+      return FNF_ERROR;
+    }
+
+    if (*p == '\0') break;
+
+    i = 0;
+
+    // TODO: make a better name parsing algorithm.
+    // TOOD: the idea here is to locate the last foward
+    // TOOD: slash, and parse starting there.
+    native_string scout = p;
+
+    while (scout[i] != '\0') {
+      if (scout[i] == '/') {
+        scout = scout + i;
+        i = 0;
+      }
+      i += 1;
+    }
+
+    i = 0;
+
+    if (scout[0] == '\0')
+      break;  // Invalid string
+    else if (scout[0] == '.') {
+      p = scout + 1;
+    } else {
+      p = scout;
+    }
+
+    // The next dot allowed is to identify the start
+    // of the extension
+    while (*p != '\0' && *p != '.' && *p != '/') {
+      if (i < 8) name[i] = *p;
+      i++;
+      p++;
+    }
+
+    while (i < 8) name[i++] = ' ';
+
+    i = 0;
+
+    if (*p == '.') {
+      p++;
+      while (*p != '\0' && *p != '/') {
+        if (i < 3) name[8 + i] = *p;
+        i++;
+        p++;
+      }
+    }
+
+    while (i < 3) name[8 + i++] = ' ';
+
+    file entry_file = *f;
+
+    while ((err = read_file(f, &de, sizeof(de))) == sizeof(de)) {
+      if (de.DIR_Name[0] == 0) break;  // No more entries
+      // Only verify the file if it's readable
+      if (de.DIR_Name[0] != 0xe5 && (de.DIR_Attr & FAT_ATTR_HIDDEN) == 0 &&
+          (de.DIR_Attr & FAT_ATTR_VOLUME_ID) == 0) {
+        // Compare the names
+
+        for (i = 0; i < FAT_NAME_LENGTH; i++) {
+          if (de.DIR_Name[i] != name[i]) break;
+        }
+
+        if (i == FAT_NAME_LENGTH) {
+          // All the characters have been compared successfuly
+          if (ERROR(err = close_file(f))) return err;
+          f = CAST(file*, kmalloc(sizeof(file)));
+          if (NULL == f) return MEM_ERROR;
+
+          f->fs = fs;
+          f->first_cluster = f->current_cluster =
+              (CAST(uint32, as_uint16(de.DIR_FstClusHI)) << 16) +
+              as_uint16(de.DIR_FstClusLO);
+          f->current_section_start =
+              fs->_.FAT121632.first_data_sector +
+              ((f->current_cluster - 2) << fs->_.FAT121632.log2_spc);
+          f->current_section_length =
+              1 << (fs->_.FAT121632.log2_bps + fs->_.FAT121632.log2_spc);
+          f->current_section_pos = 0;
+          f->current_pos = 0;
+          f->length = as_uint32(de.DIR_FileSize);
+
+          if (de.DIR_Attr & FAT_ATTR_DIRECTORY) {
+            f->mode = S_IFDIR;
+          } else {
+            f->mode = S_IFREG;
+          }
+
+          // Setup the entry file
+          f->entry.position = entry_file.current_pos;
+
+          goto found;
+        }
+      }
+      // Copy over the position informations
+      entry_file = *f;
+    }
+
+    close_file(f);  // ignore error
+
+    if (ERROR(err)) return err;
+
+    return FNF_ERROR;
+
+  found:;
+    *result = f;
+  }
+
   return NO_ERROR;
 }
 
@@ -341,6 +373,161 @@ static error_code set_fat_link_value(file_system* fs, uint32 cluster,
   }
 }
 
+static error_code update_file_length(file* f) {
+  // Update the directory entry
+  // to set the correct length of the file
+  error_code err = NO_ERROR;
+  FAT_directory_entry de;
+  file* entry_file;
+  uint32 filesize;
+
+  if (ERROR(err = open_root_dir_at_file_entry(f, &entry_file))) {
+    goto flush_file_update_dir_err_occured;
+  }
+
+  if (ERROR(err = read_file(entry_file, &de, sizeof(de)))) {
+    goto flush_file_update_dir_err_occured;
+  }
+
+  // Go backwards to overwrite the directory entry
+  file_move_cursor(entry_file, -sizeof(de));
+
+  filesize = f->length;
+  for (int i = 0; i < 4; ++i) {
+    de.DIR_FileSize[i] = as_uint8(filesize, i);
+  }
+
+  if (ERROR(err = write_file(entry_file, &de, sizeof(de)))) {
+    goto flush_file_update_dir_err_occured;
+  }
+
+flush_file_update_dir_err_occured:
+  // Always close the file, even if there is an error
+  error_code closing_err = close_file(entry_file);
+  return ERROR(err) ? err : closing_err;
+}
+
+static error_code unlink_file(file* f) {
+  error_code err = NO_ERROR;
+
+  uint32 cluster = f->first_cluster;
+  uint32 next_clus;
+  do {
+    if(ERROR(err = get_fat_link_value(f->fs, cluster, &next_clus))) break;
+    if(ERROR(err = set_fat_link_value(f->fs, cluster, NULL))) break;
+  } while(next_clus != FAT_32_EOF && next_clus > 0);
+
+  return err;
+}
+
+static error_code truncate_file(file* f) {
+  error_code err = NO_ERROR;
+  
+  if(ERROR(err = unlink_file(f))) return err;
+  uint32 clus = f->first_cluster;
+  
+  if(ERROR(err = set_fat_link_value(f->fs, clus, FAT_32_EOF))) return err;
+
+  f->length = 0;
+  
+  if(ERROR(err = update_file_length(f))) return err;
+
+  return err;
+}
+
+error_code open_file(native_string path, native_string mode, file** result) {
+  error_code err = NO_ERROR;
+  file_system* fs;
+  file_mode md;
+  file* f;
+
+  if (fs_mod.nb_mounted_fs == 0) {
+    return FNF_ERROR;
+  }
+
+  fs = fs_mod.mounted_fs[0];
+
+  if(!parse_mode(mode, &md)) {
+    return UNKNOWN_ERROR;  // TODO!
+  }
+
+  uint8 name[FAT_NAME_LENGTH];
+  switch (fs->kind) {
+    case FAT12_FS:
+    case FAT16_FS:
+    case FAT32_FS: {
+      if(ERROR(err = fat_fetch_entry(fs, path, &f, name)) && err != FNF_ERROR) {
+          return err;
+      }
+      break;
+    }
+    default:
+      return UNIMPL_ERROR;
+  }
+
+  // Set the file mode
+  switch(md) {
+    case MODE_READ:
+    case MODE_READ_WRITE: {
+      if (ERROR(err)) return err;
+      // otherwise everything is ok, there is nothing to 
+      // do in this mode beside having the cursor at the start.
+    } break;
+
+    case MODE_TRUNC:
+    case MODE_TRUNC_PLUS: {
+      
+      if(ERROR(err)) {
+        if(FNF_ERROR == err) {
+          // Create the file
+          if(ERROR(err = create_file(name, &f))) {
+            return err;
+          }
+        } else {
+          return err;
+        }
+      } else {
+        if(ERROR(err = truncate_file(f))) {
+          return err;
+        }
+      }
+    } break;
+
+    case MODE_APPEND:
+    case MODE_APPEND_PLUS: {
+      
+      if(ERROR(err)) {
+        if (FNF_ERROR == err) {
+          debug_write("Creating a file:" );
+          debug_write(CAST(native_string, name));
+          if(ERROR(err = create_file(name, &f))) {
+            return err;
+          }
+        } else {
+          return err;
+        }
+      } else {
+        if(ERROR(err = file_set_to_absolute_position(f, f->length - 1))) {
+          return err;
+        }
+      }
+    } break;
+    default:
+      panic(L"Unhandled file mode");
+      break;
+  }
+
+
+  *result = f;
+
+  return NO_ERROR;
+}
+
+error_code close_file(file* f) {
+  kfree(f);
+  return NO_ERROR;
+}
+
 static error_code next_FAT_section(file* f) {
   file_system* fs = f->fs;
   uint32 n = f->current_cluster;
@@ -359,29 +546,39 @@ static error_code next_FAT_section(file* f) {
 
     offset &= ~(~0U << fs->_.FAT121632.log2_bps);
 
-    if (ERROR(err =
-                  disk_cache_block_acquire(fs->_.FAT121632.d, sector_pos, &cb)))
-      return err;
-
-    cluster = *CAST(uint8*, cb->buf + offset);
-
-    if (offset == ~(~0U << fs->_.FAT121632.log2_bps)) {
-      if (ERROR(err = disk_cache_block_release(cb))) return err;
-      if (ERROR(err = disk_cache_block_acquire(fs->_.FAT121632.d,
-                                               sector_pos + 1, &cb)))
+    {
+      if (ERROR(err = disk_cache_block_acquire(fs->_.FAT121632.d, sector_pos,
+                                               &cb)))
         return err;
-      offset = 0;
-    } else
-      offset++;
+      cb->mut->lock();
 
-    if (n & 1)
-      cluster =
-          (cluster >> 4) + (CAST(uint32, *CAST(uint8*, cb->buf + offset)) << 4);
-    else
-      cluster =
-          cluster + (CAST(uint32, *CAST(uint8*, cb->buf + offset) & 0xf) << 8);
+      cluster = *CAST(uint8*, cb->buf + offset);
 
-    if (ERROR(err = disk_cache_block_release(cb))) return err;
+      if (offset == ~(~0U << fs->_.FAT121632.log2_bps)) {
+        cb->mut->unlock();
+        if (ERROR(err = disk_cache_block_release(cb))) return err;
+        if (ERROR(err = disk_cache_block_acquire(fs->_.FAT121632.d,
+                                                 sector_pos + 1, &cb))) {
+          return err;
+        }
+        cb->mut->lock();
+
+        offset = 0;
+      } else {
+        offset++;
+      }
+
+      if (n & 1) {
+        cluster = (cluster >> 4) +
+                  (CAST(uint32, *CAST(uint8*, cb->buf + offset)) << 4);
+      } else {
+        cluster = cluster +
+                  (CAST(uint32, *CAST(uint8*, cb->buf + offset) & 0xf) << 8);
+      }
+
+      cb->mut->unlock();
+      if (ERROR(err = disk_cache_block_release(cb))) return err;
+    }
 
     if (cluster >= 0xff8) return EOF_ERROR;
   } else {
@@ -397,24 +594,28 @@ static error_code next_FAT_section(file* f) {
 
     offset &= ~(~0U << fs->_.FAT121632.log2_bps);
 
-    if (ERROR(err = disk_cache_block_acquire(fs->_.FAT121632.d, sector_pos,
-                                             &cb))) {
-      return err;
-    }
-
-    if (fs->kind == FAT16_FS) {
-      cluster = *CAST(uint16*, cb->buf + offset);
-      if (ERROR(err = disk_cache_block_release(cb))) return err;
-      if (cluster >= 0xfff8) return EOF_ERROR;
-    } else {
-      cluster = *CAST(uint32*, cb->buf + offset) & 0x0fffffff;
-
-      if (ERROR(err = disk_cache_block_release(cb))) {
+    {
+      if (ERROR(err = disk_cache_block_acquire(fs->_.FAT121632.d, sector_pos,
+                                               &cb))) {
         return err;
       }
+      cb->mut->lock();
 
-      if (cluster >= FAT_32_EOF) {
-        return EOF_ERROR;
+      if (fs->kind == FAT16_FS) {
+        cluster = *CAST(uint16*, cb->buf + offset);
+        if (cluster >= 0xfff8) err = EOF_ERROR;
+      } else {
+        cluster = *CAST(uint32*, cb->buf + offset) & 0x0fffffff;
+        if (cluster >= FAT_32_EOF) err = EOF_ERROR;
+      }
+
+      cb->mut->unlock();
+      error_code release_err = disk_cache_block_release(cb);
+
+      if (ERROR(err)) {
+        return err;
+      } else if (ERROR(release_err)) {
+        return release_err;
       }
     }
   }
@@ -491,32 +692,35 @@ error_code  write_file(file* f, void* buff, uint32 count) {
         if (left1 > n) left1 = n;
         while (left1 > 0) {
           cache_block* cb;
-          if (ERROR(err = disk_cache_block_acquire(
-                        fs->_.FAT121632.d,
-                        f->current_section_start +
-                            (f->current_section_pos >> DISK_LOG2_BLOCK_SIZE),
-                        &cb))) {
-            return err;
+
+          {
+            if (ERROR(err = disk_cache_block_acquire(
+                          fs->_.FAT121632.d,
+                          f->current_section_start +
+                              (f->current_section_pos >> DISK_LOG2_BLOCK_SIZE),
+                          &cb))) {
+              return err;
+            }
+
+            // Lock the access to this cache block
+            cb->mut->lock();
+
+            left2 = (1 << DISK_LOG2_BLOCK_SIZE) -
+                    (f->current_section_pos & ~(~0U << DISK_LOG2_BLOCK_SIZE));
+
+            if (left2 > left1) left2 = left1;
+
+            uint8* sector_buffer = cb->buf + (f->current_section_pos &
+                                              ~(~0U << DISK_LOG2_BLOCK_SIZE));
+            // Update the cache_block buffer
+            memcpy(sector_buffer, p, left2);
+
+            cb->dirty = TRUE;
+            cb->mut->unlock();
+
+            if (ERROR(err = disk_cache_block_release(cb))) return err;
           }
 
-          // Lock the access to this cache block
-          cb->mut->lock();
-
-          left2 = (1 << DISK_LOG2_BLOCK_SIZE) -
-                  (f->current_section_pos & ~(~0U << DISK_LOG2_BLOCK_SIZE));
-
-          if (left2 > left1) left2 = left1;
-
-          uint8* sector_buffer = cb->buf + (f->current_section_pos &
-                                            ~(~0U << DISK_LOG2_BLOCK_SIZE));
-          // Update the cache_block buffer
-          memcpy(sector_buffer, p, left2);
-
-          cb->dirty = TRUE;
-          cb->mut->unlock();
-
-          if (ERROR(err = disk_cache_block_release(cb))) return err;
-          
           left1 -= left2;
           f->current_section_pos += left2;
           f->current_pos += left2;
@@ -539,41 +743,7 @@ error_code  write_file(file* f, void* buff, uint32 count) {
     f->length += count;
 
     if (!S_ISDIR(f->mode)) {
-      // Update the directory entry
-      // to set the correct length of the file
-      FAT_directory_entry de;
-      file* entry_file;
-      uint32 filesize;
-
-      if (ERROR(err = open_root_dir_at_file_entry(f, &entry_file))) {
-        goto flush_file_update_dir_err_occured;
-      }
-
-      if (ERROR(err = read_file(entry_file, &de, sizeof(de)))) {
-        goto flush_file_update_dir_err_occured;
-      }
-
-      // Go backwards to overwrite the directory entry
-      file_move_cursor(entry_file, -sizeof(de));
-
-      term_write(cout, "Reading the directory entry to update the file length:");
-      term_writeline(cout);
-      for(int i =0; i < 11; ++i) {
-        term_write(cout, (char)de.DIR_Name[i]);
-      }
-      term_writeline(cout);
-
-      filesize = f->length;
-      for (int i = 0; i < 4; ++i) {
-        de.DIR_FileSize[i] = as_uint8(filesize, i);
-      }
-
-      if (ERROR(err = write_file(entry_file, &de, sizeof(de)))) {
-        goto flush_file_update_dir_err_occured;
-      }
-
-    flush_file_update_dir_err_occured:
-      close_file(entry_file);
+      update_file_length(f);
     }
   }
 
@@ -617,25 +787,32 @@ error_code read_file(file* f, void* buf, uint32 count) {
 
           while (left1 > 0) {
             cache_block* cb;
-            if (ERROR(err = disk_cache_block_acquire(
+            
+            {
+              if (ERROR(
+                      err = disk_cache_block_acquire(
                           fs->_.FAT121632.d,
                           f->current_section_start +
                               (f->current_section_pos >> DISK_LOG2_BLOCK_SIZE),
                           &cb))) {
-              return err;
+                return err;
+              }
+              cb->mut->lock();
+
+              left2 = (1 << DISK_LOG2_BLOCK_SIZE) -
+                      (f->current_section_pos & ~(~0U << DISK_LOG2_BLOCK_SIZE));
+
+              if (left2 > left1) left2 = left1;
+
+              memcpy(p,
+                     cb->buf + (f->current_section_pos &
+                                ~(~0U << DISK_LOG2_BLOCK_SIZE)),
+                     left2);
+
+
+              cb->mut->unlock();
+              if (ERROR(err = disk_cache_block_release(cb))) return err;
             }
-
-            left2 = (1 << DISK_LOG2_BLOCK_SIZE) -
-                    (f->current_section_pos & ~(~0U << DISK_LOG2_BLOCK_SIZE));
-
-            if (left2 > left1) left2 = left1;
-
-            memcpy(p,
-                   cb->buf + (f->current_section_pos &
-                              ~(~0U << DISK_LOG2_BLOCK_SIZE)),
-                   left2);
-
-            if (ERROR(err = disk_cache_block_release(cb))) return err;
 
             left1 -= left2;
             f->current_section_pos += left2;
@@ -656,28 +833,6 @@ error_code read_file(file* f, void* buf, uint32 count) {
   return 0;
 }
 
-error_code 
-create_file(native_string path, file** result) {
-  error_code err;
-  file_system* fs;
-
-  if (fs_mod.nb_mounted_fs == 0) {
-    return FNF_ERROR;
-  }
-
-  fs = fs_mod.mounted_fs[0];
-  switch (fs->kind) {
-    case FAT12_FS:
-    case FAT16_FS:
-      panic(L"Not supported");
-      break;
-    case FAT32_FS:
-      err = fat_32_create_empty_file(fs, "TESTTTT", "TXT", result);
-      break;
-  }
-
-  return err;
-}
 
 static error_code mount_FAT121632(disk* d, file_system** result) {
   file_system* fs;
@@ -698,149 +853,155 @@ static error_code mount_FAT121632(disk* d, file_system** result) {
   uint32 total_data_clusters;
   uint8 kind;
   cache_block* cb;
-  error_code err;
+  error_code err, release_err;
 
-  if (ERROR(err = disk_cache_block_acquire(d, 0, &cb))) return err;
+  {
+    if (ERROR(err = disk_cache_block_acquire(d, 0, &cb))) return err;
+    cb->mut->lock();
 
-  p = CAST(BIOS_Parameter_Block*, cb->buf);
+    p = CAST(BIOS_Parameter_Block*, cb->buf);
 
-  bps = as_uint16(p->BPB_BytsPerSec);
-  log2_bps = log2(bps);
+    bps = as_uint16(p->BPB_BytsPerSec);
+    log2_bps = log2(bps);
 
-  spc = p->BPB_SecPerClus;
-  log2_spc = log2(spc);
+    spc = p->BPB_SecPerClus;
+    log2_spc = log2(spc);
 
-  rec = as_uint16(p->BPB_RootEntCnt);
-  total_sectors16 = as_uint16(p->BPB_TotSec16);
-  total_sectors = as_uint32(p->BPB_TotSec32);
-  FAT_size = as_uint16(p->BPB_FATSz16);
-  reserved_sectors = as_uint16(p->BPB_RsvdSecCnt);
+    rec = as_uint16(p->BPB_RootEntCnt);
+    total_sectors16 = as_uint16(p->BPB_TotSec16);
+    total_sectors = as_uint32(p->BPB_TotSec32);
+    FAT_size = as_uint16(p->BPB_FATSz16);
+    reserved_sectors = as_uint16(p->BPB_RsvdSecCnt);
 
-  expecting_FAT32 = (FAT_size == 0);
-
-#ifdef SHOW_DISK_INFO
-  term_write(cout, "Expected FAT32 = ");
-  term_write(cout, expecting_FAT32);
-  term_writeline(cout);
-#endif
-
-  if ((1 << log2_bps) != bps || log2_bps < 9 || log2_bps > 12) {
-    term_write(cout,
-               "bytes per sector is not a power of 2 between 512 and 4096: ");
-    term_write(cout, bps);
-    term_writeline(cout);
-    err = UNKNOWN_ERROR;
-  } else if (d->log2_sector_size != log2_bps) {
-    term_write(cout, "BytsPerSec and disk's sector size are inconsistent\n");
-    err = UNKNOWN_ERROR;
-  } else if ((1 << log2_spc) != spc || log2_spc > 8) {
-    term_write(cout,
-               "sectors per cluster is not a power of 2 between 1 and 128\n");
-    err = UNKNOWN_ERROR;
-  } else if (expecting_FAT32) {
-    if (rec != 0) {
-      term_write(cout, "RootEntCnt is not 0\n");
-      err = UNKNOWN_ERROR;
-    } else if (total_sectors16 != 0) {
-      term_write(cout, "TotSec16 is not 0\n");
-      err = UNKNOWN_ERROR;
-    } else if (total_sectors == 0) {
-      term_write(cout, "TotSec32 is 0\n");
-      err = UNKNOWN_ERROR;
-    } else {
-      FAT_size = as_uint32(p->_.FAT32.BPB_FATSz32);
-
-      if (FAT_size == 0) {
-        term_write(cout, "FATSz32 is 0\n");
-        err = UNKNOWN_ERROR;
-      }
-    }
-  } else {
-    if (rec == 0) {
-      term_write(cout, "RootEntCnt is 0\n");
-      err = UNKNOWN_ERROR;
-    } else if (total_sectors == 0) {
-      if (total_sectors16 == 0) {
-        term_write(cout, "TotSec16 and TotSec32 are 0\n");
-        err = UNKNOWN_ERROR;
-      } else
-        total_sectors = total_sectors16;
-    } else {
-      if (total_sectors16 != 0 && total_sectors16 != total_sectors) {
-        term_write(cout, "TotSec16 != TotSec32\n");
-        err = UNKNOWN_ERROR;
-      }
-    }
-  }
-
-  if (!ERROR(err)) {
-    root_directory_sectors =
-        (CAST(uint32, rec) * FAT_DIR_ENTRY_SIZE + (1 << log2_bps) - 1) >>
-        log2_bps;
-
-    first_data_sector = CAST(uint32, p->BPB_NumFATs) * FAT_size +
-                        as_uint16(p->BPB_RsvdSecCnt) + root_directory_sectors;
-
-    total_data_sectors = total_sectors - first_data_sector;
-
-    total_data_clusters = total_data_sectors >> log2_spc;
+    expecting_FAT32 = (FAT_size == 0);
 
 #ifdef SHOW_DISK_INFO
-    term_write(cout, "Total data cluster is: ");
-    term_write(cout, total_data_clusters);
+    term_write(cout, "Expected FAT32 = ");
+    term_write(cout, expecting_FAT32);
     term_writeline(cout);
 #endif
 
-    if (total_data_clusters == 0) {
-      if (expecting_FAT32) {
-        term_write(cout, "volume is FAT12 or FAT16 but FATSz16 is 0\n");
+    if ((1 << log2_bps) != bps || log2_bps < 9 || log2_bps > 12) {
+      term_write(cout,
+                 "bytes per sector is not a power of 2 between 512 and 4096: ");
+      term_write(cout, bps);
+      term_writeline(cout);
+      err = UNKNOWN_ERROR;
+    } else if (d->log2_sector_size != log2_bps) {
+      term_write(cout, "BytsPerSec and disk's sector size are inconsistent\n");
+      err = UNKNOWN_ERROR;
+    } else if ((1 << log2_spc) != spc || log2_spc > 8) {
+      term_write(cout,
+                 "sectors per cluster is not a power of 2 between 1 and 128\n");
+      err = UNKNOWN_ERROR;
+    } else if (expecting_FAT32) {
+      if (rec != 0) {
+        term_write(cout, "RootEntCnt is not 0\n");
         err = UNKNOWN_ERROR;
-      } else if (total_data_clusters < 4085) {
-        if (d->partition_type != 1) {
-          term_write(cout, "partition type is not 1\n");
-          err = UNKNOWN_ERROR;
-        } else
-          kind = FAT12_FS;
+      } else if (total_sectors16 != 0) {
+        term_write(cout, "TotSec16 is not 0\n");
+        err = UNKNOWN_ERROR;
+      } else if (total_sectors == 0) {
+        term_write(cout, "TotSec32 is 0\n");
+        err = UNKNOWN_ERROR;
       } else {
-        if (d->partition_type != 4 && d->partition_type != 6) {
-          term_write(cout, "partition type is not 4 or 6\n");
+        FAT_size = as_uint32(p->_.FAT32.BPB_FATSz32);
+
+        if (FAT_size == 0) {
+          term_write(cout, "FATSz32 is 0\n");
           err = UNKNOWN_ERROR;
-        } else {
-          kind = FAT16_FS;
         }
       }
     } else {
-      if (!expecting_FAT32) {
-        term_write(cout, "volume is FAT32 but FATSz16 is not 0\n");
+      if (rec == 0) {
+        term_write(cout, "RootEntCnt is 0\n");
         err = UNKNOWN_ERROR;
-      } else if (d->partition_type != 11 && d->partition_type != 12) {
-        term_write(cout, "partition type is not 11 nor 12\n");
-        err = UNKNOWN_ERROR;
+      } else if (total_sectors == 0) {
+        if (total_sectors16 == 0) {
+          term_write(cout, "TotSec16 and TotSec32 are 0\n");
+          err = UNKNOWN_ERROR;
+        } else
+          total_sectors = total_sectors16;
       } else {
-        kind = FAT32_FS;
+        if (total_sectors16 != 0 && total_sectors16 != total_sectors) {
+          term_write(cout, "TotSec16 != TotSec32\n");
+          err = UNKNOWN_ERROR;
+        }
       }
     }
+
+    if (!ERROR(err)) {
+      root_directory_sectors =
+          (CAST(uint32, rec) * FAT_DIR_ENTRY_SIZE + (1 << log2_bps) - 1) >>
+          log2_bps;
+
+      first_data_sector = CAST(uint32, p->BPB_NumFATs) * FAT_size +
+                          as_uint16(p->BPB_RsvdSecCnt) + root_directory_sectors;
+
+      total_data_sectors = total_sectors - first_data_sector;
+
+      total_data_clusters = total_data_sectors >> log2_spc;
+
+#ifdef SHOW_DISK_INFO
+      term_write(cout, "Total data cluster is: ");
+      term_write(cout, total_data_clusters);
+      term_writeline(cout);
+#endif
+
+      if (total_data_clusters == 0) {
+        if (expecting_FAT32) {
+          term_write(cout, "volume is FAT12 or FAT16 but FATSz16 is 0\n");
+          err = UNKNOWN_ERROR;
+        } else if (total_data_clusters < 4085) {
+          if (d->partition_type != 1) {
+            term_write(cout, "partition type is not 1\n");
+            err = UNKNOWN_ERROR;
+          } else
+            kind = FAT12_FS;
+        } else {
+          if (d->partition_type != 4 && d->partition_type != 6) {
+            term_write(cout, "partition type is not 4 or 6\n");
+            err = UNKNOWN_ERROR;
+          } else {
+            kind = FAT16_FS;
+          }
+        }
+      } else {
+        if (!expecting_FAT32) {
+          term_write(cout, "volume is FAT32 but FATSz16 is not 0\n");
+          err = UNKNOWN_ERROR;
+        } else if (d->partition_type != 11 && d->partition_type != 12) {
+          term_write(cout, "partition type is not 11 nor 12\n");
+          err = UNKNOWN_ERROR;
+        } else {
+          kind = FAT32_FS;
+        }
+      }
+    }
+
+    cb->mut->unlock();
+    release_err = disk_cache_block_release(cb);
   }
 
-  if (ERROR(err)) {
-    disk_cache_block_release(cb);  // ignore error
-  } else if (!ERROR(err = disk_cache_block_release(cb))) {
-    fs = CAST(file_system*, kmalloc(sizeof(file_system)));
-    if (fs == NULL) {
-      err = MEM_ERROR;
-    } else {
-      fs->kind = kind;
-      fs->_.FAT121632.d = d;
-      fs->_.FAT121632.log2_bps = log2_bps;
-      fs->_.FAT121632.log2_spc = log2_spc;
-      fs->_.FAT121632.total_sectors = total_sectors;
-      fs->_.FAT121632.reserved_sectors = reserved_sectors;
-      fs->_.FAT121632.root_directory_sectors = root_directory_sectors;
-      fs->_.FAT121632.first_data_sector = first_data_sector;
-      fs->_.FAT121632.total_data_clusters = total_data_clusters;
+  if(ERROR(err)) return err;
+  else if(ERROR(release_err)) return release_err;
 
-      *result = fs;
-    }
+  fs = CAST(file_system*, kmalloc(sizeof(file_system)));
+
+  if (fs == NULL) {
+    err = MEM_ERROR;
+  } else {
+    fs->kind = kind;
+    fs->_.FAT121632.d = d;
+    fs->_.FAT121632.log2_bps = log2_bps;
+    fs->_.FAT121632.log2_spc = log2_spc;
+    fs->_.FAT121632.total_sectors = total_sectors;
+    fs->_.FAT121632.reserved_sectors = reserved_sectors;
+    fs->_.FAT121632.root_directory_sectors = root_directory_sectors;
+    fs->_.FAT121632.first_data_sector = first_data_sector;
+    fs->_.FAT121632.total_data_clusters = total_data_clusters;
+
+    *result = fs;
   }
 
   return err;
@@ -927,7 +1088,7 @@ DIR* opendir(const char* path) {
   DIR* dir;
   error_code err;
 
-  if (ERROR(err = open_file(CAST(native_string, path), &f))) {
+  if (ERROR(err = open_file(CAST(native_string, path),"r", &f))) {
     return NULL;
   }
 
@@ -1015,7 +1176,7 @@ void file_reset_cursor(file* f) {
 }
 
 error_code _file_set_pos_from_start(file* f, uint32 position) {
-  error_code err = NO_ERROR;
+  error_code err, release_error = NO_ERROR;
   file_system* fs = f->fs;
   BIOS_Parameter_Block* p;
   cache_block* cb;
@@ -1027,6 +1188,8 @@ error_code _file_set_pos_from_start(file* f, uint32 position) {
 
   // FAT32 only
   if (HAS_NO_ERROR(err = disk_cache_block_acquire(d, 0, &cb))) {
+    cb->mut->lock();
+
     p = CAST(BIOS_Parameter_Block*, cb->buf);
     uint16 bytes_per_sector = as_uint16(p->BPB_BytsPerSec);
     
@@ -1042,13 +1205,19 @@ error_code _file_set_pos_from_start(file* f, uint32 position) {
     // we walk through the FAT chain until we read
     // as many clusters as required to get a correct position.
     for (int i = 0; i < no_of_clusters; ++i) {
-      if (ERROR(err = next_FAT_section(f))) return err;
+      if (ERROR(err = next_FAT_section(f))) {
+        break;
+      }
     }
 
     f->current_section_pos += bytes_left_cluster;
     f->current_pos = position;
 
-    if (ERROR(err = disk_cache_block_release(cb))) return err;
+    cb->mut->unlock();
+    release_error = disk_cache_block_release(cb);
+    
+    if(ERROR(err)) return err;
+    if(ERROR(release_error)) return release_error;
   }
 
   return err;
@@ -1075,9 +1244,9 @@ error_code file_move_cursor(file* f, int32 n) {
     // If we cross a section boundary, the design of the FAT FS requires to start
     // from the beginning.
     if (crosses_section_boundary) {
-      term_write(cout, "Pos. targeted:");
-      term_write(cout, f->current_pos - displacement);
-      term_writeline(cout);
+      // term_write(cout, "Pos. targeted:");
+      // term_write(cout, f->current_pos - displacement);
+      // term_writeline(cout);
       return _file_set_pos_from_start(f, f->current_pos - displacement);
     } else {
       // Simply update the position
@@ -1089,22 +1258,30 @@ error_code file_move_cursor(file* f, int32 n) {
     displacement = n;
     bool crosses_section_boundary = ((displacement + f->current_section_pos) >= f->current_section_length);
 
+    // term_write(cout, "Moving "); term_write(cout, n); term_write(cout, " positions forward");
+    // term_writeline(cout);
+
     if(crosses_section_boundary) {
       // We are moving forward.
       if (HAS_NO_ERROR(err = disk_cache_block_acquire(d, 0, &cb))) {
-        p = CAST(BIOS_Parameter_Block*, cb->buf);
-        uint16 bytes_per_sector = as_uint16(p->BPB_BytsPerSec);
-        uint32 cluster_sz = bytes_per_sector * p->BPB_SecPerClus;
-        
-        uint32 current_section_pos = f->current_section_pos;
-        uint32 section_relative_pos = (current_section_pos + displacement) % cluster_sz;
+        uint32 cluster_sz;
 
-        uint32 no_of_clusters;
-        if(displacement == cluster_sz) {
-          return no_of_clusters = 1;
-        } else {
-          no_of_clusters = (displacement / cluster_sz) + 1;
+        {
+          cb->mut->lock();
+          p = CAST(BIOS_Parameter_Block*, cb->buf);
+          uint16 bytes_per_sector = as_uint16(p->BPB_BytsPerSec);
+          cluster_sz = bytes_per_sector * p->BPB_SecPerClus;
+          cb->mut->unlock();
+          if (ERROR(err = disk_cache_block_release(cb))) return err;
         }
+
+        uint32 current_section_pos = f->current_section_pos;
+        uint32 new_section_pos = current_section_pos + displacement;
+        uint32 no_of_clusters = (new_section_pos / cluster_sz);
+        new_section_pos %= cluster_sz; // We put back in "section length" units
+
+        // term_write(cout, "This requires moving "); term_write(cout, no_of_clusters); term_write(cout, " cluster(s) forward");
+        // term_writeline(cout);
 
         for (int i = 0; i < no_of_clusters; ++i) {
           if(ERROR(err = next_FAT_section(f))) {
@@ -1113,11 +1290,8 @@ error_code file_move_cursor(file* f, int32 n) {
         }
 
         if(HAS_NO_ERROR(err)) {
-          f->current_section_pos = section_relative_pos;
+          f->current_section_pos = new_section_pos;
           f->current_pos += displacement;
-        } else {
-          // Try anyways
-          disk_cache_block_release(cb);
         }
       }
     } else {
@@ -1149,7 +1323,7 @@ error_code stat(native_string path, struct stat* buf) {
   file* f;
   error_code err;
 
-  if (ERROR(err = open_file(path, &f))) return err;
+  if (ERROR(err = open_file(path, "r", &f))) return err;
 
   buf->st_mode = f->mode;
   buf->st_size = f->length;

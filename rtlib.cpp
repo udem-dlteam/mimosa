@@ -389,6 +389,7 @@ class idle_thread : public thread
   public:
 
     idle_thread ();
+    virtual native_string name();
   protected:
     virtual void run ();
   };
@@ -397,15 +398,22 @@ idle_thread::idle_thread()
 {
 }
 
+native_string idle_thread::name() {
+  return "idle_thread";
+}
+
 void idle_thread::run() {
-  for (;;) thread::yield();
+  for (;;) {
+    thread::yield();
+  }
 }
 
 extern void libc_init(void);
 
 void __rtlib_setup ()
 { 
-  enable_interrupts();
+  ASSERT_INTERRUPTS_ENABLED();
+
   term_write(cout, "Initializing ");
   term_write(cout, "\033[46m");
   term_write(cout, OS_NAME);
@@ -414,7 +422,9 @@ void __rtlib_setup ()
   identify_cpu ();
   setup_ps2 ();
 
-  (new idle_thread)->start (); // need an idle thread to prevent deadlocks
+  idle_thread* the_idle = (new idle_thread);
+
+  the_idle->start(); // need an idle thread to prevent deadlocks
 
   term_write(cout, "Loading up LIBC\n");
   libc_init();
@@ -424,6 +434,7 @@ void __rtlib_setup ()
   setup_ide ();
   term_write(cout, "Loading up the file system...\n");
   setup_fs ();
+
   //setup_net ();
   // FS is loaded, now load the cache maid
 
@@ -434,7 +445,7 @@ void __rtlib_setup ()
 
   main ();
 
-  __do_global_dtors ();
+  __do_global_dtors();
 
   panic(L"System termination");
 }

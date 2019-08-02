@@ -4,7 +4,7 @@ OS_NAME = "\"MIMOSA version 1.2\""
 KERNEL_START = 0x20000
 
 KERNEL_OBJECTS = kernel.o libc/libc_os.o main.o fs.o ide.o disk.o thread.o chrono.o ps2.o term.o video.o intr.o rtlib.o fat32.o uart.o $(NETWORK_OBJECTS)
-NETWORK_OBJECTS =
+#NETWORK_OBJECTS =
 #NETWORK_OBJECTS = eepro100.o tulip.o timer2.o misc.o pci.o config.o net.o
 DEFS = -DUSE_IRQ4_FOR_UART -DUSE_IRQ1_FOR_KEYBOARD -DINCLUDE_EEPRO100 
 #DEFS = -DINCLUDE_TULIP
@@ -24,19 +24,31 @@ GPP_OPTIONS = $(GCC_OPTIONS) -fno-rtti -fno-builtin -fno-exceptions -nostdinc++
 
 all: bin_files
 
+single-archive:
+	mkdir -p mimosa-build
+	tar --exclude='*.img' -czf - . | ssh administrator@localhost -p 10022 "mkdir -p mimosa-build;cd mimosa-build;tar xzf -;rm -rf kernel.bin; rm -rf bootsect.bin; rm -rf kernel.elf;make; cd .. ;echo pass999word | sudo ./mimosa-build/createimg.sh;cd mimosa-build; tar czf mb.tar.gz kernel.bin kernel.elf bootsect.bin floppy.img;";
+	scp -P 10022 administrator@localhost:~/mimosa-build/mb.tar.gz ./
+	tar xC mimosa-build -xzf mb.tar.gz
+	rm mb.tar.gz
+
 build:
 	mkdir -p mimosa-build
-	tar --exclude='*.img' -cf  - .  | ssh administrator@localhost -p 10022 "rm -rf mimosa-build;mkdir mimosa-build;cd mimosa-build;tar xf -;make"
-	ssh administrator@localhost -p 10022 "cat mimosa-build/bootsect.bin" > mimosa-build/bootsect.bin
-	ssh administrator@localhost -p 10022 "cat mimosa-build/kernel.bin"   > mimosa-build/kernel.bin
-	ssh administrator@localhost -p 10022 "cat mimosa-build/kernel.elf"   > mimosa-build/kernel.elf
+	tar --exclude='*.img' -czf - . | ssh administrator@localhost -p 10022 "mkdir -p mimosa-build;cd mimosa-build;tar xzf -;rm -rf kernel.bin; rm -rf bootsect.bin; rm -rf kernel.elf;make;tar czf mb.tar.gz kernel.bin kernel.elf bootsect.bin"
+	scp -P 10022 administrator@localhost:~/mimosa-build/mb.tar.gz ./
+	tar xC mimosa-build -xzf mb.tar.gz
 
 createimg:
-	ssh administrator@localhost -p 10022 "sudo mimosa-build/createimg.sh";
-	ssh administrator@localhost -p 10022 "cat mimosa-build/floppy.img" > mimosa-build/floppy.img
+	ssh administrator@localhost -p 10022 "sudo mimosa-build/createimg.sh;tar czf flop.tar.gz mimosa-build/floppy.img"
+	scp -P 10022 administrator@localhost:~/flop.tar.gz ./
+	tar xzf flop.tar.gz
+	rm flop.tar.gz
 
 run:
 	qemu-system-i386 -s -m 1G -hda mimosa-build/floppy.img -debugcon stdio
+
+run-with-telnet:
+	qemu-system-i386 -s -m 1G -hda mimosa-build/floppy.img \
+	-serial tcp:localhost:4444,server,nowait
 
 debug:
 	qemu-system-i386 -s -S -m 1G -hda mimosa-build/floppy.img -debugcon stdio
@@ -81,6 +93,7 @@ bootsect.bin: bootsect.o
 	as --defsym OS_NAME=$(OS_NAME) --defsym KERNEL_START=$(KERNEL_START) --defsym KERNEL_SIZE=`cat kernel.bin | wc --bytes | sed -e "s/ //g"` -o $*.o $*.s
 
 clean:
+	ssh administrator@localhost -p 10022 "rm -rf mimosa-build;"
 	rm -rf mimosa-build
 	rm -f *.o *.asm *.bin *.tmp *.d
 

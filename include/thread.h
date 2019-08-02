@@ -19,36 +19,33 @@
 
 const uint32 GAMBIT_START = 0x100000;
 
-typedef struct user_func_table {
-  void (*print_int)(int i);
-  void (*print_str)(char* str);
-  void (*print_int_ptr)(int* i);
-} user_func_table;
+//-----------------------------------------------------------------------------
 
-
+#define STI() do {__asm__ __volatile__ ("sti" : : : "memory"); } while(0)
+#define CLI() do {__asm__ __volatile__ ("cli" : : : "memory"); } while(0)
 
 //-----------------------------------------------------------------------------
 
 #ifdef CHECK_ASSERTIONS
 
-#define ASSERT_INTERRUPTS_DISABLED()                      \
-  do {                                                    \
-    if ((eflags_reg() & (1 << 9)) != 0) {                 \
-      debug_write(__FILE__);                              \
-      debug_write(":");                                   \
-      debug_write(__LINE__);                              \
+#define ASSERT_INTERRUPTS_DISABLED()                 \
+  do {                                               \
+    if ((eflags_reg() & (1 << 9)) != 0) {            \
+      debug_write(__FILE__);                         \
+      debug_write(":");                              \
+      debug_write(__LINE__);                         \
       panic(L"FAILED ASSERT_INTERRUPTS_DISABLED\n"); \
-    }                                                     \
+    }                                                \
   } while (0)
 
-#define ASSERT_INTERRUPTS_ENABLED()                      \
-  do {                                                   \
-    if ((eflags_reg() & (1 << 9)) != 1) {                \
-      debug_write(__FILE__);                             \
-      debug_write(":");                                  \
-      debug_write(__LINE__);                             \
+#define ASSERT_INTERRUPTS_ENABLED()                 \
+  do {                                              \
+    if (!(eflags_reg() & (1 << 9))) {               \
+      debug_write(__FILE__);                        \
+      debug_write(":");                             \
+      debug_write(__LINE__);                        \
       panic(L"FAILED ASSERT_INTERRUPTS_ENABLED\n"); \
-    }                                                    \
+    }                                               \
   } while (0)
 
 #else
@@ -80,19 +77,19 @@ typedef struct user_func_table {
 
 #undef disable_interrupts
 
-#define disable_interrupts() \
-do { \
-     ASSERT_INTERRUPTS_ENABLED (); \
-     __asm__ __volatile__ ("cli" : : : "memory"); \
-   } while (0)
+#define disable_interrupts()     \
+  do {                           \
+    ASSERT_INTERRUPTS_ENABLED(); \
+    CLI();                       \
+  } while (0)
 
 #undef enable_interrupts
 
-#define enable_interrupts() \
-do { \
-     ASSERT_INTERRUPTS_DISABLED (); \
-     __asm__ __volatile__ ("sti" : : : "memory"); \
-   } while (0)
+#define enable_interrupts()       \
+  do {                            \
+    ASSERT_INTERRUPTS_DISABLED(); \
+    STI();                        \
+  } while (0)
 
 // Save and restore the CPU state.
 
@@ -110,8 +107,7 @@ do {                                                                          \
          pushl %%cs             #  as expected by the ``iret'' instruction \n \
          call  %P0              #  so that ``iret'' can restore the context\n \
          addl  $8,%%esp         # Remove the third and fourth parameter    \n \
-         popa                                                              \n \
-         sti"                                                                 \
+         popa"                                                                \
         :                                                                     \
         : "i" (receiver), "g" (data)                                          \
         : "memory");                                                          \
@@ -168,18 +164,18 @@ do {                                                                          \
 
 #ifdef USE_RET_FOR_RESTORE_CONTEXT
 
-#define restore_context(sp)                                                   \
-do {                                                                          \
-     ASSERT_INTERRUPTS_DISABLED ();                                           \
-     __asm__ __volatile__                                                     \
-       ("movl  %0,%%esp  # Restore the stack pointer                       \n \
+#define restore_context(sp)                                                     \
+  do {                                                                          \
+    ASSERT_INTERRUPTS_DISABLED();                                               \
+    __asm__ __volatile__(                                                       \
+        "movl  %0,%%esp  # Restore the stack pointer                       \n \
          popl  %%ebx     # Get return address                              \n \
          popl  %%eax     # Discard %%cs                                    \n \
-         popfl                                                             \n \
-         jmp   *%%ebx    # Return from the ``call'' in ``save_context''"      \
-        :                                                                     \
-        : "g" (sp));                                                          \
-   } while (0)
+         popfl                                                                \n\
+         jmp   *%%ebx    # Return from the ``call'' in ``save_context''" \
+        :                                                                       \
+        : "g"(sp));                                                             \
+  } while (0)
 
 #endif
 
@@ -696,14 +692,18 @@ void _sched_timer_elapsed();
 
 void _sched_resume_next_thread();
 
-
-
 void sys_irq(void* esp);
+
 #ifdef USE_PIT_FOR_TIMER
+
 void irq0();
+
 #endif
+
 #ifdef USE_APIC_FOR_TIMER
+
 void APIC_timer_irq();
+
 #endif
 
 //-----------------------------------------------------------------------
