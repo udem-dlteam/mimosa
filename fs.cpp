@@ -546,29 +546,39 @@ static error_code next_FAT_section(file* f) {
 
     offset &= ~(~0U << fs->_.FAT121632.log2_bps);
 
-    if (ERROR(err =
-                  disk_cache_block_acquire(fs->_.FAT121632.d, sector_pos, &cb)))
-      return err;
-
-    cluster = *CAST(uint8*, cb->buf + offset);
-
-    if (offset == ~(~0U << fs->_.FAT121632.log2_bps)) {
-      if (ERROR(err = disk_cache_block_release(cb))) return err;
-      if (ERROR(err = disk_cache_block_acquire(fs->_.FAT121632.d,
-                                               sector_pos + 1, &cb)))
+    {
+      if (ERROR(err = disk_cache_block_acquire(fs->_.FAT121632.d, sector_pos,
+                                               &cb)))
         return err;
-      offset = 0;
-    } else
-      offset++;
+      cb->mut->lock();
 
-    if (n & 1)
-      cluster =
-          (cluster >> 4) + (CAST(uint32, *CAST(uint8*, cb->buf + offset)) << 4);
-    else
-      cluster =
-          cluster + (CAST(uint32, *CAST(uint8*, cb->buf + offset) & 0xf) << 8);
+      cluster = *CAST(uint8*, cb->buf + offset);
 
-    if (ERROR(err = disk_cache_block_release(cb))) return err;
+      if (offset == ~(~0U << fs->_.FAT121632.log2_bps)) {
+        cb->mut->unlock();
+        if (ERROR(err = disk_cache_block_release(cb))) return err;
+        if (ERROR(err = disk_cache_block_acquire(fs->_.FAT121632.d,
+                                                 sector_pos + 1, &cb))) {
+          return err;
+        }
+        cb->mut->lock();
+
+        offset = 0;
+      } else {
+        offset++;
+      }
+
+      if (n & 1) {
+        cluster = (cluster >> 4) +
+                  (CAST(uint32, *CAST(uint8*, cb->buf + offset)) << 4);
+      } else {
+        cluster = cluster +
+                  (CAST(uint32, *CAST(uint8*, cb->buf + offset) & 0xf) << 8);
+      }
+
+      cb->mut->unlock();
+      if (ERROR(err = disk_cache_block_release(cb))) return err;
+    }
 
     if (cluster >= 0xff8) return EOF_ERROR;
   } else {
@@ -584,24 +594,28 @@ static error_code next_FAT_section(file* f) {
 
     offset &= ~(~0U << fs->_.FAT121632.log2_bps);
 
-    if (ERROR(err = disk_cache_block_acquire(fs->_.FAT121632.d, sector_pos,
-                                             &cb))) {
-      return err;
-    }
-
-    if (fs->kind == FAT16_FS) {
-      cluster = *CAST(uint16*, cb->buf + offset);
-      if (ERROR(err = disk_cache_block_release(cb))) return err;
-      if (cluster >= 0xfff8) return EOF_ERROR;
-    } else {
-      cluster = *CAST(uint32*, cb->buf + offset) & 0x0fffffff;
-
-      if (ERROR(err = disk_cache_block_release(cb))) {
+    {
+      if (ERROR(err = disk_cache_block_acquire(fs->_.FAT121632.d, sector_pos,
+                                               &cb))) {
         return err;
       }
+      cb->mut->lock();
 
-      if (cluster >= FAT_32_EOF) {
-        return EOF_ERROR;
+      if (fs->kind == FAT16_FS) {
+        cluster = *CAST(uint16*, cb->buf + offset);
+        if (cluster >= 0xfff8) err = EOF_ERROR;
+      } else {
+        cluster = *CAST(uint32*, cb->buf + offset) & 0x0fffffff;
+        if (cluster >= FAT_32_EOF) err = EOF_ERROR;
+      }
+
+      cb->mut->unlock();
+      error_code release_err = disk_cache_block_release(cb);
+
+      if (ERROR(err)) {
+        return err;
+      } else if (ERROR(release_err)) {
+        return release_err;
       }
     }
   }
@@ -678,32 +692,35 @@ error_code  write_file(file* f, void* buff, uint32 count) {
         if (left1 > n) left1 = n;
         while (left1 > 0) {
           cache_block* cb;
-          if (ERROR(err = disk_cache_block_acquire(
-                        fs->_.FAT121632.d,
-                        f->current_section_start +
-                            (f->current_section_pos >> DISK_LOG2_BLOCK_SIZE),
-                        &cb))) {
-            return err;
+
+          {
+            if (ERROR(err = disk_cache_block_acquire(
+                          fs->_.FAT121632.d,
+                          f->current_section_start +
+                              (f->current_section_pos >> DISK_LOG2_BLOCK_SIZE),
+                          &cb))) {
+              return err;
+            }
+
+            // Lock the access to this cache block
+            cb->mut->lock();
+
+            left2 = (1 << DISK_LOG2_BLOCK_SIZE) -
+                    (f->current_section_pos & ~(~0U << DISK_LOG2_BLOCK_SIZE));
+
+            if (left2 > left1) left2 = left1;
+
+            uint8* sector_buffer = cb->buf + (f->current_section_pos &
+                                              ~(~0U << DISK_LOG2_BLOCK_SIZE));
+            // Update the cache_block buffer
+            memcpy(sector_buffer, p, left2);
+
+            cb->dirty = TRUE;
+            cb->mut->unlock();
+
+            if (ERROR(err = disk_cache_block_release(cb))) return err;
           }
 
-          // Lock the access to this cache block
-          cb->mut->lock();
-
-          left2 = (1 << DISK_LOG2_BLOCK_SIZE) -
-                  (f->current_section_pos & ~(~0U << DISK_LOG2_BLOCK_SIZE));
-
-          if (left2 > left1) left2 = left1;
-
-          uint8* sector_buffer = cb->buf + (f->current_section_pos &
-                                            ~(~0U << DISK_LOG2_BLOCK_SIZE));
-          // Update the cache_block buffer
-          memcpy(sector_buffer, p, left2);
-
-          cb->dirty = TRUE;
-          cb->mut->unlock();
-
-          if (ERROR(err = disk_cache_block_release(cb))) return err;
-          
           left1 -= left2;
           f->current_section_pos += left2;
           f->current_pos += left2;
@@ -770,25 +787,32 @@ error_code read_file(file* f, void* buf, uint32 count) {
 
           while (left1 > 0) {
             cache_block* cb;
-            if (ERROR(err = disk_cache_block_acquire(
+            
+            {
+              if (ERROR(
+                      err = disk_cache_block_acquire(
                           fs->_.FAT121632.d,
                           f->current_section_start +
                               (f->current_section_pos >> DISK_LOG2_BLOCK_SIZE),
                           &cb))) {
-              return err;
+                return err;
+              }
+              cb->mut->lock();
+
+              left2 = (1 << DISK_LOG2_BLOCK_SIZE) -
+                      (f->current_section_pos & ~(~0U << DISK_LOG2_BLOCK_SIZE));
+
+              if (left2 > left1) left2 = left1;
+
+              memcpy(p,
+                     cb->buf + (f->current_section_pos &
+                                ~(~0U << DISK_LOG2_BLOCK_SIZE)),
+                     left2);
+
+
+              cb->mut->unlock();
+              if (ERROR(err = disk_cache_block_release(cb))) return err;
             }
-
-            left2 = (1 << DISK_LOG2_BLOCK_SIZE) -
-                    (f->current_section_pos & ~(~0U << DISK_LOG2_BLOCK_SIZE));
-
-            if (left2 > left1) left2 = left1;
-
-            memcpy(p,
-                   cb->buf + (f->current_section_pos &
-                              ~(~0U << DISK_LOG2_BLOCK_SIZE)),
-                   left2);
-
-            if (ERROR(err = disk_cache_block_release(cb))) return err;
 
             left1 -= left2;
             f->current_section_pos += left2;
@@ -829,149 +853,155 @@ static error_code mount_FAT121632(disk* d, file_system** result) {
   uint32 total_data_clusters;
   uint8 kind;
   cache_block* cb;
-  error_code err;
+  error_code err, release_err;
 
-  if (ERROR(err = disk_cache_block_acquire(d, 0, &cb))) return err;
+  {
+    if (ERROR(err = disk_cache_block_acquire(d, 0, &cb))) return err;
+    cb->mut->lock();
 
-  p = CAST(BIOS_Parameter_Block*, cb->buf);
+    p = CAST(BIOS_Parameter_Block*, cb->buf);
 
-  bps = as_uint16(p->BPB_BytsPerSec);
-  log2_bps = log2(bps);
+    bps = as_uint16(p->BPB_BytsPerSec);
+    log2_bps = log2(bps);
 
-  spc = p->BPB_SecPerClus;
-  log2_spc = log2(spc);
+    spc = p->BPB_SecPerClus;
+    log2_spc = log2(spc);
 
-  rec = as_uint16(p->BPB_RootEntCnt);
-  total_sectors16 = as_uint16(p->BPB_TotSec16);
-  total_sectors = as_uint32(p->BPB_TotSec32);
-  FAT_size = as_uint16(p->BPB_FATSz16);
-  reserved_sectors = as_uint16(p->BPB_RsvdSecCnt);
+    rec = as_uint16(p->BPB_RootEntCnt);
+    total_sectors16 = as_uint16(p->BPB_TotSec16);
+    total_sectors = as_uint32(p->BPB_TotSec32);
+    FAT_size = as_uint16(p->BPB_FATSz16);
+    reserved_sectors = as_uint16(p->BPB_RsvdSecCnt);
 
-  expecting_FAT32 = (FAT_size == 0);
-
-#ifdef SHOW_DISK_INFO
-  term_write(cout, "Expected FAT32 = ");
-  term_write(cout, expecting_FAT32);
-  term_writeline(cout);
-#endif
-
-  if ((1 << log2_bps) != bps || log2_bps < 9 || log2_bps > 12) {
-    term_write(cout,
-               "bytes per sector is not a power of 2 between 512 and 4096: ");
-    term_write(cout, bps);
-    term_writeline(cout);
-    err = UNKNOWN_ERROR;
-  } else if (d->log2_sector_size != log2_bps) {
-    term_write(cout, "BytsPerSec and disk's sector size are inconsistent\n");
-    err = UNKNOWN_ERROR;
-  } else if ((1 << log2_spc) != spc || log2_spc > 8) {
-    term_write(cout,
-               "sectors per cluster is not a power of 2 between 1 and 128\n");
-    err = UNKNOWN_ERROR;
-  } else if (expecting_FAT32) {
-    if (rec != 0) {
-      term_write(cout, "RootEntCnt is not 0\n");
-      err = UNKNOWN_ERROR;
-    } else if (total_sectors16 != 0) {
-      term_write(cout, "TotSec16 is not 0\n");
-      err = UNKNOWN_ERROR;
-    } else if (total_sectors == 0) {
-      term_write(cout, "TotSec32 is 0\n");
-      err = UNKNOWN_ERROR;
-    } else {
-      FAT_size = as_uint32(p->_.FAT32.BPB_FATSz32);
-
-      if (FAT_size == 0) {
-        term_write(cout, "FATSz32 is 0\n");
-        err = UNKNOWN_ERROR;
-      }
-    }
-  } else {
-    if (rec == 0) {
-      term_write(cout, "RootEntCnt is 0\n");
-      err = UNKNOWN_ERROR;
-    } else if (total_sectors == 0) {
-      if (total_sectors16 == 0) {
-        term_write(cout, "TotSec16 and TotSec32 are 0\n");
-        err = UNKNOWN_ERROR;
-      } else
-        total_sectors = total_sectors16;
-    } else {
-      if (total_sectors16 != 0 && total_sectors16 != total_sectors) {
-        term_write(cout, "TotSec16 != TotSec32\n");
-        err = UNKNOWN_ERROR;
-      }
-    }
-  }
-
-  if (!ERROR(err)) {
-    root_directory_sectors =
-        (CAST(uint32, rec) * FAT_DIR_ENTRY_SIZE + (1 << log2_bps) - 1) >>
-        log2_bps;
-
-    first_data_sector = CAST(uint32, p->BPB_NumFATs) * FAT_size +
-                        as_uint16(p->BPB_RsvdSecCnt) + root_directory_sectors;
-
-    total_data_sectors = total_sectors - first_data_sector;
-
-    total_data_clusters = total_data_sectors >> log2_spc;
+    expecting_FAT32 = (FAT_size == 0);
 
 #ifdef SHOW_DISK_INFO
-    term_write(cout, "Total data cluster is: ");
-    term_write(cout, total_data_clusters);
+    term_write(cout, "Expected FAT32 = ");
+    term_write(cout, expecting_FAT32);
     term_writeline(cout);
 #endif
 
-    if (total_data_clusters == 0) {
-      if (expecting_FAT32) {
-        term_write(cout, "volume is FAT12 or FAT16 but FATSz16 is 0\n");
+    if ((1 << log2_bps) != bps || log2_bps < 9 || log2_bps > 12) {
+      term_write(cout,
+                 "bytes per sector is not a power of 2 between 512 and 4096: ");
+      term_write(cout, bps);
+      term_writeline(cout);
+      err = UNKNOWN_ERROR;
+    } else if (d->log2_sector_size != log2_bps) {
+      term_write(cout, "BytsPerSec and disk's sector size are inconsistent\n");
+      err = UNKNOWN_ERROR;
+    } else if ((1 << log2_spc) != spc || log2_spc > 8) {
+      term_write(cout,
+                 "sectors per cluster is not a power of 2 between 1 and 128\n");
+      err = UNKNOWN_ERROR;
+    } else if (expecting_FAT32) {
+      if (rec != 0) {
+        term_write(cout, "RootEntCnt is not 0\n");
         err = UNKNOWN_ERROR;
-      } else if (total_data_clusters < 4085) {
-        if (d->partition_type != 1) {
-          term_write(cout, "partition type is not 1\n");
-          err = UNKNOWN_ERROR;
-        } else
-          kind = FAT12_FS;
+      } else if (total_sectors16 != 0) {
+        term_write(cout, "TotSec16 is not 0\n");
+        err = UNKNOWN_ERROR;
+      } else if (total_sectors == 0) {
+        term_write(cout, "TotSec32 is 0\n");
+        err = UNKNOWN_ERROR;
       } else {
-        if (d->partition_type != 4 && d->partition_type != 6) {
-          term_write(cout, "partition type is not 4 or 6\n");
+        FAT_size = as_uint32(p->_.FAT32.BPB_FATSz32);
+
+        if (FAT_size == 0) {
+          term_write(cout, "FATSz32 is 0\n");
           err = UNKNOWN_ERROR;
-        } else {
-          kind = FAT16_FS;
         }
       }
     } else {
-      if (!expecting_FAT32) {
-        term_write(cout, "volume is FAT32 but FATSz16 is not 0\n");
+      if (rec == 0) {
+        term_write(cout, "RootEntCnt is 0\n");
         err = UNKNOWN_ERROR;
-      } else if (d->partition_type != 11 && d->partition_type != 12) {
-        term_write(cout, "partition type is not 11 nor 12\n");
-        err = UNKNOWN_ERROR;
+      } else if (total_sectors == 0) {
+        if (total_sectors16 == 0) {
+          term_write(cout, "TotSec16 and TotSec32 are 0\n");
+          err = UNKNOWN_ERROR;
+        } else
+          total_sectors = total_sectors16;
       } else {
-        kind = FAT32_FS;
+        if (total_sectors16 != 0 && total_sectors16 != total_sectors) {
+          term_write(cout, "TotSec16 != TotSec32\n");
+          err = UNKNOWN_ERROR;
+        }
       }
     }
+
+    if (!ERROR(err)) {
+      root_directory_sectors =
+          (CAST(uint32, rec) * FAT_DIR_ENTRY_SIZE + (1 << log2_bps) - 1) >>
+          log2_bps;
+
+      first_data_sector = CAST(uint32, p->BPB_NumFATs) * FAT_size +
+                          as_uint16(p->BPB_RsvdSecCnt) + root_directory_sectors;
+
+      total_data_sectors = total_sectors - first_data_sector;
+
+      total_data_clusters = total_data_sectors >> log2_spc;
+
+#ifdef SHOW_DISK_INFO
+      term_write(cout, "Total data cluster is: ");
+      term_write(cout, total_data_clusters);
+      term_writeline(cout);
+#endif
+
+      if (total_data_clusters == 0) {
+        if (expecting_FAT32) {
+          term_write(cout, "volume is FAT12 or FAT16 but FATSz16 is 0\n");
+          err = UNKNOWN_ERROR;
+        } else if (total_data_clusters < 4085) {
+          if (d->partition_type != 1) {
+            term_write(cout, "partition type is not 1\n");
+            err = UNKNOWN_ERROR;
+          } else
+            kind = FAT12_FS;
+        } else {
+          if (d->partition_type != 4 && d->partition_type != 6) {
+            term_write(cout, "partition type is not 4 or 6\n");
+            err = UNKNOWN_ERROR;
+          } else {
+            kind = FAT16_FS;
+          }
+        }
+      } else {
+        if (!expecting_FAT32) {
+          term_write(cout, "volume is FAT32 but FATSz16 is not 0\n");
+          err = UNKNOWN_ERROR;
+        } else if (d->partition_type != 11 && d->partition_type != 12) {
+          term_write(cout, "partition type is not 11 nor 12\n");
+          err = UNKNOWN_ERROR;
+        } else {
+          kind = FAT32_FS;
+        }
+      }
+    }
+
+    cb->mut->unlock();
+    release_err = disk_cache_block_release(cb);
   }
 
-  if (ERROR(err)) {
-    disk_cache_block_release(cb);  // ignore error
-  } else if (!ERROR(err = disk_cache_block_release(cb))) {
-    fs = CAST(file_system*, kmalloc(sizeof(file_system)));
-    if (fs == NULL) {
-      err = MEM_ERROR;
-    } else {
-      fs->kind = kind;
-      fs->_.FAT121632.d = d;
-      fs->_.FAT121632.log2_bps = log2_bps;
-      fs->_.FAT121632.log2_spc = log2_spc;
-      fs->_.FAT121632.total_sectors = total_sectors;
-      fs->_.FAT121632.reserved_sectors = reserved_sectors;
-      fs->_.FAT121632.root_directory_sectors = root_directory_sectors;
-      fs->_.FAT121632.first_data_sector = first_data_sector;
-      fs->_.FAT121632.total_data_clusters = total_data_clusters;
+  if(ERROR(err)) return err;
+  else if(ERROR(release_err)) return release_err;
 
-      *result = fs;
-    }
+  fs = CAST(file_system*, kmalloc(sizeof(file_system)));
+
+  if (fs == NULL) {
+    err = MEM_ERROR;
+  } else {
+    fs->kind = kind;
+    fs->_.FAT121632.d = d;
+    fs->_.FAT121632.log2_bps = log2_bps;
+    fs->_.FAT121632.log2_spc = log2_spc;
+    fs->_.FAT121632.total_sectors = total_sectors;
+    fs->_.FAT121632.reserved_sectors = reserved_sectors;
+    fs->_.FAT121632.root_directory_sectors = root_directory_sectors;
+    fs->_.FAT121632.first_data_sector = first_data_sector;
+    fs->_.FAT121632.total_data_clusters = total_data_clusters;
+
+    *result = fs;
   }
 
   return err;
@@ -1146,7 +1176,7 @@ void file_reset_cursor(file* f) {
 }
 
 error_code _file_set_pos_from_start(file* f, uint32 position) {
-  error_code err = NO_ERROR;
+  error_code err, release_error = NO_ERROR;
   file_system* fs = f->fs;
   BIOS_Parameter_Block* p;
   cache_block* cb;
@@ -1158,6 +1188,8 @@ error_code _file_set_pos_from_start(file* f, uint32 position) {
 
   // FAT32 only
   if (HAS_NO_ERROR(err = disk_cache_block_acquire(d, 0, &cb))) {
+    cb->mut->lock();
+
     p = CAST(BIOS_Parameter_Block*, cb->buf);
     uint16 bytes_per_sector = as_uint16(p->BPB_BytsPerSec);
     
@@ -1173,13 +1205,19 @@ error_code _file_set_pos_from_start(file* f, uint32 position) {
     // we walk through the FAT chain until we read
     // as many clusters as required to get a correct position.
     for (int i = 0; i < no_of_clusters; ++i) {
-      if (ERROR(err = next_FAT_section(f))) return err;
+      if (ERROR(err = next_FAT_section(f))) {
+        break;
+      }
     }
 
     f->current_section_pos += bytes_left_cluster;
     f->current_pos = position;
 
-    if (ERROR(err = disk_cache_block_release(cb))) return err;
+    cb->mut->unlock();
+    release_error = disk_cache_block_release(cb);
+    
+    if(ERROR(err)) return err;
+    if(ERROR(release_error)) return release_error;
   }
 
   return err;
@@ -1226,9 +1264,16 @@ error_code file_move_cursor(file* f, int32 n) {
     if(crosses_section_boundary) {
       // We are moving forward.
       if (HAS_NO_ERROR(err = disk_cache_block_acquire(d, 0, &cb))) {
-        p = CAST(BIOS_Parameter_Block*, cb->buf);
-        uint16 bytes_per_sector = as_uint16(p->BPB_BytsPerSec);
-        uint32 cluster_sz = bytes_per_sector * p->BPB_SecPerClus;
+        uint32 cluster_sz;
+
+        {
+          cb->mut->lock();
+          p = CAST(BIOS_Parameter_Block*, cb->buf);
+          uint16 bytes_per_sector = as_uint16(p->BPB_BytsPerSec);
+          cluster_sz = bytes_per_sector * p->BPB_SecPerClus;
+          cb->mut->unlock();
+          if (ERROR(err = disk_cache_block_release(cb))) return err;
+        }
 
         uint32 current_section_pos = f->current_section_pos;
         uint32 new_section_pos = current_section_pos + displacement;
@@ -1247,9 +1292,6 @@ error_code file_move_cursor(file* f, int32 n) {
         if(HAS_NO_ERROR(err)) {
           f->current_section_pos = new_section_pos;
           f->current_pos += displacement;
-        } else {
-          // Try anyways
-          disk_cache_block_release(cb);
         }
       }
     } else {

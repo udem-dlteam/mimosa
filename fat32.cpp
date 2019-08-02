@@ -104,7 +104,6 @@ fat_32_open_root_dir(file_system* fs, file* f) {
   term_write(cout, "Loading FAT32 root dir\n\r");
 #endif
 
-  BIOS_Parameter_Block* p;
   cache_block* cb;
   disk* d = fs->_.FAT121632.d;
   error_code err;
@@ -112,16 +111,18 @@ fat_32_open_root_dir(file_system* fs, file* f) {
   uint32 root_cluster;
   uint8 sectors_per_clusters;
 
-  if (ERROR(err = disk_cache_block_acquire(d, 0, &cb))) return err;
-  cb->mut->lock();
+  {
+    if (ERROR(err = disk_cache_block_acquire(d, 0, &cb))) return err;
+    cb->mut->lock();
 
-  p = CAST(BIOS_Parameter_Block*, cb->buf);
-  root_cluster = as_uint32(p->_.FAT32.BPB_RootClus);
-  bytes_per_sector = as_uint16(p->BPB_BytsPerSec);
-  sectors_per_clusters = p->BPB_SecPerClus;
+    BIOS_Parameter_Block* p = CAST(BIOS_Parameter_Block*, cb->buf);
+    root_cluster = as_uint32(p->_.FAT32.BPB_RootClus);
+    bytes_per_sector = as_uint16(p->BPB_BytsPerSec);
+    sectors_per_clusters = p->BPB_SecPerClus;
 
-  cb->mut->unlock();
-  if (ERROR(err = disk_cache_block_release(cb))) return err;
+    cb->mut->unlock();
+    if (ERROR(err = disk_cache_block_release(cb))) return err;
+  }
 
   // debug_write("In open root dir, the FS kind is: ");
   // debug_write(fs->kind);
@@ -157,21 +158,13 @@ fat_32_open_root_dir(file_system* fs, file* f) {
 
 error_code fat_32_find_first_empty_cluster(file_system* fs, uint32* result) {
   error_code err = NO_ERROR;
-  BIOS_Parameter_Block* p;
   uint32 offset = 0;
   disk* d = fs->_.FAT121632.d;
   cache_block* cb;
-
-  // Fetch the BPB
-  if (ERROR(err = disk_cache_block_acquire(d, 0, &cb))) return err;
-  p = CAST(BIOS_Parameter_Block*, cb->buf);
-  if (ERROR(err = disk_cache_block_release(cb))) return err;
-
+  uint32 max_lba = fs->_.FAT121632.total_sectors;
   uint16 entries_per_sector = (1 << fs->_.FAT121632.log2_bps) >> 2;
 
   uint32 lba = fs->_.FAT121632.reserved_sectors;
-  uint32 max_lba =
-      as_uint32(p->_.FAT32.BPB_FATSz32) + fs->_.FAT121632.reserved_sectors;
 
   bool found = FALSE;
   // Inspect all sectors starting from *cluster
@@ -187,6 +180,7 @@ error_code fat_32_find_first_empty_cluster(file_system* fs, uint32* result) {
     if (ERROR(err = disk_cache_block_acquire(fs->_.FAT121632.d, lba, &cb))) {
       return err;
     }
+    cb->mut->lock();
 
     for (; i < entries_per_sector; ++i, ++clus) {
       uint32 entry = CAST(uint32*, cb->buf)[i];
@@ -195,6 +189,7 @@ error_code fat_32_find_first_empty_cluster(file_system* fs, uint32* result) {
       }
     }
 
+    cb->mut->unlock();
     if (ERROR(err = disk_cache_block_release(cb))) return err;
     ++lba;
     i = 0;
@@ -208,7 +203,7 @@ error_code fat_32_find_first_empty_cluster(file_system* fs, uint32* result) {
 
 error_code fat_32_get_fat_link_value(file_system* fs, uint32 cluster,
                                      uint32* value) {
-  BIOS_Parameter_Block* p;
+  uint32 lba;
   disk* d = fs->_.FAT121632.d;
   error_code err;
   cache_block* cb;
@@ -219,54 +214,75 @@ error_code fat_32_get_fat_link_value(file_system* fs, uint32 cluster,
     panic(L"Cannot inspect lower than the second cluster entry");
   }
 
-  if (ERROR(err = disk_cache_block_acquire(d, 0, &cb))) return err;
-  p = CAST(BIOS_Parameter_Block*, cb->buf);
-  if (ERROR(err = disk_cache_block_release(cb))) return err;
 
-  uint32 lba = (cluster / entries_per_sector) + as_uint16(p->BPB_RsvdSecCnt);
+  { // Cache block section
+    if (ERROR(err = disk_cache_block_acquire(d, 0, &cb))) return err;
+    cb->mut->lock();
+
+    BIOS_Parameter_Block* p = CAST(BIOS_Parameter_Block*, cb->buf);
+
+    lba = (cluster / entries_per_sector) + as_uint16(p->BPB_RsvdSecCnt);
+
+    cb->mut->unlock();
+    if (ERROR(err = disk_cache_block_release(cb))) return err;
+  }
+
   uint32 offset = cluster % entries_per_sector;
 
-  if (ERROR(err = disk_cache_block_acquire(d, lba, &cb))) return err;
-  *value = *(CAST(uint32*, cb->buf) + offset);
-  if (ERROR(err = disk_cache_block_release(cb))) return err;
+  {
+    if (ERROR(err = disk_cache_block_acquire(d, lba, &cb))) return err;
+    cb->mut->lock();
+
+    *value = *(CAST(uint32*, cb->buf) + offset);
+
+    cb->mut->unlock();
+    if (ERROR(err = disk_cache_block_release(cb))) return err;
+  }
 
   return err;
 }
 
 error_code fat_32_set_fat_link_value(file_system* fs, uint32 cluster,
                                      uint32 value) {
+  uint32 lba;
   cache_block* cb;
   disk* d = fs->_.FAT121632.d;
   ide_device* dev = d->_.ide.dev;
   uint16 entries_per_sector = (1 << fs->_.FAT121632.log2_bps) >> 2;
   error_code err;
-  BIOS_Parameter_Block* p;
   uint8 wrt_buff[4];
 
   if (cluster < 2) {
     panic(L"Cannot inspect lower than the second cluster entry");
   }
 
-  if (ERROR(err = disk_cache_block_acquire(d, 0, &cb))) return err;
-  p = CAST(BIOS_Parameter_Block*, cb->buf);
-  if (ERROR(err = disk_cache_block_release(cb))) return err;
+  { // Cache block section
+    if (ERROR(err = disk_cache_block_acquire(d, 0, &cb))) return err;
+    cb->mut->lock();
 
-  uint32 lba = (cluster / entries_per_sector) + as_uint16(p->BPB_RsvdSecCnt);
+    BIOS_Parameter_Block* p = CAST(BIOS_Parameter_Block*, cb->buf);
+    lba = (cluster / entries_per_sector) + as_uint16(p->BPB_RsvdSecCnt);
+
+    cb->mut->unlock();
+    if (ERROR(err = disk_cache_block_release(cb))) return err;
+  }
+
+ 
   uint32 offset_in_bytes = (cluster % entries_per_sector) << 2;
 
   // Read the cache in order to update it
-  if (ERROR(err = disk_cache_block_acquire(d, lba, &cb))) return err;
+  {  // Very important to lock this write.
+    if (ERROR(err = disk_cache_block_acquire(d, lba, &cb))) return err;
+    cb->mut->lock();
 
-  cb->mut->lock();
+    for (int i = 0; i < 4; ++i) {
+      cb->buf[i + offset_in_bytes] = as_uint8(value, i);
+    }
 
-  for (int i = 0; i < 4; ++i) {
-    cb->buf[i + offset_in_bytes] = as_uint8(value, i);
+    cb->dirty = TRUE;
+    cb->mut->unlock();
+    if (ERROR(err = disk_cache_block_release(cb))) return err;
   }
-
-  cb->dirty = TRUE;
-  cb->mut->unlock();
-
-  if (ERROR(err = disk_cache_block_release(cb))) return err;
 
   return err;
 }
