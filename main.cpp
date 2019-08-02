@@ -26,11 +26,11 @@ int main() {
   error_code err;
 
   file* f;
-  if (ERROR(err = open_file("test.txt", "a+", &f))) {
-    term_write(&tty, "Error while test.txt in append");
+  if (ERROR(err = open_file("fact.scm", "w+", &f))) {
+    term_write(&tty, "Error while fact.scm in truncate");
     term_writeline(cout);
   } else {
-    term_write(&tty, "Success while opening test.txt in append");
+    term_write(&tty, "Success while opening fact.scm in truncate");
     term_writeline(cout);
   }
 

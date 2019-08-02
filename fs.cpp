@@ -326,10 +326,6 @@ static error_code fat_fetch_entry(file_system* fs, native_string path, file** re
           // Setup the entry file
           f->entry.position = entry_file.current_pos;
 
-          for (int i = 0; i < 11; ++i) {
-            term_write(cout, CAST(native_char, de.DIR_Name[i]));
-          }
-
           goto found;
         }
       }
@@ -348,6 +344,95 @@ static error_code fat_fetch_entry(file_system* fs, native_string path, file** re
   }
 
   return NO_ERROR;
+}
+
+static error_code find_first_empty_FAT_cluster(file_system* fs,
+                                               uint32* cluster) {
+  if (fs->kind != FAT32_FS) {
+    return UNIMPL_ERROR;
+  } else {
+    return fat_32_find_first_empty_cluster(fs, cluster);
+  }
+}
+
+static error_code get_fat_link_value(file_system* fs, uint32 cluster,
+                                     uint32* value) {
+  if (fs->kind != FAT32_FS) {
+    return UNIMPL_ERROR;
+  } else {
+    return fat_32_get_fat_link_value(fs, cluster, value);
+  }
+}
+
+static error_code set_fat_link_value(file_system* fs, uint32 cluster,
+                                     uint32 value) {
+  if (fs->kind != FAT32_FS) {
+    return UNIMPL_ERROR;
+  } else {
+    return fat_32_set_fat_link_value(fs, cluster, value);
+  }
+}
+
+static error_code update_file_length(file* f) {
+  // Update the directory entry
+  // to set the correct length of the file
+  error_code err = NO_ERROR;
+  FAT_directory_entry de;
+  file* entry_file;
+  uint32 filesize;
+
+  if (ERROR(err = open_root_dir_at_file_entry(f, &entry_file))) {
+    goto flush_file_update_dir_err_occured;
+  }
+
+  if (ERROR(err = read_file(entry_file, &de, sizeof(de)))) {
+    goto flush_file_update_dir_err_occured;
+  }
+
+  // Go backwards to overwrite the directory entry
+  file_move_cursor(entry_file, -sizeof(de));
+
+  filesize = f->length;
+  for (int i = 0; i < 4; ++i) {
+    de.DIR_FileSize[i] = as_uint8(filesize, i);
+  }
+
+  if (ERROR(err = write_file(entry_file, &de, sizeof(de)))) {
+    goto flush_file_update_dir_err_occured;
+  }
+
+flush_file_update_dir_err_occured:
+  // Always close the file, even if there is an error
+  error_code closing_err = close_file(entry_file);
+  return ERROR(err) ? err : closing_err;
+}
+
+static error_code unlink_file(file* f) {
+  error_code err = NO_ERROR;
+
+  uint32 cluster = f->first_cluster;
+  uint32 next_clus;
+  do {
+    if(ERROR(err = get_fat_link_value(f->fs, cluster, &next_clus))) break;
+    if(ERROR(err = set_fat_link_value(f->fs, cluster, NULL))) break;
+  } while(next_clus != FAT_32_EOF && next_clus > 0);
+
+  return err;
+}
+
+static error_code truncate_file(file* f) {
+  error_code err = NO_ERROR;
+  
+  if(ERROR(err = unlink_file(f))) return err;
+  uint32 clus = f->first_cluster;
+  
+  if(ERROR(err = set_fat_link_value(f->fs, clus, FAT_32_EOF))) return err;
+
+  f->length = 0;
+  
+  if(ERROR(err = update_file_length(f))) return err;
+
+  return err;
 }
 
 error_code open_file(native_string path, native_string mode, file** result) {
@@ -380,11 +465,13 @@ error_code open_file(native_string path, native_string mode, file** result) {
       return UNIMPL_ERROR;
   }
 
+  // Set the file mode
   switch(md) {
     case MODE_READ:
     case MODE_READ_WRITE: {
       if (ERROR(err)) return err;
-      // otherwise everything is ok.
+      // otherwise everything is ok, there is nothing to 
+      // do in this mode beside having the cursor at the start.
     } break;
 
     case MODE_TRUNC:
@@ -400,8 +487,9 @@ error_code open_file(native_string path, native_string mode, file** result) {
           return err;
         }
       } else {
-        panic(L"Truncation not implemented yet");
-        // Truncate the file
+        if(ERROR(err = truncate_file(f))) {
+          return err;
+        }
       }
     } break;
 
@@ -438,33 +526,6 @@ error_code open_file(native_string path, native_string mode, file** result) {
 error_code close_file(file* f) {
   kfree(f);
   return NO_ERROR;
-}
-
-static error_code find_first_empty_FAT_cluster(file_system* fs,
-                                               uint32* cluster) {
-  if (fs->kind != FAT32_FS) {
-    return UNIMPL_ERROR;
-  } else {
-    return fat_32_find_first_empty_cluster(fs, cluster);
-  }
-}
-
-static error_code get_fat_link_value(file_system* fs, uint32 cluster,
-                                     uint32* value) {
-  if (fs->kind != FAT32_FS) {
-    return UNIMPL_ERROR;
-  } else {
-    return fat_32_get_fat_link_value(fs, cluster, value);
-  }
-}
-
-static error_code set_fat_link_value(file_system* fs, uint32 cluster,
-                                     uint32 value) {
-  if (fs->kind != FAT32_FS) {
-    return UNIMPL_ERROR;
-  } else {
-    return fat_32_set_fat_link_value(fs, cluster, value);
-  }
 }
 
 static error_code next_FAT_section(file* f) {
@@ -665,43 +726,7 @@ error_code  write_file(file* f, void* buff, uint32 count) {
     f->length += count;
 
     if (!S_ISDIR(f->mode)) {
-      // Update the directory entry
-      // to set the correct length of the file
-      FAT_directory_entry de;
-      file* entry_file;
-      uint32 filesize;
-
-      if (ERROR(err = open_root_dir_at_file_entry(f, &entry_file))) {
-        goto flush_file_update_dir_err_occured;
-      }
-
-      if (ERROR(err = read_file(entry_file, &de, sizeof(de)))) {
-        goto flush_file_update_dir_err_occured;
-      }
-
-      // Go backwards to overwrite the directory entry
-      file_move_cursor(entry_file, -sizeof(de));
-
-      term_write(cout, "Reading the directory entry to update the file length:");
-      term_writeline(cout);
-
-      for(int i =0; i < 11; ++i) {
-        term_write(cout, (char)de.DIR_Name[i]);
-      }
-
-      term_writeline(cout);
-
-      filesize = f->length;
-      for (int i = 0; i < 4; ++i) {
-        de.DIR_FileSize[i] = as_uint8(filesize, i);
-      }
-
-      if (ERROR(err = write_file(entry_file, &de, sizeof(de)))) {
-        goto flush_file_update_dir_err_occured;
-      }
-
-    flush_file_update_dir_err_occured:
-      close_file(entry_file);
+      update_file_length(f);
     }
   }
 
