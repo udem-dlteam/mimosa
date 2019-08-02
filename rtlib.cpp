@@ -415,7 +415,6 @@ extern void libc_init(void);
 
 void __rtlib_setup ()
 { 
-  debug_write("__rtlib_setup");
   ASSERT_INTERRUPTS_ENABLED();
 
   term_write(cout, "Initializing ");
@@ -449,7 +448,7 @@ void __rtlib_setup ()
 
   main ();
 
-  __do_global_dtors ();
+  __do_global_dtors();
 
   panic(L"System termination");
 }

@@ -215,24 +215,18 @@ unicode_char getchar() {
   ASSERT_INTERRUPTS_ENABLED();
   unicode_char result;
 
-  sched_stats();
+  disable_interrupts();
 
-  // __surround_with_debug_t("getchar", {
-    disable_interrupts();
+  while (circular_buffer_lo == circular_buffer_hi) {
+    circular_buffer_cv->mutexless_wait();
+  }
 
-    while (circular_buffer_lo == circular_buffer_hi) {
-      // __surround_with_debug_t("Get char wait", {
-        circular_buffer_cv->mutexless_wait();
-      // });
-    }
+  result = circular_buffer[circular_buffer_lo];
 
-    result = circular_buffer[circular_buffer_lo];
+  circular_buffer_lo = (circular_buffer_lo + 1) % BUFFER_SIZE;
 
-    circular_buffer_lo = (circular_buffer_lo + 1) % BUFFER_SIZE;
-
-    circular_buffer_cv->mutexless_signal();
-    enable_interrupts();
-  // });
+  circular_buffer_cv->mutexless_signal();
+  enable_interrupts();
 
   return result;
 }

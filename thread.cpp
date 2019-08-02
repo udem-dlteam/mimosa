@@ -34,7 +34,6 @@ void mutex::lock() {
   disable_interrupts();
 
   if (_locked) {
-    debug_write("Mutex locked!");
     save_context(_sched_suspend_on_wait_queue, CAST(wait_queue*, this));
   } else {
     _locked = TRUE;
@@ -59,6 +58,7 @@ bool mutex::lock_or_timeout(time timeout) {
 
     // Remove it from whatever it's waiting
     wait_queue_remove(current);
+    wait_queue_detach(current);
     // Wait on the mutex: we are blocked until the mutex is freed
     wait_queue_insert(current, CAST(wait_queue*, this));
     // Sleep
@@ -109,11 +109,10 @@ condvar::condvar ()
   sched_reg_condvar(this);
 }
 
-void condvar::wait (mutex* m)
-{
-  disable_interrupts ();
+void condvar::wait(mutex* m) {
+  disable_interrupts();
 
-  thread* t = wait_queue_head (CAST(wait_queue*,m));
+  thread* t = wait_queue_head(CAST(wait_queue*, m));
 
   if (t == NULL) {
     m->_locked = FALSE;
@@ -123,23 +122,13 @@ void condvar::wait (mutex* m)
     _sched_reschedule_thread(t);
   }
 
-  // Why is this there???
-  // { //cout << "b";/////////
-
-  //     debug_write("LN 159");
-  // save_context (scheduler::suspend_on_wait_queue, this);
-  // //cout << "B";
-  // }
-
-  if (m->_locked) {  // cout << "c";///////////
-    debug_write("LN 166");
+  if (m->_locked) {
     save_context(_sched_suspend_on_wait_queue, m);
-    // cout << "C";
   } else {
     m->_locked = TRUE;
   }
 
-  enable_interrupts ();
+  enable_interrupts();
 }
 
 bool condvar::wait_or_timeout (mutex* m, time timeout)
@@ -148,7 +137,7 @@ bool condvar::wait_or_timeout (mutex* m, time timeout)
 
   thread* current = sched_current_thread;
 
-  thread* t = wait_queue_head (CAST(wait_queue*,m));
+  thread* t = wait_queue_head(CAST(wait_queue*,m));
 
   if (t == NULL) {
     m->_locked = FALSE;
@@ -169,7 +158,6 @@ bool condvar::wait_or_timeout (mutex* m, time timeout)
   wait_queue_remove (current);
   wait_queue_insert (current, CAST(wait_queue*, this));
 
-  debug_write("LN 205");
   save_context(_sched_suspend_on_sleep_queue, NULL);
 
   ASSERT_INTERRUPTS_DISABLED ();
@@ -216,9 +204,9 @@ void condvar::broadcast() {
 }
 
 void condvar::mutexless_wait() {
-  ASSERT_INTERRUPTS_DISABLED();  // Interrupts should be disabled at this point
-
-  // debug_write("LN 248");
+  // Interrupts should be disabled at this point
+  ASSERT_INTERRUPTS_DISABLED();  
+  
   save_context(_sched_suspend_on_wait_queue, CAST(wait_queue*, this));
   
   ASSERT_INTERRUPTS_DISABLED();
@@ -248,7 +236,8 @@ thread::thread ()
   static const int stack_size = 65536 << 1; // size of thread stacks in bytes
 
   mutex_queue_init (this);
-  // sleep_queue_detach (this);
+  wait_queue_detach(this);
+  sleep_queue_detach(this);
 
   uint32* s = CAST(uint32*, kmalloc(stack_size));
 
@@ -280,6 +269,9 @@ thread::thread ()
 
   *--s = 0;              // the (dummy) return address of "run_thread"
   *--s = (eflags_reg() | (1 << 9));  // space for "EFLAGS"
+  // We XOR the interrupt activated so the first thread start will
+  // have interrupts on regardless of the interrupt status
+  // of the creation site.
   *--s = cs_reg ();      // space for "%cs"
   *--s = CAST(uint32,&_sched_run_thread); // to call "run_thread"
 
@@ -414,8 +406,6 @@ void sys_irq (void* esp)///////////////// AMD... why do we need this hack???
 void _sched_resume_next_thread() {
   ASSERT_INTERRUPTS_DISABLED();  // Interrupts should be disabled at this point
 
-  // debug_write("Resuming the next thread");
-
   thread* current = wait_queue_head(readyq);
 
   if (current != NULL) {
@@ -480,8 +470,6 @@ void sched_setup(void_fn continuation) {
   sleep_queue_init (sleepq);
 
   sched_primordial_thread = new primordial_thread (continuation);
-  debug_write("The primordial:");
-  debug_write(CAST(uint32, sched_primordial_thread));
 
   sched_current_thread = sched_primordial_thread;
 
@@ -502,72 +490,61 @@ void sched_stats() {
   int m = 0;
   int p = 0;
 
-  term_write(cout, "ReadyQ DUMP:");
+  term_write(cout, "(");
 
   {
     wait_mutex_node* t = readyq->_next_in_wait_queue;
     while (t != readyq) {
-      term_write(cout, "(");
-      term_write(cout, CAST(uint32, t));
-      term_write(cout, "):");
       term_write(cout, CAST(thread*, t)->name());
-      term_write(cout, " ");
       n++;
       t = t->_next_in_wait_queue;
     }
   }
 
-  term_writeline(cout);
-
-  term_write(cout, "SleepQ DUMP:");
+  term_write(cout, " ");
 
   {
     wait_mutex_sleep_node* t = sleepq->_next_in_sleep_queue;
     while (t != sleepq) {
-      term_write(cout, "(");
-      term_write(cout, CAST(uint32, t));
-      term_write(cout, "):");
       term_write(cout, CAST(thread*, t)->name());
-      term_write(cout, " ");
       m++;
       t = t->_next_in_sleep_queue;
     }
   }
 
-  term_writeline(cout);
-  term_write(cout, "Circular BUFFER condvar (->):");
+  term_write(cout, " ");
 
   {
-    wait_mutex_node* t = circular_buffer_cv->_next_in_wait_queue;
-    while (t != circular_buffer_cv) {
-      term_write(cout, "(");
-      term_write(cout, CAST(uint32, t));
-      term_write(cout, "):");
-      term_write(cout, CAST(thread*, t)->name());
-      term_write(cout, " ");
-      n++;
-      t = t->_next_in_wait_queue;
+    for (int i = 0; i < mn; i++) {
+      wait_mutex_node* t = mtab[i]->_next_in_wait_queue;
+      while (t != mtab[i]) {
+        term_write(cout, "m");
+        term_write(cout, i);
+        term_write(cout, "=");
+        term_write(cout, CAST(thread*, t)->name());
+        term_write(cout, " ");
+        p++;
+        t = t->_next_in_wait_queue;
+      }
     }
   }
 
-  term_writeline(cout);
-  term_write(cout, "Circular BUFFER condvar (<-):");
-
   {
-    wait_mutex_node* t = circular_buffer_cv->_prev_in_wait_queue;
-    while (t != circular_buffer_cv) {
-      term_write(cout, "(");
-      term_write(cout, CAST(uint32, t));
-      term_write(cout, "):");
-      term_write(cout, CAST(thread*, t)->name());
-      term_write(cout, " ");
-      n++;
-      t = t->_prev_in_wait_queue;
+    for (int i = 0; i < cn; i++) {
+      wait_mutex_node* t = ctab[i]->_next_in_wait_queue;
+      while (t != ctab[i]) {
+        term_write(cout, "c");
+        term_write(cout, i);
+        term_write(cout, "=");
+        term_write(cout, CAST(thread*, t)->name());
+        term_write(cout, " ");
+        p++;
+        t = t->_next_in_wait_queue;
+      }
     }
   }
 
-
-  term_writeline(cout);
+  term_write(cout, ")\n");
 
   enable_interrupts();
 }
@@ -581,14 +558,12 @@ void sched_reg_condvar(condvar* c) {
 }
 
 void _sched_reschedule_thread(thread* t) {
-  __debug_marker();
   ASSERT_INTERRUPTS_DISABLED();  // Interrupts should be disabled at this point
   wait_queue_remove(t);
   wait_queue_insert(t, readyq);
 }
 
 void _sched_yield_if_necessary() {
-  __debug_marker();
   ASSERT_INTERRUPTS_DISABLED();  // Interrupts should be disabled at this point
 
   thread* t = wait_queue_head(readyq);
@@ -601,13 +576,9 @@ void _sched_yield_if_necessary() {
 }
 
 void _sched_run_thread() {
-  __debug_marker();
-  debug_write("Starting a thread");
   sched_current_thread->run();
   sched_current_thread->_terminated = TRUE;
   sched_current_thread->_joiners.broadcast();
-
-  panic(L"Thread is ded");
 
   disable_interrupts();
 
@@ -622,7 +593,6 @@ void _sched_run_thread() {
 
 void _sched_switch_to_next_thread(uint32 cs, uint32 eflags, uint32* sp,
                                   void* q) {
-  __debug_marker();
   ASSERT_INTERRUPTS_DISABLED();  // Interrupts should be disabled at this point
 
   thread* current = sched_current_thread;
@@ -637,7 +607,6 @@ void _sched_switch_to_next_thread(uint32 cs, uint32 eflags, uint32* sp,
 
 void _sched_suspend_on_wait_queue(uint32 cs, uint32 eflags, uint32* sp,
                                   void* q) {
- __debug_marker();
  ASSERT_INTERRUPTS_DISABLED();  // Interrupts should be disabled at this point
 
   thread* current = sched_current_thread;
@@ -655,7 +624,6 @@ void _sched_suspend_on_wait_queue(uint32 cs, uint32 eflags, uint32* sp,
 
 void _sched_suspend_on_sleep_queue(uint32 cs, uint32 eflags, uint32* sp,
                                    void* dummy) {
-  __debug_marker();
   ASSERT_INTERRUPTS_DISABLED();  // Interrupts should be disabled at this point
 
   thread* current = sched_current_thread;
@@ -708,7 +676,6 @@ void _sched_setup_timer() {
 
 void _sched_set_timer(time t, time now) {
   // t must be >= now
-  __debug_marker();
   ASSERT_INTERRUPTS_DISABLED();
 
   int64 count;
@@ -767,12 +734,6 @@ void _sched_timer_elapsed() {
       thread* t = sleep_queue_head (sleepq);
 
       if (t == NULL || less_time (now, t->_timeout)) {
-        // if(NULL == t) {
-        //   debug_write("Sleep queue head is null");
-        // } else {
-        //   debug_write("Awaken before the time");
-        // }
-
         break;
       }
 
