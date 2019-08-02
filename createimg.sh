@@ -17,6 +17,8 @@ cp ~/mimosa-build/kernel.bin   /mnt/tmp/BOOT.SYS
 cp ~/mimosa-build/gsi.exe      /mnt/tmp/gsi.exe
 cp ~/mimosa-build/gsc.exe      /mnt/tmp/gsc.exe
 cp ~/mimosa-build/.gambini.scm /mnt/tmp/.gambini.scm
+cp ~/mimosa-build/gambext.scm  /mnt/tmp/gambext.scm
+dd if=/dev/zero of=/mnt/tmp/dummy bs=512 count=2048
 
 # cp ~/mimosa-build/copypa.txt /mnt/tmp/copypa.txt
 
