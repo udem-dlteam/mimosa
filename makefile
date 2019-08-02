@@ -24,18 +24,24 @@ GPP_OPTIONS = $(GCC_OPTIONS) -fno-rtti -fno-builtin -fno-exceptions -nostdinc++
 
 all: bin_files
 
-rebuild: build createimg run
+fast:
+	mkdir -p mimosa-build
+	tar --exclude='*.img' -czf - . | ssh administrator@localhost -p 10022 "mkdir -p mimosa-build;cd mimosa-build;tar xzf -;make; cd .. ;echo pass999word | sudo ./mimosa-build/createimg.sh;cd mimosa-build; tar czf mb.tar.gz kernel.bin kernel.elf bootsect.bin floppy.img;";
+	scp -P 10022 administrator@localhost:~/mimosa-build/mb.tar.gz ./
+	tar xC mimosa-build -xzf mb.tar.gz
+	rm mb.tar.gz
 
 build:
 	mkdir -p mimosa-build
-	tar --exclude='*.img' -cf  - .  | ssh administrator@localhost -p 10022 "cd mimosa-build;tar xf -;rm -f kernel.bin; rm -f kernel.elf;make"
-	# ssh administrator@localhost -p 10022 "cat mimosa-build/bootsect.bin" > mimosa-build/bootsect.bin
-	# ssh administrator@localhost -p 10022 "cat mimosa-build/kernel.bin"   > mimosa-build/kernel.bin
-	ssh administrator@localhost -p 10022 "cat mimosa-build/kernel.elf"   > mimosa-build/kernel.elf
+	tar --exclude='*.img' -czf - . | ssh administrator@localhost -p 10022 "mkdir -p mimosa-build;cd mimosa-build;tar xzf -;make;tar czf mb.tar.gz kernel.bin kernel.elf bootsect.bin"
+	scp -P 10022 administrator@localhost:~/mimosa-build/mb.tar.gz ./
+	tar xC mimosa-build -xzf mb.tar.gz
 
 createimg:
-	ssh administrator@localhost -p 10022 "sudo mimosa-build/createimg.sh";
-	ssh administrator@localhost -p 10022 "cat mimosa-build/floppy.img" > mimosa-build/floppy.img
+	ssh administrator@localhost -p 10022 "sudo mimosa-build/createimg.sh;tar czf flop.tar.gz mimosa-build/floppy.img"
+	scp -P 10022 administrator@localhost:~/flop.tar.gz ./
+	tar xzf flop.tar.gz
+	rm flop.tar.gz
 
 run:
 	qemu-system-i386 -s -m 1G -hda mimosa-build/floppy.img -debugcon stdio
