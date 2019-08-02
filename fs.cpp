@@ -371,12 +371,8 @@ error_code open_file(native_string path, native_string mode, file** result) {
     case FAT12_FS:
     case FAT16_FS:
     case FAT32_FS: {
-      if(ERROR(err = fat_fetch_entry(fs, path, &f, name))) {
-        if(FNF_ERROR != err) {
-          term_write(cout, "Error while fetching the entry:");
-          term_write(cout, err);
-          term_writeline(cout);
-        }
+      if(ERROR(err = fat_fetch_entry(fs, path, &f, name)) && err != FNF_ERROR) {
+          return err;
       }
       break;
     }
@@ -413,7 +409,6 @@ error_code open_file(native_string path, native_string mode, file** result) {
     case MODE_APPEND_PLUS: {
       
       if(ERROR(err)) {
-        debug_write("Error opening the file");
         if (FNF_ERROR == err) {
           debug_write("Creating a file:" );
           debug_write(CAST(native_string, name));
@@ -424,18 +419,11 @@ error_code open_file(native_string path, native_string mode, file** result) {
           return err;
         }
       } else {
-        term_write(cout, "File already exists!");
-        term_writeline(cout);
-        term_write(cout, f->current_cluster);
-        term_writeline(cout);
-        term_write(cout, f->fs->kind);
         if(ERROR(err = file_set_to_absolute_position(f, f->length - 1))) {
-          debug_write("Failed to set the file to an absolute position (OEF)");
           return err;
         }
       }
     } break;
-
     default:
       panic(L"Unhandled file mode");
       break;
