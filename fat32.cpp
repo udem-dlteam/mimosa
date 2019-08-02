@@ -45,6 +45,10 @@ fat_32_create_empty_file(file_system* fs, uint8* name, file** result) {
     return err;
   }
 
+  term_write(cout, "Creating an empty FAT32 file... First allocated cluster is:");
+  term_write(cout, cluster);
+  term_writeline(cout);
+
   // Fill with spaces
   for (int i = 0; i < FAT_NAME_LENGTH; ++i) {
     de.DIR_Name[i] = ' ';
@@ -67,12 +71,16 @@ fat_32_create_empty_file(file_system* fs, uint8* name, file** result) {
 
   if (ERROR(err = write_file(f, &de, sizeof(de)))) {
     return err;
+  } else {
+    term_write(cout, "Wrote the directory entry succesfully");
+    term_writeline(cout);
   }
 
   if (ERROR(err = fat_32_set_fat_link_value(fs, cluster, FAT_32_EOF))) {
     return err;
   }
 
+  term_write(cout, "File created and ready for write");
   // Correctly set to the right coordinates in the FAT
   // so we are at the beginning of the file
   f->first_cluster = f->current_cluster = cluster;

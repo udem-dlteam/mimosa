@@ -303,11 +303,11 @@ static error_code fat_fetch_entry(file_system* fs, native_string path, file** re
           if (ERROR(err = close_file(f))) return err;
           f = CAST(file*, kmalloc(sizeof(file)));
           if (NULL == f) return MEM_ERROR;
+
           f->fs = fs;
-          f->current_cluster =
+          f->first_cluster = f->current_cluster =
               (CAST(uint32, as_uint16(de.DIR_FstClusHI)) << 16) +
               as_uint16(de.DIR_FstClusLO);
-          f->first_cluster = f->current_cluster;
           f->current_section_start =
               fs->_.FAT121632.first_data_sector +
               ((f->current_cluster - 2) << fs->_.FAT121632.log2_spc);
@@ -326,19 +326,15 @@ static error_code fat_fetch_entry(file_system* fs, native_string path, file** re
           // Setup the entry file
           f->entry.position = entry_file.current_pos;
 
-          term_write(cout, "The positions are:\n");
-          term_write(cout, entry_file.current_pos);
-          term_write(cout, entry_file.current_cluster);
-          term_write(cout, entry_file.current_section_pos);
+          for (int i = 0; i < 11; ++i) {
+            term_write(cout, CAST(native_char, de.DIR_Name[i]));
+          }
 
           goto found;
-        } else {
-          // Update the entry and position values
-          entry_file = *f;
         }
-      } else {
-        entry_file = *f;
       }
+      // Copy over the position informations
+      entry_file = *f;
     }
 
     close_file(f);  // ignore error
@@ -433,7 +429,7 @@ error_code open_file(native_string path, native_string mode, file** result) {
         term_write(cout, f->current_cluster);
         term_writeline(cout);
         term_write(cout, f->fs->kind);
-        if(ERROR(err = file_set_to_absolute_position(f, f->length))) {
+        if(ERROR(err = file_set_to_absolute_position(f, f->length - 1))) {
           debug_write("Failed to set the file to an absolute position (OEF)");
           return err;
         }
@@ -700,9 +696,11 @@ error_code  write_file(file* f, void* buff, uint32 count) {
 
       term_write(cout, "Reading the directory entry to update the file length:");
       term_writeline(cout);
+
       for(int i =0; i < 11; ++i) {
         term_write(cout, (char)de.DIR_Name[i]);
       }
+
       term_writeline(cout);
 
       filesize = f->length;
@@ -1195,9 +1193,9 @@ error_code file_move_cursor(file* f, int32 n) {
     // If we cross a section boundary, the design of the FAT FS requires to start
     // from the beginning.
     if (crosses_section_boundary) {
-      term_write(cout, "Pos. targeted:");
-      term_write(cout, f->current_pos - displacement);
-      term_writeline(cout);
+      // term_write(cout, "Pos. targeted:");
+      // term_write(cout, f->current_pos - displacement);
+      // term_writeline(cout);
       return _file_set_pos_from_start(f, f->current_pos - displacement);
     } else {
       // Simply update the position
@@ -1209,22 +1207,23 @@ error_code file_move_cursor(file* f, int32 n) {
     displacement = n;
     bool crosses_section_boundary = ((displacement + f->current_section_pos) >= f->current_section_length);
 
+    // term_write(cout, "Moving "); term_write(cout, n); term_write(cout, " positions forward");
+    // term_writeline(cout);
+
     if(crosses_section_boundary) {
       // We are moving forward.
       if (HAS_NO_ERROR(err = disk_cache_block_acquire(d, 0, &cb))) {
         p = CAST(BIOS_Parameter_Block*, cb->buf);
         uint16 bytes_per_sector = as_uint16(p->BPB_BytsPerSec);
         uint32 cluster_sz = bytes_per_sector * p->BPB_SecPerClus;
-        
-        uint32 current_section_pos = f->current_section_pos;
-        uint32 section_relative_pos = (current_section_pos + displacement) % cluster_sz;
 
-        uint32 no_of_clusters;
-        if(displacement == cluster_sz) {
-          return no_of_clusters = 1;
-        } else {
-          no_of_clusters = (displacement / cluster_sz) + 1;
-        }
+        uint32 current_section_pos = f->current_section_pos;
+        uint32 new_section_pos = current_section_pos + displacement;
+        uint32 no_of_clusters = (new_section_pos / cluster_sz);
+        new_section_pos %= cluster_sz; // We put back in "section length" units
+
+        // term_write(cout, "This requires moving "); term_write(cout, no_of_clusters); term_write(cout, " cluster(s) forward");
+        // term_writeline(cout);
 
         for (int i = 0; i < no_of_clusters; ++i) {
           if(ERROR(err = next_FAT_section(f))) {
@@ -1233,7 +1232,7 @@ error_code file_move_cursor(file* f, int32 n) {
         }
 
         if(HAS_NO_ERROR(err)) {
-          f->current_section_pos = section_relative_pos;
+          f->current_section_pos = new_section_pos;
           f->current_pos += displacement;
         } else {
           // Try anyways
