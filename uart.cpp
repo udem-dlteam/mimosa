@@ -269,7 +269,7 @@ void irq3() {
     caught_something = TRUE;
     _handle_interrupt(COM4_PORT_BASE, 4, com4_iir);
   }
-  if(!(caught_something)){
+  if (!(caught_something)){
     fatal_error("Misconfiguration of IRQ3.");
   }
 }
