@@ -118,7 +118,7 @@ error_code disk_cache_block_acquire(disk* d, uint32 sector_pos,
 
 again:
 
-  disk_mod.cache_mut->lock();
+  mutex_lock(disk_mod.cache_mut);
 
   for (;;) {
     LRU_deq = &disk_mod.LRU_deq;
@@ -160,13 +160,14 @@ again:
       cb->LRU_deq.prev = LRU_deq;
 
       cb->refcount++;
-      cb->mut->lock();
-      disk_mod.cache_mut->unlock();
+      mutex_lock(cb->mut);
+      mutex_unlock(disk_mod.cache_mut);
       while ((err = cb->err) == IN_PROGRESS) {
-        cb->cv->wait(cb->mut);
+        condavar_wait(cb->cv, cb->mut);
       }
-      cb->mut->unlock();
-      cb->cv->signal();
+
+      mutex_unlock(cb->mut);
+      condavar_signal(cb->cv);
 
       if (ERROR(err)) {
         disk_cache_block_release(cb);  // ignore error

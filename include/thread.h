@@ -448,10 +448,10 @@ typedef struct thread {
   mutex _m;                   // mutex to access termination flag
   condvar _joiners;           // threads waiting for this thread to terminate
   volatile bool _terminated;  // the thread's termination flag
-
+  void_fn run;
 } thread;
 
-void new_thread(thread* t);
+thread* new_thread (thread* self, void_fn run);
 
 thread* thread_start(thread* self);
 
