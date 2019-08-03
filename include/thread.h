@@ -275,132 +275,6 @@ int pthread_cond_destroy (pthread_cond_t* cond);
 #endif
 
 //-----------------------------------------------------------------------------
-
-// "wait_mutex_node" class implementation.
-
-#define NODETYPE wait_mutex_node
-#define QUEUETYPE wait_queue
-#define ELEMTYPE thread
-#define NAMESPACE_PREFIX(name) wait_queue_##name
-#define BEFORE(elem1, elem2) ((elem1)->_prio > (elem2)->_prio)
-
-#ifdef USE_DOUBLY_LINKED_LIST_FOR_WAIT_QUEUE
-#define USE_DOUBLY_LINKED_LIST
-#define NEXT(node) (node)->_next_in_wait_queue
-#define NEXT_SET(node, next_node) NEXT(node) = (next_node)
-#define PREV(node) (node)->_prev_in_wait_queue
-#define PREV_SET(node, prev_node) PREV(node) = (prev_node)
-#include "queue.h"
-#undef USE_DOUBLY_LINKED_LIST
-#undef NEXT
-#undef NEXT_SET
-#undef PREV
-#undef PREV_SET
-#endif
-
-#ifdef USE_RED_BLACK_TREE_FOR_WAIT_QUEUE
-#define USE_RED_BLACK_TREE
-#define COLOR(node) (node)->_color_in_wait_queue
-#define COLOR_SET(node, color) COLOR(node) = (color)
-#define PARENT(node) (node)->_parent_in_wait_queue
-#define PARENT_SET(node, parent) PARENT(node) = (parent)
-#define LEFT(node) (node)->_left_in_wait_queue
-#define LEFT_SET(node, left) LEFT(node) = (left)
-#define RIGHT(node) CAST(ELEMTYPE*, node)->_right_in_wait_queue
-#define RIGHT_SET(node, right) RIGHT(node) = (right)
-#define LEFTMOST(queue) (queue)->_leftmost_in_wait_queue
-#define LEFTMOST_SET(queue, node) LEFTMOST(queue) = (node)
-#include "queue.h"
-#undef USE_RED_BLACK_TREE
-#undef COLOR
-#undef COLOR_SET
-#undef PARENT
-#undef PARENT_SET
-#undef LEFT
-#undef LEFT_SET
-#undef RIGHT
-#undef RIGHT_SET
-#undef LEFTMOST
-#undef LEFTMOST_SET
-#endif
-
-#undef NODETYPE
-#undef QUEUETYPE
-#undef ELEMTYPE
-#undef NAMESPACE_PREFIX
-#undef BEFORE
-
-//-----------------------------------------------------------------------------
-
-// "wait_mutex_node" class implementation.
-
-#define NODETYPE wait_mutex_node
-#define QUEUETYPE mutex_queue
-#define ELEMTYPE mutex
-#define NAMESPACE_PREFIX(name) mutex_queue_##name
-#define BEFORE(elem1, elem2) FALSE
-
-#ifdef USE_DOUBLY_LINKED_LIST_FOR_MUTEX_QUEUE
-#define USE_DOUBLY_LINKED_LIST
-#define NEXT(node) (node)->_next_in_mutex_queue
-#define NEXT_SET(node, next_node) NEXT(node) = (next_node)
-#define PREV(node) (node)->_prev_in_mutex_queue
-#define PREV_SET(node, prev_node) PREV(node) = (prev_node)
-#include "queue.h"
-#undef USE_DOUBLY_LINKED_LIST
-#undef NEXT
-#undef NEXT_SET
-#undef PREV
-#undef PREV_SET
-#endif
-
-#ifdef USE_RED_BLACK_TREE_FOR_MUTEX_QUEUE
-#include "queue.h"
-#endif
-
-#undef NODETYPE
-#undef QUEUETYPE
-#undef ELEMTYPE
-#undef NAMESPACE_PREFIX
-#undef BEFORE
-
-//-----------------------------------------------------------------------------
-
-// "wait_mutex_sleep_node" class implementation.
-
-#define NODETYPE wait_mutex_sleep_node
-#define QUEUETYPE sleep_queue
-#define ELEMTYPE thread
-#define NAMESPACE_PREFIX(name) sleep_queue_##name
-#define BEFORE(elem1, elem2) less_time((elem1)->_timeout, (elem2)->_timeout)
-
-#ifdef USE_DOUBLY_LINKED_LIST_FOR_SLEEP_QUEUE
-#define USE_DOUBLY_LINKED_LIST
-#define NEXT(node) (node)->_next_in_sleep_queue
-#define NEXT_SET(node, next_node) NEXT(node) = (next_node)
-#define PREV(node) (node)->_prev_in_sleep_queue
-#define PREV_SET(node, prev_node) PREV(node) = (prev_node)
-#include "queue.h"
-#undef USE_DOUBLY_LINKED_LIST
-#undef NEXT
-#undef NEXT_SET
-#undef PREV
-#undef PREV_SET
-#endif
-
-#ifdef USE_RED_BLACK_TREE_FOR_SLEEP_QUEUE
-#include "queue.h"
-#endif
-
-#undef NODETYPE
-#undef QUEUETYPE
-#undef ELEMTYPE
-#undef NAMESPACE_PREFIX
-#undef BEFORE
-
-//-----------------------------------------------------------------------------
-
-//-----------------------------------------------------------------------------
 // C REWRITE
 //-----------------------------------------------------------------------------
 
@@ -593,7 +467,7 @@ native_string thread_name(thread* self);
 
 typedef struct program_thread {
   thread super;
-  libc_startup_fn _code;
+  void_fn _code; // TODO fix
 } program_thread;
 
 void thread_run(thread* self);
@@ -642,6 +516,132 @@ void irq0();
 void APIC_timer_irq();
 
 #endif
+
+//-----------------------------------------------------------------------------
+
+// "wait_mutex_node" class implementation.
+
+#define NODETYPE wait_mutex_node
+#define QUEUETYPE wait_queue
+#define ELEMTYPE thread
+#define NAMESPACE_PREFIX(name) wait_queue_##name
+#define BEFORE(elem1, elem2) ((elem1)->_prio > (elem2)->_prio)
+
+#ifdef USE_DOUBLY_LINKED_LIST_FOR_WAIT_QUEUE
+#define USE_DOUBLY_LINKED_LIST
+#define NEXT(node) (node)->_next_in_wait_queue
+#define NEXT_SET(node, next_node) NEXT(node) = (next_node)
+#define PREV(node) (node)->_prev_in_wait_queue
+#define PREV_SET(node, prev_node) PREV(node) = (prev_node)
+#include "queue.h"
+#undef USE_DOUBLY_LINKED_LIST
+#undef NEXT
+#undef NEXT_SET
+#undef PREV
+#undef PREV_SET
+#endif
+
+#ifdef USE_RED_BLACK_TREE_FOR_WAIT_QUEUE
+#define USE_RED_BLACK_TREE
+#define COLOR(node) (node)->_color_in_wait_queue
+#define COLOR_SET(node, color) COLOR(node) = (color)
+#define PARENT(node) (node)->_parent_in_wait_queue
+#define PARENT_SET(node, parent) PARENT(node) = (parent)
+#define LEFT(node) (node)->_left_in_wait_queue
+#define LEFT_SET(node, left) LEFT(node) = (left)
+#define RIGHT(node) CAST(ELEMTYPE*, node)->_right_in_wait_queue
+#define RIGHT_SET(node, right) RIGHT(node) = (right)
+#define LEFTMOST(queue) (queue)->_leftmost_in_wait_queue
+#define LEFTMOST_SET(queue, node) LEFTMOST(queue) = (node)
+#include "queue.h"
+#undef USE_RED_BLACK_TREE
+#undef COLOR
+#undef COLOR_SET
+#undef PARENT
+#undef PARENT_SET
+#undef LEFT
+#undef LEFT_SET
+#undef RIGHT
+#undef RIGHT_SET
+#undef LEFTMOST
+#undef LEFTMOST_SET
+#endif
+
+#undef NODETYPE
+#undef QUEUETYPE
+#undef ELEMTYPE
+#undef NAMESPACE_PREFIX
+#undef BEFORE
+
+//-----------------------------------------------------------------------------
+
+// "wait_mutex_node" class implementation.
+
+#define NODETYPE wait_mutex_node
+#define QUEUETYPE mutex_queue
+#define ELEMTYPE mutex
+#define NAMESPACE_PREFIX(name) mutex_queue_##name
+#define BEFORE(elem1, elem2) FALSE
+
+#ifdef USE_DOUBLY_LINKED_LIST_FOR_MUTEX_QUEUE
+#define USE_DOUBLY_LINKED_LIST
+#define NEXT(node) (node)->_next_in_mutex_queue
+#define NEXT_SET(node, next_node) NEXT(node) = (next_node)
+#define PREV(node) (node)->_prev_in_mutex_queue
+#define PREV_SET(node, prev_node) PREV(node) = (prev_node)
+#include "queue.h"
+#undef USE_DOUBLY_LINKED_LIST
+#undef NEXT
+#undef NEXT_SET
+#undef PREV
+#undef PREV_SET
+#endif
+
+#ifdef USE_RED_BLACK_TREE_FOR_MUTEX_QUEUE
+#include "queue.h"
+#endif
+
+#undef NODETYPE
+#undef QUEUETYPE
+#undef ELEMTYPE
+#undef NAMESPACE_PREFIX
+#undef BEFORE
+
+//-----------------------------------------------------------------------------
+
+// "wait_mutex_sleep_node" class implementation.
+
+#define NODETYPE wait_mutex_sleep_node
+#define QUEUETYPE sleep_queue
+#define ELEMTYPE thread
+#define NAMESPACE_PREFIX(name) sleep_queue_##name
+#define BEFORE(elem1, elem2) less_time((elem1)->_timeout, (elem2)->_timeout)
+
+#ifdef USE_DOUBLY_LINKED_LIST_FOR_SLEEP_QUEUE
+#define USE_DOUBLY_LINKED_LIST
+#define NEXT(node) (node)->_next_in_sleep_queue
+#define NEXT_SET(node, next_node) NEXT(node) = (next_node)
+#define PREV(node) (node)->_prev_in_sleep_queue
+#define PREV_SET(node, prev_node) PREV(node) = (prev_node)
+#include "queue.h"
+#undef USE_DOUBLY_LINKED_LIST
+#undef NEXT
+#undef NEXT_SET
+#undef PREV
+#undef PREV_SET
+#endif
+
+#ifdef USE_RED_BLACK_TREE_FOR_SLEEP_QUEUE
+#include "queue.h"
+#endif
+
+#undef NODETYPE
+#undef QUEUETYPE
+#undef ELEMTYPE
+#undef NAMESPACE_PREFIX
+#undef BEFORE
+
+//-----------------------------------------------------------------------------
 
 //-----------------------------------------------------------------------
 // Static declarations
