@@ -25,28 +25,6 @@ thread* sched_primordial_thread;
 thread* sched_current_thread;
 
 
-// void condvar::wait(mutex* m) {
-//   disable_interrupts();
-
-//   thread* t = wait_queue_head(CAST(wait_queue*, m));
-
-//   if (t == NULL) {
-//     m->_locked = FALSE;
-//   } else {
-//     sleep_queue_remove(t);
-//     sleep_queue_detach(t);
-//     _sched_reschedule_thread(t);
-//   }
-
-//   if (m->_locked) {
-//     save_context(_sched_suspend_on_wait_queue, m);
-//   } else {
-//     m->_locked = TRUE;
-//   }
-
-//   enable_interrupts();
-// }
-
 // bool condvar::wait_or_timeout (mutex* m, time timeout)
 // {
 //   disable_interrupts ();
@@ -388,9 +366,67 @@ void new_condvar(condvar* c) {
 }
 
 
+void condvar_wait(condvar* self, mutex* m) {
+  disable_interrupts();
 
+  thread* t = wait_queue_head(&m->super);
 
+  if (t == NULL) {
+    m->_locked = FALSE;
+  } else {
+    sleep_queue_remove(t);
+    sleep_queue_detach(t);
+    _sched_reschedule_thread(t);
+  }
 
+  if (m->_locked) {
+    save_context(_sched_suspend_on_wait_queue, m);
+  } else {
+    m->_locked = TRUE;
+  }
+
+  enable_interrupts();
+}
+
+bool condvar_wait_or_timeout(condvar* self, mutex* m, time timeout) {
+  disable_interrupts();
+
+  thread* current = sched_current_thread;
+
+  thread* t = wait_queue_head(CAST(wait_queue*, m));
+
+  if (t == NULL) {
+    m->_locked = FALSE;
+  } else {
+    sleep_queue_remove(t);
+    sleep_queue_detach(t);
+    _sched_reschedule_thread(t);
+  }
+
+  if (!less_time(current_time_no_interlock(), timeout)) {
+    enable_interrupts();
+    return FALSE;
+  }
+
+  current->_timeout = timeout;
+  current->_did_not_timeout = TRUE;
+
+  wait_queue_remove(current);
+  wait_queue_insert(current, &self->super);
+
+  save_context(_sched_suspend_on_sleep_queue, NULL);
+
+  ASSERT_INTERRUPTS_DISABLED();
+
+  if (current->_did_not_timeout) {
+    enable_interrupts();
+    return mutex_lock_or_timeout(m, timeout);
+  }
+
+  enable_interrupts();
+
+  return FALSE;
+}
 
 //-----------------------------------------------------------------------------
 
