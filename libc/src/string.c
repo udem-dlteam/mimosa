@@ -2,13 +2,13 @@
 #include "include/string.h"
 
 #ifndef USE_MIMOSA
-extern "C" void *memcpy(void *__restrict __dest, const void *__restrict __src,
-                        size_t __n) {
-  return memmove(__dest, __src, __n);
+extern "C" void *REDIRECT_NAME(memcpy)(void *__restrict __dest, const void *__restrict __src,
+                                       size_t __n) {
+  return REDIRECT_NAME(memmove)(__dest, __src, __n);
 }
 #endif
 
-void *memmove(void *__dest, const void *__src, size_t __n) {
+void *REDIRECT_NAME(memmove)(void *__dest, const void *__src, size_t __n) {
 
   char *s = (char*)__src;
   char *d = (char*)__dest;

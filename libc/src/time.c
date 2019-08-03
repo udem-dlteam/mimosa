@@ -1,7 +1,7 @@
 #include "include/libc_common.h"
 #include "include/time.h"
 
-clock_t clock(void) {
+clock_t REDIRECT_NAME(clock)(void) {
 
 #ifdef USE_LIBC_LINK
 
@@ -12,8 +12,6 @@ clock_t clock(void) {
   libc_trace("clock");
 
 #ifdef USE_HOST_LIBC
-
-#undef clock
 
   return clock();
 
@@ -26,8 +24,8 @@ clock_t clock(void) {
 #endif
 }
 
-int nanosleep(const struct timespec *__requested_time,
-              struct timespec *__remaining) {
+int REDIRECT_NAME(nanosleep)(const struct timespec *__requested_time,
+                             struct timespec *__remaining) {
 
 #ifdef USE_LIBC_LINK
 
@@ -38,8 +36,6 @@ int nanosleep(const struct timespec *__requested_time,
   libc_trace("nanosleep");
 
 #ifdef USE_HOST_LIBC
-
-#undef nanosleep
 
   return nanosleep(__requested_time, __remaining);
 
@@ -52,7 +48,7 @@ int nanosleep(const struct timespec *__requested_time,
 #endif
 }
 
-int clock_getres(clockid_t __clock_id, struct timespec *__res) {
+int REDIRECT_NAME(clock_getres)(clockid_t __clock_id, struct timespec *__res) {
 
 #ifdef USE_LIBC_LINK
 
@@ -63,8 +59,6 @@ int clock_getres(clockid_t __clock_id, struct timespec *__res) {
   libc_trace("clock_getres");
 
 #ifdef USE_HOST_LIBC
-
-#undef clock_getres
 
   return clock_getres(__clock_id, __res);
 
@@ -77,7 +71,7 @@ int clock_getres(clockid_t __clock_id, struct timespec *__res) {
 #endif
 }
 
-int clock_gettime(clockid_t __clock_id, struct timespec *__tp) {
+int REDIRECT_NAME(clock_gettime)(clockid_t __clock_id, struct timespec *__tp) {
 
 #ifdef USE_LIBC_LINK
 
@@ -88,8 +82,6 @@ int clock_gettime(clockid_t __clock_id, struct timespec *__tp) {
   libc_trace("clock_gettime");
 
 #ifdef USE_HOST_LIBC
-
-#undef clock_gettime
 
   return clock_gettime(__clock_id, __tp);
 
@@ -102,7 +94,7 @@ int clock_gettime(clockid_t __clock_id, struct timespec *__tp) {
 #endif
 }
 
-int clock_settime(clockid_t __clock_id, const struct timespec *__tp) {
+int REDIRECT_NAME(clock_settime)(clockid_t __clock_id, const struct timespec *__tp) {
 
 #ifdef USE_LIBC_LINK
 
@@ -113,8 +105,6 @@ int clock_settime(clockid_t __clock_id, const struct timespec *__tp) {
   libc_trace("clock_settime");
 
 #ifdef USE_HOST_LIBC
-
-#undef clock_settime
 
   return clock_settime(__clock_id, __tp);
 

@@ -20,12 +20,12 @@ struct stat {
 #endif
 #endif
 
-extern char *getcwd(char *__buf, size_t __size);
-extern int mkdir(const char *__pathname, mode_t __mode);
-extern int remove(const char *__pathname);
-extern int lstat(const char *__pathname, struct_stat *__buf);
-extern int stat(const char *__pathname, struct_stat *__buf);
-extern int isatty(int __fd);
+extern char *REDIRECT_NAME(getcwd)(char *__buf, size_t __size);
+extern int REDIRECT_NAME(mkdir)(const char *__pathname, mode_t __mode);
+extern int REDIRECT_NAME(remove)(const char *__pathname);
+extern int REDIRECT_NAME(lstat)(const char *__pathname, struct_stat *__buf);
+extern int REDIRECT_NAME(stat)(const char *__pathname, struct_stat *__buf);
+extern int REDIRECT_NAME(isatty)(int __fd);
 
 #ifndef USE_LIBC_LINK
 

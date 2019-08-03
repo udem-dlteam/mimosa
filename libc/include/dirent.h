@@ -5,8 +5,11 @@
 #include "include/libc_header.h"
 
 #ifdef USE_MIMOSA
+
 #include "fs.h"
+
 #else
+
 #ifndef USE_HOST_LIBC
 
 typedef struct {
@@ -18,10 +21,12 @@ struct dirent {
 };
 
 #endif
-extern DIR *opendir(char *__name);
-extern struct dirent *readdir(DIR *__dirp);
-extern int closedir(DIR *__dirp);
+
 #endif
+
+extern DIR *REDIRECT_NAME(opendir)(const char *__name);
+extern struct dirent *REDIRECT_NAME(readdir)(DIR *__dirp);
+extern int REDIRECT_NAME(closedir)(DIR *__dirp);
 
 #ifndef USE_LIBC_LINK
 

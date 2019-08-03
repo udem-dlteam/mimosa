@@ -1,7 +1,7 @@
 #include "include/libc_common.h"
 #include "include/termios.h"
 
-int tcgetattr(int __fd, struct termios *__termios_p) {
+int REDIRECT_NAME(tcgetattr)(int __fd, struct termios *__termios_p) {
 
 #ifdef USE_LIBC_LINK
 
@@ -12,8 +12,6 @@ int tcgetattr(int __fd, struct termios *__termios_p) {
   libc_trace("tcgetattr");
 
 #ifdef USE_HOST_LIBC
-
-#undef tcgetattr
 
   return tcgetattr(__fd, __termios_p);
 
@@ -26,8 +24,8 @@ int tcgetattr(int __fd, struct termios *__termios_p) {
 #endif
 }
 
-int tcsetattr(int __fd, int __optional_actions,
-              const struct termios *__termios_p) {
+int REDIRECT_NAME(tcsetattr)(int __fd, int __optional_actions,
+                             const struct termios *__termios_p) {
 
 #ifdef USE_LIBC_LINK
 
@@ -38,8 +36,6 @@ int tcsetattr(int __fd, int __optional_actions,
   libc_trace("tcsetattr");
 
 #ifdef USE_HOST_LIBC
-
-#undef tcsetattr
 
   return tcsetattr(__fd, __optional_actions, __termios_p);
 
@@ -52,7 +48,7 @@ int tcsetattr(int __fd, int __optional_actions,
 #endif
 }
 
-int cfsetospeed(struct termios *__termios_p, speed_t __speed) {
+int REDIRECT_NAME(cfsetospeed)(struct termios *__termios_p, speed_t __speed) {
 
 #ifdef USE_LIBC_LINK
 
@@ -63,8 +59,6 @@ int cfsetospeed(struct termios *__termios_p, speed_t __speed) {
   libc_trace("cfsetospeed");
 
 #ifdef USE_HOST_LIBC
-
-#undef cfsetospeed
 
   return cfsetospeed(__termios_p, __speed);
 
@@ -77,7 +71,7 @@ int cfsetospeed(struct termios *__termios_p, speed_t __speed) {
 #endif
 }
 
-int cfsetispeed(struct termios *__termios_p, speed_t __speed) {
+int REDIRECT_NAME(cfsetispeed)(struct termios *__termios_p, speed_t __speed) {
 
 #ifdef USE_LIBC_LINK
 
@@ -88,8 +82,6 @@ int cfsetispeed(struct termios *__termios_p, speed_t __speed) {
   libc_trace("cfsetispeed");
 
 #ifdef USE_HOST_LIBC
-
-#undef cfsetispeed
 
   return cfsetispeed(__termios_p, __speed);
 

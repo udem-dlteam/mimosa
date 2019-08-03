@@ -15,7 +15,7 @@ GPP = g++-3.4 -m32 -Wno-write-strings -ggdb3
 
 SPECIAL_OPTIONS =
 
-GCC_OPTIONS = $(SPECIAL_OPTIONS) $(DEFS) -DOS_NAME=$(OS_NAME) -DKERNEL_START=$(KERNEL_START) -fomit-frame-pointer -fno-strict-aliasing -Wall -O3 -nostdinc -Iinclude -Ilibc
+GCC_OPTIONS = $(SPECIAL_OPTIONS) $(DEFS) -DOS_NAME=$(OS_NAME) -DKERNEL_START=$(KERNEL_START) -fomit-frame-pointer -fno-strict-aliasing -Wall -O3 -ffast-math -nostdinc -Iinclude -Ilibc -I/usr/include
 
 GPP_OPTIONS = $(GCC_OPTIONS) -fno-rtti -fno-builtin -fno-exceptions -nostdinc++
 

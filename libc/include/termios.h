@@ -120,14 +120,14 @@ struct termios {
 
 #endif
 
-extern int tcgetattr(int __fd, struct termios *__termios_p);
+extern int REDIRECT_NAME(tcgetattr)(int __fd, struct termios *__termios_p);
 
-extern int tcsetattr(int __fd, int __optional_actions,
-                     const struct termios *__termios_p);
+extern int REDIRECT_NAME(tcsetattr)(int __fd, int __optional_actions,
+                                    const struct termios *__termios_p);
 
-extern int cfsetospeed(struct termios *__termios_p, speed_t __speed);
+extern int REDIRECT_NAME(cfsetospeed)(struct termios *__termios_p, speed_t __speed);
 
-extern int cfsetispeed(struct termios *__termios_p, speed_t __speed);
+extern int REDIRECT_NAME(cfsetispeed)(struct termios *__termios_p, speed_t __speed);
 
 #ifndef USE_LIBC_LINK
 

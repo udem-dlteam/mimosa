@@ -25,7 +25,7 @@ void send_signal(int sig) {
 
 #endif
 
-__sighandler_t signal(int __sig, __sighandler_t __handler) {
+__sighandler_t REDIRECT_NAME(signal)(int __sig, __sighandler_t __handler) {
 
 #ifdef USE_LIBC_LINK
 
@@ -36,8 +36,6 @@ __sighandler_t signal(int __sig, __sighandler_t __handler) {
   libc_trace("signal");
 
 #ifdef USE_HOST_LIBC
-
-#undef signal
 
   return signal(__sig, __handler);
 

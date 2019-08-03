@@ -5,17 +5,17 @@
 #include "include/libc_header.h"
 #include "include/stddef.h"
 
-extern void *malloc(size_t __size);
+extern void *REDIRECT_NAME(malloc)(size_t __size);
 
-extern void free(void *__ptr);
+extern void REDIRECT_NAME(free)(void *__ptr);
 
-extern void exit(int __status);
+extern void REDIRECT_NAME(exit)(int __status);
 
 //extern char **environ;
 
-extern char *getenv(const char *__name);
+extern char *REDIRECT_NAME(getenv)(const char *__name);
 
-extern int system(const char *__command);
+extern int REDIRECT_NAME(system)(const char *__command);
 
 #ifndef USE_LIBC_LINK
 

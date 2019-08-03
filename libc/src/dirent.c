@@ -1,9 +1,7 @@
 #include "include/libc_common.h"
 #include "include/dirent.h"
 
-#ifndef USE_MIMOSA
-
-DIR *opendir(const char *__name) {
+DIR *REDIRECT_NAME(opendir)(const char *__name) {
 
 #ifdef USE_LIBC_LINK
 
@@ -15,20 +13,17 @@ DIR *opendir(const char *__name) {
 
 #ifdef USE_HOST_LIBC
 
-#undef opendir
-
   return opendir(__name);
 
 #else
 
-  // TODO: implement
-  return NULL;
+  return opendir(__name);
 
 #endif
 #endif
 }
 
-struct dirent *readdir(DIR *__dirp) {
+struct dirent *REDIRECT_NAME(readdir)(DIR *__dirp) {
 
 #ifdef USE_LIBC_LINK
 
@@ -40,20 +35,17 @@ struct dirent *readdir(DIR *__dirp) {
 
 #ifdef USE_HOST_LIBC
 
-#undef readdir
-
   return readdir(__dirp);
 
 #else
 
-  // TODO: implement
-  return NULL;
+  return readdir(__dirp);
 
 #endif
 #endif
 }
 
-int closedir(DIR *__dirp) {
+int REDIRECT_NAME(closedir)(DIR *__dirp) {
 
 #ifdef USE_LIBC_LINK
 
@@ -65,20 +57,15 @@ int closedir(DIR *__dirp) {
 
 #ifdef USE_HOST_LIBC
 
-#undef closedir
-
   return closedir(__dirp);
 
 #else
 
-  // TODO: implement
-  return 0;
+  return closedir(__dirp);
 
 #endif
 #endif
 }
-
-#endif
 
 #ifndef USE_LIBC_LINK
 

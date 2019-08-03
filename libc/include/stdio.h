@@ -18,38 +18,38 @@ typedef struct {
 
 #endif
 
-extern FILE *fopen(const char *__restrict __filename,
-                   const char *__restrict __modes);
+extern FILE *REDIRECT_NAME(fopen)(const char *__restrict __filename,
+                                  const char *__restrict __modes);
 
-extern FILE *fdopen(int __fd, const char *__modes);
+extern FILE *REDIRECT_NAME(fdopen)(int __fd, const char *__modes);
 
-extern size_t fread(void *__restrict __ptr, size_t __size,
-                    size_t __n, FILE *__restrict __stream);
+extern size_t REDIRECT_NAME(fread)(void *__restrict __ptr, size_t __size,
+                                   size_t __n, FILE *__restrict __stream);
 
-extern size_t fwrite(const void *__restrict __ptr, size_t __size,
-                     size_t __n, FILE *__restrict __stream);
+extern size_t REDIRECT_NAME(fwrite)(const void *__restrict __ptr, size_t __size,
+                                    size_t __n, FILE *__restrict __stream);
 
-extern int fclose(FILE *__restrict __stream);
+extern int REDIRECT_NAME(fclose)(FILE *__restrict __stream);
 
-extern int fflush(FILE *__restrict __stream);
+extern int REDIRECT_NAME(fflush)(FILE *__restrict __stream);
 
-extern int fseek(FILE *__restrict __stream, long __off, int __whence);
+extern int REDIRECT_NAME(fseek)(FILE *__restrict __stream, long __off, int __whence);
 
-extern long ftell(FILE *__restrict __stream);
+extern long REDIRECT_NAME(ftell)(FILE *__restrict __stream);
 
-extern int ferror(FILE *__restrict __stream);
+extern int REDIRECT_NAME(ferror)(FILE *__restrict __stream);
 
-extern int feof(FILE *__restrict __stream);
+extern int REDIRECT_NAME(feof)(FILE *__restrict __stream);
 
-extern void clearerr(FILE *__restrict __stream);
+extern void REDIRECT_NAME(clearerr)(FILE *__restrict __stream);
 
-extern int fileno(FILE *__restrict __stream);
+extern int REDIRECT_NAME(fileno)(FILE *__restrict __stream);
 
-extern void setbuf(FILE *__restrict __stream, char *__restrict __buf);
+extern void REDIRECT_NAME(setbuf)(FILE *__restrict __stream, char *__restrict __buf);
 
-extern int rename(const char *__oldpath, const char *__newpath);
+extern int REDIRECT_NAME(rename)(const char *__oldpath, const char *__newpath);
 
-extern int fprintf_aux(FILE *__restrict __stream, const char **__format);
+extern int REDIRECT_NAME(fprintf_aux)(FILE *__restrict __stream, const char **__format);
 
 #ifdef USE_LIBC_LINK
 

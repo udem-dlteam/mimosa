@@ -8,7 +8,7 @@
 
 #endif
 
-int getrusage(int __who, struct rusage *__usage) {
+int REDIRECT_NAME(getrusage)(int __who, struct rusage *__usage) {
 
 #ifdef USE_LIBC_LINK
 
@@ -20,15 +20,11 @@ int getrusage(int __who, struct rusage *__usage) {
 
 #ifdef USE_HOST_LIBC
 
-#undef getrusage
-
   return getrusage(__who, __usage);
 
 #else
 
-#undef gettimeofday
-
-  gettimeofday(&__usage->ru_utime, NULL);
+  REDIRECT_NAME(gettimeofday)(&__usage->ru_utime, NULL);
 
   __usage->ru_stime.tv_sec = 0;
   __usage->ru_stime.tv_usec = 0;

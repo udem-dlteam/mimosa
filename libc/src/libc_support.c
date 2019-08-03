@@ -58,8 +58,6 @@ void libc_trace_(const char *msg) {
 
 #ifdef USE_HOST_LIBC
 
-#undef printf
-
   printf("------> %s\n", msg);
 
 #else

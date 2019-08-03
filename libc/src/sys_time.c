@@ -1,9 +1,8 @@
 #include "include/libc_common.h"
 #include "include/sys/time.h"
 
-#ifndef USE_MIMOSA
-extern "C" int gettimeofday(struct timeval *__restrict __tv,
-                            struct timezone *__tz) {
+int REDIRECT_NAME(gettimeofday)(struct timeval *__restrict __tv,
+                                struct timezone *__tz) {
 #ifdef USE_LIBC_LINK
 
   return LIBC_LINK._gettimeofday(__tv, __tz);
@@ -18,16 +17,14 @@ extern "C" int gettimeofday(struct timeval *__restrict __tv,
 
 #else
 
-#undef gettimeofday
-
   return gettimeofday(__tv, __tz);
 
 #endif
 #endif
 }
-#endif
 
-int settimeofday(const struct timeval *__tv, const struct timezone *__tz) {
+int REDIRECT_NAME(settimeofday)(const struct timeval *__tv, const struct timezone *__tz) {
+
 #ifdef USE_LIBC_LINK
 
   return LIBC_LINK._settimeofday(__tv, __tz);
@@ -37,8 +34,6 @@ int settimeofday(const struct timeval *__tv, const struct timezone *__tz) {
   libc_trace("settimeofday");
 
 #ifdef USE_HOST_LIBC
-
-#undef settimeofday
 
   return settimeofday(__tv, __tz);
 
@@ -51,7 +46,8 @@ int settimeofday(const struct timeval *__tv, const struct timezone *__tz) {
 #endif
 }
 
-int getitimer(int __which, struct itimerval *__value) {
+int REDIRECT_NAME(getitimer)(int __which, struct itimerval *__value) {
+
 #ifdef USE_LIBC_LINK
 
   return LIBC_LINK._getitimer(__which, __value);
@@ -61,8 +57,6 @@ int getitimer(int __which, struct itimerval *__value) {
   libc_trace("getitimer");
 
 #ifdef USE_HOST_LIBC
-
-#undef getitimer
 
   return getitimer(__which, __value);
 
@@ -75,8 +69,9 @@ int getitimer(int __which, struct itimerval *__value) {
 #endif
 }
 
-int setitimer(int __which, const struct itimerval *__restrict __new,
-              struct itimerval *__restrict __old) {
+int REDIRECT_NAME(setitimer)(int __which, const struct itimerval *__restrict __new,
+                             struct itimerval *__restrict __old) {
+
 #ifdef USE_LIBC_LINK
 
   return LIBC_LINK._setitimer(__which, __new, __old);
@@ -86,8 +81,6 @@ int setitimer(int __which, const struct itimerval *__restrict __new,
   libc_trace("setitimer");
 
 #ifdef USE_HOST_LIBC
-
-#undef setitimer
 
   return setitimer(__which, __new, __old);
 

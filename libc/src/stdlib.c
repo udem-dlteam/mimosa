@@ -7,8 +7,7 @@ struct heap appheap;
 
 #endif
 
-
-void *malloc(size_t __size) {
+void *REDIRECT_NAME(malloc)(size_t __size) {
 
 #ifdef USE_LIBC_LINK
 
@@ -19,8 +18,6 @@ void *malloc(size_t __size) {
   libc_trace("malloc");
 
 #ifdef USE_HOST_LIBC
-
-#undef malloc
 
   return malloc(__size);
 
@@ -58,7 +55,7 @@ void *malloc(size_t __size) {
 #endif
 }
 
-void free(void *__ptr) {
+void REDIRECT_NAME(free)(void *__ptr) {
 
 #ifdef USE_LIBC_LINK
 
@@ -69,8 +66,6 @@ void free(void *__ptr) {
   libc_trace("free");
 
 #ifdef USE_HOST_LIBC
-
-#undef free
 
   free(__ptr);
 
@@ -90,7 +85,7 @@ void free(void *__ptr) {
 #endif
 }
 
-void exit(int __status) {
+void REDIRECT_NAME(exit)(int __status) {
 
 #ifdef USE_LIBC_LINK
 
@@ -101,8 +96,6 @@ void exit(int __status) {
   libc_trace("exit");
 
 #ifdef USE_HOST_LIBC
-
-#undef exit
 
   exit(__status);
 
@@ -117,7 +110,7 @@ void exit(int __status) {
   // NOTREACHED
 }
 
-char *getenv(const char *__name) {
+char *REDIRECT_NAME(getenv)(const char *__name) {
 
 #ifdef USE_LIBC_LINK
 
@@ -128,8 +121,6 @@ char *getenv(const char *__name) {
   libc_trace("getenv");
 
 #ifdef USE_HOST_LIBC
-
-#undef getenv
 
   return getenv(__name);
 
@@ -142,7 +133,7 @@ char *getenv(const char *__name) {
 #endif
 }
 
-int system(const char *__command) {
+int REDIRECT_NAME(system)(const char *__command) {
 
 #ifdef USE_LIBC_LINK
 
@@ -153,8 +144,6 @@ int system(const char *__command) {
   libc_trace("system");
 
 #ifdef USE_HOST_LIBC
-
-#undef system
 
   return system(__command);
 

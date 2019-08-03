@@ -19,7 +19,7 @@ chmod +x ccomp
 export CFLAGS=""
 export LIBS=""
 
-./configure --enable-single-host --enable-ansi-c --disable-pic CC=`pwd`/ccomp
+./configure --prefix=/ --bindir=/ --libdir=/ --includedir=/ --enable-single-host --enable-ansi-c --disable-pic CC=`pwd`/ccomp
 
 grep "^#define ___DEFAULT_RUNTIME_OPTIONS " include/config.h > conf.h
 
@@ -36,13 +36,15 @@ echo "#define HAVE_GETRUSAGE 1"    >> conf.h
 echo "#define HAVE_GETTIMEOFDAY 1" >> conf.h
 echo "#define HAVE_SETITIMER 1"    >> conf.h
 echo "#define HAVE_SIGNAL 1"       >> conf.h
+echo "#define HAVE_OPENDIR 1"      >> conf.h
+#echo "#define HAVE_STAT 1"         >> conf.h
 
 echo "#include \"include/libc_link.h\"" >> conf.h
 
 mv conf.h include/config.h
 
 echo "#!/bin/sh" > ccomp
-echo "$CCOMP -nostdinc -I `pwd`/.. -I `pwd`/../include -m32 -Wno-write-strings -ffreestanding -DUSE_MIMOSA_LIBC_LINK -DUSE_LIBC_LINK \"\$@\"" >> ccomp
+echo "$CCOMP -nostdinc -I `pwd`/.. -I `pwd`/../include -m32 -Wno-write-strings -ffreestanding -DUSE_MIMOSA_LIBC_LINK -DUSE_LIBC_LINK -D___SUPPORT_LOWLEVEL_EXEC \"\$@\"" >> ccomp
 
 cd lib
 make

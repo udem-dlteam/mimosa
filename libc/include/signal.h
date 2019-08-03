@@ -60,7 +60,7 @@ typedef void (*__sighandler_t)(int);
 
 #endif
 
-extern __sighandler_t signal(int __sig, __sighandler_t __handler);
+extern __sighandler_t REDIRECT_NAME(signal)(int __sig, __sighandler_t __handler);
 
 #ifndef USE_LIBC_LINK
 

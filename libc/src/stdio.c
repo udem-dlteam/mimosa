@@ -23,8 +23,8 @@ FILE FILE_root_dir;
 
 #endif
 
-FILE *fopen(const char *__restrict __filename,
-            const char *__restrict __modes) {
+FILE *REDIRECT_NAME(fopen)(const char *__restrict __filename,
+                           const char *__restrict __modes) {
 
 #ifdef USE_LIBC_LINK
 
@@ -35,8 +35,6 @@ FILE *fopen(const char *__restrict __filename,
   libc_trace("fopen");
 
 #ifdef USE_HOST_LIBC
-
-#undef fopen
 
   return fopen(__filename, __modes);
 
@@ -68,7 +66,7 @@ FILE *fopen(const char *__restrict __filename,
 #endif
 }
 
-FILE *fdopen(int __fd, const char *__modes) {
+FILE *REDIRECT_NAME(fdopen)(int __fd, const char *__modes) {
 
 #ifdef USE_LIBC_LINK
 
@@ -79,8 +77,6 @@ FILE *fdopen(int __fd, const char *__modes) {
   libc_trace("fdopen");
 
 #ifdef USE_HOST_LIBC
-
-#undef fdopen
 
   return fdopen(__fd, __modes);
 
@@ -93,8 +89,8 @@ FILE *fdopen(int __fd, const char *__modes) {
 #endif
 }
 
-size_t fread(void *__restrict __ptr, size_t __size, size_t __n,
-             FILE *__restrict __stream) {
+size_t REDIRECT_NAME(fread)(void *__restrict __ptr, size_t __size, size_t __n,
+                            FILE *__restrict __stream) {
 #ifdef USE_LIBC_LINK
 
   return LIBC_LINK._fread(__ptr, __size, __n, __stream);
@@ -104,8 +100,6 @@ size_t fread(void *__restrict __ptr, size_t __size, size_t __n,
   libc_trace("fread");
 
 #ifdef USE_HOST_LIBC
-
-#undef fread
 
   return fread(__ptr, __size, __n, __stream);
 
@@ -148,8 +142,8 @@ size_t fread(void *__restrict __ptr, size_t __size, size_t __n,
 #endif
 }
 
-size_t fwrite(const void *__restrict __ptr, size_t __size,
-              size_t __n, FILE *__restrict __stream) {
+size_t REDIRECT_NAME(fwrite)(const void *__restrict __ptr, size_t __size,
+                             size_t __n, FILE *__restrict __stream) {
 
 #ifdef USE_LIBC_LINK
 
@@ -160,8 +154,6 @@ size_t fwrite(const void *__restrict __ptr, size_t __size,
   //  libc_trace("fwrite");
 
 #ifdef USE_HOST_LIBC
-
-#undef fwrite
 
   return fwrite(__ptr, __size, __n, __stream);
 
@@ -197,7 +189,7 @@ size_t fwrite(const void *__restrict __ptr, size_t __size,
 #endif
 }
 
-int fclose(FILE *__restrict __stream) {
+int REDIRECT_NAME(fclose)(FILE *__restrict __stream) {
 
 #ifdef USE_LIBC_LINK
 
@@ -208,8 +200,6 @@ int fclose(FILE *__restrict __stream) {
   libc_trace("fclose");
 
 #ifdef USE_HOST_LIBC
-
-#undef fclose
 
   return fclose(__stream);
 
@@ -223,7 +213,7 @@ int fclose(FILE *__restrict __stream) {
 #endif
 }
 
-int fflush(FILE *__restrict __stream) {
+int REDIRECT_NAME(fflush)(FILE *__restrict __stream) {
 
 #ifdef USE_LIBC_LINK
 
@@ -234,8 +224,6 @@ int fflush(FILE *__restrict __stream) {
   libc_trace("fflush");
 
 #ifdef USE_HOST_LIBC
-
-#undef fflush
 
   return fflush(__stream);
 
@@ -248,7 +236,7 @@ int fflush(FILE *__restrict __stream) {
 #endif
 }
 
-int fseek(FILE *__restrict __stream, long __off, int __whence) {
+int REDIRECT_NAME(fseek)(FILE *__restrict __stream, long __off, int __whence) {
 
 #ifdef USE_LIBC_LINK
 
@@ -259,8 +247,6 @@ int fseek(FILE *__restrict __stream, long __off, int __whence) {
   libc_trace("fseek");
 
 #ifdef USE_HOST_LIBC
-
-#undef fseek
 
   return fseek(__stream, __off, __whence);
 
@@ -273,7 +259,7 @@ int fseek(FILE *__restrict __stream, long __off, int __whence) {
 #endif
 }
 
-long ftell(FILE *__restrict __stream) {
+long REDIRECT_NAME(ftell)(FILE *__restrict __stream) {
 
 #ifdef USE_LIBC_LINK
 
@@ -284,8 +270,6 @@ long ftell(FILE *__restrict __stream) {
   libc_trace("ftell");
 
 #ifdef USE_HOST_LIBC
-
-#undef ftell
 
   return ftell(__stream);
 
@@ -298,7 +282,7 @@ long ftell(FILE *__restrict __stream) {
 #endif
 }
 
-int ferror(FILE *__restrict __stream) {
+int REDIRECT_NAME(ferror)(FILE *__restrict __stream) {
 
 #ifdef USE_LIBC_LINK
 
@@ -309,8 +293,6 @@ int ferror(FILE *__restrict __stream) {
   libc_trace("ferror");
 
 #ifdef USE_HOST_LIBC
-
-#undef ferror
 
   return ferror(__stream);
 
@@ -323,7 +305,7 @@ int ferror(FILE *__restrict __stream) {
 #endif
 }
 
-int feof(FILE *__restrict __stream) {
+int REDIRECT_NAME(feof)(FILE *__restrict __stream) {
 
 #ifdef USE_LIBC_LINK
 
@@ -335,8 +317,6 @@ int feof(FILE *__restrict __stream) {
 
 #ifdef USE_HOST_LIBC
 
-#undef feof
-
   return feof(__stream);
 
 #else
@@ -347,7 +327,7 @@ int feof(FILE *__restrict __stream) {
 #endif
 }
 
-void clearerr(FILE *__restrict __stream) {
+void REDIRECT_NAME(clearerr)(FILE *__restrict __stream) {
 
 #ifdef USE_LIBC_LINK
 
@@ -359,8 +339,6 @@ void clearerr(FILE *__restrict __stream) {
 
 #ifdef USE_HOST_LIBC
 
-#undef clearerr
-
   clearerr(__stream);
 
 #else
@@ -371,7 +349,7 @@ void clearerr(FILE *__restrict __stream) {
 #endif
 }
 
-int fileno(FILE *__restrict __stream) {
+int REDIRECT_NAME(fileno)(FILE *__restrict __stream) {
 
 #ifdef USE_LIBC_LINK
 
@@ -382,8 +360,6 @@ int fileno(FILE *__restrict __stream) {
   libc_trace("fileno");
 
 #ifdef USE_HOST_LIBC
-
-#undef fileno
 
   return fileno(__stream);
 
@@ -396,7 +372,8 @@ int fileno(FILE *__restrict __stream) {
 #endif
 }
 
-void setbuf (FILE *__restrict __stream, char *__restrict __buf) {
+void REDIRECT_NAME(setbuf )(FILE *__restrict __stream, char *__restrict __buf) {
+
 #ifdef USE_LIBC_LINK
 
   return LIBC_LINK._setbuf(__stream, __buf);
@@ -406,8 +383,6 @@ void setbuf (FILE *__restrict __stream, char *__restrict __buf) {
   libc_trace("setbuf");
 
 #ifdef USE_HOST_LIBC
-
-#undef setbuf
 
   setbuf(__stream, __buf);
 
@@ -419,7 +394,7 @@ void setbuf (FILE *__restrict __stream, char *__restrict __buf) {
 #endif
 }
 
-int rename(const char *__oldpath, const char *__newpath) {
+int REDIRECT_NAME(rename)(const char *__oldpath, const char *__newpath) {
 
 #ifdef USE_LIBC_LINK
 
@@ -430,8 +405,6 @@ int rename(const char *__oldpath, const char *__newpath) {
   libc_trace("rename");
 
 #ifdef USE_HOST_LIBC
-
-#undef rename
 
   return rename(__oldpath, __newpath);
 
@@ -449,7 +422,7 @@ int rename(const char *__oldpath, const char *__newpath) {
 typedef long longlong; // fake it to avoid 64 bit operations
 
 int fprintf_aux_char(FILE *__restrict __stream, char __c) {
-  fwrite(&__c, 1, 1, __stream);
+  REDIRECT_NAME(fwrite)(&__c, 1, 1, __stream);
   return 1;
 }
 
@@ -496,7 +469,7 @@ int fprintf_aux_longlong(FILE *__restrict __stream, longlong __num, int __base, 
   return fprintf_aux_string(__stream, p, 0);
 }
 
-int fprintf_aux(FILE *__restrict __stream, const char **__format) {
+int REDIRECT_NAME(fprintf_aux)(FILE *__restrict __stream, const char **__format) {
 
 #define VA_LIST const char *
 #define VA_ARG(ap, type) (ap += sizeof(type), *(type*)(ap-sizeof(type)))
@@ -593,7 +566,7 @@ int fprintf_aux(FILE *__restrict __stream, const char **__format) {
 
 #endif
 
-int fprintf(FILE *__restrict __stream, const char *__format, ...) {
+int REDIRECT_NAME(fprintf)(FILE *__restrict __stream, const char *__format, ...) {
 
 #ifdef USE_LIBC_LINK
 
@@ -603,12 +576,12 @@ int fprintf(FILE *__restrict __stream, const char *__format, ...) {
 
   libc_trace("fprintf");
 
-  return fprintf_aux(__stream, &__format);
+  return REDIRECT_NAME(fprintf_aux)(__stream, &__format);
 
 #endif
 }
 
-int printf(const char *__format, ...) {
+int REDIRECT_NAME(printf)(const char *__format, ...) {
 
 #ifdef USE_LIBC_LINK
 
@@ -618,7 +591,7 @@ int printf(const char *__format, ...) {
 
   libc_trace("printf");
 
-  return fprintf_aux(LIBC_LINK._stdout, &__format);
+  return REDIRECT_NAME(fprintf_aux)(LIBC_LINK._stdout, &__format);
 
 #endif
 }

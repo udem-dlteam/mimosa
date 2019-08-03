@@ -18,7 +18,7 @@ struct rusage {
 
 #endif
 
-extern int getrusage(int __who, struct rusage *__usage);
+extern int REDIRECT_NAME(getrusage)(int __who, struct rusage *__usage);
 
 #ifndef USE_LIBC_LINK
 
