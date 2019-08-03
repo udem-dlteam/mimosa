@@ -9,7 +9,7 @@ double REDIRECT_NAME(acos)(double __x) {
 
 #else
 
-  libc_trace("acos");debug_write("acos");
+  libc_trace("acos");
 
 #ifdef USE_HOST_LIBC
 
@@ -54,7 +54,7 @@ double REDIRECT_NAME(asin)(double __x) {
 
 #else
 
-  libc_trace("asin");debug_write("asin");
+  libc_trace("asin");
 
 #ifdef USE_HOST_LIBC
 
@@ -236,7 +236,7 @@ double REDIRECT_NAME(expm1)(double __x) {
 
 #else
 
-  libc_trace("expm1");debug_write("expm1");
+  libc_trace("expm1");
 
 #ifdef USE_HOST_LIBC
 
@@ -258,7 +258,7 @@ double REDIRECT_NAME(exp)(double __x) {
 
 #else
 
-  libc_trace("exp");debug_write("exp");
+  libc_trace("exp");
 
 #ifdef USE_HOST_LIBC
 
@@ -480,6 +480,24 @@ double REDIRECT_NAME(modf)(double __x, double *__iptr) {
 #endif
 }
 
+#ifndef USE_LIBC_LINK
+#ifndef USE_HOST_LIBC
+
+double pow_aux(double x, int y) {
+  if (y == 0) {
+    return 1.0;
+  } if (y == 1) {
+    return x;
+  } if (y & 1) {
+    return x * pow_aux(x*x, y/2);
+  } else {
+    return pow_aux(x*x, y/2);
+  }
+}
+
+#endif
+#endif
+
 double REDIRECT_NAME(pow)(double __x, double __y) {
 
 #ifdef USE_LIBC_LINK
@@ -488,7 +506,7 @@ double REDIRECT_NAME(pow)(double __x, double __y) {
 
 #else
 
-  libc_trace("pow");debug_write("pow");
+  libc_trace("pow");
 
 #ifdef USE_HOST_LIBC
 
@@ -496,8 +514,27 @@ double REDIRECT_NAME(pow)(double __x, double __y) {
 
 #else
 
-  // TODO: implement
-  return 0.0;
+  // TODO: improve algorithm (correctness and precision)
+  {
+    double f;
+    double i;
+    double r;
+    double e;
+
+    if (__y < 0.0) e = -__y; else e = __y;
+
+    f = REDIRECT_NAME(modf)(e, &i);
+
+    r = pow_aux(__x, CAST(int,i));
+
+    if (f != 0.0)
+      r = r * REDIRECT_NAME(exp)(REDIRECT_NAME(log)(__x) * f);
+
+    if (__y < 0.0)
+      r = 1.0 / r;
+
+    return r;
+  }
 
 #endif
 #endif
@@ -557,7 +594,7 @@ double REDIRECT_NAME(sqrt)(double __x) {
 
 #else
 
-  libc_trace("sqrt");debug_write("sqrt");
+  libc_trace("sqrt");
 
 #ifdef USE_HOST_LIBC
 
@@ -565,7 +602,7 @@ double REDIRECT_NAME(sqrt)(double __x) {
 
 #else
 
-  return 0.0; // TODO: implement
+  return REDIRECT_NAME(pow)(__x, 0.5);
 
 #endif
 #endif
@@ -579,7 +616,7 @@ double REDIRECT_NAME(tan)(double __x) {
 
 #else
 
-  libc_trace("tan");debug_write("tan");
+  libc_trace("tan");
 
 #ifdef USE_HOST_LIBC
 
@@ -587,8 +624,7 @@ double REDIRECT_NAME(tan)(double __x) {
 
 #else
 
-  // TODO: implement
-  return 0.0;
+  return tan(__x);
 
 #endif
 #endif
