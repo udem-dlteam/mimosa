@@ -11,9 +11,9 @@
 
 //-----------------------------------------------------------------------------
 
+#include "chrono.h"
 #include "general.h"
 #include "intr.h"
-#include "chrono.h"
 
 //-----------------------------------------------------------------------------
 
@@ -21,8 +21,14 @@ const uint32 GAMBIT_START = 0x100000;
 
 //-----------------------------------------------------------------------------
 
-#define STI() do {__asm__ __volatile__ ("sti" : : : "memory"); } while(0)
-#define CLI() do {__asm__ __volatile__ ("cli" : : : "memory"); } while(0)
+#define STI()                                   \
+  do {                                          \
+    __asm__ __volatile__("sti" : : : "memory"); \
+  } while (0)
+#define CLI()                                   \
+  do {                                          \
+    __asm__ __volatile__("cli" : : : "memory"); \
+  } while (0)
 
 //-----------------------------------------------------------------------------
 
@@ -95,11 +101,11 @@ const uint32 GAMBIT_START = 0x100000;
 
 #if 1
 
-#define save_context(receiver,data)                                           \
-do {                                                                          \
-     ASSERT_INTERRUPTS_DISABLED ();                                           \
-     __asm__ __volatile__                                                     \
-       ("pusha                                                             \n \
+#define save_context(receiver, data)                                            \
+  do {                                                                          \
+    ASSERT_INTERRUPTS_DISABLED();                                               \
+    __asm__ __volatile__(                                                       \
+        "pusha                                                             \n \
          pushl %1               # The fourth parameter of the receiver fn  \n \
          lea   -16(%%esp),%%eax # The third parameter of the receiver fn   \n \
          pushl %%eax                                                       \n \
@@ -107,19 +113,19 @@ do {                                                                          \
          pushl %%cs             #  as expected by the ``iret'' instruction \n \
          call  %P0              #  so that ``iret'' can restore the context\n \
          addl  $8,%%esp         # Remove the third and fourth parameter    \n \
-         popa"                                                                \
-        :                                                                     \
-        : "i" (receiver), "g" (data)                                          \
-        : "memory");                                                          \
-   } while (0)
+         popa" \
+        :                                                                       \
+        : "i"(receiver), "g"(data)                                              \
+        : "memory");                                                            \
+  } while (0)
 
 #else
 
-#define save_context(receiver,data)                                           \
-do {                                                                          \
-     ASSERT_INTERRUPTS_DISABLED ();                                           \
-     __asm__ __volatile__                                                     \
-       ("pushl %%eax                                                       \n \
+#define save_context(receiver, data)                                            \
+  do {                                                                          \
+    ASSERT_INTERRUPTS_DISABLED();                                               \
+    __asm__ __volatile__(                                                       \
+        "pushl %%eax                                                       \n \
          pushl %%ebx                                                       \n \
          pushl %%ecx                                                       \n \
          pushl %%edx                                                       \n \
@@ -139,26 +145,26 @@ do {                                                                          \
          popl  %%edx                                                       \n \
          popl  %%ecx                                                       \n \
          popl  %%ebx                                                       \n \
-         popl  %%eax"                                                         \
-        :                                                                     \
-        : "i" (receiver), "g" (data)                                          \
-        : "memory");                                                          \
-   } while (0)
+         popl  %%eax" \
+        :                                                                       \
+        : "i"(receiver), "g"(data)                                              \
+        : "memory");                                                            \
+  } while (0)
 
 #endif
 
 #ifdef USE_IRET_FOR_RESTORE_CONTEXT
 
-#define restore_context(sp)                                                   \
-do {                                                                          \
-     ASSERT_INTERRUPTS_DISABLED ();                                           \
-     __asm__ __volatile__                                                     \
-       ("movl  %0,%%esp  # Restore the stack pointer                       \n \
+#define restore_context(sp)                                                     \
+  do {                                                                          \
+    ASSERT_INTERRUPTS_DISABLED();                                               \
+    __asm__ __volatile__(                                                       \
+        "movl  %0,%%esp  # Restore the stack pointer                       \n \
          movl  %0,%%esp  # Restore the stack pointer                       \n \
-         iret            # Return from the ``call'' in ``save_context''"      \
-        :                                                                     \
-        : "g" (sp));                                                          \
-   } while (0)
+         iret            # Return from the ``call'' in ``save_context''" \
+        :                                                                       \
+        : "g"(sp));                                                             \
+  } while (0)
 
 #endif
 
@@ -185,13 +191,13 @@ do {                                                                          \
 
 typedef int priority;
 
-#define low_priority    0
+#define low_priority 0
 #define normal_priority 100
-#define high_priority   200
+#define high_priority 200
 
 //-----------------------------------------------------------------------------
 
-#define protected public//////////////////
+#define protected public  //////////////////
 
 // Select implementations.
 
@@ -204,273 +210,11 @@ typedef int priority;
 #define USE_DOUBLY_LINKED_LIST_FOR_SLEEP_QUEUE
 //#define USE_RED_BLACK_TREE_FOR_SLEEP_QUEUE
 
+typedef void (*void_fn)();
+typedef int (*libc_startup_fn)(int argc, char* argv[], char* env[]);
 //-----------------------------------------------------------------------------
-
-// "wait_mutex_node" class declaration.
-
-class wait_queue; // forward declaration
-class mutex_queue; // forward declaration
-
-class wait_mutex_node
-  {
-  protected:
-
-    // Wait queue part for maintaining the set of threads waiting on a
-    // synchronization object or the run queue.  If this object is a
-    // thread it is an element of the queue; if this object is a
-    // synchronization object or the run queue it is the queue of
-    // waiting threads.
-
-#ifdef USE_DOUBLY_LINKED_LIST_FOR_WAIT_QUEUE
-    wait_mutex_node* volatile _next_in_wait_queue;
-    wait_mutex_node* volatile _prev_in_wait_queue;
-#endif
-
-#ifdef USE_RED_BLACK_TREE_FOR_WAIT_QUEUE
-    wait_queue* volatile _color_in_wait_queue;
-    wait_mutex_node* volatile _parent_in_wait_queue;
-    wait_mutex_node* volatile _left_in_wait_queue;
-#endif
-
-    // Mutex queue part for maintaining the set of mutexes owned by a
-    // thread.  If this object is a mutex it is a queue element; if
-    // this object is a thread it is the queue of owned mutexes.
-
-#ifdef USE_DOUBLY_LINKED_LIST_FOR_MUTEX_QUEUE
-    wait_mutex_node* volatile _next_in_mutex_queue;
-    wait_mutex_node* volatile _prev_in_mutex_queue;
-#endif
-
-#ifdef USE_RED_BLACK_TREE_FOR_MUTEX_QUEUE
-    mutex_queue* volatile _color_in_mutex_queue;
-    wait_mutex_node* volatile _parent_in_mutex_queue;
-    wait_mutex_node* volatile _left_in_mutex_queue;
-#endif
-  };
-
-//-----------------------------------------------------------------------------
-
-// "wait_queue" class declaration.
-
-class wait_queue : public wait_mutex_node
-  {
-  protected:
-
-#ifdef USE_DOUBLY_LINKED_LIST_FOR_WAIT_QUEUE
-#endif
-
-#ifdef USE_RED_BLACK_TREE_FOR_WAIT_QUEUE
-    wait_mutex_node* volatile _leftmost_in_wait_queue;
-#endif
-  };
-
-//-----------------------------------------------------------------------------
-
-// "mutex_queue" class declaration.
-
-class mutex_queue : public wait_mutex_node
-  {
-  protected:
-
-#ifdef USE_DOUBLY_LINKED_LIST_FOR_MUTEX_QUEUE
-#endif
-
-#ifdef USE_RED_BLACK_TREE_FOR_MUTEX_QUEUE
-    wait_mutex_node* volatile _leftmost_in_mutex_queue;
-#endif
-  };
-
-//-----------------------------------------------------------------------------
-
-// "wait_mutex_sleep_node" class declaration.
-
-class sleep_queue; // forward declaration
-
-class wait_mutex_sleep_node : public mutex_queue
-  {
-  protected:
-
-    // Sleep queue part for maintaining the set of threads waiting for
-    // a timeout.  If this object is a thread it is an element of the
-    // queue; if this object is the run queue it is the queue of
-    // threads waiting for a timeout.
-
-#ifdef USE_DOUBLY_LINKED_LIST_FOR_SLEEP_QUEUE
-    wait_mutex_sleep_node* volatile _next_in_sleep_queue;
-    wait_mutex_sleep_node* volatile _prev_in_sleep_queue;
-#endif
-
-#ifdef USE_RED_BLACK_TREE_FOR_SLEEP_QUEUE
-    sleep_queue* volatile _color_in_sleep_queue;
-    wait_mutex_sleep_node* volatile _parent_in_sleep_queue;
-    wait_mutex_sleep_node* volatile _left_in_sleep_queue;
-#endif
-  };
-
-//-----------------------------------------------------------------------------
-
-// "sleep_queue" class declaration.
-
-class sleep_queue : public wait_mutex_sleep_node
-  {
-  protected:
-
-#ifdef USE_DOUBLY_LINKED_LIST_FOR_SLEEP_QUEUE
-#endif
-
-#ifdef USE_RED_BLACK_TREE_FOR_SLEEP_QUEUE
-    wait_mutex_sleep_node* volatile _leftmost_in_sleep_queue;
-#endif
-  };
-
-//-----------------------------------------------------------------------------
-
-// "mutex" class declaration.
-
-class mutex : public wait_queue
-  {
-  public:
-
-    mutex (); // constructs an unlocked mutex
-
-    void lock (); // waits until mutex is unlocked, and then lock the mutex
-    bool lock_or_timeout (time timeout); // returns FALSE if timeout reached
-    void unlock (); // unlocks a locked mutex
-
-  protected:
-
-    // The inherited "wait queue" part of wait_queue is used to
-    // maintain the set of threads waiting on this mutex.
-
-    // The inherited "mutex queue" part of wait_queue is used to
-    // maintain this mutex on the mutex_queue of the thread that owns
-    // it.
-
-    volatile bool _locked; // boolean indicating if mutex is locked or unlocked
-
-    friend class condvar;
-  };
-
-extern mutex* seq;//////////////
-
-//-----------------------------------------------------------------------------
-
-// "condvar" class declaration.
-
-class condvar : public wait_queue
-  {
-  public:
-
-    condvar (); // constructs a condition variable with no waiting threads
-
-    void wait (mutex* m); // suspends current thread on the condition variable
-    bool wait_or_timeout (mutex* m, time timeout); // returns FALSE on timeout
-
-    void signal (); // resumes one of the waiting threads
-    void broadcast (); // resumes all of the waiting threads
-
-    void mutexless_wait (); // like "wait" but uses interrupt flag as mutex
-    void mutexless_signal (); // like "signal" but assumes disabled interrupts
-
-  protected:
-
-    // The inherited "wait queue" part of wait_queue is used to
-    // maintain the set of threads waiting on this condvar.
-
-    // The inherited "mutex queue" part of wait_queue is unused.
-  };
-
-//-----------------------------------------------------------------------------
-
-// "thread" class declaration.
-
-  typedef void (*void_fn)();
-  typedef int (*libc_startup_fn)(int argc, char* argv[], char* env[]);
-
-  class thread : public wait_mutex_sleep_node {
-   public:
-
-    // constructs a thread that will call "run"
-    thread ();
-
-    virtual ~thread (); // thread destructor
-
-    thread* start (); // starts the execution of a newly constructed thread
-
-    void join (); // waits for the termination of the thread
-
-    static void yield (); // immediately ends the thread's quantum
-    static thread* self (); // returns a pointer to currently running thread
-    static void sleep (int64 timeout_nsecs); // sleep relative to now
-
-    virtual char* name ();/////
-    virtual uint32 code();
-  protected:
-
-    // The inherited "wait queue" part of wait_mutex_sleep_node
-    // is used to maintain this thread in the wait_queue of the mutex
-    // or condvar on which it is waiting.
-
-    // The inherited "mutex queue" part of wait_mutex_sleep_node
-    // is used to maintain the set of mutexes owned by this thread.
-
-    // The inherited "sleep queue" part of wait_mutex_sleep_node
-    // is used to maintain this thread in the sleep queue.
-
-#ifdef USE_DOUBLY_LINKED_LIST_FOR_WAIT_QUEUE
-#endif
-
-#ifdef USE_RED_BLACK_TREE_FOR_WAIT_QUEUE
-    wait_mutex_node* volatile _right_in_wait_queue;
-#endif
-
-#ifdef USE_DOUBLY_LINKED_LIST_FOR_SLEEP_QUEUE
-#endif
-
-#ifdef USE_RED_BLACK_TREE_FOR_SLEEP_QUEUE
-    wait_mutex_sleep_node* volatile _right_in_sleep_queue;
-#endif
-
-    virtual void run (); // thread body
-
-    uint32* _stack; // the thread's stack
-    uint32* _sp;    // the thread's stack pointer
-
-    time _quantum;        // duration of the quantum for this thread
-    time _end_of_quantum; // moment in time when current quantum ends
-
-    time _timeout; // when to end sleeping
-    bool _did_not_timeout; // to tell if synchronization operation timed out
-
-    int _prio; // the thread's priority
-
-    mutex _m; // mutex to access termination flag
-    condvar _joiners; // threads waiting for this thread to terminate
-    volatile bool _terminated; // the thread's termination flag
-
-    friend class mutex;
-    friend class condvar;
-    friend class scheduler;
-  };
-
-  class program_thread : public thread {
-   public:
-    program_thread(libc_startup_fn code);
-
-    char* name ();/////
-    uint32 code();
-
-   protected:
-    virtual void run();
-    libc_startup_fn _code;
-  };
-
-  //-----------------------------------------------------------------------------
-
-  //-----------------------------------------------------------------------------
 
 #if 0
-
 // "pthread" class declaration.
 
 class pthread : public thread
@@ -538,14 +282,14 @@ int pthread_cond_destroy (pthread_cond_t* cond);
 #define QUEUETYPE wait_queue
 #define ELEMTYPE thread
 #define NAMESPACE_PREFIX(name) wait_queue_##name
-#define BEFORE(elem1,elem2) ((elem1)->_prio > (elem2)->_prio)
+#define BEFORE(elem1, elem2) ((elem1)->_prio > (elem2)->_prio)
 
 #ifdef USE_DOUBLY_LINKED_LIST_FOR_WAIT_QUEUE
 #define USE_DOUBLY_LINKED_LIST
 #define NEXT(node) (node)->_next_in_wait_queue
-#define NEXT_SET(node,next_node) NEXT (node) = (next_node)
+#define NEXT_SET(node, next_node) NEXT(node) = (next_node)
 #define PREV(node) (node)->_prev_in_wait_queue
-#define PREV_SET(node,prev_node) PREV (node) = (prev_node)
+#define PREV_SET(node, prev_node) PREV(node) = (prev_node)
 #include "queue.h"
 #undef USE_DOUBLY_LINKED_LIST
 #undef NEXT
@@ -557,15 +301,15 @@ int pthread_cond_destroy (pthread_cond_t* cond);
 #ifdef USE_RED_BLACK_TREE_FOR_WAIT_QUEUE
 #define USE_RED_BLACK_TREE
 #define COLOR(node) (node)->_color_in_wait_queue
-#define COLOR_SET(node,color) COLOR (node) = (color)
+#define COLOR_SET(node, color) COLOR(node) = (color)
 #define PARENT(node) (node)->_parent_in_wait_queue
-#define PARENT_SET(node,parent) PARENT (node) = (parent)
+#define PARENT_SET(node, parent) PARENT(node) = (parent)
 #define LEFT(node) (node)->_left_in_wait_queue
-#define LEFT_SET(node,left) LEFT (node) = (left)
-#define RIGHT(node) CAST(ELEMTYPE*,node)->_right_in_wait_queue
-#define RIGHT_SET(node,right) RIGHT (node) = (right)
+#define LEFT_SET(node, left) LEFT(node) = (left)
+#define RIGHT(node) CAST(ELEMTYPE*, node)->_right_in_wait_queue
+#define RIGHT_SET(node, right) RIGHT(node) = (right)
 #define LEFTMOST(queue) (queue)->_leftmost_in_wait_queue
-#define LEFTMOST_SET(queue,node) LEFTMOST (queue) = (node)
+#define LEFTMOST_SET(queue, node) LEFTMOST(queue) = (node)
 #include "queue.h"
 #undef USE_RED_BLACK_TREE
 #undef COLOR
@@ -594,14 +338,14 @@ int pthread_cond_destroy (pthread_cond_t* cond);
 #define QUEUETYPE mutex_queue
 #define ELEMTYPE mutex
 #define NAMESPACE_PREFIX(name) mutex_queue_##name
-#define BEFORE(elem1,elem2) FALSE
+#define BEFORE(elem1, elem2) FALSE
 
 #ifdef USE_DOUBLY_LINKED_LIST_FOR_MUTEX_QUEUE
 #define USE_DOUBLY_LINKED_LIST
 #define NEXT(node) (node)->_next_in_mutex_queue
-#define NEXT_SET(node,next_node) NEXT (node) = (next_node)
+#define NEXT_SET(node, next_node) NEXT(node) = (next_node)
 #define PREV(node) (node)->_prev_in_mutex_queue
-#define PREV_SET(node,prev_node) PREV (node) = (prev_node)
+#define PREV_SET(node, prev_node) PREV(node) = (prev_node)
 #include "queue.h"
 #undef USE_DOUBLY_LINKED_LIST
 #undef NEXT
@@ -628,14 +372,14 @@ int pthread_cond_destroy (pthread_cond_t* cond);
 #define QUEUETYPE sleep_queue
 #define ELEMTYPE thread
 #define NAMESPACE_PREFIX(name) sleep_queue_##name
-#define BEFORE(elem1,elem2) less_time ((elem1)->_timeout, (elem2)->_timeout)
+#define BEFORE(elem1, elem2) less_time((elem1)->_timeout, (elem2)->_timeout)
 
 #ifdef USE_DOUBLY_LINKED_LIST_FOR_SLEEP_QUEUE
 #define USE_DOUBLY_LINKED_LIST
 #define NEXT(node) (node)->_next_in_sleep_queue
-#define NEXT_SET(node,next_node) NEXT (node) = (next_node)
+#define NEXT_SET(node, next_node) NEXT(node) = (next_node)
 #define PREV(node) (node)->_prev_in_sleep_queue
-#define PREV_SET(node,prev_node) PREV (node) = (prev_node)
+#define PREV_SET(node, prev_node) PREV(node) = (prev_node)
 #include "queue.h"
 #undef USE_DOUBLY_LINKED_LIST
 #undef NEXT
@@ -654,14 +398,207 @@ int pthread_cond_destroy (pthread_cond_t* cond);
 #undef NAMESPACE_PREFIX
 #undef BEFORE
 
-  //-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
 
-  //-----------------------------------------------------------------------------
-  // C REWRITE
-  //-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
+// C REWRITE
+//-----------------------------------------------------------------------------
 
-  void
-  sched_setup(void_fn cont);
+struct wait_queue;
+struct mutex_queue;
+struct sleep_queue;
+
+typedef struct wait_mutex_node {
+  // Wait queue part for maintaining the set of threads waiting on a
+  // synchronization object or the run queue.  If this object is a
+  // thread it is an element of the queue; if this object is a
+  // synchronization object or the run queue it is the queue of
+  // waiting threads.
+
+#ifdef USE_DOUBLY_LINKED_LIST_FOR_WAIT_QUEUE
+  wait_mutex_node* volatile _next_in_wait_queue;
+  wait_mutex_node* volatile _prev_in_wait_queue;
+#endif
+
+#ifdef USE_RED_BLACK_TREE_FOR_WAIT_QUEUE
+  wait_queue* volatile _color_in_wait_queue;
+  wait_mutex_node* volatile _parent_in_wait_queue;
+  wait_mutex_node* volatile _left_in_wait_queue;
+#endif
+
+  // Mutex queue part for maintaining the set of mutexes owned by a
+  // thread.  If this object is a mutex it is a queue element; if
+  // this object is a thread it is the queue of owned mutexes.
+
+#ifdef USE_DOUBLY_LINKED_LIST_FOR_MUTEX_QUEUE
+  wait_mutex_node* volatile _next_in_mutex_queue;
+  wait_mutex_node* volatile _prev_in_mutex_queue;
+#endif
+
+#ifdef USE_RED_BLACK_TREE_FOR_MUTEX_QUEUE
+  mutex_queue* volatile _color_in_mutex_queue;
+  wait_mutex_node* volatile _parent_in_mutex_queue;
+  wait_mutex_node* volatile _left_in_mutex_queue;
+#endif
+} wait_mutex_node;
+
+typedef struct wait_queue {
+  wait_mutex_node super;
+
+#ifdef USE_DOUBLY_LINKED_LIST_FOR_WAIT_QUEUE
+#endif
+
+#ifdef USE_RED_BLACK_TREE_FOR_WAIT_QUEUE
+  wait_mutex_node* volatile _leftmost_in_wait_queue;
+#endif
+} wait_queue;
+
+typedef struct mutex_queue {
+  wait_mutex_node super;
+
+#ifdef USE_DOUBLY_LINKED_LIST_FOR_MUTEX_QUEUE
+#endif
+
+#ifdef USE_RED_BLACK_TREE_FOR_MUTEX_QUEUE
+  wait_mutex_node* volatile _leftmost_in_mutex_queue;
+#endif
+} mutex_queue;
+
+typedef struct wait_mutex_sleep_node {
+  mutex_queue super;
+
+ protected:
+  // Sleep queue part for maintaining the set of threads waiting for
+  // a timeout.  If this object is a thread it is an element of the
+  // queue; if this object is the run queue it is the queue of
+  // threads waiting for a timeout.
+
+#ifdef USE_DOUBLY_LINKED_LIST_FOR_SLEEP_QUEUE
+  wait_mutex_sleep_node* volatile _next_in_sleep_queue;
+  wait_mutex_sleep_node* volatile _prev_in_sleep_queue;
+#endif
+
+#ifdef USE_RED_BLACK_TREE_FOR_SLEEP_QUEUE
+  sleep_queue* volatile _color_in_sleep_queue;
+  wait_mutex_sleep_node* volatile _parent_in_sleep_queue;
+  wait_mutex_sleep_node* volatile _left_in_sleep_queue;
+#endif
+} wait_mutex_sleep_node;
+
+typedef struct sleep_queue {
+  wait_mutex_sleep_node super;
+
+ protected:
+#ifdef USE_DOUBLY_LINKED_LIST_FOR_SLEEP_QUEUE
+#endif
+
+#ifdef USE_RED_BLACK_TREE_FOR_SLEEP_QUEUE
+  wait_mutex_sleep_node* volatile _leftmost_in_sleep_queue;
+#endif
+} sleep_queue;
+
+typedef struct mutex {
+  wait_queue super;
+  // The inherited "wait queue" part of wait_queue is used to
+  // maintain the set of threads waiting on this mutex.
+
+  // The inherited "mutex queue" part of wait_queue is used to
+  // maintain this mutex on the mutex_queue of the thread that owns
+  // it.
+
+  volatile bool _locked;  // boolean indicating if mutex is locked or unlocked
+} mutex;
+
+void new_mutex(mutex* m);
+
+void mutex_lock(mutex* self);
+
+void mutex_lock_or_timeout(mutex* self);
+
+void mutex_unlock(mutex* self);
+
+extern mutex* seq;
+
+typedef struct condvar {
+  wait_queue super;
+  // The inherited "wait queue" part of wait_queue is used to
+  // maintain the set of threads waiting on this condvar.
+
+  // The inherited "mutex queue" part of wait_queue is unused.
+} condvar;
+
+void new_condvar(condvar* t);
+
+void condavar_wait(
+    condvar* self,
+    mutex* m);  // suspends current thread on the condition variable
+
+bool condavar_wait_or_timeout(condvar* self, mutex* m,
+                              time timeout);  // returns FALSE on timeout
+
+void condavar_signal(condvar* self);     // resumes one of the waiting threads
+void condavar_broadcast(condvar* self);  // resumes all of the waiting threads
+
+void condavar_mutexless_wait(
+    condvar* self);  // like "wait" but uses interrupt flag as mutex
+void condavar_mutexless_signal(
+    condvar* self);  // like "signal" but assumes disabled interrupts
+
+typedef struct thread {
+  wait_mutex_sleep_node super;
+#ifdef USE_DOUBLY_LINKED_LIST_FOR_WAIT_QUEUE
+#endif
+
+#ifdef USE_RED_BLACK_TREE_FOR_WAIT_QUEUE
+  wait_mutex_node* volatile _right_in_wait_queue;
+#endif
+
+#ifdef USE_DOUBLY_LINKED_LIST_FOR_SLEEP_QUEUE
+#endif
+
+#ifdef USE_RED_BLACK_TREE_FOR_SLEEP_QUEUE
+  wait_mutex_sleep_node* volatile _right_in_sleep_queue;
+#endif
+
+  uint32* _stack;  // the thread's stack
+  uint32* _sp;     // the thread's stack pointer
+
+  time _quantum;         // duration of the quantum for this thread
+  time _end_of_quantum;  // moment in time when current quantum ends
+
+  time _timeout;          // when to end sleeping
+  bool _did_not_timeout;  // to tell if synchronization operation timed out
+
+  int _prio;  // the thread's priority
+
+  mutex _m;                   // mutex to access termination flag
+  condvar _joiners;           // threads waiting for this thread to terminate
+  volatile bool _terminated;  // the thread's termination flag
+
+} thread;
+
+void new_thread(thread* t);
+
+thread* thread_start(thread* self);
+
+void thread_join(thread* self);
+
+void thread_yield();
+
+thread* thread_self();
+
+void thread_sleep(uint64 timeout_nsecs);
+
+native_string thread_name(thread* self);
+
+typedef struct program_thread {
+  thread super;
+  libc_startup_fn _code;
+} program_thread;
+
+void thread_run(thread* self);
+
+void sched_setup(void_fn cont);
 
 void sched_stats();
 
@@ -714,7 +651,6 @@ extern wait_queue* readyq;
 extern sleep_queue* sleepq;
 extern thread* sched_primordial_thread;
 extern thread* sched_current_thread;
-
 
 #endif
 
