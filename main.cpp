@@ -45,7 +45,7 @@ int main() {
   //     term_write(cout, "File loaded. Starting program at: ");
   //     term_write(cout, code);
 
-  //     thread::sleep(1000);
+  //     thread_sleep(1000);
 
   //     for (int i = 0; i < 5; ++i) {
   //       term_writeline(cout);

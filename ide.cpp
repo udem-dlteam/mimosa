@@ -43,7 +43,7 @@ ide_cmd_queue_entry* ide_cmd_queue_alloc(ide_device* dev) {
   ctrl = dev->ctrl;
 
   while ((i = ctrl->cmd_queue_freelist) < 0)
-    ctrl->cmd_queue_condvar->mutexless_wait();
+   condvar_mutexless_wait(ctrl->cmd_queue_condvar);
 
   entry = &ctrl->cmd_queue[i];
 
@@ -54,7 +54,7 @@ ide_cmd_queue_entry* ide_cmd_queue_alloc(ide_device* dev) {
 
   ctrl->cmd_queue_freelist = i;
 
-  if (i >= 0) ctrl->cmd_queue_condvar->mutexless_signal();
+  if (i >= 0) condvar_mutexless_signal(ctrl->cmd_queue_condvar);
 
   return entry;
 }
@@ -71,7 +71,7 @@ void ide_cmd_queue_free(ide_cmd_queue_entry* entry) {
   if (--entry->refcount == 0) {
     entry->next = ctrl->cmd_queue_freelist;
     ctrl->cmd_queue_freelist = entry->id;
-    ctrl->cmd_queue_condvar->mutexless_signal();
+    condvar_mutexless_signal(ctrl->cmd_queue_condvar);
   }
 }
 
@@ -138,7 +138,7 @@ void ide_irq(ide_controller* ctrl) {
     // Nothing, it's only a flush command
   }
 
-  entry->done->mutexless_signal();
+  condvar_mutexless_signal(entry->done);
   ide_cmd_queue_free(entry);
 }
 
@@ -199,7 +199,7 @@ error_code  ide_read_sectors(ide_device* dev, uint32 lba, void* buf,
     outb((lba >> 16), base + IDE_CYL_HI_REG);
     outb(IDE_READ_SECTORS_CMD, base + IDE_COMMAND_REG);
 
-    entry->done->mutexless_wait();
+    condvar_mutexless_wait(entry->done);
 
     err = entry->_.read_sectors.err;
 
@@ -253,7 +253,7 @@ error_code  ide_write_sectors(ide_device* dev, uint32 lba, void* buf,
     }
 
     outb(IDE_FLUSH_CACHE_CMD, base + IDE_COMMAND_REG);
-    entry->done->mutexless_wait();
+    condvar_mutexless_wait(entry->done);
 
     err = entry->_.write_sectors.err;
 
@@ -310,7 +310,7 @@ static void setup_ide_device(ide_controller* ctrl, ide_device* dev, uint8 id) {
       break;
     }
 
-    thread::sleep(1000);  // 1 usec
+    thread_sleep(1000);  // 1 usec
   }
 
   if (j == 0) {
@@ -652,7 +652,7 @@ static void setup_ide_controller(ide_controller* ctrl, uint8 id) {
     term_write(cout, "[START] Sleeping 400 nsecs");
 #endif
 
-    thread::sleep(400);  // 400 nsecs
+    thread_sleep(400);  // 400 nsecs
 #ifdef SHOW_IDE_INFO
     term_write(cout, "[STOP ] Sleeping 400 nsecs");
 #endif
@@ -675,18 +675,18 @@ static void setup_ide_controller(ide_controller* ctrl, uint8 id) {
     term_write(cout, "Resetting the IDE...");
 
     outb(IDE_DEV_HEAD_IBM | IDE_DEV_HEAD_DEV(0), base + IDE_DEV_HEAD_REG);
-    thread::sleep(400);  // 400 nsecs
+    thread_sleep(400);  // 400 nsecs
     inb(base + IDE_STATUS_REG);
 
-    thread::sleep(5000);  // 5 usecs
+    thread_sleep(5000);  // 5 usecs
     outb(IDE_DEV_CTRL_nIEN, base + IDE_DEV_CTRL_REG);
-    thread::sleep(5000);  // 5 usecs
+    thread_sleep(5000);  // 5 usecs
     outb(IDE_DEV_CTRL_nIEN | IDE_DEV_CTRL_SRST, base + IDE_DEV_CTRL_REG);
-    thread::sleep(5000);  // 5 usecs
+    thread_sleep(5000);  // 5 usecs
     outb(IDE_DEV_CTRL_nIEN, base + IDE_DEV_CTRL_REG);
-    thread::sleep(2000000);  // 2 msecs
+    thread_sleep(2000000);  // 2 msecs
     err = inb(base + IDE_ERROR_REG);
-    thread::sleep(5000);  // 5 usecs
+    thread_sleep(5000);  // 5 usecs
 
     for (j = 30000; j > 0; j--)  // wait up to 30 seconds for a response
     {
@@ -695,7 +695,7 @@ static void setup_ide_controller(ide_controller* ctrl, uint8 id) {
         term_write(cout, i);
         term_writeline(cout);
         outb(IDE_DEV_HEAD_IBM | IDE_DEV_HEAD_DEV(i), base + IDE_DEV_HEAD_REG);
-        thread::sleep(400);  // 400 nsecs
+        thread_sleep(400);  // 400 nsecs
         if (((inb(base + IDE_STATUS_REG) & IDE_STATUS_BSY) == 0) &&
             ctrl->device[i].kind == IDE_DEVICE_ATAPI) {
           ctrl->device[i].kind = IDE_DEVICE_ATA;
@@ -705,7 +705,7 @@ static void setup_ide_controller(ide_controller* ctrl, uint8 id) {
 
       if (candidates == 0) break;
 
-      thread::sleep(1000000);  // 1 msec
+      thread_sleep(1000000);  // 1 msec
     }
 
     candidates = 0;
@@ -720,7 +720,7 @@ static void setup_ide_controller(ide_controller* ctrl, uint8 id) {
     if (candidates > 0) {
       for (i = 0; i < IDE_DEVICES_PER_CONTROLLER; i++) {
         outb(IDE_DEV_HEAD_IBM | IDE_DEV_HEAD_DEV(i), base + IDE_DEV_HEAD_REG);
-        thread::sleep(400);  // 400 nsecs
+        thread_sleep(400);  // 400 nsecs
 
         if (inb(base + IDE_CYL_LO_REG) == 0x14 &&
             inb(base + IDE_CYL_HI_REG) == 0xeb &&
@@ -735,7 +735,7 @@ static void setup_ide_controller(ide_controller* ctrl, uint8 id) {
           else {
             outb(IDE_DEV_HEAD_IBM | IDE_DEV_HEAD_DEV(i),
                  base + IDE_DEV_HEAD_REG);
-            thread::sleep(400);  // 400 nsecs
+            thread_sleep(400);  // 400 nsecs
 
             outb(0x58, base + IDE_ERROR_REG);
             outb(0xa5, base + IDE_CYL_LO_REG);
@@ -781,19 +781,19 @@ static void setup_ide_controller(ide_controller* ctrl, uint8 id) {
     ide_cmd_queue_entry* entry = &ctrl->cmd_queue[i];
     entry->id = i;
     entry->next = i + 1;
-    entry->done = new condvar;
+    entry->done = new_condvar(CAST(condvar*, kmalloc(sizeof(condvar))));
   }
 
   ctrl->cmd_queue[MAX_NB_IDE_CMD_QUEUE_ENTRIES - 1].next = -1;
 
   ctrl->cmd_queue_freelist = 0;
-  ctrl->cmd_queue_condvar = new condvar;
+  ctrl->cmd_queue_condvar = new_condvar(CAST(condvar*, kmalloc(sizeof(condvar))));
 
   if (candidates > 0) {
     // enable interrupts
 
     outb(0, base + IDE_DEV_CTRL_REG);
-    thread::sleep(2000000);  // 2 msecs
+    thread_sleep(2000000);  // 2 msecs
 
     ENABLE_IRQ(ide_controller_map[id].irq);
   }

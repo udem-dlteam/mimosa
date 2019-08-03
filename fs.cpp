@@ -550,18 +550,18 @@ static error_code next_FAT_section(file* f) {
       if (ERROR(err = disk_cache_block_acquire(fs->_.FAT121632.d, sector_pos,
                                                &cb)))
         return err;
-      cb->mut->lock();
+      mutex_lock(cb->mut);
 
       cluster = *CAST(uint8*, cb->buf + offset);
 
       if (offset == ~(~0U << fs->_.FAT121632.log2_bps)) {
-        cb->mut->unlock();
+        mutex_unlock(cb->mut);
         if (ERROR(err = disk_cache_block_release(cb))) return err;
         if (ERROR(err = disk_cache_block_acquire(fs->_.FAT121632.d,
                                                  sector_pos + 1, &cb))) {
           return err;
         }
-        cb->mut->lock();
+        mutex_lock(cb->mut);
 
         offset = 0;
       } else {
@@ -576,7 +576,7 @@ static error_code next_FAT_section(file* f) {
                   (CAST(uint32, *CAST(uint8*, cb->buf + offset) & 0xf) << 8);
       }
 
-      cb->mut->unlock();
+      mutex_unlock(cb->mut);
       if (ERROR(err = disk_cache_block_release(cb))) return err;
     }
 
@@ -599,7 +599,7 @@ static error_code next_FAT_section(file* f) {
                                                &cb))) {
         return err;
       }
-      cb->mut->lock();
+      mutex_lock(cb->mut);
 
       if (fs->kind == FAT16_FS) {
         cluster = *CAST(uint16*, cb->buf + offset);
@@ -609,7 +609,7 @@ static error_code next_FAT_section(file* f) {
         if (cluster >= FAT_32_EOF) err = EOF_ERROR;
       }
 
-      cb->mut->unlock();
+      mutex_unlock(cb->mut);
       error_code release_err = disk_cache_block_release(cb);
 
       if (ERROR(err)) {
@@ -703,7 +703,7 @@ error_code  write_file(file* f, void* buff, uint32 count) {
             }
 
             // Lock the access to this cache block
-            cb->mut->lock();
+            mutex_lock(cb->mut);
 
             left2 = (1 << DISK_LOG2_BLOCK_SIZE) -
                     (f->current_section_pos & ~(~0U << DISK_LOG2_BLOCK_SIZE));
@@ -716,7 +716,7 @@ error_code  write_file(file* f, void* buff, uint32 count) {
             memcpy(sector_buffer, p, left2);
 
             cb->dirty = TRUE;
-            cb->mut->unlock();
+            mutex_unlock(cb->mut);
 
             if (ERROR(err = disk_cache_block_release(cb))) return err;
           }
@@ -797,7 +797,7 @@ error_code read_file(file* f, void* buf, uint32 count) {
                           &cb))) {
                 return err;
               }
-              cb->mut->lock();
+              mutex_lock(cb->mut);
 
               left2 = (1 << DISK_LOG2_BLOCK_SIZE) -
                       (f->current_section_pos & ~(~0U << DISK_LOG2_BLOCK_SIZE));
@@ -810,7 +810,7 @@ error_code read_file(file* f, void* buf, uint32 count) {
                      left2);
 
 
-              cb->mut->unlock();
+              mutex_unlock(cb->mut);
               if (ERROR(err = disk_cache_block_release(cb))) return err;
             }
 
@@ -857,7 +857,7 @@ static error_code mount_FAT121632(disk* d, file_system** result) {
 
   {
     if (ERROR(err = disk_cache_block_acquire(d, 0, &cb))) return err;
-    cb->mut->lock();
+    mutex_lock(cb->mut);
 
     p = CAST(BIOS_Parameter_Block*, cb->buf);
 
@@ -979,7 +979,7 @@ static error_code mount_FAT121632(disk* d, file_system** result) {
       }
     }
 
-    cb->mut->unlock();
+    mutex_unlock(cb->mut);
     release_err = disk_cache_block_release(cb);
   }
 
@@ -1188,7 +1188,7 @@ error_code _file_set_pos_from_start(file* f, uint32 position) {
 
   // FAT32 only
   if (HAS_NO_ERROR(err = disk_cache_block_acquire(d, 0, &cb))) {
-    cb->mut->lock();
+    mutex_lock(cb->mut);
 
     p = CAST(BIOS_Parameter_Block*, cb->buf);
     uint16 bytes_per_sector = as_uint16(p->BPB_BytsPerSec);
@@ -1213,7 +1213,7 @@ error_code _file_set_pos_from_start(file* f, uint32 position) {
     f->current_section_pos += bytes_left_cluster;
     f->current_pos = position;
 
-    cb->mut->unlock();
+    mutex_unlock(cb->mut);
     release_error = disk_cache_block_release(cb);
     
     if(ERROR(err)) return err;
@@ -1267,11 +1267,11 @@ error_code file_move_cursor(file* f, int32 n) {
         uint32 cluster_sz;
 
         {
-          cb->mut->lock();
+          mutex_lock(cb->mut);
           p = CAST(BIOS_Parameter_Block*, cb->buf);
           uint16 bytes_per_sector = as_uint16(p->BPB_BytsPerSec);
           cluster_sz = bytes_per_sector * p->BPB_SecPerClus;
-          cb->mut->unlock();
+          mutex_unlock(cb->mut);
           if (ERROR(err = disk_cache_block_release(cb))) return err;
         }
 

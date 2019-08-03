@@ -384,27 +384,9 @@ static void identify_cpu ()
 #endif
 }
 
-class idle_thread : public thread
-  {
-  public:
-
-    idle_thread ();
-    virtual native_string name();
-  protected:
-    virtual void run ();
-  };
-
-idle_thread::idle_thread()
-{
-}
-
-native_string idle_thread::name() {
-  return "idle_thread";
-}
-
-void idle_thread::run() {
+void idle_thread_run() {
   for (;;) {
-    thread::yield();
+    thread_yield();
   }
 }
 
@@ -421,10 +403,9 @@ void __rtlib_setup ()
 
   identify_cpu ();
   setup_ps2 ();
-
-  idle_thread* the_idle = (new idle_thread);
-
-  the_idle->start(); // need an idle thread to prevent deadlocks
+  
+  thread* the_idle = CAST(thread*, kmalloc(sizeof(thread)));
+  thread_start(new_thread(the_idle, idle_thread_run));
 
   term_write(cout, "Loading up LIBC\n");
   libc_init();
@@ -440,7 +421,9 @@ void __rtlib_setup ()
 
 #ifdef USE_CACHE_BLOCK_MAID
   term_write(cout, "Loading the cache block maid...\n");
-  (new cache_block_maid)->start();
+
+  thread* cache_block_maid_thread = CAST(thread*, kmalloc(sizeof(thread)));
+  thread_start(new_thread(cache_block_maid_thread, cache_block_maid_run));
 #endif
 
   main ();

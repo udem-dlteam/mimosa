@@ -383,11 +383,11 @@ typedef struct mutex {
   volatile bool _locked;  // boolean indicating if mutex is locked or unlocked
 } mutex;
 
-void new_mutex(mutex* m);
+mutex* new_mutex(mutex* m);
 
 void mutex_lock(mutex* self);
 
-void mutex_lock_or_timeout(mutex* self);
+bool mutex_lock_or_timeout(mutex* self, time timeout);
 
 void mutex_unlock(mutex* self);
 
@@ -401,21 +401,21 @@ typedef struct condvar {
   // The inherited "mutex queue" part of wait_queue is unused.
 } condvar;
 
-void new_condvar(condvar* t);
+condvar* new_condvar(condvar* t);
 
-void condavar_wait(
+void condvar_wait(
     condvar* self,
     mutex* m);  // suspends current thread on the condition variable
 
-bool condavar_wait_or_timeout(condvar* self, mutex* m,
+bool condvar_wait_or_timeout(condvar* self, mutex* m,
                               time timeout);  // returns FALSE on timeout
 
-void condavar_signal(condvar* self);     // resumes one of the waiting threads
-void condavar_broadcast(condvar* self);  // resumes all of the waiting threads
+void condvar_signal(condvar* self);     // resumes one of the waiting threads
+void condvar_broadcast(condvar* self);  // resumes all of the waiting threads
 
-void condavar_mutexless_wait(
+void condvar_mutexless_wait(
     condvar* self);  // like "wait" but uses interrupt flag as mutex
-void condavar_mutexless_signal(
+void condvar_mutexless_signal(
     condvar* self);  // like "signal" but assumes disabled interrupts
 
 typedef struct thread {

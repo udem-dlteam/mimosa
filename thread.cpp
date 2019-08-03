@@ -41,13 +41,13 @@ thread* sched_current_thread;
 //     void_fn _continuation;
 //   };
 
-//   char* primordial_thread::name() { return "PRIMORDIAL_THREAD"; }
+//   char* primordial_thread_name() { return "PRIMORDIAL_THREAD"; }
 
-//   primordial_thread::primordial_thread(void_fn continuation) {
+//   primordial_thread_primordial_thread(void_fn continuation) {
 //     _continuation = continuation;
 // }
 
-// void primordial_thread::run ()
+// void primordial_thread_run ()
 // {
 //   _continuation ();
 // }
@@ -56,10 +56,11 @@ thread* sched_current_thread;
 // C Rewrite
 //-----------------------------------------------------------------------------
 
-void new_mutex(mutex* m) {
+mutex* new_mutex(mutex* m) {
   wait_queue_init(&m->super);
   m->_locked = false;
   sched_reg_mutex(m);
+  return m;
 }
 
 void mutex_lock(mutex* self) {
@@ -128,9 +129,10 @@ bool mutex_lock_or_timeout(mutex* self, time timeout) {
 
 mutex* seq;////////////////////
 
-void new_condvar(condvar* c) {
+condvar* new_condvar(condvar* c) {
   wait_queue_init(&c->super);
   sched_reg_condvar(c);
+  return c;
 }
 
 
@@ -309,6 +311,8 @@ thread* new_thread (thread* self, void_fn run)
   self->_prio = normal_priority;
   self->_terminated = FALSE;
   self->run = run;
+
+  return self;
 }
 
 thread* thread_start(thread* self) {
@@ -332,7 +336,7 @@ void thread_join (thread* self)
   mutex_unlock(&self->_m);
 }
 
-void thread_yield(thread* self) {
+void thread_yield() {
 
   disable_interrupts();
 
@@ -343,7 +347,7 @@ void thread_yield(thread* self) {
 
 thread* thread_self() { return sched_current_thread; }
 
-void thread_sleep(thread* self, int64 timeout_nsecs) {
+void thread_sleep(uint64 timeout_nsecs) {
 #ifdef BUSY_WAIT_INSTEAD_OF_SLEEP
 #pragma GCC push_options
 #pragma GCC optimize("O0")
@@ -758,19 +762,19 @@ void _sched_timer_elapsed() {
   }
 }
 
-// uint32 thread::code() {
+// uint32 thread_code() {
 //   return NULL;
 // }
 
-// program_thread::program_thread(libc_startup_fn code) {
+// program_thread_program_thread(libc_startup_fn code) {
 //   _code = code;
 // }
 
-// native_string program_thread::name() {
+// native_string program_thread_name() {
 //   return "Program thread";
 // }
 
-// void program_thread::run() {
+// void program_thread_run() {
 //   debug_write("Running program thread");
 //   static char* argv[] = { "app", "-:t4", NULL };
 //   int argc = sizeof(argv) / sizeof(argv[0]) - 1;
@@ -779,7 +783,7 @@ void _sched_timer_elapsed() {
 //   debug_write("End program thread");
 // }
 
-// uint32 program_thread::code() {
+// uint32 program_thread_code() {
 //   return CAST(uint32,_code);
 // }
 

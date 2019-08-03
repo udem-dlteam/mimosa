@@ -166,50 +166,50 @@ Linker script and memory map
                 0x0000000000023850                disk_BIOS_CHS_to_LBA(disk_struct*, unsigned char*)
  *fill*         0x0000000000024385        0x3 9090
  .text          0x0000000000024388     0x1ef8 thread.o
-                0x0000000000025078                thread::~thread()
-                0x00000000000250d6                thread::start()
-                0x0000000000025596                primordial_thread::primordial_thread(void (*)())
+                0x0000000000025078                thread_~thread()
+                0x00000000000250d6                thread_start()
+                0x0000000000025596                primordial_thread_primordial_thread(void (*)())
                 0x0000000000025944                scheduler::resume_next_thread()
                 0x0000000000024596                mutex::unlock()
                 0x000000000002473c                condvar::wait(mutex*)
                 0x0000000000025cfe                scheduler::switch_to_next_thread(unsigned int, unsigned int, unsigned int*, void*)
                 0x0000000000024700                condvar::condvar()
                 0x000000000002440e                mutex::lock_or_timeout(time)
-                0x0000000000024e90                thread::thread()
+                0x0000000000024e90                thread_thread()
                 0x0000000000024c72                condvar::broadcast()
                 0x0000000000024ba2                condvar::signal()
                 0x0000000000025f58                scheduler::suspend_on_sleep_queue(unsigned int, unsigned int, unsigned int*, void*)
                 0x00000000000243e6                mutex::lock()
                 0x0000000000025a08                scheduler::run_thread()
-                0x0000000000025094                thread::~thread()
+                0x0000000000025094                thread_~thread()
                 0x0000000000024dc2                condvar::mutexless_signal()
-                0x000000000002547a                thread::yield()
+                0x000000000002547a                thread_yield()
                 0x0000000000024dac                condvar::mutexless_wait()
                 0x00000000000246e6                scheduler::register_condvar(condvar*)
                 0x0000000000026088                scheduler::timer_elapsed()
-                0x0000000000025490                thread::self()
+                0x0000000000025490                thread_self()
                 0x00000000000248a8                condvar::wait_or_timeout(mutex*, time)
                 0x00000000000255d0                scheduler::setup(void (*)())
                 0x00000000000243c4                mutex::mutex()
-                0x0000000000025574                primordial_thread::primordial_thread(void (*)())
+                0x0000000000025574                primordial_thread_primordial_thread(void (*)())
                 0x0000000000025c3a                sys_irq
                 0x0000000000025698                scheduler::stats()
-                0x000000000002556e                primordial_thread::name()
-                0x0000000000025182                thread::join()
+                0x000000000002556e                primordial_thread_name()
+                0x0000000000025182                thread_join()
                 0x00000000000258ba                scheduler::set_timer(time, time)
                 0x0000000000024388                scheduler::register_mutex(mutex*)
-                0x0000000000025566                thread::run()
-                0x00000000000250b0                thread::~thread()
-                0x0000000000025496                thread::sleep(long long)
+                0x0000000000025566                thread_run()
+                0x00000000000250b0                thread_~thread()
+                0x0000000000025496                thread_sleep(long long)
                 0x0000000000026274                irq0
                 0x00000000000255c2                scheduler::setup_timer()
                 0x0000000000025e2c                scheduler::suspend_on_wait_queue(unsigned int, unsigned int, unsigned int*, void*)
                 0x00000000000243a2                mutex::mutex()
                 0x0000000000024566                scheduler::yield_if_necessary()
                 0x00000000000244ee                scheduler::reschedule_thread(thread*)
-                0x00000000000255b8                primordial_thread::run()
-                0x0000000000024f84                thread::thread()
-                0x0000000000025568                thread::name()
+                0x00000000000255b8                primordial_thread_run()
+                0x0000000000024f84                thread_thread()
+                0x0000000000025568                thread_name()
                 0x000000000002471e                condvar::condvar()
  .text          0x0000000000026280      0x2f0 time.o
                 0x0000000000026280                bcd_to_int(unsigned char)
@@ -302,9 +302,9 @@ Linker script and memory map
  *fill*         0x000000000002a027        0x1 9090
  .text          0x000000000002a028      0x306 rtlib.o
                 0x000000000002a128                operator new[](unsigned int)
-                0x000000000002a258                idle_thread::idle_thread()
+                0x000000000002a258                idle_thread_idle_thread()
                 0x000000000002a16c                __pure_virtual
-                0x000000000002a274                idle_thread::idle_thread()
+                0x000000000002a274                idle_thread_idle_thread()
                 0x000000000002a0e0                log2(unsigned int)
                 0x000000000002a142                memcpy
                 0x000000000002a10c                kfree(void*)
@@ -318,7 +318,7 @@ Linker script and memory map
                 0x000000000002a1ac                __do_global_ctors()
                 0x000000000002a028                fatal_error(char*)
                 0x000000000002a10e                operator new(unsigned int)
-                0x000000000002a290                idle_thread::run()
+                0x000000000002a290                idle_thread_run()
                 0x000000000002a1ee                __rtlib_entry
  *(.stub)
  *(.gnu.warning)
@@ -357,17 +357,17 @@ Linker script and memory map
  *fill*         0x000000000002a425        0x1 9090
  .gnu.linkonce.t._ZN17primordial_threadD1Ev
                 0x000000000002a426       0x1c thread.o
-                0x000000000002a426                primordial_thread::~primordial_thread()
+                0x000000000002a426                primordial_thread_~primordial_thread()
  .gnu.linkonce.t._ZN17primordial_threadD0Ev
                 0x000000000002a442       0x26 thread.o
-                0x000000000002a442                primordial_thread::~primordial_thread()
+                0x000000000002a442                primordial_thread_~primordial_thread()
  .gnu.linkonce.t._ZN11idle_threadD1Ev
                 0x000000000002a468       0x19 rtlib.o
-                0x000000000002a468                idle_thread::~idle_thread()
+                0x000000000002a468                idle_thread_~idle_thread()
  *fill*         0x000000000002a481        0x1 9090
  .gnu.linkonce.t._ZN11idle_threadD0Ev
                 0x000000000002a482       0x19 rtlib.o
-                0x000000000002a482                idle_thread::~idle_thread()
+                0x000000000002a482                idle_thread_~idle_thread()
                 0x000000000002a49b                _etext = .
                 0x000000000002a49b                PROVIDE (etext, .)
 
