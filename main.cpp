@@ -22,7 +22,7 @@ int main() {
   term tty;
 
   term_init(&tty, 0, 366, 80, 13, &font_mono_5x7, &font_mono_5x7, L"tty", TRUE);
-
+  term_run(&tty);
   // {
   //   native_string file_name = "GSC.EXE";
 
