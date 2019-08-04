@@ -241,8 +241,9 @@ error_code  ide_write_sectors(ide_device* dev, uint32 lba, void* buf,
     outb(IDE_WRITE_SECTORS_CMD, base + IDE_COMMAND_REG);
 
     uint16* p = CAST(uint16*, entry->_.write_sectors.buf);
-
-    for (int i = entry->_.write_sectors.count << (IDE_LOG2_SECTOR_SIZE - 1); i > 0; i--) {
+    
+    int i;
+    for (i = entry->_.write_sectors.count << (IDE_LOG2_SECTOR_SIZE - 1); i > 0; i--) {
       outw(*p++, base + IDE_DATA_REG);
     }
 
@@ -349,12 +350,12 @@ static void setup_ide_device(ide_controller* ctrl, ide_device* dev, uint8 id) {
   }
 
   term_write(cout, "  word 47 hi (should be 128) = ");
-  term_write(cout, (ident[47] >> 8));
+  term_write_uint16(cout, (ident[47] >> 8));
   term_writeline(cout);
   term_write(cout,
              "  Maximum number of sectors that shall be transferred per "
              "interrupt on READ/WRITE MULTIPLE commands = ");
-  term_write(cout, (ident[47] & 0xff));
+  term_write_uint16(cout, (ident[47] & 0xff));
   term_writeline(cout);
 
 #ifdef SHOW_IDE_INFO
@@ -624,7 +625,7 @@ static void setup_ide_device(ide_controller* ctrl, ide_device* dev, uint8 id) {
 
 static void setup_ide_controller(ide_controller* ctrl, uint8 id) {
   term_write(cout, "Setting up IDE controller no: ");
-  term_write(cout, id);
+  term_write_uint8(cout, id);
   term_writeline(cout);
 
   uint32 i;
@@ -692,7 +693,7 @@ static void setup_ide_controller(ide_controller* ctrl, uint8 id) {
     {
       for (i = 0; i < IDE_DEVICES_PER_CONTROLLER; i++) {
         term_write(cout, "Reset of device ");
-        term_write(cout, i);
+        term_write_uint32(cout, i);
         term_writeline(cout);
         outb(IDE_DEV_HEAD_IBM | IDE_DEV_HEAD_DEV(i), base + IDE_DEV_HEAD_REG);
         thread_sleep(400);  // 400 nsecs

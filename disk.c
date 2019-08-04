@@ -319,7 +319,7 @@ static native_string partition_name_from_type(uint8 type) {
 static void disk_print_path(uint32 path) {
   if (path > 0) {
     disk_print_path(path / 10);
-    term_write(term_write(cout, "/"), (path % 10) - 1);
+    term_write_uint32(term_write(cout, "/"), (path % 10) - 1);
   }
 }
 
@@ -331,14 +331,14 @@ void disk_print_id(disk* d) {
   }
 
   term_write(cout, " ide");
-  term_write(cout, d->_.ide.dev->ctrl->id);
+  term_write_uint8(cout, d->_.ide.dev->ctrl->id);
   term_write(cout, ".");
-  term_write(cout, d->_.ide.dev->id);
+  term_write_uint8(cout, d->_.ide.dev->id);
 
   disk_print_path(d->partition_path);
 
   term_write(cout, " ");
-  term_write(cout, (d->partition_length >> (20 - d->log2_sector_size)));
+  term_write_uint32(cout, (d->partition_length >> (20 - d->log2_sector_size)));
   term_write(cout, "MB");
 
   if (d->partition_type != 0) {

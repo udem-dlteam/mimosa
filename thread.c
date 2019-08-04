@@ -293,7 +293,8 @@ thread* new_thread (thread* self, void_fn run, native_string name)
   // This stack frame is built in order to be compatible with the 
   // context switching routines that expected the general purpose registers
   // to be before the IRET frame.
-  for (int i = 0; i < 8; i++) {
+  int i;
+  for (i = 0; i < 8; i++) {
     *-- s = 0;
   }
 
@@ -435,7 +436,7 @@ void _sched_resume_next_thread() {
 
 #ifdef USE_PIT_FOR_TIMER
 
-void irq0 ()
+void irq0 (void* esp)
 {
   ASSERT_INTERRUPTS_DISABLED ();
 
@@ -543,9 +544,6 @@ void sched_stats() {
   {
     wait_mutex_node* t = circular_buffer_cv->super.super._next_in_wait_queue;
     while (t != &circular_buffer_cv->super.super) {
-      term_write(cout, "(");
-      term_write(cout, CAST(uint32, t));
-      term_write(cout, "):");
       term_write(cout, thread_name(CAST(thread*, t)));
       term_write(cout, " ");
       n++;

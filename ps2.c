@@ -256,7 +256,7 @@ native_char readline() {
     ASSERT_INTERRUPTS_ENABLED();
 
     if (IS_VISIBLE_CHAR(c)) {
-      term_write(io, c);
+      term_write_nchar(io, c);
       line_buffer[buffer_write_pos++] = c;
     } else if (IS_NEWLINE(c)) {
       // The newline terminates the input
@@ -268,9 +268,9 @@ native_char readline() {
     } else if (ASCII_BACKSPACE == c) {
       // Don't overrun the Gambit term.
       if (buffer_write_pos > 0) {
-        term_write(io, c);
+        term_write_nchar(io, c);
         term_write(io, ' ');
-        term_write(io, c);
+        term_write_nchar(io, c);
         line_buffer[--buffer_write_pos] = ' ';
       }
     } else if (IS_DEL(c)) {
@@ -278,7 +278,7 @@ native_char readline() {
     } else {
       debug_write("Dropping unknown char: ");
       debug_write(read);
-      debug_write((uint32)read[0]);
+      debug_write_uint32((uint32)read[0]);
     }
   }
 }
