@@ -175,7 +175,7 @@ struct stat {
   uint32 st_size;
 };
 
-int lstat(const char* path, struct stat* buf);
+int _lstat(const char* path, struct stat* buf);
 
 void setup_fs();
 

@@ -544,7 +544,7 @@ void APIC_timer_irq();
 #define NEXT_SET(node, next_node) NEXT(node) = (next_node)
 #define PREV(node) (node)->_prev_in_wait_queue
 #define PREV_SET(node, prev_node) PREV(node) = (prev_node)
-// #include "queue.h"
+#include "queue.h"
 #undef USE_DOUBLY_LINKED_LIST
 #undef NEXT
 #undef NEXT_SET
@@ -553,29 +553,29 @@ void APIC_timer_irq();
 #endif
 
 #ifdef USE_RED_BLACK_TREE_FOR_WAIT_QUEUE
-// #define USE_RED_BLACK_TREE
-// #define COLOR(node) (node)->_color_in_wait_queue
-// #define COLOR_SET(node, color) COLOR(node) = (color)
-// #define PARENT(node) (node)->_parent_in_wait_queue
-// #define PARENT_SET(node, parent) PARENT(node) = (parent)
-// #define LEFT(node) (node)->_left_in_wait_queue
-// #define LEFT_SET(node, left) LEFT(node) = (left)
-// #define RIGHT(node) CAST(ELEMTYPE*, node)->_right_in_wait_queue
-// #define RIGHT_SET(node, right) RIGHT(node) = (right)
-// #define LEFTMOST(queue) (queue)->_leftmost_in_wait_queue
-// #define LEFTMOST_SET(queue, node) LEFTMOST(queue) = (node)
-// #include "queue.h"
-// #undef USE_RED_BLACK_TREE
-// #undef COLOR
-// #undef COLOR_SET
-// #undef PARENT
-// #undef PARENT_SET
-// #undef LEFT
-// #undef LEFT_SET
-// #undef RIGHT
-// #undef RIGHT_SET
-// #undef LEFTMOST
-// #undef LEFTMOST_SET
+#define USE_RED_BLACK_TREE
+#define COLOR(node) (node)->_color_in_wait_queue
+#define COLOR_SET(node, color) COLOR(node) = (color)
+#define PARENT(node) (node)->_parent_in_wait_queue
+#define PARENT_SET(node, parent) PARENT(node) = (parent)
+#define LEFT(node) (node)->_left_in_wait_queue
+#define LEFT_SET(node, left) LEFT(node) = (left)
+#define RIGHT(node) CAST(ELEMTYPE*, node)->_right_in_wait_queue
+#define RIGHT_SET(node, right) RIGHT(node) = (right)
+#define LEFTMOST(queue) (queue)->_leftmost_in_wait_queue
+#define LEFTMOST_SET(queue, node) LEFTMOST(queue) = (node)
+#include "queue.h"
+#undef USE_RED_BLACK_TREE
+#undef COLOR
+#undef COLOR_SET
+#undef PARENT
+#undef PARENT_SET
+#undef LEFT
+#undef LEFT_SET
+#undef RIGHT
+#undef RIGHT_SET
+#undef LEFTMOST
+#undef LEFTMOST_SET
 #endif
 
 #undef NODETYPE
@@ -609,7 +609,7 @@ void APIC_timer_irq();
 #endif
 
 #ifdef USE_RED_BLACK_TREE_FOR_MUTEX_QUEUE
-// #include "queue.h"
+#include "queue.h"
 #endif
 
 #undef NODETYPE
@@ -643,7 +643,7 @@ void APIC_timer_irq();
 #endif
 
 #ifdef USE_RED_BLACK_TREE_FOR_SLEEP_QUEUE
-// #include "queue.h"
+#include "queue.h"
 #endif
 
 #undef NODETYPE

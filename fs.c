@@ -1323,7 +1323,7 @@ void inline set_dir_entry_size(FAT_directory_entry* de, uint32 sz) {
 
 //-----------------------------------------------------------------------------
 
-int lstat(const char* path, struct stat* buf) {
+int _lstat(const char* path, struct stat* buf) {
   file* f;
   error_code err;
 

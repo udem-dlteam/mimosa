@@ -8,7 +8,10 @@
 
 //-----------------------------------------------------------------------------
 
+#define INLINE_DEFINITIONS
 #include "thread.h"
+#undef INLINE_DEFINITIONS
+
 #include "asm.h"
 #include "pic.h"
 #include "apic.h"

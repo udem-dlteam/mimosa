@@ -1,4 +1,5 @@
 /* file: "queue.h" */
+#include "term.h"////////////
 
 /*
  * Copyright (c) 2001 by Marc Feeley and Universit� de Montr�al, All
@@ -45,7 +46,13 @@
  */
 
 /*---------------------------------------------------------------------------*/
-
+#ifndef INLINE_DEFINITIONS
+extern inline void NAMESPACE_PREFIX(init) (QUEUETYPE* queue);
+extern inline void NAMESPACE_PREFIX(detach) (ELEMTYPE* elem);
+extern inline ELEMTYPE* NAMESPACE_PREFIX(head) (QUEUETYPE* queue);
+extern inline void NAMESPACE_PREFIX(insert) (ELEMTYPE* elem, QUEUETYPE* queue);
+extern inline void NAMESPACE_PREFIX(remove) (ELEMTYPE* elem);
+#else
 #ifdef USE_DOUBLY_LINKED_LIST
 
 /*
@@ -522,7 +529,7 @@ do { \
 }
 
 #endif
-
+#endif
 
 /*---------------------------------------------------------------------------*/
 
