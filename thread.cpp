@@ -254,7 +254,14 @@ void condvar_mutexless_signal(condvar* self) {
 
 // "thread" class implementation.
 
-thread* new_thread (thread* self, void_fn run)
+program_thread* new_program_thread(program_thread* self, libc_startup_fn run, native_string name) {
+  new_thread(&self->super, NULL, name);
+  self->_code = run;
+  self->super.vtable = &_program_thread_vtable;
+  return self;
+}
+
+thread* new_thread (thread* self, void_fn run, native_string name)
 {
   static const int stack_size = 65536 << 1; // size of thread stacks in bytes
 
@@ -310,7 +317,10 @@ thread* new_thread (thread* self, void_fn run)
   self->_quantum = frequency_to_time (10000); // quantum is 1/10000th of a second
   self->_prio = normal_priority;
   self->_terminated = FALSE;
-  self->run = run;
+  self->_run = run;
+  self->_name = name;
+
+  self->vtable = &_thread_vtable;
 
   return self;
 }
@@ -376,9 +386,21 @@ void thread_sleep(uint64 timeout_nsecs) {
 #endif
 }
 
-void thread_run(thread* self) { self->run(); }
+#define thread_run(t) do {t->vtable->thread_run(t);} while(0)
 
-char* thread_name () { return "?"; }
+void virtual_thread_run(thread* self) { self->_run(); }
+
+void virtual_program_thread_run(thread* sself) {
+  program_thread* self = CAST(program_thread*, sself);
+  debug_write("Running program thread");
+  static char* argv[] = {"app", "-:t4", NULL};
+  int argc = sizeof(argv) / sizeof(argv[0]) - 1;
+  static char* env[] = {NULL};
+  self->_code(argc, argv, env);
+  debug_write("End program thread");
+}
+
+native_string thread_name(thread* self) { return self->_name; }
 
 
 //-----------------------------------------------------------------------------
@@ -450,15 +472,15 @@ void APIC_timer_irq ()
 void sched_setup(void_fn continuation) {
    ASSERT_INTERRUPTS_DISABLED (); // Interrupts should be disabled at this point
 
-  readyq = new wait_queue;
+  readyq = CAST(wait_queue*, kmalloc(sizeof(wait_queue)));
   wait_queue_init (readyq);
 
-  sleepq = new sleep_queue;
+  sleepq = CAST(sleep_queue*, kmalloc(sizeof(sleep_queue)));
   sleep_queue_init (sleepq);
 
   thread* primordial = CAST(thread*, kmalloc(sizeof(thread)));
 
-  sched_primordial_thread = new_thread(primordial, continuation);
+  sched_primordial_thread = new_thread(primordial, continuation, "The primordial");
 
   sched_current_thread = sched_primordial_thread;
 
@@ -473,44 +495,74 @@ void sched_setup(void_fn continuation) {
 extern condvar* circular_buffer_cv;
 
 void sched_stats() {
-  disable_interrupts();
+  // disable_interrupts();
 // 
-  // int n = 0;
-  // int m = 0;
-  // int p = 0;
+  int n = 0;
+  int m = 0;
+  int p = 0;
 
-  // term_write(cout, "(");
+  term_writeline(cout);
+  term_write(cout, "Threads in wait queue:");
+  {
+    wait_mutex_node* t = readyq->super._next_in_wait_queue;
+    while (t != &readyq->super) {
+      term_write(cout, thread_name(CAST(thread*, t)));
+      term_write(cout, " ");
+      n++;
+      t = t->_next_in_wait_queue;
+    }
+  }
 
-  // {
-  //   wait_mutex_node* t = readyq->super._next_in_wait_queue;
-  //   while (t != readyq) {
-  //     term_write(cout, CAST(thread*, t)->name());
-  //     n++;
-  //     t = t->_next_in_wait_queue;
-  //   }
-  // }
+  term_writeline(cout);
+  term_write(cout, "Threads in sleep queue:");
+  {
+    wait_mutex_sleep_node* t = sleepq->super._next_in_sleep_queue;
+    while (t != &sleepq->super) {
+      term_write(cout, thread_name(CAST(thread*, t)));
+      term_write(cout, " ");
+      m++;
+      t = t->_next_in_sleep_queue;
+    }
+  }
 
-  // term_write(cout, " ");
+  term_writeline(cout);
+  term_write(cout, "Threads in circular buffer condvar:");
+  {
+    wait_mutex_sleep_node* t = sleepq->super._next_in_sleep_queue;
+    while (t != &sleepq->super) {
+      term_write(cout, thread_name(CAST(thread*, t)));
+      term_write(cout, " ");
+      m++;
+      t = t->_next_in_sleep_queue;
+    }
+  }
 
-  // {
-  //   wait_mutex_sleep_node* t = sleepq->super._next_in_sleep_queue;
-  //   while (t != sleepq) {
-  //     term_write(cout, CAST(thread*, t)->name());
-  //     m++;
-  //     t = t->_next_in_sleep_queue;
-  //   }
-  // }
+  term_writeline(cout);
+  term_write(cout, "Circular BUFFER condvar (->):");
 
-  // term_write(cout, " ");
+  {
+    wait_mutex_node* t = circular_buffer_cv->super.super._next_in_wait_queue;
+    while (t != &circular_buffer_cv->super.super) {
+      term_write(cout, "(");
+      term_write(cout, CAST(uint32, t));
+      term_write(cout, "):");
+      term_write(cout, thread_name(CAST(thread*, t)));
+      term_write(cout, " ");
+      n++;
+      t = t->_next_in_wait_queue;
+    }
+  }
+
+  term_write(cout, " ");
 
   // {
   //   for (int i = 0; i < mn; i++) {
-  //     wait_mutex_node* t = mtab[i]->super._next_in_wait_queue;
-  //     while (t != mtab[i]) {
+  //     wait_mutex_node* t = &mtab[i]->super.super;
+  //     while (t != &mtab[i]->super.super) {
   //       term_write(cout, "m");
   //       term_write(cout, i);
   //       term_write(cout, "=");
-  //       term_write(cout, CAST(thread*, t)->name());
+  //       term_write(cout, thread_name(CAST(thread*, t)));
   //       term_write(cout, " ");
   //       p++;
   //       t = t->_next_in_wait_queue;
@@ -521,11 +573,11 @@ void sched_stats() {
   // {
   //   for (int i = 0; i < cn; i++) {
   //     wait_mutex_node* t = ctab[i]->super.super._next_in_wait_queue;
-  //     while (t != ctab[i]) {
+  //     while (t != &ctab[i]->super.super) {
   //       term_write(cout, "c");
   //       term_write(cout, i);
   //       term_write(cout, "=");
-  //       term_write(cout, CAST(thread*, t)->name());
+  //       term_write(cout, thread_name(CAST(thread*, t)));
   //       term_write(cout, " ");
   //       p++;
   //       t = t->_next_in_wait_queue;
@@ -533,9 +585,9 @@ void sched_stats() {
   //   }
   // }
 
-  // term_write(cout, ")\n");
+  term_write(cout, ")\n");
 
-  enable_interrupts();
+  // enable_interrupts();
 }
 
 void sched_reg_mutex(mutex* m) {
@@ -565,7 +617,7 @@ void _sched_yield_if_necessary() {
 }
 
 void _sched_run_thread() {
-  sched_current_thread->run();
+  thread_run(sched_current_thread);
   sched_current_thread->_terminated = TRUE;
   condvar_broadcast(&sched_current_thread->_joiners);
 
@@ -762,33 +814,7 @@ void _sched_timer_elapsed() {
   }
 }
 
-// uint32 thread_code() {
-//   return NULL;
-// }
-
-// program_thread_program_thread(libc_startup_fn code) {
-//   _code = code;
-// }
-
-// native_string program_thread_name() {
-//   return "Program thread";
-// }
-
-// void program_thread_run() {
-//   debug_write("Running program thread");
-//   static char* argv[] = { "app", "-:t4", NULL };
-//   int argc = sizeof(argv) / sizeof(argv[0]) - 1;
-//   static char* env[] = { NULL };
-//   _code(argc, argv, env);
-//   debug_write("End program thread");
-// }
-
-// uint32 program_thread_code() {
-//   return CAST(uint32,_code);
-// }
-
 //-----------------------------------------------------------------------------
 
-// Local Variables: //
 // mode: C++ //
 // End: //

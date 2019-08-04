@@ -418,8 +418,17 @@ void condvar_mutexless_wait(
 void condvar_mutexless_signal(
     condvar* self);  // like "signal" but assumes disabled interrupts
 
+
+typedef struct thread;
+
+typedef struct thread_vtable_struct {
+  void (* thread_run)(thread* self);
+} thread_vtable;
+
+
 typedef struct thread {
   wait_mutex_sleep_node super;
+  thread_vtable_struct* vtable;
 #ifdef USE_DOUBLY_LINKED_LIST_FOR_WAIT_QUEUE
 #endif
 
@@ -448,12 +457,20 @@ typedef struct thread {
   mutex _m;                   // mutex to access termination flag
   condvar _joiners;           // threads waiting for this thread to terminate
   volatile bool _terminated;  // the thread's termination flag
-  void_fn run;
+  native_string _name;
+  void_fn _run;
 } thread;
 
-thread* new_thread (thread* self, void_fn run);
+typedef struct program_thread_struct {
+  thread super;
+  libc_startup_fn _code;
+} program_thread;
+
+thread* new_thread(thread* self, void_fn run, native_string name);
 
 thread* thread_start(thread* self);
+
+program_thread* new_program_thread(program_thread* self, libc_startup_fn run, native_string name);
 
 void thread_join(thread* self);
 
@@ -465,12 +482,9 @@ void thread_sleep(uint64 timeout_nsecs);
 
 native_string thread_name(thread* self);
 
-typedef struct program_thread {
-  thread super;
-  void_fn _code; // TODO fix
-} program_thread;
+void virtual_thread_run(thread* self);
 
-void thread_run(thread* self);
+void virtual_program_thread_run(thread* self);
 
 void sched_setup(void_fn cont);
 
@@ -651,6 +665,8 @@ extern wait_queue* readyq;
 extern sleep_queue* sleepq;
 extern thread* sched_primordial_thread;
 extern thread* sched_current_thread;
+extern thread_vtable _thread_vtable;
+extern thread_vtable _program_thread_vtable;
 
 #endif
 

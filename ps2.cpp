@@ -332,7 +332,7 @@ void irq1 ()
 #endif
 
   ACKNOWLEDGE_IRQ(1);
-
+  sched_stats();
   process_keyboard_data (inb (PS2_PORT_A));
 }
 
