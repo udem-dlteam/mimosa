@@ -7,7 +7,7 @@
 
 void libc_wr_char(int fd, char c) {
   // write(fd, &c, 1);
-  term_write(cout, (native_char) c);
+  term_write_nchar(cout, (native_char) c);
 }
 
 void libc_wr_string(int fd, const char *s) {
@@ -32,7 +32,7 @@ ssize_t write(int fd, const void *buf, size_t count);
 ssize_t read(int fd, void *buf, size_t count);
 
 void libc_wr_char(int fd, char c) {
-  write(fd, &c, 1);
+  write(fd, (const void*)&c, 1);
 }
 
 void libc_wr_string(int fd, const char *s) {

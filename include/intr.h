@@ -84,32 +84,32 @@ do { \
 
 // Interrupt handlers must use C linkage.
 
-extern "C" void irq0 ();
-extern "C" void irq1 ();
-extern "C" void irq2 ();
-extern "C" void irq3 ();
-extern "C" void irq4 ();
-extern "C" void irq5 ();
-extern "C" void irq6 ();
-extern "C" void irq7 ();
-extern "C" void irq8 ();
-extern "C" void irq9 ();
-extern "C" void irq10 ();
-extern "C" void irq11 ();
-extern "C" void irq12 ();
-extern "C" void irq13 ();
-extern "C" void irq14 ();
-extern "C" void irq15 ();
-extern "C" void APIC_timer_irq ();
-extern "C" void APIC_spurious_irq ();
-extern "C" void unhandled_interrupt (int num);
-extern "C" void interrupt_handle(interrupt_data data);
-extern "C" void sys_irq (void* esp);
+extern void irq0(void* esp);
+extern void irq1 ();
+extern void irq2 ();
+extern void irq3 ();
+extern void irq4 ();
+extern void irq5 ();
+extern void irq6 ();
+extern void irq7 ();
+extern void irq8 ();
+extern void irq9 ();
+extern void irq10 ();
+extern void irq11 ();
+extern void irq12 ();
+extern void irq13 ();
+extern void irq14 ();
+extern void irq15 ();
+extern void APIC_timer_irq ();
+extern void APIC_spurious_irq ();
+extern void unhandled_interrupt (int num);
+extern void interrupt_handle(interrupt_data data);
+extern void sys_irq (void* esp);
 
 //-----------------------------------------------------------------------------
 
 #endif
 
 // Local Variables: //
-// mode: C++ //
+// mode: C     //
 // End: //

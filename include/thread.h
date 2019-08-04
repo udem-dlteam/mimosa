@@ -338,10 +338,12 @@ typedef struct mutex_queue {
 #endif
 } mutex_queue;
 
+
+typedef struct wait_mutex_sleep_node;
+
 typedef struct wait_mutex_sleep_node {
   mutex_queue super;
 
- protected:
   // Sleep queue part for maintaining the set of threads waiting for
   // a timeout.  If this object is a thread it is an element of the
   // queue; if this object is the run queue it is the queue of
@@ -362,7 +364,6 @@ typedef struct wait_mutex_sleep_node {
 typedef struct sleep_queue {
   wait_mutex_sleep_node super;
 
- protected:
 #ifdef USE_DOUBLY_LINKED_LIST_FOR_SLEEP_QUEUE
 #endif
 
@@ -428,7 +429,7 @@ typedef struct thread_vtable_struct {
 
 typedef struct thread {
   wait_mutex_sleep_node super;
-  thread_vtable_struct* vtable;
+  thread_vtable* vtable;
 #ifdef USE_DOUBLY_LINKED_LIST_FOR_WAIT_QUEUE
 #endif
 
@@ -671,5 +672,5 @@ extern thread_vtable _program_thread_vtable;
 #endif
 
 // Local Variables: //
-// mode: C++ //
+// mode: C     //
 // End: //

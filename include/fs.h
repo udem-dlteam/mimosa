@@ -150,10 +150,10 @@ void inline set_dir_entry_size(FAT_directory_entry* de, uint32 sz);
 #define DT_DIR 1
 #define DT_REG 2
 
-struct dirent {
+typedef struct dirent {
   uint8 d_type;
   native_char d_name[NAME_MAX + 1];
-};
+} dirent;
 
 typedef struct DIR_struct {
   struct dirent ent;
@@ -195,5 +195,5 @@ typedef uint8 file_mode;
 #endif
 
 // Local Variables: //
-// mode: C++ //
+// mode: C     //
 // End: //

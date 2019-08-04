@@ -5,7 +5,7 @@
 #include "include/libc_header.h"
 #include "include/stddef.h"
 
-extern "C" void *memcpy(void *__restrict __dest, const void *__restrict __src,
+extern void *memcpy(void *__restrict __dest, const void *__restrict __src,
                     size_t __n);
 
 extern void *memmove(void *__dest, const void *__src, size_t __n);

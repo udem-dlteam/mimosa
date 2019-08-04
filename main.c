@@ -43,7 +43,7 @@ int main() {
       }
 
       term_write(cout, "File loaded. Starting program at: ");
-      term_write(cout, code);
+      term_write_uint8(cout, code);
 
       thread_sleep(1000);
 

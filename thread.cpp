@@ -58,7 +58,7 @@ thread* sched_current_thread;
 
 mutex* new_mutex(mutex* m) {
   wait_queue_init(&m->super);
-  m->_locked = false;
+  m->_locked = FALSE;
   sched_reg_mutex(m);
   return m;
 }
@@ -816,5 +816,5 @@ void _sched_timer_elapsed() {
 
 //-----------------------------------------------------------------------------
 
-// mode: C++ //
+// mode: C     //
 // End: //

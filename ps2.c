@@ -231,7 +231,7 @@ unicode_char getchar() {
   return result;
 }
 
-volatile bool buffer_flush = false;
+volatile bool buffer_flush = FALSE;
 volatile uint16 buffer_flush_pos = 0;
 volatile uint16 buffer_write_pos = 0;
 
@@ -246,7 +246,7 @@ native_char readline() {
         char to_return = line_buffer[buffer_flush_pos++];
         return to_return;
       } else {
-        buffer_flush = false;
+        buffer_flush = FALSE;
         buffer_flush_pos = buffer_write_pos = 0;
       }
     }
@@ -264,7 +264,7 @@ native_char readline() {
       line_buffer[buffer_write_pos++] = '\n';
       /* We want the \0 to be included */
       line_buffer[buffer_write_pos++] = '\0';
-      buffer_flush = true;
+      buffer_flush = TRUE;
     } else if (ASCII_BACKSPACE == c) {
       // Don't overrun the Gambit term.
       if (buffer_write_pos > 0) {
@@ -455,5 +455,5 @@ void setup_ps2 ()
 //-----------------------------------------------------------------------------
 
 // Local Variables: //
-// mode: C++ //
+// mode: C     //
 // End: //

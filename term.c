@@ -177,7 +177,7 @@ void term_toggle_cursor(term* self) {
   self->_cursor_visible = !self->_cursor_visible;
 }
 
-int term_write(term* self, unicode_char* buf, int count) {
+int raw_term_write(term* self, unicode_char* buf, int count) {
 
   int start, end, i;
   unicode_char c;
@@ -484,7 +484,7 @@ void term_scroll_up(term* self) {
 static const native_string TRUE_STR = "TRUE";
 static const native_string FALSE_STR = "FALSE";
 
-term* term_write(term* self, bool x) {
+term* term_write_bool(term* self, bool x) {
   if (x) {
     return term_write(self, TRUE_STR);
   } else {
@@ -492,35 +492,35 @@ term* term_write(term* self, bool x) {
   }
 }
 
-term* term_write(term* self, int8 x) {
-  return term_write(self, CAST(int32, x));
+term* term_write_int8(term* self, int8 x) {
+  return term_write_int32(self, CAST(int32, x));
 }
 
-term* term_write(term* self, int16 x) {
-  return term_write(self, CAST(int32, x));
+term* term_write_int16(term* self, int16 x) {
+  return term_write_int32(self, CAST(int32, x));
 }
 
-term* term_write(term* self, int32 x) {
+term* term_write_int32(term* self, int32 x) {
   if (x < 0) {
-    return term_write(term_write(self, L"-"), CAST(uint32, -x));
+    return term_write_uint32(term_write_lstr(self, L"-"), CAST(uint32, -x));
   } else {
-    return term_write(self, CAST(uint32, x));
+    return term_write_uint32(self, CAST(uint32, x));
   }
 }
 
-term* term_write(term* self, int64 x) {
-  return term_write(self, CAST(uint64, x));
+term* term_write_int64(term* self, int64 x) {
+  return term_write_uint64(self, CAST(uint64, x));
 }
 
-term* term_write(term* self, uint8 x) {
-  return term_write(self, CAST(uint32, x));
+term* term_write_uint8(term* self, uint8 x) {
+  return term_write_uint32(self, CAST(uint32, x));
 }
 
-term* term_write(term* self, uint16 x) {
-  return term_write(self, CAST(uint32, x));
+term* term_write_uint16(term* self, uint16 x) {
+  return term_write_uint32(self, CAST(uint32, x));
 }
 
-term* term_write(term* self, uint32 x) {
+term* term_write_uint32(term* self, uint32 x) {
   const int max_digits = 10;  // 2^32 contains 10 decimal digits
   unicode_char buf[max_digits + 1];
   unicode_char* str = buf + max_digits;
@@ -537,10 +537,10 @@ term* term_write(term* self, uint32 x) {
     }
   }
 
-  return term_write(self, str);
+  return term_write_lstr(self, str);
 }
 
-term* term_write(term* self, uint64 x) {
+term* term_write_uint64(term* self, uint64 x) {
   const int max_digits = 20;  // 2^64 contains 20 decimal digits
   unicode_char buf[max_digits + 1];
   unicode_char* str = buf + max_digits;
@@ -557,10 +557,10 @@ term* term_write(term* self, uint64 x) {
     }
   }
 
-  return term_write(self, str);
+  return term_write_lstr(self, str);
 }
 
-term* term_write(term* self, void* x) {
+term* term_write_ptr(term* self, void* x) {
   const int nb_digits = 8;  // 32 bit pointer contains 8 hexadecimal digits
   unicode_char buf[2 + nb_digits + 1];
   unicode_string str = buf + 2 + nb_digits;
@@ -577,7 +577,7 @@ term* term_write(term* self, void* x) {
   *--str = 'x';
   *--str = '0';
 
-  return term_write(self, str);
+  return term_write_lstr(self, str);
 }
 
 term* term_writeline(term* self) {
@@ -592,22 +592,22 @@ term* term_write(term* self, native_string x) {
 
   while (*x != '\0') {
     buf[0] = CAST(uint8, *x++);
-    term_write(self, buf);
+    term_write_lstr(self, buf);
   }
   return self;
 }
 
-term* term_write(term* self, unicode_string x) {
+term* term_write_lstr(term* self, unicode_string x) {
   int n = 0;
 
   while (x[n] != '\0') n++;
 
-  term_write(self, x, n);
+  raw_term_write(self, x, n);
 
   return self;
 }
 
-term* term_write(term* self, native_char x) {
+term* term_write_nchar(term* self, native_char x) {
   native_char buf[2];
 
   buf[0] = x;
@@ -618,7 +618,7 @@ term* term_write(term* self, native_char x) {
 
 static const int OUT_PORT = 0XE9;
 
-void debug_write(uint32 x) {
+void debug_write_uint32(uint32 x) {
   const int max_digits = 10;  // 2^32 contains 10 decimal digits
   native_char buf[max_digits + 1];
   native_string str = buf + max_digits;
@@ -638,7 +638,7 @@ void debug_write(uint32 x) {
   debug_write(str);
 }
 
-void debug_write(native_char c) {
+void debug_write_nchar(native_char c) {
   outb(c, OUT_PORT);
   outb('\n', OUT_PORT);
   outb('\r', OUT_PORT);
@@ -740,5 +740,5 @@ void term_run(term* term) {
 //-----------------------------------------------------------------------------
 
 // Local Variables: //
-// mode: C++ //
+// mode: C     //
 // End: //

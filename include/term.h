@@ -53,7 +53,7 @@ term* term_init(term* self, int x, int y, int nb_columns, int nb_rows,
 
 void term_show(term* self);  //#!
 
-int term_write(term* self, unicode_char* buf, int count);  //#!
+int raw_term_write(term* self, unicode_char* buf, int count);  //#!
 
 void term_char_coord_to_screen_coord(term* self, int column, int row, int* sx,
                                      int* sy, int* ex, int* ey);  //#!
@@ -66,21 +66,21 @@ void term_toggle_cursor(term* self);  //#!
 void term_scroll_up(term* self);      //#!
 
 term* term_writeline(term* self);
-term* term_write(term* self, native_char x);\
-term* term_write(term* self, bool x);
-term* term_write(term* self, int8 x);
-term* term_write(term* self, int16 x);
-term* term_write(term* self, int32 x);
-term* term_write(term* self, int64 x);
-term* term_write(term* self, uint8 x);
-term* term_write(term* self, uint16 x);
-term* term_write(term* self, uint32 x);
-term* term_write(term* self, uint64 x);
-term* term_write(term* self, void* x);
+term* term_write_nchar(term* self, native_char x);\
+term* term_write_bool(term* self, bool x);
+term* term_write_int8(term* self, int8 x);
+term* term_write_int16(term* self, int16 x);
+term* term_write_int32(term* self, int32 x);
+term* term_write_int64(term* self, int64 x);
+term* term_write_uint8(term* self, uint8 x);
+term* term_write_uint16(term* self, uint16 x);
+term* term_write_uint32(term* self, uint32 x);
+term* term_write_uint64(term* self, uint64 x);
+term* term_write_ptr(term* self, void* x);
 term* term_write(term* self, native_string x);
-term* term_write(term* self, unicode_string x);
+term* term_write_lstr(term* self, unicode_string x);
 
-void debug_write(uint32 x);
+void debug_write_uint32(uint32 x);
 void debug_write(native_string x);
 
 void term_run(term* term);
@@ -129,5 +129,5 @@ extern term term_console;
 #endif
 
 // Local Variables: //
-// mode: C++ //
+// mode: C     //
 // End: //

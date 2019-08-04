@@ -20,7 +20,7 @@
 #include "fs.h"
 
 #if 0
-extern "C"
+extern
 {
 #include "etherboot.h"
 #include "nic.h"
@@ -498,12 +498,12 @@ struct arptable_t arptable[MAX_ARP];
 
 struct rom_info rom = { 0, 0};
 
-extern "C" int console_getc ()
+extern int console_getc ()
 {
   return 0;
 }
 
-extern "C" void console_putc (int c)
+extern void console_putc (int c)
 {
   native_char str[2];
   str[0] = c;
@@ -511,7 +511,7 @@ extern "C" void console_putc (int c)
   cout << str;
 }
 
-extern "C" int console_ischar ()
+extern int console_ischar ()
 {
   return 0;
 }

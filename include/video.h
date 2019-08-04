@@ -90,7 +90,7 @@ typedef struct raw_bitmap {
   int _width;
   int _height;
   int _depth;
-} raw_bitmap_c;
+} raw_bitmap;
 
 void raw_bitmap_bitblt(raw_bitmap* self, int x, int y, int x_end, int y_end,
                             raw_bitmap* src, int src_x, int src_y,
@@ -193,7 +193,7 @@ int font_draw_string(font_c* self, raw_bitmap* dst, int x, int y,
                      unicode_string str, pattern* foreground,
                      pattern* background);
 
-void _font_get_char_data(font_c* self, unicode_char c, int& start, int& width);
+void _font_get_char_data(font_c* self, unicode_char c, int* start, int* width);
 //-----------------------------------------------------------------------------
 
 
@@ -321,8 +321,10 @@ struct VBE_mode_info {
   uint8  Reserved1[190];
 };
 
+void init_patterns();
+
 #endif
 
 // Local Variables: //
-// mode: C++ //
+// mode: C     //
 // End: //
