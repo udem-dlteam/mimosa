@@ -84,7 +84,7 @@ do { \
 
 // Interrupt handlers must use C linkage.
 
-extern void irq0(void* esp);
+extern void irq0();
 extern void irq1 ();
 extern void irq2 ();
 extern void irq3 ();

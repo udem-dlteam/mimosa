@@ -269,7 +269,7 @@ native_char readline() {
       // Don't overrun the Gambit term.
       if (buffer_write_pos > 0) {
         term_write_nchar(io, c);
-        term_write(io, ' ');
+        term_write_nchar(io, ' ');
         term_write_nchar(io, c);
         line_buffer[--buffer_write_pos] = ' ';
       }

@@ -642,6 +642,7 @@ static void setup_ide_controller(ide_controller* ctrl, uint8 id) {
   candidates = 0;
 
   for (i = 0; i < IDE_DEVICES_PER_CONTROLLER; i++) {
+    term_write(cout, "\nIn loop...\n");
 #ifdef SHOW_IDE_INFO
     term_write(cout, "Device of controller no: ");
     term_write(cout, i);
@@ -664,9 +665,11 @@ static void setup_ide_controller(ide_controller* ctrl, uint8 id) {
                     IDE_STATUS_DSC | IDE_STATUS_DRQ)) !=
         (IDE_STATUS_BSY | IDE_STATUS_DRDY | IDE_STATUS_DF | IDE_STATUS_DSC |
          IDE_STATUS_DRQ)) {
+      term_write(cout, "Possibly present!");
       ctrl->device[i].kind = IDE_DEVICE_ATAPI;  // for now means the device
       candidates++;                             // is possibly present
     } else {
+      term_write(cout, "Absent...");
       ctrl->device[i].kind = IDE_DEVICE_ABSENT;
     }
   }
@@ -754,6 +757,7 @@ static void setup_ide_controller(ide_controller* ctrl, uint8 id) {
   candidates = 0;
 
   for (i = 0; i < IDE_DEVICES_PER_CONTROLLER; i++) {
+    term_write(cout, "Setting up device");
 #ifdef SHOW_IDE_INFO
 
       if (ctrl->device[i].kind != IDE_DEVICE_ABSENT)
@@ -777,6 +781,7 @@ static void setup_ide_controller(ide_controller* ctrl, uint8 id) {
   }
 
   // setup command queue
+  term_write(cout, "Setting up command queue");
 
   for (i = 0; i < MAX_NB_IDE_CMD_QUEUE_ENTRIES; i++) {
     ide_cmd_queue_entry* entry = &ctrl->cmd_queue[i];

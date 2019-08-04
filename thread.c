@@ -375,13 +375,15 @@ void thread_sleep(uint64 timeout_nsecs) {
   disable_interrupts();
 
   {
-    thread* current = sched_current_thread;
+    __surround_with_debug_t("Preparing to sleep...", {
+      thread* current = sched_current_thread;
 
-    current->_timeout = add_time(current_time_no_interlock(),
-                                 nanoseconds_to_time(timeout_nsecs));
+      current->_timeout = add_time(current_time_no_interlock(),
+                                   nanoseconds_to_time(timeout_nsecs));
 
-    wait_queue_remove(current);
-    wait_queue_detach(current);
+      wait_queue_remove(current);
+      wait_queue_detach(current);
+    });
 
     save_context(_sched_suspend_on_sleep_queue, NULL);
   }
@@ -430,7 +432,7 @@ void _sched_resume_next_thread() {
     time now = current_time_no_interlock();
     current->_end_of_quantum = add_time(now, current->_quantum);
     _sched_set_timer(current->_end_of_quantum, now);
-    restore_context(current->_sp); // never returns
+    restore_context(current->_sp);  // never returns
   }
 
   panic(L"Deadlock detected");
@@ -439,16 +441,22 @@ void _sched_resume_next_thread() {
 
 #ifdef USE_PIT_FOR_TIMER
 
-void irq0 (void* esp)
+void irq0()
 {
   ASSERT_INTERRUPTS_DISABLED ();
 
-#ifdef SHOW_TIMER_INTERRUPTS
+// #ifdef SHOW_TIMER_INTERRUPTS
   term_write(cout, "\033[41m irq0 \033[0m");
   term_write(cout, "\n\r");
-#endif
+// #endif
 
   ACKNOWLEDGE_IRQ(0);
+
+  if(suspended) {
+    debug_write("S");
+  } else {
+    debug_write("UNS");
+  }
 
   _sched_timer_elapsed();
 }
@@ -500,6 +508,7 @@ extern condvar* circular_buffer_cv;
 
 void sched_stats() {
   // disable_interrupts();
+  CLI();
 // 
   int n = 0;
   int m = 0;
@@ -588,6 +597,7 @@ void sched_stats() {
 
   term_write(cout, ")\n");
 
+  STI();
   // enable_interrupts();
 }
 
@@ -664,14 +674,22 @@ void _sched_suspend_on_wait_queue(uint32 cs, uint32 eflags, uint32* sp,
   panic(L"_sched_suspend_on_wait_queue is never supposed to return");
 }
 
+volatile bool suspended = FALSE;
+
 void _sched_suspend_on_sleep_queue(uint32 cs, uint32 eflags, uint32* sp,
                                    void* dummy) {
   ASSERT_INTERRUPTS_DISABLED();  // Interrupts should be disabled at this point
 
   thread* current = sched_current_thread;
 
-  current->_sp = sp;
-  sleep_queue_insert(current, sleepq);
+  __surround_with_debug_t("Suspend on Sleep Q", {
+    current->_sp = sp;
+    sleep_queue_insert(current, sleepq);
+    suspended = TRUE;
+    debug_write("Suspended is:");
+    debug_write_uint32(suspended);
+  });
+
   _sched_resume_next_thread();
 
   // ** NEVER REACHED ** (this function never returns)
@@ -765,10 +783,13 @@ void _sched_set_timer(time t, time now) {
 extern void send_signal(int sig); // from libc/src/signal.c
 
 void _sched_timer_elapsed() {
-
   ASSERT_INTERRUPTS_DISABLED ();
 
   time now = current_time_no_interlock ();
+
+  if(suspended) {
+    sched_stats();
+  }
 
 #if 1
   for (;;)
@@ -778,6 +799,10 @@ void _sched_timer_elapsed() {
       if (t == NULL || less_time (now, t->_timeout)) {
         break;
       }
+
+      term_write(cout, "Time out of a thread: ");
+      term_write(cout, thread_name(t));
+      term_writeline(cout);
 
       t->_did_not_timeout = FALSE;
       sleep_queue_remove (t);
