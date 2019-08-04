@@ -278,11 +278,16 @@ int pthread_cond_destroy (pthread_cond_t* cond);
 // C REWRITE
 //-----------------------------------------------------------------------------
 
-struct wait_queue;
-struct mutex_queue;
-struct sleep_queue;
 
-typedef struct wait_mutex_node {
+typedef struct thread thread;
+typedef struct mutex mutex;
+typedef struct wait_queue wait_queue;
+typedef struct mutex_queue mutex_queue;
+typedef struct sleep_queue sleep_queue;
+typedef struct wait_mutex_node wait_mutex_node;
+typedef struct wait_mutex_sleep_node wait_mutex_sleep_node;
+
+struct wait_mutex_node {
   // Wait queue part for maintaining the set of threads waiting on a
   // synchronization object or the run queue.  If this object is a
   // thread it is an element of the queue; if this object is a
@@ -314,9 +319,9 @@ typedef struct wait_mutex_node {
   wait_mutex_node* volatile _parent_in_mutex_queue;
   wait_mutex_node* volatile _left_in_mutex_queue;
 #endif
-} wait_mutex_node;
+};
 
-typedef struct wait_queue {
+struct wait_queue {
   wait_mutex_node super;
 
 #ifdef USE_DOUBLY_LINKED_LIST_FOR_WAIT_QUEUE
@@ -325,9 +330,9 @@ typedef struct wait_queue {
 #ifdef USE_RED_BLACK_TREE_FOR_WAIT_QUEUE
   wait_mutex_node* volatile _leftmost_in_wait_queue;
 #endif
-} wait_queue;
+};
 
-typedef struct mutex_queue {
+struct mutex_queue {
   wait_mutex_node super;
 
 #ifdef USE_DOUBLY_LINKED_LIST_FOR_MUTEX_QUEUE
@@ -336,12 +341,9 @@ typedef struct mutex_queue {
 #ifdef USE_RED_BLACK_TREE_FOR_MUTEX_QUEUE
   wait_mutex_node* volatile _leftmost_in_mutex_queue;
 #endif
-} mutex_queue;
+};
 
-
-typedef struct wait_mutex_sleep_node;
-
-typedef struct wait_mutex_sleep_node {
+struct wait_mutex_sleep_node {
   mutex_queue super;
 
   // Sleep queue part for maintaining the set of threads waiting for
@@ -359,9 +361,9 @@ typedef struct wait_mutex_sleep_node {
   wait_mutex_sleep_node* volatile _parent_in_sleep_queue;
   wait_mutex_sleep_node* volatile _left_in_sleep_queue;
 #endif
-} wait_mutex_sleep_node;
+};
 
-typedef struct sleep_queue {
+struct sleep_queue {
   wait_mutex_sleep_node super;
 
 #ifdef USE_DOUBLY_LINKED_LIST_FOR_SLEEP_QUEUE
@@ -370,9 +372,9 @@ typedef struct sleep_queue {
 #ifdef USE_RED_BLACK_TREE_FOR_SLEEP_QUEUE
   wait_mutex_sleep_node* volatile _leftmost_in_sleep_queue;
 #endif
-} sleep_queue;
+};
 
-typedef struct mutex {
+struct mutex {
   wait_queue super;
   // The inherited "wait queue" part of wait_queue is used to
   // maintain the set of threads waiting on this mutex.
@@ -382,7 +384,7 @@ typedef struct mutex {
   // it.
 
   volatile bool _locked;  // boolean indicating if mutex is locked or unlocked
-} mutex;
+};
 
 mutex* new_mutex(mutex* m);
 
@@ -420,14 +422,12 @@ void condvar_mutexless_signal(
     condvar* self);  // like "signal" but assumes disabled interrupts
 
 
-typedef struct thread;
-
 typedef struct thread_vtable_struct {
   void (* thread_run)(thread* self);
 } thread_vtable;
 
 
-typedef struct thread {
+struct thread {
   wait_mutex_sleep_node super;
   thread_vtable* vtable;
 #ifdef USE_DOUBLY_LINKED_LIST_FOR_WAIT_QUEUE
@@ -460,7 +460,7 @@ typedef struct thread {
   volatile bool _terminated;  // the thread's termination flag
   native_string _name;
   void_fn _run;
-} thread;
+};
 
 typedef struct program_thread_struct {
   thread super;

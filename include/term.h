@@ -18,12 +18,12 @@
 
 // "term" class declaration.
 
-const int term_max_nb_params = 10;
-const int term_normal_foreground = 0;  // black
-const int term_normal_background = 7;  // white
-const int term_outer_border = 1;
-const int term_frame_border = 2;
-const int term_inner_border = 2;
+#define term_max_nb_params 10
+#define term_normal_foreground 0  // black
+#define term_normal_background 7  // white
+#define term_outer_border 1
+#define term_frame_border 2
+#define term_inner_border 2
 
 typedef struct term {
   int _x;

@@ -4,7 +4,7 @@
 
 #include "include/libc_header.h"
 
-#ifndef USE_HOST_LIBC
+#ifndef USE_MIMOSA
 
 typedef int wchar_t;
 

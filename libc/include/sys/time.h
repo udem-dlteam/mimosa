@@ -29,14 +29,14 @@ extern int gettimeofday(struct timeval *__restrict __tv, struct timezone *__tz);
 #define ITIMER_VIRTUAL 1
 #define ITIMER_PROF    2
 
+#endif
+
+#endif
+
 struct itimerval {
   struct timeval it_interval;
   struct timeval it_value;
 };
-
-#endif
-
-#endif
 
 extern int settimeofday(const struct timeval *__tv,
                         const struct timezone *__tz);
