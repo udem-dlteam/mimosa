@@ -175,7 +175,7 @@ static void keypress(uint8 ch) {
   if (next_hi != circular_buffer_lo) {
     circular_buffer[circular_buffer_hi] = ch;
     circular_buffer_hi = next_hi;
-    circular_buffer_cv->mutexless_signal();
+    condvar_mutexless_signal(circular_buffer_cv);
   }
 
   // debug_write("[STOP ] Keypress");
@@ -190,7 +190,7 @@ int getchar0(bool blocking) {
   if (blocking) {
     // debug_write("Blocking for some reason");
     while (circular_buffer_lo == circular_buffer_hi) {
-      circular_buffer_cv->mutexless_wait();
+      condvar_mutexless_wait(circular_buffer_cv);
     }
   } else if (circular_buffer_lo == circular_buffer_hi) {
     // debug_write("Not blocking, goto!");
@@ -203,7 +203,7 @@ int getchar0(bool blocking) {
 
   result = circular_buffer[circular_buffer_lo];
   circular_buffer_lo = (circular_buffer_lo + 1) % BUFFER_SIZE;
-  circular_buffer_cv->mutexless_signal();
+  condvar_mutexless_signal(circular_buffer_cv);
 
 getchar0_done:
   enable_interrupts();
@@ -218,14 +218,14 @@ unicode_char getchar() {
   disable_interrupts();
 
   while (circular_buffer_lo == circular_buffer_hi) {
-    circular_buffer_cv->mutexless_wait();
+    condvar_mutexless_wait(circular_buffer_cv);
   }
 
   result = circular_buffer[circular_buffer_lo];
 
   circular_buffer_lo = (circular_buffer_lo + 1) % BUFFER_SIZE;
 
-  circular_buffer_cv->mutexless_signal();
+  condvar_mutexless_signal(circular_buffer_cv);
   enable_interrupts();
 
   return result;
@@ -332,7 +332,7 @@ void irq1 ()
 #endif
 
   ACKNOWLEDGE_IRQ(1);
-
+  
   process_keyboard_data (inb (PS2_PORT_A));
 }
 
@@ -416,7 +416,7 @@ void setup_ps2 ()
 {
   term_write(cout, "Enabling PS2\n\r");
 
-  circular_buffer_cv = new condvar;
+  circular_buffer_cv = new_condvar(CAST(condvar*, sizeof(condvar)));
 
   controller_config
     (PS2_CONFIG_SCAN_CONVERT

@@ -156,7 +156,7 @@ ssize_t fifo::write_or_timeout (uint8* buf, size_t count, time timeout)
       enable_interrupts ();
       if (less_time (timeout, current_time ()))
         return 0;
-      //thread::yield ();
+      //thread_yield ();
       disable_interrupts ();
     }
 
@@ -174,7 +174,7 @@ ssize_t fifo::read_or_timeout (uint8* buf, size_t count, time timeout)
       enable_interrupts ();
       if (less_time (timeout, current_time ()))
         return 0;
-      //thread::yield ();
+      //thread_yield ();
       disable_interrupts ();
     }
 
@@ -207,7 +207,7 @@ void fifo::put (uint8 byte)
           break;
         }
       enable_interrupts ();
-      //thread::yield ();
+      //thread_yield ();
       disable_interrupts ();
     }
 
@@ -221,7 +221,7 @@ void fifo::get (uint8* byte)
   while (_lo == _hi)
     {
       enable_interrupts ();
-      //thread::yield ();
+      //thread_yield ();
       disable_interrupts ();
     }
 
@@ -241,7 +241,7 @@ bool fifo::get_or_timeout (uint8* byte, time timeout)
       enable_interrupts ();
       if (less_time (timeout, c1urrent_time ()))
         return FALSE;
-      //thread::yield ();
+      //thread_yield ();
       disable_interrupts ();
     }
 
@@ -272,7 +272,7 @@ void fifo::put (uint8 byte)
           break;
         }
       _m.unlock ();
-      //thread::yield ();
+      //thread_yield ();
       _m.lock ();
     }
 
@@ -286,7 +286,7 @@ void fifo::get (uint8* byte)
   while (_lo == _hi)
     {
       _m.unlock ();
-      //thread::yield ();
+      //thread_yield ();
       _m.lock ();
     }
 
@@ -306,7 +306,7 @@ bool fifo::get_or_timeout (uint8* byte, time timeout)
       _m.unlock ();
       if (less_time (timeout, current_time ()))
         return FALSE;
-      //thread::yield ();
+      //thread_yield ();
       _m.lock ();
     }
 
@@ -322,7 +322,7 @@ bool fifo::get_or_timeout (uint8* byte, time timeout)
 #else
 
 void fifo_put(fifo *self, uint8 byte) {
-  self->_m.lock();
+  mutex_lock(&self->_m);
 
   for (;;) {
     int next_hi = (self->_hi + 1) % (FIFO_MAX_ELEMENTS + 1);
@@ -332,7 +332,7 @@ void fifo_put(fifo *self, uint8 byte) {
       break;
     }
     // Wait until we get room
-    self->_put_cv.wait(&self->_m);
+    condvar_wait(&self->_put_cv, &self->_m);
   }
 }
 

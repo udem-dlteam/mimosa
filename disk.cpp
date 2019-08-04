@@ -118,7 +118,7 @@ error_code disk_cache_block_acquire(disk* d, uint32 sector_pos,
 
 again:
 
-  disk_mod.cache_mut->lock();
+  mutex_lock(disk_mod.cache_mut);
 
   for (;;) {
     LRU_deq = &disk_mod.LRU_deq;
@@ -160,13 +160,14 @@ again:
       cb->LRU_deq.prev = LRU_deq;
 
       cb->refcount++;
-      cb->mut->lock();
-      disk_mod.cache_mut->unlock();
+      mutex_lock(cb->mut);
+      mutex_unlock(disk_mod.cache_mut);
       while ((err = cb->err) == IN_PROGRESS) {
-        cb->cv->wait(cb->mut);
+        condvar_wait(cb->cv, cb->mut);
       }
-      cb->mut->unlock();
-      cb->cv->signal();
+
+      mutex_unlock(cb->mut);
+      condvar_signal(cb->cv);
 
       if (ERROR(err)) {
         disk_cache_block_release(cb);  // ignore error
@@ -219,20 +220,20 @@ again:
       cb->refcount = 1;
       cb->d = d;
       cb->sector_pos = sector_pos;
-      cb->mut->lock();
-      disk_mod.cache_mut->unlock();
+      mutex_lock(cb->mut);
+      mutex_unlock(disk_mod.cache_mut);
       cb->err = IN_PROGRESS;
       err =
           disk_read_sectors(d, sector_pos, cb->buf,
                             1 << (DISK_LOG2_BLOCK_SIZE - d->log2_sector_size));
       cb->err = err;
-      cb->mut->unlock();
-      cb->cv->signal();
+      mutex_unlock(cb->mut);
+      condvar_signal(cb->cv);
 
       if (ERROR(err)) {
-        disk_mod.cache_mut->lock();
+        mutex_lock(disk_mod.cache_mut);
         cb->d = NULL;  // so that this cache block can't be found again
-        disk_mod.cache_mut->unlock();
+        mutex_unlock(disk_mod.cache_mut);
         disk_cache_block_release(cb);  // ignore error
         return err;
       }
@@ -240,7 +241,7 @@ again:
       break;
     }
 
-    disk_mod.cache_cv->wait(disk_mod.cache_mut);
+    condvar_wait(disk_mod.cache_cv, disk_mod.cache_mut);
   }
 
   *block = cb;
@@ -255,7 +256,7 @@ static error_code flush_block(cache_block* block, time timeout) {
     return err;
   }
 
-  if (block->mut->lock_or_timeout(timeout)) {
+  if (mutex_lock_or_timeout(block->mut, timeout)) {
     // Make sure it hasn't been cleaned in the wait
     if (block->dirty) {
       if (HAS_NO_ERROR(err = disk_write_sectors(block->d, block->sector_pos,
@@ -265,7 +266,7 @@ static error_code flush_block(cache_block* block, time timeout) {
       }
     }
 
-    block->mut->unlock();
+    mutex_unlock(block->mut);
   }
 
   return err;
@@ -290,12 +291,12 @@ error_code disk_cache_block_release(cache_block* block) {
 #endif
 
   if(HAS_NO_ERROR(err)) {
-    disk_mod.cache_mut->lock();
+    mutex_lock(disk_mod.cache_mut);
     n = --block->refcount;
-    disk_mod.cache_mut->unlock();
+    mutex_unlock(disk_mod.cache_mut);
 
     if (n == 0) {
-      disk_mod.cache_cv->signal();
+      condvar_signal(disk_mod.cache_cv);
     }
   }
 
@@ -478,8 +479,8 @@ void setup_disk() {
 
   for (i = 0; i < MAX_NB_DISKS; i++) disk_mod.disk_table[i].id = i;
 
-  disk_mod.cache_mut = new mutex;
-  disk_mod.cache_cv = new condvar;
+  disk_mod.cache_mut = new_mutex(CAST(mutex*, kmalloc(sizeof(mutex))));
+  disk_mod.cache_cv = new_condvar(CAST(condvar*, kmalloc(sizeof(condvar))));
 
   disk_mod.LRU_deq.next = &disk_mod.LRU_deq;
   disk_mod.LRU_deq.prev = &disk_mod.LRU_deq;
@@ -511,8 +512,8 @@ void setup_disk() {
     // cb->d and cb->sector_pos and cb->err can stay undefined
 
     cb->refcount = 0;
-    cb->mut = new mutex;
-    cb->cv = new condvar;
+    cb->mut = new_mutex(CAST(mutex*, kmalloc(sizeof(mutex))));
+    cb->cv = new_condvar(CAST(condvar*, kmalloc(sizeof(condvar))));
   }
 }
 
@@ -520,20 +521,16 @@ void setup_disk() {
 // Cache block cleaning thread
 //-----------------------------------------------------------------------------
 
-native_string cache_block_maid::name() {
-  return "Cache block maid thread";
-}
-cache_block_maid::cache_block_maid() {}
-
-void cache_block_maid::run() {
+void cache_block_maid_run() {
   cache_block* cb;
   cache_block_deq* deq;
   cache_block_deq* lru_probe;
   for (;;) {
     uint32 flushed_count = 0;
-    thread::sleep(seconds_to_time(60).n);
+    debug_write("M");
+    thread_sleep(seconds_to_time(60).n);
     
-    if(disk_mod.cache_mut->lock_or_timeout(seconds_to_time(60))) {
+    if(mutex_lock_or_timeout(disk_mod.cache_mut, seconds_to_time(60))) {
       cb = NULL;
       deq = &disk_mod.LRU_deq;
       lru_probe = deq->prev;
@@ -549,7 +546,7 @@ void cache_block_maid::run() {
       }
 
       // Done the cleaning task
-      disk_mod.cache_mut->unlock();
+      mutex_unlock(disk_mod.cache_mut);
     }
   }
 }

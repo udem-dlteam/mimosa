@@ -25,6 +25,9 @@ void __rtlib_setup (); // forward declaration
 term term_console;
 video screen;
 
+thread_vtable _thread_vtable;
+thread_vtable _program_thread_vtable;
+
 raw_bitmap_vtable _raw_bitmap_vtable;
 raw_bitmap_vtable _raw_bitmap_in_memory_vtable;
 raw_bitmap_vtable _video_vtable;
@@ -143,51 +146,6 @@ static void setup_kheap() {
   heap_init(&kheap, CAST(void*,11*(1<<20)), 5*(1<<20));
 }
 
-// Implementation of the C++ "new" operator.
-
-#if 0
-void* __builtin_new (size_t size)
-#else
-void* operator new (size_t size)
-#endif
-{
-  return kmalloc (size);
-}
-
-// Implementation of the C++ "delete" operator.
-
-#if 0
-void __builtin_delete (void* obj)
-#else
-void operator delete (void* obj)
-#endif
-{
-  if (obj != NULL)
-    kfree (obj);
-}
-
-// Implementation of the C++ "new[]" operator.
-
-#if 0
-void* __builtin_vec_new (size_t size)
-#else
-void* operator new[] (size_t size)
-#endif
-{
-  return operator new (size);
-}
-
-// Implementation of the C++ "delete[]" operator.
-
-#if 0
-void __builtin_vec_delete (void* obj)
-#else
-void operator delete[] (void* obj)
-#endif
-{
-  operator delete (obj);
-}
-
 extern "C" void* memcpy (void* dest, const void* src, size_t n)
 {
   uint8* d = CAST(uint8*,dest);
@@ -235,6 +193,9 @@ void __do_global_ctors ()
   _video_vtable.hide_mouse = video_hide_mouse;
   _video_vtable.show_mouse = video_show_mouse;
   _video_vtable._select_layer = video_select_layer;
+
+  _thread_vtable.thread_run = virtual_thread_run;
+  _program_thread_vtable.thread_run = virtual_program_thread_run;
 
   _raw_bitmap_in_memory_vtable.hide_mouse = raw_bitmap_in_memory_hide_mouse;
   _raw_bitmap_in_memory_vtable.show_mouse = raw_bitmap_in_memory_show_mouse;
@@ -384,27 +345,9 @@ static void identify_cpu ()
 #endif
 }
 
-class idle_thread : public thread
-  {
-  public:
-
-    idle_thread ();
-    virtual native_string name();
-  protected:
-    virtual void run ();
-  };
-
-idle_thread::idle_thread()
-{
-}
-
-native_string idle_thread::name() {
-  return "idle_thread";
-}
-
-void idle_thread::run() {
+void idle_thread_run() {
   for (;;) {
-    thread::yield();
+    thread_yield();
   }
 }
 
@@ -416,15 +359,14 @@ void __rtlib_setup ()
 
   term_write(cout, "Initializing ");
   term_write(cout, "\033[46m");
-  term_write(cout, OS_NAME);
+  term_write(cout, "Mimosa");
   term_write(cout, "\033[0m\n\n");
 
   identify_cpu ();
   setup_ps2 ();
-
-  idle_thread* the_idle = (new idle_thread);
-
-  the_idle->start(); // need an idle thread to prevent deadlocks
+  
+  thread* the_idle = CAST(thread*, kmalloc(sizeof(thread)));
+  thread_start(new_thread(the_idle, idle_thread_run, "Idle thread"));
 
   term_write(cout, "Loading up LIBC\n");
   libc_init();
@@ -440,7 +382,10 @@ void __rtlib_setup ()
 
 #ifdef USE_CACHE_BLOCK_MAID
   term_write(cout, "Loading the cache block maid...\n");
-  (new cache_block_maid)->start();
+
+  thread* cache_block_maid_thread = CAST(thread*, kmalloc(sizeof(thread)));
+  thread_start(new_thread(cache_block_maid_thread, cache_block_maid_run,
+                          "Cache block maid"));
 #endif
 
   main ();

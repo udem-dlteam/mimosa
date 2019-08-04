@@ -24,15 +24,7 @@
 #define MAX_NB_DISKS 32
 #define DISK_LOG2_BLOCK_SIZE 9
 
-class cache_block_maid : public thread {
- public:
-  cache_block_maid();
-
-  virtual native_string name();
-
- protected:
-  virtual void run();
-};
+void cache_block_maid_run();
 
 const struct {
   uint8 type;
