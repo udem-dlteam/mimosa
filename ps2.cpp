@@ -203,7 +203,7 @@ int getchar0(bool blocking) {
 
   result = circular_buffer[circular_buffer_lo];
   circular_buffer_lo = (circular_buffer_lo + 1) % BUFFER_SIZE;
-  condvar_mutexless_wait(circular_buffer_cv);
+  condvar_mutexless_signal(circular_buffer_cv);
 
 getchar0_done:
   enable_interrupts();
@@ -332,7 +332,7 @@ void irq1 ()
 #endif
 
   ACKNOWLEDGE_IRQ(1);
-  sched_stats();
+  
   process_keyboard_data (inb (PS2_PORT_A));
 }
 
