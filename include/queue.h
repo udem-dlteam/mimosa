@@ -1,5 +1,4 @@
 /* file: "queue.h" */
-#include "term.h"////////////
 
 /*
  * Copyright (c) 2001 by Marc Feeley and Universit� de Montr�al, All

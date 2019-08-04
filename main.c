@@ -18,6 +18,8 @@
 #include "term.h"
 #include "thread.h"
 
+const uint32 GAMBIT_START = 0x100000;
+
 int main() {
   term tty;
 

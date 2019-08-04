@@ -96,40 +96,40 @@ config.o: config.c etherboot.h osdep.h include/asm.h include/general.h \
 	nic.h pci.h cards.h
 disk.o: disk.c include/disk.h include/general.h include/ide.h \
 	include/thread.h include/intr.h include/asm.h include/pic.h \
-	include/apic.h include/chrono.h include/pit.h include/queue.h \
+	include/apic.h include/chrono.h include/pit.h \
 	include/term.h include/video.h include/rtlib.h
 eepro100.o: eepro100.c etherboot.h osdep.h include/asm.h \
 	include/general.h nic.h pci.h cards.h timer2.h
 # fifo.o: fifo.c include/fifo.h include/general.h include/thread.h \
 	include/intr.h include/asm.h include/pic.h include/apic.h \
-	include/chrono.h include/pit.h include/queue.h include/term.h \
+	include/chrono.h include/pit.h include/term.h \
 	include/video.h include/rtlib.h
 fs.o: fs.c include/fs.h include/general.h include/disk.h include/ide.h \
 	include/thread.h include/intr.h include/asm.h include/pic.h \
-	include/apic.h include/chrono.h include/pit.h include/queue.h \
+	include/apic.h include/chrono.h include/pit.h \
 	include/term.h include/video.h include/rtlib.h
 ide.o: ide.c include/ide.h include/general.h include/thread.h \
 	include/intr.h include/asm.h include/pic.h include/apic.h \
-	include/chrono.h include/pit.h include/queue.h include/term.h \
+	include/chrono.h include/pit.h include/term.h \
 	include/video.h include/rtlib.h include/disk.h
 intr.o: intr.c include/intr.h include/general.h include/asm.h \
 	include/pic.h include/apic.h include/term.h include/video.h
 main.o: main.c include/general.h include/term.h include/video.h \
 	include/thread.h include/intr.h include/asm.h \
 	include/pic.h include/apic.h include/chrono.h include/pit.h \
-	include/queue.h include/ps2.h include/fat32.h
+	include/ps2.h include/fat32.h
 misc.o: misc.c etherboot.h osdep.h include/asm.h include/general.h
 net.o: net.c include/net.h include/general.h include/rtlib.h \
 	include/term.h include/video.h include/chrono.h include/asm.h \
 	include/pit.h include/thread.h include/intr.h include/pic.h \
-	include/apic.h include/queue.h etherboot.h osdep.h nic.h
+	include/apic.h etherboot.h osdep.h nic.h
 pci.o: pci.c etherboot.h osdep.h include/asm.h include/general.h pci.h
 ps2.o: ps2.c include/ps2.h include/general.h include/intr.h \
 	include/asm.h include/pic.h include/apic.h include/chrono.h include/pit.h \
-	include/video.h include/term.h include/thread.h include/queue.h
+	include/video.h include/term.h include/thread.h
 rtlib.o: rtlib.c include/rtlib.h include/general.h include/intr.h \
 	include/asm.h include/pic.h include/apic.h include/chrono.h include/pit.h \
-	include/ide.h include/thread.h include/queue.h include/term.h \
+	include/ide.h include/thread.h include/term.h \
 	include/video.h include/disk.h include/fs.h include/ps2.h
 term.o: term.c include/term.h include/general.h include/video.h
 thread.o: thread.c include/thread.h include/general.h include/intr.h \
