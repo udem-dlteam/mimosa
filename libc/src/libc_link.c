@@ -114,7 +114,7 @@ void libc_init(void) {
   LIBC_LINK._getcwd = getcwd;
   LIBC_LINK._mkdir = mkdir;
   LIBC_LINK._remove = remove;
-  LIBC_LINK._stat = stat;
+  LIBC_LINK._stat = lstat;
   LIBC_LINK._lstat = lstat;
   LIBC_LINK._isatty = isatty;
 

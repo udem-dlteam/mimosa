@@ -17,7 +17,7 @@ SPECIAL_OPTIONS =
 GCC_OPTIONS = $(SPECIAL_OPTIONS) $(DEFS) -DOS_NAME=$(OS_NAME) -DKERNEL_START=$(KERNEL_START) -fomit-frame-pointer -fno-strict-aliasing -Wall -O3 -nostdinc -Iinclude -Ilibc
 
 .SUFFIXES:
-.SUFFIXES: .h .s .c .cpp .o .asm .bin .map .d
+.SUFFIXES: .h .s .c .o .asm .bin .map .d
 
 all: bin_files
 
@@ -94,59 +94,59 @@ clean:
 # dependencies:
 config.o: config.c etherboot.h osdep.h include/asm.h include/general.h \
 	nic.h pci.h cards.h
-disk.o: disk.cpp include/disk.h include/general.h include/ide.h \
+disk.o: disk.c include/disk.h include/general.h include/ide.h \
 	include/thread.h include/intr.h include/asm.h include/pic.h \
 	include/apic.h include/chrono.h include/pit.h include/queue.h \
 	include/term.h include/video.h include/rtlib.h
 eepro100.o: eepro100.c etherboot.h osdep.h include/asm.h \
 	include/general.h nic.h pci.h cards.h timer2.h
-# fifo.o: fifo.cpp include/fifo.h include/general.h include/thread.h \
+# fifo.o: fifo.c include/fifo.h include/general.h include/thread.h \
 	include/intr.h include/asm.h include/pic.h include/apic.h \
 	include/chrono.h include/pit.h include/queue.h include/term.h \
 	include/video.h include/rtlib.h
-fs.o: fs.cpp include/fs.h include/general.h include/disk.h include/ide.h \
+fs.o: fs.c include/fs.h include/general.h include/disk.h include/ide.h \
 	include/thread.h include/intr.h include/asm.h include/pic.h \
 	include/apic.h include/chrono.h include/pit.h include/queue.h \
 	include/term.h include/video.h include/rtlib.h
-ide.o: ide.cpp include/ide.h include/general.h include/thread.h \
+ide.o: ide.c include/ide.h include/general.h include/thread.h \
 	include/intr.h include/asm.h include/pic.h include/apic.h \
 	include/chrono.h include/pit.h include/queue.h include/term.h \
 	include/video.h include/rtlib.h include/disk.h
-intr.o: intr.cpp include/intr.h include/general.h include/asm.h \
+intr.o: intr.c include/intr.h include/general.h include/asm.h \
 	include/pic.h include/apic.h include/term.h include/video.h
-main.o: main.cpp include/general.h include/term.h include/video.h \
+main.o: main.c include/general.h include/term.h include/video.h \
 	include/thread.h include/intr.h include/asm.h \
 	include/pic.h include/apic.h include/chrono.h include/pit.h \
 	include/queue.h include/ps2.h include/fat32.h
 misc.o: misc.c etherboot.h osdep.h include/asm.h include/general.h
-net.o: net.cpp include/net.h include/general.h include/rtlib.h \
+net.o: net.c include/net.h include/general.h include/rtlib.h \
 	include/term.h include/video.h include/chrono.h include/asm.h \
 	include/pit.h include/thread.h include/intr.h include/pic.h \
 	include/apic.h include/queue.h etherboot.h osdep.h nic.h
 pci.o: pci.c etherboot.h osdep.h include/asm.h include/general.h pci.h
-ps2.o: ps2.cpp include/ps2.h include/general.h include/intr.h \
+ps2.o: ps2.c include/ps2.h include/general.h include/intr.h \
 	include/asm.h include/pic.h include/apic.h include/chrono.h include/pit.h \
 	include/video.h include/term.h include/thread.h include/queue.h
-rtlib.o: rtlib.cpp include/rtlib.h include/general.h include/intr.h \
+rtlib.o: rtlib.c include/rtlib.h include/general.h include/intr.h \
 	include/asm.h include/pic.h include/apic.h include/chrono.h include/pit.h \
 	include/ide.h include/thread.h include/queue.h include/term.h \
 	include/video.h include/disk.h include/fs.h include/ps2.h
-term.o: term.cpp include/term.h include/general.h include/video.h
-thread.o: thread.cpp include/thread.h include/general.h include/intr.h \
+term.o: term.c include/term.h include/general.h include/video.h
+thread.o: thread.c include/thread.h include/general.h include/intr.h \
 	include/asm.h include/pic.h include/apic.h include/chrono.h include/pit.h \
 	include/queue.h include/term.h include/video.h include/rtlib.h
-chrono.o: chrono.cpp include/chrono.h include/general.h include/asm.h \
+chrono.o: chrono.c include/chrono.h include/general.h include/asm.h \
 	include/pit.h include/apic.h include/intr.h include/pic.h include/rtc.h \
 	include/term.h include/video.h
 timer2.o: timer2.c etherboot.h osdep.h include/asm.h include/general.h \
 	timer2.h
 tulip.o: tulip.c etherboot.h osdep.h include/asm.h include/general.h \
 	nic.h pci.h cards.h
-video.o: video.cpp include/video.h include/general.h include/asm.h \
-	include/vga.h include/term.h mono_5x7.cpp mono_6x9.cpp
-fat32.o: fat32.cpp include/fat32.h include/general.h
+video.o: video.c include/video.h include/general.h include/asm.h \
+	include/vga.h include/term.h mono_5x7.c mono_6x9.c
+fat32.o: fat32.c include/fat32.h include/general.h
 
-libc/libc_os.o: libc/libc_os.cpp \
+libc/libc_os.o: libc/libc_os.c \
                 libc/include/dirent.h \
                 libc/include/errno.h \
                 libc/include/float.h \
@@ -184,4 +184,4 @@ libc/libc_os.o: libc/libc_os.cpp \
                 libc/src/time.c \
                 libc/src/unistd.c
 
-uart.o: uart.cpp include/term.h include/general.h include/uart.h include/asm.h
+uart.o: uart.c include/term.h include/general.h include/uart.h include/asm.h

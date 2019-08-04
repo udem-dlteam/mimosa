@@ -39,7 +39,7 @@ const uint32 GAMBIT_START = 0x100000;
     if ((eflags_reg() & (1 << 9)) != 0) {            \
       debug_write(__FILE__);                         \
       debug_write(":");                              \
-      debug_write(__LINE__);                         \
+      debug_write_uint32(__LINE__);                         \
       panic(L"FAILED ASSERT_INTERRUPTS_DISABLED\n"); \
     }                                                \
   } while (0)
@@ -49,7 +49,7 @@ const uint32 GAMBIT_START = 0x100000;
     if (!(eflags_reg() & (1 << 9))) {               \
       debug_write(__FILE__);                        \
       debug_write(":");                             \
-      debug_write(__LINE__);                        \
+      debug_write_uint32(__LINE__);                        \
       panic(L"FAILED ASSERT_INTERRUPTS_ENABLED\n"); \
     }                                               \
   } while (0)

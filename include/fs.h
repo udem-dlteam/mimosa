@@ -175,7 +175,7 @@ struct stat {
   uint32 st_size;
 };
 
-error_code stat(native_string path, struct stat* buf);
+int lstat(const char* path, struct stat* buf);
 
 void setup_fs();
 

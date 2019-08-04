@@ -23,7 +23,7 @@ void panic(unicode_string msg);
 
 // Math routines.
 
-uint8 log2 (uint32 n);
+uint8 int_log2(uint32 n);
 
 //-----------------------------------------------------------------------------
 

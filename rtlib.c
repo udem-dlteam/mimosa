@@ -90,12 +90,10 @@ uint64 __udivdi3 (uint64 n, uint64 d) // d must fit in 32 bits
   return (CAST(uint64,q1) << 32) + q0;
 }
 
-uint8 log2 (uint32 n)
-{
+uint8 int_log2(uint32 n) {
   uint8 i = 0;
 
-  while ((n >>= 1) != 0)
-    i++;
+  while ((n >>= 1) != 0) i++;
 
   return i;
 }

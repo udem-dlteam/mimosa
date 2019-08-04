@@ -43,11 +43,12 @@ int main() {
       }
 
       term_write(cout, "File loaded. Starting program at: ");
-      term_write_uint8(cout, code);
+      term_write_uint8(cout, *code);
 
       thread_sleep(1000);
 
-      for (int i = 0; i < 5; ++i) {
+      int i;
+      for (i = 0; i < 5; ++i) {
         term_writeline(cout);
       }
 

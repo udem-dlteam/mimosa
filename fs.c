@@ -165,7 +165,7 @@ bool parse_mode(native_string mode, file_mode* result) {
   file_mode f_mode = 0;
   native_char first = mode[0];
 
-  if(success = ('\0' != first)) {
+  if((success = ('\0' != first))) {
 
     switch (first) {
       case 'r':
@@ -377,6 +377,7 @@ static error_code update_file_length(file* f) {
   // Update the directory entry
   // to set the correct length of the file
   error_code err = NO_ERROR;
+  error_code closing_err;
   FAT_directory_entry de;
   file* entry_file;
   uint32 filesize;
@@ -393,7 +394,8 @@ static error_code update_file_length(file* f) {
   file_move_cursor(entry_file, -sizeof(de));
 
   filesize = f->length;
-  for (int i = 0; i < 4; ++i) {
+  int i;
+  for (i = 0; i < 4; ++i) {
     de.DIR_FileSize[i] = as_uint8(filesize, i);
   }
 
@@ -403,7 +405,7 @@ static error_code update_file_length(file* f) {
 
 flush_file_update_dir_err_occured:
   // Always close the file, even if there is an error
-  error_code closing_err = close_file(entry_file);
+  closing_err = close_file(entry_file);
   return ERROR(err) ? err : closing_err;
 }
 
@@ -862,10 +864,10 @@ static error_code mount_FAT121632(disk* d, file_system** result) {
     p = CAST(BIOS_Parameter_Block*, cb->buf);
 
     bps = as_uint16(p->BPB_BytsPerSec);
-    log2_bps = log2(bps);
+    log2_bps = int_log2(bps);
 
     spc = p->BPB_SecPerClus;
-    log2_spc = log2(spc);
+    log2_spc = int_log2(spc);
 
     rec = as_uint16(p->BPB_RootEntCnt);
     total_sectors16 = as_uint16(p->BPB_TotSec16);
@@ -884,7 +886,7 @@ static error_code mount_FAT121632(disk* d, file_system** result) {
     if ((1 << log2_bps) != bps || log2_bps < 9 || log2_bps > 12) {
       term_write(cout,
                  "bytes per sector is not a power of 2 between 512 and 4096: ");
-      term_write(cout, bps);
+      term_write_uint16(cout, bps);
       term_writeline(cout);
       err = UNKNOWN_ERROR;
     } else if (d->log2_sector_size != log2_bps) {
@@ -1029,7 +1031,7 @@ static error_code mount_partition(disk* d) {
       break;
     default:
       term_write(cout, "Unknown partition type: ");
-      term_write(cout, d->partition_type);
+      term_write_uint8(cout, d->partition_type);
       term_write(cout, "\n\r");
       break;
   }
@@ -1044,7 +1046,7 @@ static error_code mount_partition(disk* d) {
 
       term_write(cout, " as ");
 
-      const char* kind;
+      char* kind;
 
       switch (fs->kind) {
         case FAT12_FS:
@@ -1204,7 +1206,8 @@ error_code _file_set_pos_from_start(file* f, uint32 position) {
     // We want to go to the position wanted, so
     // we walk through the FAT chain until we read
     // as many clusters as required to get a correct position.
-    for (int i = 0; i < no_of_clusters; ++i) {
+    int i;
+    for (i = 0; i < no_of_clusters; ++i) {
       if (ERROR(err = next_FAT_section(f))) {
         break;
       }
@@ -1282,8 +1285,8 @@ error_code file_move_cursor(file* f, int32 n) {
 
         // term_write(cout, "This requires moving "); term_write(cout, no_of_clusters); term_write(cout, " cluster(s) forward");
         // term_writeline(cout);
-
-        for (int i = 0; i < no_of_clusters; ++i) {
+        int i;
+        for (i = 0; i < no_of_clusters; ++i) {
           if(ERROR(err = next_FAT_section(f))) {
             break;
           }
@@ -1312,18 +1315,19 @@ error_code file_set_to_absolute_position(file* f, uint32 position) {
 }
 
 void inline set_dir_entry_size(FAT_directory_entry* de, uint32 sz) {
-  for (int i = 0; i < 4; ++i) {
+  int i;
+  for (i = 0; i < 4; ++i) {
     de->DIR_FileSize[i] = as_uint8(sz, i);
   }
 }
 
 //-----------------------------------------------------------------------------
 
-error_code stat(native_string path, struct stat* buf) {
+int lstat(const char* path, struct stat* buf) {
   file* f;
   error_code err;
 
-  if (ERROR(err = open_file(path, "r", &f))) return err;
+  if (ERROR(err = open_file(CAST(native_string, path), "r", &f))) return err;
 
   buf->st_mode = f->mode;
   buf->st_size = f->length;

@@ -29,7 +29,7 @@ typedef unsigned int uint32;       // 32 bit unsigned integers
 typedef unsigned long long uint64; // 64 bit unsigned integers (gcc specific)
 
 typedef uint8 bool;
-typedef uint16 wchar_t;
+typedef int wchar_t;
 
 //typedef __wchar_t unicode_char;
 typedef wchar_t unicode_char;
