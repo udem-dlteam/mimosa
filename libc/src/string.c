@@ -2,7 +2,7 @@
 #include "include/string.h"
 
 #ifndef USE_MIMOSA
-extern "C" void *memcpy(void *__restrict __dest, const void *__restrict __src,
+extern void *memcpy(void *__restrict __dest, const void *__restrict __src,
                         size_t __n) {
   return memmove(__dest, __src, __n);
 }

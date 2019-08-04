@@ -56,7 +56,7 @@ void panic (unicode_string msg)
 
 // 64 bit arithmetic routines.
 
-extern "C"
+extern
 uint64 __umoddi3 (uint64 n, uint64 d) // d must fit in 32 bits
 {
   uint32 q0;
@@ -73,7 +73,7 @@ uint64 __umoddi3 (uint64 n, uint64 d) // d must fit in 32 bits
   return r;
 }
 
-extern "C"
+extern
 uint64 __udivdi3 (uint64 n, uint64 d) // d must fit in 32 bits
 {
   uint32 q0;
@@ -146,7 +146,7 @@ static void setup_kheap() {
   heap_init(&kheap, CAST(void*,11*(1<<20)), 5*(1<<20));
 }
 
-extern "C" void* memcpy (void* dest, const void* src, size_t n)
+extern void* memcpy (void* dest, const void* src, size_t n)
 {
   uint8* d = CAST(uint8*,dest);
   uint8* s = CAST(uint8*,src);
@@ -159,13 +159,13 @@ extern "C" void* memcpy (void* dest, const void* src, size_t n)
 // The function "__pure_virtual" is called when a pure virtual method
 // is invoked.
 
-extern "C"
+extern
 void __pure_virtual ()
 {
   panic(L"pure virtual function called");
 }
 
-extern "C"
+extern
 void __cxa_pure_virtual ()
 {
   panic(L"pure virtual function called");
@@ -190,6 +190,9 @@ void __do_global_ctors ()
   for (i = nptrs; i >= 1; i--)
     __CTOR_LIST__[i] ();
   // Video VTables
+
+  init_patterns();
+  
   _video_vtable.hide_mouse = video_hide_mouse;
   _video_vtable.show_mouse = video_show_mouse;
   _video_vtable._select_layer = video_select_layer;
@@ -243,7 +246,7 @@ static void setup_bss ()
     *p++ = 0;
 }
 
-extern "C"
+extern
 void __rtlib_entry ()
 {
   setup_bss ();
@@ -398,5 +401,5 @@ void __rtlib_setup ()
 //-----------------------------------------------------------------------------
 
 // Local Variables: //
-// mode: C++ //
+// mode: C     //
 // End: //

@@ -157,5 +157,5 @@ typedef struct ide_controller_struct
 #endif
 
 // Local Variables: //
-// mode: C++ //
+// mode: C     //
 // End: //

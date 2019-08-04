@@ -209,5 +209,5 @@ char readline();
 #endif
 
 // Local Variables: //
-// mode: C++ //
+// mode: C     //
 // End: //

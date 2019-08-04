@@ -190,5 +190,5 @@ extern rational _cpu_bus_multiplier;
 #endif
 
 // Local Variables: //
-// mode: C++ //
+// mode: C     //
 // End: //

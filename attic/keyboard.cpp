@@ -161,7 +161,7 @@ void keyboard::process_scancode (uint8 scancode)
 
 #ifdef USE_IRQ1_FOR_KEYBOARD
 
-extern "C"
+extern
 void irq1 ()
 {
 #ifdef SHOW_INTERRUPTS
@@ -180,5 +180,5 @@ keyboard keyboard::the_keyboard;
 //-----------------------------------------------------------------------------
 
 // Local Variables: //
-// mode: C++ //
+// mode: C     //
 // End: //

@@ -28,6 +28,9 @@ typedef unsigned short uint16;     // 16 bit unsigned integers
 typedef unsigned int uint32;       // 32 bit unsigned integers
 typedef unsigned long long uint64; // 64 bit unsigned integers (gcc specific)
 
+typedef uint8 bool;
+typedef uint16 wchar_t;
+
 //typedef __wchar_t unicode_char;
 typedef wchar_t unicode_char;
 //typedef typeof (*L"") unicode_char;
@@ -152,5 +155,5 @@ typedef int32 error_code;
 #endif
 
 // Local Variables: //
-// mode: C++ //
+// mode: C     //
 // End: //

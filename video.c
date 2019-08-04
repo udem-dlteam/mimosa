@@ -14,36 +14,26 @@
 #include "term.h"
 
 // "pattern" class implementation.
-
 static bitmap_word black_bitmap_words[] = {
   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
 };
-
-pattern pattern_black = new_pattern(black_bitmap_words, 8, 1);
 
 static bitmap_word gray25_bitmap_words[] = {
   0x00, 0x55, 0x00, 0x55, 0x00, 0x55, 0x00, 0x55
 };
 
-pattern pattern_gray25 = new_pattern(gray25_bitmap_words, 8, 1);
 
 static bitmap_word gray50_bitmap_words[] = {
   0xaa, 0x55, 0xaa, 0x55, 0xaa, 0x55, 0xaa, 0x55
 };
 
-pattern pattern_gray50 = new_pattern(gray50_bitmap_words, 8, 1);
-
 static bitmap_word gray75_bitmap_words[] = {
   0xff, 0x55, 0xff, 0x55, 0xff, 0x55, 0xff, 0x55
 };
 
-pattern pattern_gray75 = new_pattern(gray75_bitmap_words, 8, 1);
-
 static bitmap_word white_bitmap_words[] = {
   0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff
 };
-
-pattern pattern_white = new_pattern(white_bitmap_words, 8, 1);
 
 static bitmap_word red_bitmap_words[] = {
   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -52,16 +42,12 @@ static bitmap_word red_bitmap_words[] = {
   0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff
 };
 
-pattern pattern_red = new_pattern(red_bitmap_words, 8, 4);
-
 static bitmap_word green_bitmap_words[] = {
   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
   0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
   0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff
 };
-
-pattern pattern_green = new_pattern(green_bitmap_words, 8, 4);
 
 static bitmap_word yellow_bitmap_words[] = {
   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -70,16 +56,12 @@ static bitmap_word yellow_bitmap_words[] = {
   0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff
 };
 
-pattern pattern_yellow = new_pattern(yellow_bitmap_words, 8, 4);
-
 static bitmap_word blue_bitmap_words[] = {
   0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
   0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff
 };
-
-pattern pattern_blue = new_pattern(blue_bitmap_words, 8, 4);
 
 static bitmap_word magenta_bitmap_words[] = {
   0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
@@ -88,8 +70,6 @@ static bitmap_word magenta_bitmap_words[] = {
   0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff
 };
 
-pattern pattern_magenta = new_pattern(magenta_bitmap_words, 8, 4);
-
 static bitmap_word cyan_bitmap_words[] = {
   0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
   0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
@@ -97,7 +77,31 @@ static bitmap_word cyan_bitmap_words[] = {
   0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff
 };
 
-pattern pattern_cyan = new_pattern(cyan_bitmap_words, 8, 4);
+pattern pattern_black;
+pattern pattern_gray25;
+pattern pattern_gray50 ;
+pattern pattern_gray75;
+pattern pattern_white;
+pattern pattern_red;
+pattern pattern_green;
+pattern pattern_yellow;
+pattern pattern_blue;
+pattern pattern_magenta;
+pattern pattern_cyan;
+
+void init_pattners() {
+pattern_black = new_pattern(black_bitmap_words, 8, 1);
+pattern_gray25 = new_pattern(gray25_bitmap_words, 8, 1);
+pattern_gray50 = new_pattern(gray50_bitmap_words, 8, 1);
+pattern_gray75 = new_pattern(gray75_bitmap_words, 8, 1);
+pattern_white = new_pattern(white_bitmap_words, 8, 1);
+pattern_red = new_pattern(red_bitmap_words, 8, 4);
+pattern_green = new_pattern(green_bitmap_words, 8, 4);
+pattern_yellow = new_pattern(yellow_bitmap_words, 8, 4);
+pattern_blue = new_pattern(blue_bitmap_words, 8, 4);
+pattern_magenta = new_pattern(magenta_bitmap_words, 8, 4);
+pattern_cyan = new_pattern(cyan_bitmap_words, 8, 4);
+}
 
 //-----------------------------------------------------------------------------
 
@@ -319,8 +323,8 @@ bitmap_word* _raw_bitmap_in_memory_select_layer(void* self, int layer) {
 // raw_bitmap
 //-----------------------------------------------------------------------------
 
-void raw_bitmap_bitblt(raw_bitmap_c* self, int x, int y, int x_end,
-                               int y_end, raw_bitmap_c* src, int src_x,
+void raw_bitmap_bitblt(raw_bitmap* self, int x, int y, int x_end,
+                               int y_end, raw_bitmap* src, int src_x,
                                int src_y, pattern* foreground,
                                pattern* background) {
 
@@ -421,7 +425,7 @@ void raw_bitmap_bitblt(raw_bitmap_c* self, int x, int y, int x_end,
   }
 }
 
-void raw_bitmap_fill_rect(raw_bitmap_c* self, int x, int y, int x_end,
+void raw_bitmap_fill_rect(raw_bitmap* self, int x, int y, int x_end,
                           int y_end, pattern* foreground) {
   if (x < x_end && y < y_end) {
     int nb_words_per_row =
@@ -477,7 +481,7 @@ void raw_bitmap_fill_rect(raw_bitmap_c* self, int x, int y, int x_end,
   }
 }
 
-void raw_bitmap_frame_rect(raw_bitmap_c* self, int x, int y, int x_end,
+void raw_bitmap_frame_rect(raw_bitmap* self, int x, int y, int x_end,
                            int y_end, int border, pattern* foreground) {
   self->vtable->hide_mouse(self);
   raw_bitmap_fill_rect(self, x, y, x_end, y + border, foreground);
@@ -489,7 +493,7 @@ void raw_bitmap_frame_rect(raw_bitmap_c* self, int x, int y, int x_end,
   self->vtable->show_mouse(self);
 }
 
-void raw_bitmap_invert_rect(raw_bitmap_c* self, int x, int y, int x_end, int y_end) {
+void raw_bitmap_invert_rect(raw_bitmap* self, int x, int y, int x_end, int y_end) {
   self->vtable->hide_mouse(self);
   raw_bitmap_bitblt(self, x, y, x_end, y_end, self, x, y, &pattern_black,
                     &pattern_white);
@@ -579,7 +583,7 @@ int font_get_height(font_c* self) {
   return self->_height;
 }
 
-void _font_get_char_data(font_c* self, unicode_char c, int& start, int& width) {
+void _font_get_char_data(font_c* self, unicode_char c, int* start, int* width) {
   int i;
 
   if (c >= self->_nb_chars) {
@@ -589,12 +593,12 @@ void _font_get_char_data(font_c* self, unicode_char c, int& start, int& width) {
   i = self->_char_map[c];
 
   if (i == 0) {
-    start = 0;
+    *start = 0;
   } else {
-    start = self->_char_end[i - 1];
+    *start = self->_char_end[i - 1];
   }
 
-  width = self->_char_end[i] - start;
+  *width = self->_char_end[i] - *start;
 }
 
 int font_draw_text(font_c* self, raw_bitmap* dst, int x, int y,
@@ -605,7 +609,7 @@ int font_draw_text(font_c* self, raw_bitmap* dst, int x, int y,
     int start;
     int width;
 
-    _font_get_char_data(self, c, start, width);
+    _font_get_char_data(self, c, &start, &width);
 
     raw_bitmap_bitblt(dst, x, y, x + width, y + self->_height, self->_raw,
                       start, 0, foreground, background);
@@ -627,5 +631,5 @@ int font_draw_string(font_c* self, raw_bitmap* dst, int x, int y,
 }
 
 // Local Variables: //
-// mode: C++ //
+// mode: C     //
 // End: //

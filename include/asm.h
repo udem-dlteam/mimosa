@@ -259,7 +259,7 @@ __OUTS(l)
 
 
 // Note that due to the way __builtin_constant_p() works, you
-//  - can't use it inside a inline function (it will never be true)
+//  - can't use it inside a inline function (it will never be TRUE)
 //  - you don't have to worry about side effects within the __builtin..
 
 #define outb(val,port) \
@@ -327,5 +327,5 @@ __OUTS(l)
 #endif
 
 // Local Variables: //
-// mode: C++ //
+// mode: C     //
 // End: //

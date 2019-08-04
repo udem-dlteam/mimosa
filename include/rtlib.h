@@ -32,7 +32,7 @@ uint8 log2 (uint32 n);
 void* kmalloc(size_t size);
 void kfree(void* ptr);
 
-extern "C" void* memcpy(void* dest, const void* src, size_t n);
+extern void* memcpy(void* dest, const void* src, size_t n);
 
 //-----------------------------------------------------------------------------
 
@@ -45,8 +45,7 @@ void __do_global_dtors ();
 
 // Runtime library entry point.
 
-extern "C"
-void __rtlib_entry ();
+extern void __rtlib_entry ();
 
 void __rtlib_setup();
 
@@ -59,5 +58,5 @@ int main ();
 #endif
 
 // Local Variables: //
-// mode: C++ //
+// mode: C     //
 // End: //

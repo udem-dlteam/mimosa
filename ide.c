@@ -144,7 +144,7 @@ void ide_irq(ide_controller* ctrl) {
 
 #ifdef USE_IRQ14_FOR_IDE0
 
-extern "C" void irq14() {
+extern void irq14() {
 #ifdef SHOW_INTERRUPTS
   term_write(cout, "\033[41m irq14 \033[0m");
 #endif
@@ -158,7 +158,7 @@ extern "C" void irq14() {
 
 #ifdef USE_IRQ15_FOR_IDE1
 
-extern "C" void irq15() {
+extern void irq15() {
 #ifdef SHOW_INTERRUPTS
   term_write(cout, "\033[41m irq15 \033[0m");
 #endif
@@ -825,5 +825,5 @@ void setup_ide() {
 //-----------------------------------------------------------------------------
 
 // Local Variables: //
-// mode: C++ //
+// mode: C     //
 // End: //

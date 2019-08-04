@@ -83,5 +83,5 @@ char read_serial(int com_port);
 #endif
 
 // Local Variables: //
-// mode: C++ //
+// mode: C     //
 // End: //

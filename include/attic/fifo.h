@@ -55,5 +55,5 @@ bool fifo_get_or_timeout(fifo *self, uint8 *byte, time timeout);
 #endif
 
 // Local Variables: //
-// mode: C++ //
+// mode: C     //
 // End: //

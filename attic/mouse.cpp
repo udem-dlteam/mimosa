@@ -190,7 +190,7 @@ void mouse::process_scancode (uint8 scancode)
 
 #ifdef USE_IRQ12_FOR_MOUSE
 
-extern "C"
+extern
 void irq12 ()
 {
 #ifdef SHOW_INTERRUPTS
@@ -209,5 +209,5 @@ mouse mouse::the_mouse;
 //-----------------------------------------------------------------------------
 
 // Local Variables: //
-// mode: C++ //
+// mode: C     //
 // End: //

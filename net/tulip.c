@@ -345,7 +345,7 @@ struct mediainfo {
 
 /* Delay between EEPROM clock transitions.  Even at 33Mhz current PCI
    implementations don't overrun the EEPROM clock.  We add a bus
-   turn-around to insure that this remains true.  */
+   turn-around to insure that this remains TRUE.  */
 #define eeprom_delay()  inl(ee_addr)
 
 /* Size of transmit and receive buffers */

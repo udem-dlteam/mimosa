@@ -14,7 +14,7 @@
 #include "chrono.h"
 #include "thread.h"
 
-extern "C"
+extern
 {
 #include "etherboot.h"
 #include "nic.h"
@@ -512,7 +512,7 @@ void exec_node (int node_id)
 
   gettimeofday (&last, NULL);
 
-  term_c window = new_term(0, 420, 80, 3, &font::mono_6x9, L"window", true);
+  term_c window = new_term(0, 420, 80, 3, &font::mono_6x9, L"window", TRUE);
 
   term_write(cout, "This is ");
   term_write(cout, nodes[node_id].name );
@@ -733,12 +733,12 @@ struct arptable_t arptable[MAX_ARP];
 
 struct rom_info rom = { 0, 0};
 
-extern "C" int console_getc ()
+extern int console_getc ()
 {
   return 0;
 }
 
-extern "C" void console_putc (int c)
+extern void console_putc (int c)
 {
   native_char str[2];
   str[0] = c;
@@ -746,7 +746,7 @@ extern "C" void console_putc (int c)
   term_write(cout, str);
 }
 
-extern "C" int console_ischar ()
+extern int console_ischar ()
 {
   return 0;
 }
@@ -777,5 +777,5 @@ void setup_net ()
 //-----------------------------------------------------------------------------
 
 // Local Variables: //
-// mode: C++ //
+// mode: C     //
 // End: //

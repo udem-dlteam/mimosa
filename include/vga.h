@@ -1,6 +1,6 @@
 // file: "vga.h"
 
-// Copyright (c) 2001 by Marc Feeley and Université de Montréal, All
+// Copyright (c) 2001 by Marc Feeley and Universitï¿½ de Montrï¿½al, All
 // Rights Reserved.
 //
 // Revision History
@@ -33,5 +33,5 @@
 #endif
 
 // Local Variables: //
-// mode: C++ //
+// mode: C     //
 // End: //

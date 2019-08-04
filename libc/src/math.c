@@ -206,8 +206,8 @@ double ceil(double __x) {
     double a = (__x < 0) ? -__x : __x;
     if (a >= TWO_POW_52_1) {
       debug_write("ceil");
-      debug_write(__x*1000);
-      debug_write(__x*1000);
+      debug_write_uint32(__x*1000);
+      debug_write_uint32(__x*1000);
       return __x; // no possible fractional part
     } else {
       double b = (a + TWO_POW_52_1) - TWO_POW_52_2;
@@ -217,8 +217,8 @@ double ceil(double __x) {
       if (b != __x)
         b = b+1;
       debug_write("ceil");
-      debug_write(__x*1000);
-      debug_write(b*1000);
+      debug_write_uint32(__x*1000);
+      debug_write_uint32(b*1000);
       return b;
     }
   }
@@ -375,8 +375,8 @@ double floor(double __x) {
     double a = (__x < 0) ? -__x : __x;
     if (a >= TWO_POW_52_1) {
       debug_write("floor");
-      debug_write(__x*1000);
-      debug_write(__x*1000);
+      debug_write_uint32(__x*1000);
+      debug_write_uint32(__x*1000);
       return __x; // no possible fractional part
     } else {
       double b = (a + TWO_POW_52_1) - TWO_POW_52_2;
@@ -384,8 +384,8 @@ double floor(double __x) {
       if (__x < 0)
         b = -b;
       debug_write("floor");
-      debug_write(__x*1000);
-      debug_write(b*1000);
+      debug_write_uint32(__x*1000);
+      debug_write_uint32(b*1000);
       return b;
     }
   }

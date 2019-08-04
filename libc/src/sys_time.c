@@ -2,7 +2,7 @@
 #include "include/sys/time.h"
 
 #ifndef USE_MIMOSA
-extern "C" int gettimeofday(struct timeval *__restrict __tv,
+extern int gettimeofday(struct timeval *__restrict __tv,
                             struct timezone *__tz) {
 #ifdef USE_LIBC_LINK
 

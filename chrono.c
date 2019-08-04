@@ -132,7 +132,7 @@ volatile uint64 _irq8_counter = 0;
 time pos_infinity = { 18446744073709551615ULL };
 time neg_infinity = { 0 };
 
-extern "C"
+extern
 void irq8 ()
 {
   ACKNOWLEDGE_IRQ(8);
@@ -381,5 +381,5 @@ int gettimeofday (struct timeval *tv, struct timezone *tz)
 //-----------------------------------------------------------------------------
 
 // Local Variables: //
-// mode: C++ //
+// mode: C     //
 // End: //

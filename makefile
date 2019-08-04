@@ -11,13 +11,10 @@ DEFS = -DUSE_IRQ4_FOR_UART -DUSE_IRQ1_FOR_KEYBOARD -DINCLUDE_EEPRO100
 #DEFS = -DINCLUDE_TULIP -DINCLUDE_EEPRO100 
 
 GCC = gcc-3.4 -m32 -Wno-write-strings -ggdb3
-GPP = g++-3.4 -m32 -Wno-write-strings -ggdb3
 
 SPECIAL_OPTIONS =
 
 GCC_OPTIONS = $(SPECIAL_OPTIONS) $(DEFS) -DOS_NAME=$(OS_NAME) -DKERNEL_START=$(KERNEL_START) -fomit-frame-pointer -fno-strict-aliasing -Wall -O3 -nostdinc -Iinclude -Ilibc
-
-GPP_OPTIONS = $(GCC_OPTIONS) -fno-rtti -fno-builtin -fno-exceptions -nostdinc++
 
 .SUFFIXES:
 .SUFFIXES: .h .s .c .cpp .o .asm .bin .map .d
@@ -82,9 +79,6 @@ bootsect.o: bootsect.s kernel.bin
 
 bootsect.bin: bootsect.o
 	ld $*.o -o $*.bin -Ttext 0x7c00 --omagic --entry=bootsect_entry --oformat binary -Map bootsect.map
-
-.cpp.o:
-	$(GPP) $(GPP_OPTIONS) -c -o $*.o $*.cpp
 
 .c.o:
 	$(GCC) $(GCC_OPTIONS) -c -o $*.o $*.c
