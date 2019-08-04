@@ -6,8 +6,8 @@
 // Revision History
 // 22 Sep 01  initial version (Marc Feeley)
 
-#ifndef VIDEO_H
-#define VIDEO_H
+#ifndef __VIDEO_H
+#define __VIDEO_H
 
 //-----------------------------------------------------------------------------
 

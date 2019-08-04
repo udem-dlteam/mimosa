@@ -89,18 +89,18 @@ pattern pattern_blue;
 pattern pattern_magenta;
 pattern pattern_cyan;
 
-void init_pattners() {
-pattern_black = new_pattern(black_bitmap_words, 8, 1);
-pattern_gray25 = new_pattern(gray25_bitmap_words, 8, 1);
-pattern_gray50 = new_pattern(gray50_bitmap_words, 8, 1);
-pattern_gray75 = new_pattern(gray75_bitmap_words, 8, 1);
-pattern_white = new_pattern(white_bitmap_words, 8, 1);
-pattern_red = new_pattern(red_bitmap_words, 8, 4);
-pattern_green = new_pattern(green_bitmap_words, 8, 4);
-pattern_yellow = new_pattern(yellow_bitmap_words, 8, 4);
-pattern_blue = new_pattern(blue_bitmap_words, 8, 4);
-pattern_magenta = new_pattern(magenta_bitmap_words, 8, 4);
-pattern_cyan = new_pattern(cyan_bitmap_words, 8, 4);
+void init_patterns() {
+  pattern_black = new_pattern(black_bitmap_words, 8, 1);
+  pattern_gray25 = new_pattern(gray25_bitmap_words, 8, 1);
+  pattern_gray50 = new_pattern(gray50_bitmap_words, 8, 1);
+  pattern_gray75 = new_pattern(gray75_bitmap_words, 8, 1);
+  pattern_white = new_pattern(white_bitmap_words, 8, 1);
+  pattern_red = new_pattern(red_bitmap_words, 8, 4);
+  pattern_green = new_pattern(green_bitmap_words, 8, 4);
+  pattern_yellow = new_pattern(yellow_bitmap_words, 8, 4);
+  pattern_blue = new_pattern(blue_bitmap_words, 8, 4);
+  pattern_magenta = new_pattern(magenta_bitmap_words, 8, 4);
+  pattern_cyan = new_pattern(cyan_bitmap_words, 8, 4);
 }
 
 //-----------------------------------------------------------------------------

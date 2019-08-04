@@ -46,7 +46,8 @@ fat_32_create_empty_file(file_system* fs, uint8* name, file** result) {
   }
 
   // Fill with spaces
-  for (int i = 0; i < FAT_NAME_LENGTH; ++i) {
+  int i;
+  for (i = 0; i < FAT_NAME_LENGTH; ++i) {
     de.DIR_Name[i] = ' ';
   }
 
@@ -58,8 +59,9 @@ fat_32_create_empty_file(file_system* fs, uint8* name, file** result) {
   {  // Set the cluster in the descriptor
     uint16 cluster_hi = (cluster & 0xFFFF0000) >> 16;
     uint16 cluster_lo = (cluster & 0x0000FFFF);
-
-    for (int i = 0; i < 2; ++i) {
+    
+    int i;
+    for (i = 0; i < 2; ++i) {
       de.DIR_FstClusHI[i] = as_uint8(cluster_hi, i);
       de.DIR_FstClusLO[i] = as_uint8(cluster_lo, i);
     }
@@ -267,7 +269,8 @@ error_code fat_32_set_fat_link_value(file_system* fs, uint32 cluster,
     if (ERROR(err = disk_cache_block_acquire(d, lba, &cb))) return err;
     mutex_lock(cb->mut);
 
-    for (int i = 0; i < 4; ++i) {
+    int i;
+    for (i = 0; i < 4; ++i) {
       cb->buf[i + offset_in_bytes] = as_uint8(value, i);
     }
 

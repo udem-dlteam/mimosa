@@ -652,89 +652,63 @@ void debug_write(native_string str) {
   outb('\r', OUT_PORT);
 }
 
-size_t strlen(char* str) {
-  int i;
-  for (i = 0; str[i] != '\0'; ++i)
-    ;
-  return i;
-}
-
-unsigned char strcmpl(char* a, char* b, size_t sz) {
-  int i = 0;
-  for (i = 0; i < sz && a[i] == b[i]; ++i)
-    ;
-  return i == sz;
-}
-
-unsigned char strcmp(char* a, char* b) {
-  while (*a == *b) {
-    if (*a == '\0') {
-      break;
-    } else {
-      a++;
-      b++;
-    }
-  }
-  return *a == *b;
-}
-
 const native_string LS_CMD = "ls";
 const native_string EXEC_CMD = "exec";
 const native_string CAT_CMD = "cat";
 
-static const int max_sz = 2056;
-static native_char buff[max_sz];
+#define term_buff_max_sz 2056
+static native_char buff[term_buff_max_sz];
 
 void term_run(term* term) {
-  for (;;) {
-    term_write(term, ">");
+  // for (;;) {
+  //   term_write(term, ">");
 
-    uint32 i = 0;
-    while((buff[i++] = readline()) != '\0');
-    native_string line = buff;
+  //   uint32 i = 0;
+  //   while((buff[i++] = readline()) != '\0');
+  //   native_string line = buff;
 
-    // Find and exec command
-    // Hopefully there is no ls*** command lol
-    if (strcmpl(line, LS_CMD, 2)) {
-      term_writeline(term);
-      DIR* root_dir = opendir("/");
-      dirent* entry;
+  //   // Find and exec command
+  //   // Hopefully there is no ls*** command lol
+  //   if (strcmpl(line, LS_CMD, 2)) {
+  //     term_writeline(term);
+  //     DIR* root_dir = opendir("/");
+  //     dirent* entry;
 
-      while (NULL != (entry = readdir(root_dir))) {
-        term_write(term, "---> ");
-        term_write(term, entry->d_name);
-        term_writeline(term);
-      }
+  //     while (NULL != (entry = readdir(root_dir))) {
+  //       term_write(term, "---> ");
+  //       term_write(term, entry->d_name);
+  //       term_writeline(term);
+  //     }
 
-      closedir(root_dir);
-    } else if (strcmpl(line, EXEC_CMD, 4)) {
-      native_string file_name = &line[5];
+  //     closedir(root_dir);
+  //   } else if (strcmpl(line, EXEC_CMD, 4)) {
+  //     native_string file_name = &line[5];
 
-      file* prog;
-      if (NO_ERROR == open_file(file_name, "r+", &prog)) {
-        term_write(term, "\r\n Starting program ");
-        term_write(term, file_name);
-        term_writeline(term);
-        // sched_start_task(prog);
-      } else {
-        term_write(term, "\r\n Failed to open the program.\r\n");
-      }
-    } else if (strcmpl(line, CAT_CMD, 3)) {
-      native_string file_name = &line[4];
-      file* f;
-      if (NO_ERROR == open_file(file_name, "r+", &f)) {
-        // need free... lets use the static buff
-        read_file(f, buff, 2056);
-        term_writeline(term);
-        term_write(term, CAST(native_string, buff));
-        term_writeline(term);
-      } else {
-        term_write(term, "\r\n Failed to read the file.\r\n");
-      }
-    } else {
-      term_write(term, "\r\nUnknown command\r\n");
-    }
-  }
+  //     file* prog;
+  //     if (NO_ERROR == open_file(file_name, "r+", &prog)) {
+  //       term_write(term, "\r\n Starting program ");
+  //       term_write(term, file_name);
+  //       term_writeline(term);
+  //       // sched_start_task(prog);
+  //     } else {
+  //       term_write(term, "\r\n Failed to open the program.\r\n");
+  //     }
+  //   } else if (strcmpl(line, CAT_CMD, 3)) {
+  //     native_string file_name = &line[4];
+  //     file* f;
+  //     if (NO_ERROR == open_file(file_name, "r+", &f)) {
+  //       // need free... lets use the static buff
+  //       read_file(f, buff, 2056);
+  //       term_writeline(term);
+  //       term_write(term, CAST(native_string, buff));
+  //       term_writeline(term);
+  //     } else {
+  //       term_write(term, "\r\n Failed to read the file.\r\n");
+  //     }
+  //   } else {
+  //     term_write(term, "\r\nUnknown command\r\n");
+  //   }
+  // }
 }
 
 //-----------------------------------------------------------------------------

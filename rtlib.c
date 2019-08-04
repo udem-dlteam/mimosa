@@ -282,11 +282,11 @@ static void identify_cpu ()
   term_write(cout, "CPU is ");
   term_write(cout, vendor);
   term_write(cout, " family=");
-  term_write(cout, ((processor >> 8) & 0xf));
+  term_write_uint32(cout, ((processor >> 8) & 0xf));
   term_write(cout, " model=");
-  term_write(cout, ((processor >> 4) & 0xf));
+  term_write_uint32(cout, ((processor >> 4) & 0xf));
   term_write(cout, " stepping=");
-  term_write(cout, (processor & 0xf));
+  term_write_uint32(cout, (processor & 0xf));
   term_write(cout, "\n");
 
   // For meaning of these values check:
@@ -324,7 +324,7 @@ static void identify_cpu ()
 #ifdef USE_TSC_FOR_TIME
   
   term_write(cout, "CPU clock = ");
-  term_write(cout, _tsc_counts_per_sec);
+  term_write_uint32(cout, _tsc_counts_per_sec);
   term_write(cout, " Hz\n");
 
 #ifdef USE_APIC_FOR_TIMER
