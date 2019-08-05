@@ -279,29 +279,28 @@ static short_file_name* decompose_path(native_string normalize_path, int* __coun
   return result;
 }
 
-static error_code fat_fetch_entry(file_system* fs, native_string path, file** result, uint8* name) {
+static error_code fat_fetch_entry(file_system* fs, file* parent, uint8* name, file** result) {
   int count = 0;
   int found_count = 0;
   error_code err = NO_ERROR;
   FAT_directory_entry de;
-  native_char normalized_path[NAME_MAX + 1];
   file* f;
 
-  if (ERROR(err = normalize_path(path, normalized_path))) {
-#ifdef SHOW_DISK_INFO
-    term_write(cout, "Failed to normalize the path\n\r");
-#endif
-    return err;
-  }
+//   if (ERROR(err = normalize_path(path, normalized_path))) {
+// #ifdef SHOW_DISK_INFO
+//     term_write(cout, "Failed to normalize the path\n\r");
+// #endif
+//     return err;
+//   }
 
-  if (ERROR(err = open_root_dir(fs, &f))) {
-#ifdef SHOW_DISK_INFO
-    term_write(cout, "Error loading the root dir: ");
-    term_write(cout, err);
-    term_writeline(cout);
-#endif
-    return err;
-  }
+//   if (ERROR(err = open_root_dir(fs, &f))) {
+// #ifdef SHOW_DISK_INFO
+//     term_write(cout, "Error loading the root dir: ");
+//     term_write(cout, err);
+//     term_writeline(cout);
+// #endif
+//     return err;
+//   }
 
 #ifdef SHOW_DISK_INFO
   term_write(cout, "\n\rOpened the root dir...");
@@ -310,90 +309,69 @@ static error_code fat_fetch_entry(file_system* fs, native_string path, file** re
   term_write(cout, normalized_path);
   term_write(cout, "'\n\r");
 #endif
-  short_file_name_struct* parts = decompose_path(CAST(native_string, normalized_path), &count);
 
-  if(0 == count) {
-    err = FNF_ERROR;
+  uint32 i;
+
+  if (!S_ISDIR(parent->mode)) {
+    return UNKNOWN_ERROR;
   }
 
-  debug_write("Count is:");
-  debug_write(count);
+  uint32 cluster = parent->first_cluster;
+  uint32 position = parent->current_pos;
+  while ((err = read_file(parent, &de, sizeof(de))) == sizeof(de)) {
+    if (de.DIR_Name[0] == 0) break;  // No more entries
+    // Only verify the file if it's readable
+    if (de.DIR_Name[0] != 0xe5 && (de.DIR_Attr & FAT_ATTR_HIDDEN) == 0 &&
+        (de.DIR_Attr & FAT_ATTR_VOLUME_ID) == 0) {
+      // Compare the names
 
-  while(HAS_NO_ERROR(err) && found_count < count) {
-    uint32 i;
+      for (i = 0; i < FAT_NAME_LENGTH; i++) {
+        if (de.DIR_Name[i] != name[i]) break;
+      }
 
-    if (!S_ISDIR(f->mode)) {
-      close_file(f);  // ignore error
-      return UNKNOWN_ERROR;
-    }
+      if (i == FAT_NAME_LENGTH) {
+        // All the characters have been compared successfuly
+        f = CAST(file*, kmalloc(sizeof(file)));
+        if (NULL == f) return MEM_ERROR;
 
-    memcpy(name, CAST(void*, parts + found_count), FAT_NAME_LENGTH);
+        f->fs = fs;
+        f->first_cluster = f->current_cluster =
+            (CAST(uint32, as_uint16(de.DIR_FstClusHI)) << 16) +
+            as_uint16(de.DIR_FstClusLO);
+        f->current_section_start =
+            fs->_.FAT121632.first_data_sector +
+            ((f->current_cluster - 2) << fs->_.FAT121632.log2_spc);
+        f->current_section_length =
+            1 << (fs->_.FAT121632.log2_bps + fs->_.FAT121632.log2_spc);
+        f->current_section_pos = 0;
+        f->current_pos = 0;
+        f->length = as_uint32(de.DIR_FileSize);
 
-    uint32 cluster = f->first_cluster;
-    uint32 position = f->current_pos;
-    while ((err = read_file(f, &de, sizeof(de))) == sizeof(de)) {
-      if (de.DIR_Name[0] == 0) break;  // No more entries
-      // Only verify the file if it's readable
-      if (de.DIR_Name[0] != 0xe5 && (de.DIR_Attr & FAT_ATTR_HIDDEN) == 0 &&
-          (de.DIR_Attr & FAT_ATTR_VOLUME_ID) == 0) {
-        // Compare the names
-
-        for (i = 0; i < FAT_NAME_LENGTH; i++) {
-          if (de.DIR_Name[i] != name[i]) break;
+        if (de.DIR_Attr & FAT_ATTR_DIRECTORY) {
+          f->mode = S_IFDIR;
+        } else {
+          f->mode = S_IFREG;
         }
 
-        if (i == FAT_NAME_LENGTH) {
-          // All the characters have been compared successfuly
-          if (ERROR(err = close_file(f))) return err;
-          f = CAST(file*, kmalloc(sizeof(file)));
-          if (NULL == f) return MEM_ERROR;
+        // Setup the entry file. It is relative to the file's
+        // directory
+        f->parent.first_cluster = cluster;
+        f->entry.position = position;
 
-          f->fs = fs;
-          f->first_cluster = f->current_cluster =
-              (CAST(uint32, as_uint16(de.DIR_FstClusHI)) << 16) +
-              as_uint16(de.DIR_FstClusLO);
-          f->current_section_start =
-              fs->_.FAT121632.first_data_sector +
-              ((f->current_cluster - 2) << fs->_.FAT121632.log2_spc);
-          f->current_section_length =
-              1 << (fs->_.FAT121632.log2_bps + fs->_.FAT121632.log2_spc);
-          f->current_section_pos = 0;
-          f->current_pos = 0;
-          f->length = as_uint32(de.DIR_FileSize);
-
-          if (de.DIR_Attr & FAT_ATTR_DIRECTORY) {
-            f->mode = S_IFDIR;
-          } else {
-            f->mode = S_IFREG;
-          }
-
-          // Setup the entry file. It is relative to the file's
-          // directory
-          f->parent.first_cluster = cluster;
-          f->entry.position = position;
-
-          goto found;
-        }
+        goto found;
       }
-      // Copy over the position informations
-      position = f->current_pos;
     }
-
-    // We did not find the file
-    close_file(f);  // ignore error
-    if (ERROR(err)) return err;
-    return FNF_ERROR;
-
-    found:
-      found_count++;
-      *result = f;
-      if (found_count == count) {
-        return NO_ERROR;
-      }
+    // Copy over the position informations
+    position = f->current_pos;
   }
-  // Just in case.
-  close_file(f);
+
+  // We did not find the file
+  if (ERROR(err)) return err;
   return FNF_ERROR;
+
+found:
+  *result = f;
+  return NO_ERROR;
 }
 
 static error_code find_first_empty_FAT_cluster(file_system* fs,
@@ -492,10 +470,16 @@ error_code open_file(native_string path, native_string mode, file** result) {
   file* f;
 
   if (fs_mod.nb_mounted_fs == 0) {
-    return FNF_ERROR;
+    // No file system mounted
+    return UNKNOWN_ERROR;
+  } else {
+    fs = fs_mod.mounted_fs[0];
   }
 
-  fs = fs_mod.mounted_fs[0];
+  // Find the parent folder
+
+  
+
 
   if(!parse_mode(mode, &md)) {
     return UNKNOWN_ERROR;  // TODO!
