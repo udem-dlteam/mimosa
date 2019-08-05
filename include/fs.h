@@ -109,6 +109,9 @@ typedef struct file_struct {
   uint32 length;                   // in bytes
   uint8 mode;
   struct {
+    uint32 first_cluster;
+  } parent;
+  struct {
     // This substruct allows to keep the information
     // of the root directory entry. This allows quick
     // modifications of the entry because we know exactly

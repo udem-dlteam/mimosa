@@ -4,36 +4,38 @@
 #include "general.h"
 #include "rtlib.h"
 
-error_code 
-fat_32_create_empty_file(file_system* fs, uint8* name, file** result) {
+error_code fat_32_create_empty_file(file_system* fs, file* parent_folder,
+                                    uint8* name, file** result) {
   FAT_directory_entry de;
   error_code err;
   native_char normalized_path[NAME_MAX + 1];
   native_string p = normalized_path;
   file* f;
 
-  if (ERROR(err = open_root_dir(fs, &f))) {
-#ifdef SHOW_DISK_INFO
-    term_write(cout, "Error loading the root dir: ");
-    term_write(cout, err);
-    term_writeline(cout);
-#endif
-    return err;
-  }
-
   // Section start is the LBA
-  uint32 position = f->current_pos;
+  uint32 position = parent_folder->current_pos;
 
-  while ((err = read_file(f, &de, sizeof(de))) == sizeof(de)) {
+  while ((err = read_file(parent_folder, &de, sizeof(de))) == sizeof(de)) {
     // This means the entry is available
     if (de.DIR_Name[0] == 0) break;
     // Update the position with the information before
-    position = f->current_pos;
+    position = parent_folder->current_pos;
+  }
+
+  if(ERROR(err)) {
+    panic(L"Not been taken care of yet");
+  }
+
+  f = CAST(file*, kmalloc(sizeof(f)));
+
+  if(NULL == f) {
+    return MEM_ERROR;
   }
 
   // Set the file to the last position so we can easily write there
   // It is also the position of the directory entry so we set that at
   // the same time
+  f->parent.first_cluster = parent_folder->first_cluster;
   f->entry.position = position;
   // We recalculate the position
   file_set_to_absolute_position(f, position);

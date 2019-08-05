@@ -138,7 +138,7 @@ static error_code normalize_path(native_string path, native_string new_path) {
   return NO_ERROR;
 }
 
-static error_code create_file(uint8* name, file** result) {
+static error_code create_file(uint8* name, file* parent_folder, file** result) {
   error_code err;
   file_system* fs;
 
@@ -152,9 +152,9 @@ static error_code create_file(uint8* name, file** result) {
     case FAT16_FS:
       panic(L"Not supported");
       break;
-    case FAT32_FS:
-      err = fat_32_create_empty_file(fs, name, result);
-      break;
+    case FAT32_FS: {
+      err = fat_32_create_empty_file(fs, parent_folder, name, result);
+    } break;
   }
 
   return err;
@@ -329,6 +329,7 @@ static error_code fat_fetch_entry(file_system* fs, native_string path, file** re
 
     memcpy(name, CAST(void*, parts + found_count), FAT_NAME_LENGTH);
 
+    uint32 cluster = f->first_cluster;
     uint32 position = f->current_pos;
     while ((err = read_file(f, &de, sizeof(de))) == sizeof(de)) {
       if (de.DIR_Name[0] == 0) break;  // No more entries
@@ -368,6 +369,7 @@ static error_code fat_fetch_entry(file_system* fs, native_string path, file** re
 
           // Setup the entry file. It is relative to the file's
           // directory
+          f->parent.first_cluster = cluster;
           f->entry.position = position;
 
           goto found;
