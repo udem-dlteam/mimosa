@@ -323,11 +323,8 @@ static error_code fat_fetch_entry(file_system* fs, native_string path, file** re
     uint32 i;
 
     if (!S_ISDIR(f->mode)) {
-      debug_write("Tried to do a search on a folder");
       close_file(f);  // ignore error
-      return FNF_ERROR;
-    } else{
-      debug_write("Name ok");
+      return UNKNOWN_ERROR;
     }
 
     memcpy(name, CAST(void*, parts + found_count), FAT_NAME_LENGTH);
