@@ -342,18 +342,18 @@ void APIC_spurious_irq ()
 
 void unhandled_interrupt(int num) {
   term_write(cout, "\033[41m unhandled interrupt ");
-  term_write(cout, num);
+  term_write_int(cout, num);
   term_write(cout, " \033[0m");
 }
 
 void interrupt_handle(interrupt_data data) {
   debug_write("INT NO:");
-  debug_write(data.int_no);
+  debug_write_uint32(data.int_no);
   debug_write(" EIP=");
   // TODO: implement a full fledge debug write
   // debug_write((void*) data.eip);
   debug_write(" INT ARG: ");
-  debug_write(data.error_code);
+  debug_write_uint32(data.error_code);
   debug_write("\n\r");
 
   bool handled = TRUE;
