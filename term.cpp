@@ -12,6 +12,7 @@
 #include "thread.h"
 #include "ps2.h"
 #include "fs.h"
+#include "rtlib.h"
 
 //-----------------------------------------------------------------------------
 
@@ -697,7 +698,7 @@ void term_run(term* term) {
     // Hopefully there is no ls*** command lol
     if (strcmpl(line, LS_CMD, 2)) {
       term_writeline(term);
-      DIR* root_dir = opendir("/");
+      DIR* root_dir = opendir("/folder/dfolder");
 
       if (NULL == root_dir) {
         term_write(term, "Failed to read the root directory");
@@ -725,15 +726,20 @@ void term_run(term* term) {
         term_write(term, "\r\n Failed to open the program.\r\n");
       }
     } else if (strcmpl(line, CAT_CMD, 3)) {
+      error_code err = NO_ERROR;
       native_string file_name = &line[4];
       file* f;
-      if (NO_ERROR == open_file(file_name, "r+", &f)) {
+      if (HAS_NO_ERROR(err = open_file(file_name, "r+", &f))) {
         // need free... lets use the static buff
-        read_file(f, buff, 2056);
-        term_writeline(term);
-        term_write(term, CAST(native_string, buff));
-        term_writeline(term);
-      } else {
+        native_string buff = (native_char*)kmalloc(sizeof(native_char) * f->length);
+        {
+          read_file(f, buff, f->length);
+          term_writeline(term);
+          term_write(term, buff);
+          term_writeline(term);
+        }
+        kfree(buff);
+      } else if(FNF_ERROR == err) {} else {
         term_write(term, "\r\n Failed to read the file.\r\n");
       }
     } else {

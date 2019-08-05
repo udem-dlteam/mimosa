@@ -196,11 +196,95 @@ bool parse_mode(native_string mode, file_mode* result) {
   return success;
 }
 
+typedef struct short_file_name_struct {
+  native_char name[FAT_NAME_LENGTH];
+} short_file_name;
+
+static short_file_name* decompose_path(native_string normalize_path, int* __count) {
+  *__count = 0;
+  int count = 0;
+  int entry = 0;
+  short_file_name* result = NULL;
+  native_char* scout = normalize_path;
+
+  if('\0' == *scout) return NULL;
+  if('/' != *scout) return NULL;
+  
+  do {
+    count += (*scout == '/');
+  } while(*scout++ != '\0');
+
+  if(NULL == (result = CAST(short_file_name*, kmalloc(count * sizeof(short_file_name_struct))))) {
+    return NULL; // meh
+  }
+
+  char* p = normalize_path + 1; // skip the first '/'
+  //The first entry is the root dir, skip that
+
+  while (entry < count) {
+    int i = 0;
+    bool seen_next_slash = FALSE;
+    while (*p != '\0' && *p != '.') {
+      if (*p == '/') {
+        seen_next_slash = TRUE;
+        break;
+      }
+      if (i < 8) {
+        result[entry].name[i] = *p;
+      }
+      i++;
+      p++;
+    }
+
+    while (i < 8) result[entry].name[i++] = ' ';
+
+    i = 0;
+
+    if (*p == '.') {
+      p++;
+      while (*p != '\0') {
+
+        if(*p == '/') {
+          seen_next_slash = TRUE;
+          break;
+        }
+
+        if (i < 3) result[entry].name[8 + i] = *p;
+        i++;
+        p++;
+      }
+    }
+
+    while (i < 3) result[entry].name[8 + i++] = ' ';
+
+    if (!seen_next_slash) {
+      while (*p != '/') {
+        p++;
+      }
+    }
+
+    p++;
+    entry++;
+  }
+
+  *__count = count;
+
+  // for (int i = 0; i < count; ++i) {
+  //   term_writeline(cout);
+  //   for (int j = 0; j < FAT_NAME_LENGTH; ++j) {
+  //     term_write(cout, CAST(native_char, result[i].name[j]));
+  //   }
+  //   term_writeline(cout);
+  // }
+  return result;
+}
+
 static error_code fat_fetch_entry(file_system* fs, native_string path, file** result, uint8* name) {
+  int count = 0;
+  int found_count = 0;
   error_code err = NO_ERROR;
   FAT_directory_entry de;
   native_char normalized_path[NAME_MAX + 1];
-  native_string p = normalized_path;
   file* f;
 
   if (ERROR(err = normalize_path(path, normalized_path))) {
@@ -210,19 +294,14 @@ static error_code fat_fetch_entry(file_system* fs, native_string path, file** re
     return err;
   }
 
-  debug_write("The normalized path is:");
-  debug_write(normalized_path);
-
-  __surround_with_debug_t("Open root dir", {
-    if (ERROR(err = open_root_dir(fs, &f))) {
+  if (ERROR(err = open_root_dir(fs, &f))) {
 #ifdef SHOW_DISK_INFO
-      term_write(cout, "Error loading the root dir: ");
-      term_write(cout, err);
-      term_writeline(cout);
+    term_write(cout, "Error loading the root dir: ");
+    term_write(cout, err);
+    term_writeline(cout);
 #endif
-      return err;
-    }
-  });
+    return err;
+  }
 
 #ifdef SHOW_DISK_INFO
   term_write(cout, "\n\rOpened the root dir...");
@@ -231,70 +310,29 @@ static error_code fat_fetch_entry(file_system* fs, native_string path, file** re
   term_write(cout, normalized_path);
   term_write(cout, "'\n\r");
 #endif
+  short_file_name_struct* parts = decompose_path(CAST(native_string, normalized_path), &count);
 
-  for (;;) {
-    debug_write("In loop");
+  if(0 == count) {
+    err = FNF_ERROR;
+  }
+
+  debug_write("Count is:");
+  debug_write(count);
+
+  while(HAS_NO_ERROR(err) && found_count < count) {
     uint32 i;
 
-    if (*p != '\0' && (*p++ != '/' || !S_ISDIR(f->mode))) {
-      debug_write("Weird error!");
+    if (!S_ISDIR(f->mode)) {
+      debug_write("Tried to do a search on a folder");
       close_file(f);  // ignore error
       return FNF_ERROR;
+    } else{
+      debug_write("Name ok");
     }
 
-    debug_write("Testing for first char");
-    if (*p == '\0') break;
+    memcpy(name, CAST(void*, parts + found_count), FAT_NAME_LENGTH);
 
-    i = 0;
-
-    // TODO: make a better name parsing algorithm.
-    // TOOD: the idea here is to locate the last foward
-    // TOOD: slash, and parse starting there.
-    // native_string scout = p;
-
-    // while (scout[i] != '\0') {
-    //   if (scout[i] == '/') {
-    //     scout = scout + i;
-    //     i = 0;
-    //   }
-    //   i += 1;
-    // }
-
-    // i = 0;
-
-    // if (scout[0] == '\0')
-    //   break;  // Invalid string
-    // else if (scout[0] == '.') {
-    //   p = scout + 1;
-    // } else {
-    //   p = scout;
-    // }
-
-    // The next dot allowed is to identify the start
-    // of the extension
-    while (*p != '\0' && *p != '.' && *p != '/') {
-      if (i < 8) name[i] = *p;
-      i++;
-      p++;
-    }
-
-    while (i < 8) name[i++] = ' ';
-
-    i = 0;
-
-    if (*p == '.') {
-      p++;
-      while (*p != '\0' && *p != '/') {
-        if (i < 3) name[8 + i] = *p;
-        i++;
-        p++;
-      }
-    }
-
-    while (i < 3) name[8 + i++] = ' ';
-
-    file entry_file = *f;
-
+    uint32 position = f->current_pos;
     while ((err = read_file(f, &de, sizeof(de))) == sizeof(de)) {
       if (de.DIR_Name[0] == 0) break;  // No more entries
       // Only verify the file if it's readable
@@ -331,27 +369,32 @@ static error_code fat_fetch_entry(file_system* fs, native_string path, file** re
             f->mode = S_IFREG;
           }
 
-          // Setup the entry file
-          f->entry.position = entry_file.current_pos;
+          // Setup the entry file. It is relative to the file's
+          // directory
+          f->entry.position = position;
 
           goto found;
         }
       }
       // Copy over the position informations
-      entry_file = *f;
+      position = f->current_pos;
     }
 
+    // We did not find the file
     close_file(f);  // ignore error
-
     if (ERROR(err)) return err;
-
     return FNF_ERROR;
 
-  found:
-    *result = f;
+    found:
+      found_count++;
+      *result = f;
+      if (found_count == count) {
+        return NO_ERROR;
+      }
   }
-
-  return NO_ERROR;
+  // Just in case.
+  close_file(f);
+  return FNF_ERROR;
 }
 
 static error_code find_first_empty_FAT_cluster(file_system* fs,
@@ -466,19 +509,14 @@ error_code open_file(native_string path, native_string mode, file** result) {
     case FAT32_FS: {
       if(ERROR(err = fat_fetch_entry(fs, path, &f, name)) && err != FNF_ERROR) {
           return err;
+      } else if (HAS_NO_ERROR(err)) {
+        file_reset_cursor(f);
       }
       break;
     }
     default:
       return UNIMPL_ERROR;
   }
-
-  term_write(cout, "Opening...");
-  term_writeline(cout);
-  for(int i = 0; i < FAT_NAME_LENGTH; ++i) {
-    term_write(cout, CAST(native_char, name[i]));
-  }
-  term_writeline(cout);
 
   // If it is a directory, there is not mode
   if (!S_ISDIR(f->mode)) {
@@ -1107,9 +1145,6 @@ DIR* opendir(const char* path) {
     debug_write("Error while opening the file :/");
     return NULL;
   }
-  
-  term_write(cout, "File mode:");
-  term_write(cout, f->mode);
 
   if (!S_ISDIR(f->mode) || (dir = CAST(DIR*, kmalloc(sizeof(DIR)))) == NULL) {
     close_file(f);  // ignore error
@@ -1326,6 +1361,12 @@ error_code file_move_cursor(file* f, int32 n) {
 error_code file_set_to_absolute_position(file* f, uint32 position) {
   // To goal of this method is to set the file cursor to an absolute position,
   // but maybe by using relative movements. It decides what is more appropriate.
+
+  if (0 == position) {
+    file_reset_cursor(f);
+    return NO_ERROR;
+  }
+
   int32 mvmt = position - f->current_pos;
   return file_move_cursor(f, mvmt);
 }
