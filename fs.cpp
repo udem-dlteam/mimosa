@@ -210,14 +210,19 @@ static error_code fat_fetch_entry(file_system* fs, native_string path, file** re
     return err;
   }
 
-  if (ERROR(err = open_root_dir(fs, &f))) {
+  debug_write("The normalized path is:");
+  debug_write(normalized_path);
+
+  __surround_with_debug_t("Open root dir", {
+    if (ERROR(err = open_root_dir(fs, &f))) {
 #ifdef SHOW_DISK_INFO
-    term_write(cout, "Error loading the root dir: ");
-    term_write(cout, err);
-    term_writeline(cout);
+      term_write(cout, "Error loading the root dir: ");
+      term_write(cout, err);
+      term_writeline(cout);
 #endif
-    return err;
-  }
+      return err;
+    }
+  });
 
 #ifdef SHOW_DISK_INFO
   term_write(cout, "\n\rOpened the root dir...");
@@ -228,13 +233,16 @@ static error_code fat_fetch_entry(file_system* fs, native_string path, file** re
 #endif
 
   for (;;) {
+    debug_write("In loop");
     uint32 i;
 
     if (*p != '\0' && (*p++ != '/' || !S_ISDIR(f->mode))) {
+      debug_write("Weird error!");
       close_file(f);  // ignore error
       return FNF_ERROR;
     }
 
+    debug_write("Testing for first char");
     if (*p == '\0') break;
 
     i = 0;
@@ -242,25 +250,25 @@ static error_code fat_fetch_entry(file_system* fs, native_string path, file** re
     // TODO: make a better name parsing algorithm.
     // TOOD: the idea here is to locate the last foward
     // TOOD: slash, and parse starting there.
-    native_string scout = p;
+    // native_string scout = p;
 
-    while (scout[i] != '\0') {
-      if (scout[i] == '/') {
-        scout = scout + i;
-        i = 0;
-      }
-      i += 1;
-    }
+    // while (scout[i] != '\0') {
+    //   if (scout[i] == '/') {
+    //     scout = scout + i;
+    //     i = 0;
+    //   }
+    //   i += 1;
+    // }
 
-    i = 0;
+    // i = 0;
 
-    if (scout[0] == '\0')
-      break;  // Invalid string
-    else if (scout[0] == '.') {
-      p = scout + 1;
-    } else {
-      p = scout;
-    }
+    // if (scout[0] == '\0')
+    //   break;  // Invalid string
+    // else if (scout[0] == '.') {
+    //   p = scout + 1;
+    // } else {
+    //   p = scout;
+    // }
 
     // The next dot allowed is to identify the start
     // of the extension
@@ -339,7 +347,7 @@ static error_code fat_fetch_entry(file_system* fs, native_string path, file** re
 
     return FNF_ERROR;
 
-  found:;
+  found:
     *result = f;
   }
 
@@ -465,58 +473,65 @@ error_code open_file(native_string path, native_string mode, file** result) {
       return UNIMPL_ERROR;
   }
 
-  // Set the file mode
-  switch(md) {
-    case MODE_READ:
-    case MODE_READ_WRITE: {
-      if (ERROR(err)) return err;
-      // otherwise everything is ok, there is nothing to 
-      // do in this mode beside having the cursor at the start.
-    } break;
-
-    case MODE_TRUNC:
-    case MODE_TRUNC_PLUS: {
-      
-      if(ERROR(err)) {
-        if(FNF_ERROR == err) {
-          // Create the file
-          if(ERROR(err = create_file(name, &f))) {
-            return err;
-          }
-        } else {
-          return err;
-        }
-      } else {
-        if(ERROR(err = truncate_file(f))) {
-          return err;
-        }
-      }
-    } break;
-
-    case MODE_APPEND:
-    case MODE_APPEND_PLUS: {
-      
-      if(ERROR(err)) {
-        if (FNF_ERROR == err) {
-          debug_write("Creating a file:" );
-          debug_write(CAST(native_string, name));
-          if(ERROR(err = create_file(name, &f))) {
-            return err;
-          }
-        } else {
-          return err;
-        }
-      } else {
-        if(ERROR(err = file_set_to_absolute_position(f, f->length - 1))) {
-          return err;
-        }
-      }
-    } break;
-    default:
-      panic(L"Unhandled file mode");
-      break;
+  term_write(cout, "Opening...");
+  term_writeline(cout);
+  for(int i = 0; i < FAT_NAME_LENGTH; ++i) {
+    term_write(cout, CAST(native_char, name[i]));
   }
+  term_writeline(cout);
 
+  // If it is a directory, there is not mode
+  if (!S_ISDIR(f->mode)) {
+  // Set the file mode
+    switch (md) {
+      case MODE_READ:
+      case MODE_READ_WRITE: {
+        if (ERROR(err)) return err;
+        // otherwise everything is ok, there is nothing to
+        // do in this mode beside having the cursor at the start.
+      } break;
+
+      case MODE_TRUNC:
+      case MODE_TRUNC_PLUS: {
+        if (ERROR(err)) {
+          if (FNF_ERROR == err) {
+            // Create the file
+            if (ERROR(err = create_file(name, &f))) {
+              return err;
+            }
+          } else {
+            return err;
+          }
+        } else {
+          if (ERROR(err = truncate_file(f))) {
+            return err;
+          }
+        }
+      } break;
+
+      case MODE_APPEND:
+      case MODE_APPEND_PLUS: {
+        if (ERROR(err)) {
+          if (FNF_ERROR == err) {
+            debug_write("Creating a file:");
+            debug_write(CAST(native_string, name));
+            if (ERROR(err = create_file(name, &f))) {
+              return err;
+            }
+          } else {
+            return err;
+          }
+        } else {
+          if (ERROR(err = file_set_to_absolute_position(f, f->length - 1))) {
+            return err;
+          }
+        }
+      } break;
+      default:
+        panic(L"Unhandled file mode");
+        break;
+    }
+  }
 
   *result = f;
 
@@ -1089,8 +1104,12 @@ DIR* opendir(const char* path) {
   error_code err;
 
   if (ERROR(err = open_file(CAST(native_string, path),"r", &f))) {
+    debug_write("Error while opening the file :/");
     return NULL;
   }
+  
+  term_write(cout, "File mode:");
+  term_write(cout, f->mode);
 
   if (!S_ISDIR(f->mode) || (dir = CAST(DIR*, kmalloc(sizeof(DIR)))) == NULL) {
     close_file(f);  // ignore error

@@ -698,15 +698,20 @@ void term_run(term* term) {
     if (strcmpl(line, LS_CMD, 2)) {
       term_writeline(term);
       DIR* root_dir = opendir("/");
-      dirent* entry;
 
-      while (NULL != (entry = readdir(root_dir))) {
-        term_write(term, "---> ");
-        term_write(term, entry->d_name);
-        term_writeline(term);
+      if (NULL == root_dir) {
+        term_write(term, "Failed to read the root directory");
+      } else {
+        dirent* entry;
+
+        while (NULL != (entry = readdir(root_dir))) {
+          term_write(term, "---> ");
+          term_write(term, entry->d_name);
+          term_writeline(term);
+        }
+
+        closedir(root_dir);
       }
-
-      closedir(root_dir);
     } else if (strcmpl(line, EXEC_CMD, 4)) {
       native_string file_name = &line[5];
 
