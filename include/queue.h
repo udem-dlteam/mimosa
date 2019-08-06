@@ -84,15 +84,13 @@ inline void NAMESPACE_PREFIX(insert) (ELEMTYPE* elem, QUEUETYPE* queue)
 {
   NODETYPE* node2 = CAST(NODETYPE*,queue);
   NODETYPE* node1 = PREV (node2);
-  
-  __surround_with_debug_t("QI", {
-    while (node1 != CAST(NODETYPE*, queue) &&
+
+  while (node1 != CAST(NODETYPE*, queue) &&
          BEFORE(elem, CAST(ELEMTYPE*, node1))) {
     node2 = node1;
     node1 = PREV(node2);
   }
-  });
-  
+
   // insert elem between node1 and node2
 
   NEXT_SET (node1, CAST(NODETYPE*,elem));

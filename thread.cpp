@@ -88,7 +88,6 @@ void rwmutex_readlock(rwmutex* self) {
   mutex* mself = &self->super;
 
   while (mself->_locked || self->_writerq > 0) {
-    debug_write("Read loop");
     save_context(_sched_suspend_on_wait_queue, &mself->super);
   }
 
@@ -105,15 +104,9 @@ void rwmutex_writelock(rwmutex* self) {
 
   if(was_waiting = (mself->_locked || self->_readers > 0)) self->_writerq++;
 
-  debug_write("Was waiting:");
-  debug_write(CAST(uint32, was_waiting));
-
   while (mself->_locked || self->_readers > 0) {
     cccc = TRUE;
-    debug_write("Writer suspend");
-    debug_write(CAST(uint32, cccc));
     save_context(_sched_suspend_on_wait_queue, &mself->super);
-    debug_write("Writer awake");
   }
 
   if(was_waiting) self->_writerq--;
@@ -129,7 +122,6 @@ void rwmutex_readunlock(rwmutex* self) {
 
   self->_readers--;
   while ((t = wait_queue_head(&mself->super)) != NULL) {
-    debug_write("[0] Dispatch!");
     sleep_queue_remove(t);
     sleep_queue_detach(t);
     _sched_reschedule_thread(t);
@@ -146,7 +138,6 @@ void rwmutex_writeunlock(rwmutex* self) {
 
   self->super._locked = FALSE;
   while ((t = wait_queue_head(&mself->super)) != NULL) {
-    debug_write("[1] Dispatch!");
     sleep_queue_remove(t);
     sleep_queue_detach(t);
     _sched_reschedule_thread(t);
