@@ -63,6 +63,12 @@ mutex* new_mutex(mutex* m) {
   return m;
 }
 
+rwmutex* new_rwmutex(rwmutex* rwm) {
+  new_mutex(CAST(mutex*, rwm));
+  rwm->_readers = 0;
+  return rwm;
+}
+
 void mutex_lock(mutex* self) {
   disable_interrupts();
 
@@ -74,6 +80,81 @@ void mutex_lock(mutex* self) {
   enable_interrupts();
 }
 
+void rwmutex_readlock(rwmutex* self) {
+  disable_interrupts();
+
+  mutex* mself = CAST(mutex*, self);
+
+  while (mself->_locked) {
+    save_context(_sched_suspend_on_wait_queue, &self->super);
+  }
+
+  self->_readers++;
+
+  enable_interrupts();
+}
+
+void rwmutex_writelock(rwmutex* self) {
+  disable_interrupts();
+
+  mutex* mself = CAST(mutex*, self);
+  while (mself->_locked || self->_readers > 0) {
+    save_context(_sched_suspend_on_wait_queue, &self->super);
+  }
+
+  mself->_locked = TRUE;
+
+  enable_interrupts();
+}
+
+void rwmutex_readunlock(rwmutex* self) {
+  thread* t;
+  mutex* mself = CAST(mutex*, self);
+  disable_interrupts();
+
+  self->_readers--;
+  while ((t = wait_queue_head(&mself->super)) != NULL) {
+    sleep_queue_remove(t);
+    sleep_queue_detach(t);
+    _sched_reschedule_thread(t);
+  }
+  _sched_yield_if_necessary();
+
+  enable_interrupts();
+}
+
+void rwmutex_writeunlock(rwmutex* self) {
+  thread* t;
+  mutex* mself = CAST(mutex*, self);
+  disable_interrupts();
+
+  self->super._locked = FALSE;
+  while ((t = wait_queue_head(&mself->super)) != NULL) {
+    sleep_queue_remove(t);
+    sleep_queue_detach(t);
+    _sched_reschedule_thread(t);
+  }
+  _sched_yield_if_necessary();
+
+  enable_interrupts();
+}
+
+void mutex_unlock(mutex* self) {
+  disable_interrupts();
+
+  thread* t = wait_queue_head(&self->super);
+
+  if (t == NULL) {
+    self->_locked = FALSE;
+  } else {
+    sleep_queue_remove(t);
+    sleep_queue_detach(t);
+    _sched_reschedule_thread(t);
+    _sched_yield_if_necessary();
+  }
+
+  enable_interrupts();
+}
 
 bool mutex_lock_or_timeout(mutex* self, time timeout) {
     disable_interrupts();
@@ -108,23 +189,6 @@ bool mutex_lock_or_timeout(mutex* self, time timeout) {
   enable_interrupts();
 
   return TRUE;
-}
-
- void mutex_unlock(mutex* self) {
-  disable_interrupts();
-
-  thread* t = wait_queue_head(&self->super);
-
-  if (t == NULL) {
-    self->_locked = FALSE;
-  } else {
-    sleep_queue_remove(t);
-    sleep_queue_detach(t);
-    _sched_reschedule_thread(t);
-    _sched_yield_if_necessary();
-  }
-
-  enable_interrupts();
 }
 
 mutex* seq;////////////////////

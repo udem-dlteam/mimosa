@@ -104,14 +104,14 @@ error_code fat_32_open_root_dir(file_system* fs, file* f) {
 
   {
     if (ERROR(err = disk_cache_block_acquire(d, 0, &cb))) return err;
-    mutex_lock(cb->mut);
+    rwmutex_readlock(cb->mut);
 
     BIOS_Parameter_Block* p = CAST(BIOS_Parameter_Block*, cb->buf);
     root_cluster = as_uint32(p->_.FAT32.BPB_RootClus);
     bytes_per_sector = as_uint16(p->BPB_BytsPerSec);
     sectors_per_clusters = p->BPB_SecPerClus;
 
-    mutex_unlock(cb->mut);
+    rwmutex_readunlock(cb->mut);
     if (ERROR(err = disk_cache_block_release(cb))) return err;
   }
 
@@ -171,7 +171,7 @@ error_code fat_32_find_first_empty_cluster(file_system* fs, uint32* result) {
     if (ERROR(err = disk_cache_block_acquire(fs->_.FAT121632.d, lba, &cb))) {
       return err;
     }
-    mutex_lock(cb->mut);
+    rwmutex_readlock(cb->mut);
 
     for (; i < entries_per_sector; ++i, ++clus) {
       uint32 entry = CAST(uint32*, cb->buf)[i];
@@ -180,7 +180,7 @@ error_code fat_32_find_first_empty_cluster(file_system* fs, uint32* result) {
       }
     }
 
-    mutex_unlock(cb->mut);
+    rwmutex_readunlock(cb->mut);
     if (ERROR(err = disk_cache_block_release(cb))) return err;
     ++lba;
     i = 0;
@@ -208,13 +208,13 @@ error_code fat_32_get_fat_link_value(file_system* fs, uint32 cluster,
 
   { // Cache block section
     if (ERROR(err = disk_cache_block_acquire(d, 0, &cb))) return err;
-    mutex_lock(cb->mut);
+    rwmutex_readlock(cb->mut);
 
     BIOS_Parameter_Block* p = CAST(BIOS_Parameter_Block*, cb->buf);
 
     lba = (cluster / entries_per_sector) + as_uint16(p->BPB_RsvdSecCnt);
 
-    mutex_unlock(cb->mut);
+    rwmutex_readunlock(cb->mut);
     if (ERROR(err = disk_cache_block_release(cb))) return err;
   }
 
@@ -222,11 +222,11 @@ error_code fat_32_get_fat_link_value(file_system* fs, uint32 cluster,
 
   {
     if (ERROR(err = disk_cache_block_acquire(d, lba, &cb))) return err;
-    mutex_lock(cb->mut);
+    rwmutex_readlock(cb->mut);
 
     *value = *(CAST(uint32*, cb->buf) + offset);
 
-    mutex_unlock(cb->mut);
+    rwmutex_readunlock(cb->mut);
     if (ERROR(err = disk_cache_block_release(cb))) return err;
   }
 
@@ -249,12 +249,12 @@ error_code fat_32_set_fat_link_value(file_system* fs, uint32 cluster,
 
   { // Cache block section
     if (ERROR(err = disk_cache_block_acquire(d, 0, &cb))) return err;
-    mutex_lock(cb->mut);
+    rwmutex_readlock(cb->mut);
 
     BIOS_Parameter_Block* p = CAST(BIOS_Parameter_Block*, cb->buf);
     lba = (cluster / entries_per_sector) + as_uint16(p->BPB_RsvdSecCnt);
 
-    mutex_unlock(cb->mut);
+    rwmutex_readunlock(cb->mut);
     if (ERROR(err = disk_cache_block_release(cb))) return err;
   }
 
@@ -264,14 +264,14 @@ error_code fat_32_set_fat_link_value(file_system* fs, uint32 cluster,
   // Read the cache in order to update it
   {  // Very important to lock this write.
     if (ERROR(err = disk_cache_block_acquire(d, lba, &cb))) return err;
-    mutex_lock(cb->mut);
+    rwmutex_writelock(cb->mut);
 
     for (int i = 0; i < 4; ++i) {
       cb->buf[i + offset_in_bytes] = as_uint8(value, i);
     }
 
     cb->dirty = TRUE;
-    mutex_unlock(cb->mut);
+    rwmutex_writeunlock(cb->mut);
     if (ERROR(err = disk_cache_block_release(cb))) return err;
   }
 

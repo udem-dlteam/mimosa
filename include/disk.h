@@ -135,7 +135,7 @@ typedef struct cache_block_struct
     disk* d;
     uint32 sector_pos;
     uint32 refcount;
-    mutex* mut;
+    rwmutex* mut;
     condvar* cv;
     error_code err;
     uint8 buf[1 << DISK_LOG2_BLOCK_SIZE];
