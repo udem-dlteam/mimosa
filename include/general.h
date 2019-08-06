@@ -119,8 +119,14 @@ typedef int32 error_code;
 // #define USE_IRET_FOR_RESTORE_CONTEXT
 #define USE_RET_FOR_RESTORE_CONTEXT
 
-// #define GAMBIT_REPL
+#define GAMBIT_REPL
 // #define MIMOSA_REPL
+
+#ifdef GAMBIT_REPL
+#ifdef MIMOSA_REPL
+#error "Only one REPL should be used"
+#endif
+#endif
 
 // #define SHOW_INTERRUPTS
 // #define SHOW_TIMER_INTERRUPTS

@@ -22,60 +22,50 @@ int main() {
   term tty;
 
   term_init(&tty, 0, 366, 80, 13, &font_mono_5x7, &font_mono_5x7, L"tty", TRUE);
-  
-  file* f;
-  error_code err;
-  __surround_with_debug_t("Create deep file", {
-    if(ERROR(err = open_file("folder/dfolder/dfiff.tst", "a+", &f))) {
-      panic(L"Failed to create the file!");
-    }
 
-    native_string to_write = "This is the hidden message!";
-    uint32 len = 28;
-    if(ERROR(err = write_file(f, CAST(void*, to_write), len))) {
-      panic(L"Failed to write to the file!");
-    }
-
-    close_file(f);
-  });
-   
+#ifdef MIMOSA_REPL
   term_run(&tty);
-  // {
-  //   native_string file_name = "GSC.EXE";
+#endif
 
-  //   file* prog;
-  //   if (NO_ERROR == open_file(file_name, "r", &prog)) {
-  //     term_write(&tty, "\r\n Starting program ");
-  //     term_write(&tty, file_name);
-  //     term_writeline(&tty);
+#ifdef GAMBIT_REPL
+  {
+    native_string file_name = "GSC.EXE";
 
-  //     // TODO:
-  //     // The program thread needs to be aware of what its doing
-  //     uint32 len = prog->length;
-  //     uint8* code = (uint8*)GAMBIT_START;
+    file* prog;
+    if (NO_ERROR == open_file(file_name, "r", &prog)) {
+      term_write(&tty, "\r\n Starting program ");
+      term_write(&tty, file_name);
+      term_writeline(&tty);
 
-  //     error_code err;
-  //     if (ERROR(err = read_file(prog, code, len))) {
-  //       panic(L"ERR");
-  //     }
+      // TODO:
+      // The program thread needs to be aware of what its doing
+      uint32 len = prog->length;
+      uint8* code = (uint8*)GAMBIT_START;
 
-  //     term_write(cout, "File loaded. Starting program at: ");
-  //     term_write(cout, code);
+      error_code err;
+      if (ERROR(err = read_file(prog, code, len))) {
+        panic(L"ERR");
+      }
 
-  //     thread_sleep(1000);
+      term_write(cout, "File loaded. Starting program at: ");
+      term_write(cout, code);
 
-  //     for (int i = 0; i < 5; ++i) {
-  //       term_writeline(cout);
-  //     }
+      thread_sleep(1000);
 
-  //     program_thread* task = CAST(program_thread*, kmalloc(sizeof(program_thread)));
-  //     new_program_thread(task, CAST(libc_startup_fn, code), "Gambit");
-  //     thread_start(CAST(thread*, task));
+      for (int i = 0; i < 5; ++i) {
+        term_writeline(cout);
+      }
 
-  //   } else {
-  //     term_write(&tty, "\r\n Failed to open the program.\r\n");
-  //   }
-  // }
+      program_thread* task =
+          CAST(program_thread*, kmalloc(sizeof(program_thread)));
+      new_program_thread(task, CAST(libc_startup_fn, code), "Gambit");
+      thread_start(CAST(thread*, task));
+
+    } else {
+      term_write(&tty, "\r\n Failed to open the program.\r\n");
+    }
+  }
+#endif
 
   // Never exit, but never do anything either
   for (;;) thread_yield();
