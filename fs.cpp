@@ -33,8 +33,7 @@ static fs_module fs_mod;
 
 // FAT file system implementation.
 
-error_code 
-open_root_dir(file_system* fs, file** result) {
+error_code open_root_dir(file_system* fs, file** result) {
   file* f = CAST(file*, kmalloc(sizeof(file)));
 
   if (f == NULL) return MEM_ERROR;
@@ -78,23 +77,6 @@ open_root_dir(file_system* fs, file** result) {
 }
 
 error_code _file_set_pos_from_start(file* f, uint32 position);
-
-error_code open_root_dir_at_file_entry(file* f, file** result) {
-  error_code err = NO_ERROR;
-
-  file* root_dir;
-
-  if(ERROR(err = open_root_dir(f->fs, &root_dir))) {
-    debug_write("ERROR WHILE OPENING THE ROOT DIRECTORY :/");
-    return err;
-  } else {
-    _file_set_pos_from_start(root_dir, f->entry.position);
-  }
-
-  *result = root_dir;
-
-  return err;
-}
 
 static error_code normalize_path(native_string path, native_string new_path) {
   uint32 i = 0;
@@ -401,32 +383,45 @@ static error_code update_file_length(file* f) {
   // to set the correct length of the file
   error_code err = NO_ERROR;
   FAT_directory_entry de;
-  file* entry_file;
   uint32 filesize;
 
-  if (ERROR(err = open_root_dir_at_file_entry(f, &entry_file))) {
+  file* parent_dir = CAST(file*, kmalloc(sizeof(file)));
+
+  if (NULL == parent_dir) return MEM_ERROR;
+
+  parent_dir->fs = f->fs;
+  parent_dir->first_cluster = f->parent.first_cluster;
+  parent_dir->mode = S_IFDIR;
+
+  file_reset_cursor(parent_dir);
+  file_set_to_absolute_position(parent_dir, f->entry.position);
+
+  if (ERROR(err = read_file(parent_dir, &de, sizeof(de)))) {
     goto flush_file_update_dir_err_occured;
   }
 
-  if (ERROR(err = read_file(entry_file, &de, sizeof(de)))) {
-    goto flush_file_update_dir_err_occured;
+  term_writeline(cout);
+  for(int i =0; i< 11; ++i) {
+    term_write(cout, CAST(native_char, de.DIR_Name[i]));
   }
+  term_writeline(cout);
 
   // Go backwards to overwrite the directory entry
-  file_move_cursor(entry_file, -sizeof(de));
+  file_move_cursor(parent_dir, -sizeof(de));
 
   filesize = f->length;
+  
   for (int i = 0; i < 4; ++i) {
     de.DIR_FileSize[i] = as_uint8(filesize, i);
   }
 
-  if (ERROR(err = write_file(entry_file, &de, sizeof(de)))) {
+  if (ERROR(err = write_file(parent_dir, &de, sizeof(de)))) {
     goto flush_file_update_dir_err_occured;
   }
 
 flush_file_update_dir_err_occured:
   // Always close the file, even if there is an error
-  error_code closing_err = close_file(entry_file);
+  error_code closing_err = close_file(parent_dir);
   return ERROR(err) ? err : closing_err;
 }
 
@@ -464,7 +459,7 @@ error_code open_file(native_string path, native_string mode, file** result) {
   file_mode md;
   native_char normalized_path[NAME_MAX + 1];
   native_string child_name;
-  file *parent, *child;
+  file *parent,*child;
 
   if(!parse_mode(mode, &md)) {
     return ARG_ERROR;
@@ -516,6 +511,8 @@ error_code open_file(native_string path, native_string mode, file** result) {
 
   for(uint8 i = 0; i < depth - 1; ++i) {
     // Go get the actual parent folder
+    debug_write("Opening");
+    debug_write(parts[i].name);
     if(ERROR(err = fat_fetch_entry(fs, parent, parts[i].name, &child))) {
       break;
     } else {
@@ -531,9 +528,13 @@ error_code open_file(native_string path, native_string mode, file** result) {
   }
   
   child_name = parts[depth - 1].name;
+  debug_write("Opening");
+  debug_write(child_name);
   if (HAS_NO_ERROR(err = fat_fetch_entry(fs, parent, child_name, &child))) {
     file_set_to_absolute_position(parent, 0);
     file_set_to_absolute_position(child, 0);
+  } else {
+    debug_write("ERRO!");
   }
 
   if (ERROR(err) && FNF_ERROR != err) {
@@ -815,13 +816,9 @@ error_code write_file(file* f, void* buff, uint32 count) {
     break;
   }
 
-  if (!ERROR(err)) {
-
+  if (!ERROR(err) && !S_ISDIR(f->mode)) {
     f->length += count;
-
-    if (!S_ISDIR(f->mode)) {
-      update_file_length(f);
-    }
+    err = update_file_length(f);
   }
 
   return err;

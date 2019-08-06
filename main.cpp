@@ -23,23 +23,21 @@ int main() {
 
   term_init(&tty, 0, 366, 80, 13, &font_mono_5x7, &font_mono_5x7, L"tty", TRUE);
   
-  file* f;
-  error_code err;
-  __surround_with_debug_t("Create deep file", {
-    if(ERROR(err = open_file("folder/dfolder/dfiff.tst", "a+", &f))) {
-      panic(L"Failed to create the file!");
-    }
+  // file* f;
+  // error_code err;
+  // __surround_with_debug_t("Create deep file", {
+  //   if(ERROR(err = open_file("folder/dfolder/dfiff.tst", "a+", &f))) {
+  //     panic(L"Failed to create the file!");
+  //   }
 
-    native_string to_write = "This is the hidden message!";
-    uint32 len = 28;
+  //   native_string to_write = "This is the hidden message!";
+  //   uint32 len = 28;
+  //   if(ERROR(err = write_file(f, CAST(void*, to_write), len))) {
+  //     panic(L"Failed to write to the file!");
+  //   }
 
-    if(ERROR(err = write_file(f, to_write, len))) {
-      panic(L"Failed to write to the file!");
-    }
-
-    close_file(f);
-
-  });
+  //   close_file(f);
+  // });
    
   term_run(&tty);
   // {

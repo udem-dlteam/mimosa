@@ -139,7 +139,6 @@ void file_reset_cursor(file* f);
 error_code file_move_cursor(file* f, int32 n);
 error_code file_set_to_absolute_position(file *f, uint32 position);
 error_code open_file(native_string path, native_string mode, file** f);
-error_code open_root_dir_at_file_entry(file* f, file** root_dir);
 error_code close_file(file* f);
 error_code write_file(file* f, void* buff, uint32 count);
 error_code read_file(file* f, void* buf, uint32 count);

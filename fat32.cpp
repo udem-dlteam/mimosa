@@ -28,13 +28,15 @@ error_code fat_32_create_empty_file(file_system* fs, file* parent_folder,
     panic(L"Not been taken care of yet");
   }
 
-  f = CAST(file*, kmalloc(sizeof(f)));
+  f = CAST(file*, kmalloc(sizeof(file)));
 
   if(NULL == f) {
     return MEM_ERROR;
   }
 
   // We recalculate the position to write the entry
+  debug_write("Creating a file at position");
+  debug_write(position);
   file_set_to_absolute_position(parent_folder, position);
 
   // We got a position for the root entry, we need to find an available FAT
@@ -88,8 +90,7 @@ error_code fat_32_create_empty_file(file_system* fs, file* parent_folder,
   return err;
 }
 
-error_code 
-fat_32_open_root_dir(file_system* fs, file* f) {
+error_code fat_32_open_root_dir(file_system* fs, file* f) {
 #ifdef SHOW_DISK_INFO
   term_write(cout, "Loading FAT32 root dir\n\r");
 #endif
