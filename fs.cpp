@@ -511,8 +511,6 @@ error_code open_file(native_string path, native_string mode, file** result) {
 
   for(uint8 i = 0; i < depth - 1; ++i) {
     // Go get the actual parent folder
-    debug_write("Opening");
-    debug_write(parts[i].name);
     if(ERROR(err = fat_fetch_entry(fs, parent, parts[i].name, &child))) {
       break;
     } else {
@@ -528,15 +526,11 @@ error_code open_file(native_string path, native_string mode, file** result) {
   }
   
   child_name = parts[depth - 1].name;
-  debug_write("Opening");
-  debug_write(child_name);
   if (HAS_NO_ERROR(err = fat_fetch_entry(fs, parent, child_name, &child))) {
     file_set_to_absolute_position(parent, 0);
     file_set_to_absolute_position(child, 0);
-  } else {
-    debug_write("ERRO!");
   }
-
+  
   if (ERROR(err) && FNF_ERROR != err) {
     if (NULL != parent) close_file(parent);
     return err;

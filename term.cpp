@@ -718,12 +718,12 @@ void term_run(term* term) {
 
       file* prog;
       if (NO_ERROR == open_file(file_name, "r+", &prog)) {
-        term_write(term, "\r\n Starting program ");
+        term_write(term, "Starting program ");
         term_write(term, file_name);
         term_writeline(term);
         // sched_start_task(prog);
       } else {
-        term_write(term, "\r\n Failed to open the program.\r\n");
+        term_write(term, "Failed to open the program.\r\n");
       }
     } else if (strcmpl(line, CAT_CMD, 3)) {
       error_code err = NO_ERROR;
@@ -739,11 +739,13 @@ void term_run(term* term) {
           term_writeline(term);
         }
         kfree(buff);
-      } else if(FNF_ERROR == err) {} else {
-        term_write(term, "\r\n Failed to read the file.\r\n");
+      } else if(FNF_ERROR == err) {
+        term_write(term, "File not found\r\n");
+      } else {
+        term_write(term, "Failed to read the file.\r\n");
       }
     } else {
-      term_write(term, "\r\nUnknown command\r\n");
+      term_write(term, "Unknown command\r\n");
     }
   }
 }
