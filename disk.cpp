@@ -160,13 +160,14 @@ again:
       cb->LRU_deq.prev = LRU_deq;
 
       cb->refcount++;
-      mutex_lock(cb->mut);
+
+      rwmutex_writelock(cb->mut);
       mutex_unlock(disk_mod.cache_mut);
       while ((err = cb->err) == IN_PROGRESS) {
-        condvar_wait(cb->cv, cb->mut);
+        condvar_wait(cb->cv, &cb->mut->super);
       }
 
-      mutex_unlock(cb->mut);
+      rwmutex_writeunlock(cb->mut);
       condvar_signal(cb->cv);
 
       if (ERROR(err)) {
@@ -220,14 +221,14 @@ again:
       cb->refcount = 1;
       cb->d = d;
       cb->sector_pos = sector_pos;
-      mutex_lock(cb->mut);
+      rwmutex_writelock(cb->mut);
       mutex_unlock(disk_mod.cache_mut);
       cb->err = IN_PROGRESS;
       err =
           disk_read_sectors(d, sector_pos, cb->buf,
                             1 << (DISK_LOG2_BLOCK_SIZE - d->log2_sector_size));
       cb->err = err;
-      mutex_unlock(cb->mut);
+      rwmutex_writeunlock(cb->mut);
       condvar_signal(cb->cv);
 
       if (ERROR(err)) {
@@ -256,7 +257,7 @@ static error_code flush_block(cache_block* block, time timeout) {
     return err;
   }
 
-  if (mutex_lock_or_timeout(block->mut, timeout)) {
+  if (mutex_lock_or_timeout(CAST(mutex*, block->mut), timeout)) {
     // Make sure it hasn't been cleaned in the wait
     if (block->dirty) {
       if (HAS_NO_ERROR(err = disk_write_sectors(block->d, block->sector_pos,
@@ -266,7 +267,7 @@ static error_code flush_block(cache_block* block, time timeout) {
       }
     }
 
-    mutex_unlock(block->mut);
+    mutex_unlock(CAST(mutex*, block->mut));
   }
 
   return err;
@@ -512,7 +513,7 @@ void setup_disk() {
     // cb->d and cb->sector_pos and cb->err can stay undefined
 
     cb->refcount = 0;
-    cb->mut = new_mutex(CAST(mutex*, kmalloc(sizeof(mutex))));
+    cb->mut = new_rwmutex(CAST(rwmutex*, kmalloc(sizeof(rwmutex))));
     cb->cv = new_condvar(CAST(condvar*, kmalloc(sizeof(condvar))));
   }
 }

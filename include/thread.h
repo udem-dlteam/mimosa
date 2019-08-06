@@ -383,13 +383,29 @@ typedef struct mutex {
   volatile bool _locked;  // boolean indicating if mutex is locked or unlocked
 } mutex;
 
+typedef struct rwmutex {
+  mutex super;
+  volatile uint16 _readers;
+  volatile uint16 _writerq;
+} rwmutex;
+
 mutex* new_mutex(mutex* m);
+
+rwmutex* new_rwmutex(rwmutex* rwm);
 
 void mutex_lock(mutex* self);
 
 bool mutex_lock_or_timeout(mutex* self, time timeout);
 
 void mutex_unlock(mutex* self);
+
+void rwmutex_readlock(rwmutex* self);
+
+void rwmutex_writelock(rwmutex* self);
+
+void rwmutex_readunlock(rwmutex* self);
+
+void rwmutex_writeunlock(rwmutex* self);
 
 extern mutex* seq;
 

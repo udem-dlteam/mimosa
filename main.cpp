@@ -67,8 +67,9 @@ int main() {
   }
 #endif
 
-  // Never exit, but never do anything either
-  for (;;) thread_yield();
+  do {
+    thread_yield();
+  } while(1);
 
   return 0;
 }

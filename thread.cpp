@@ -63,6 +63,12 @@ mutex* new_mutex(mutex* m) {
   return m;
 }
 
+rwmutex* new_rwmutex(rwmutex* rwm) {
+  new_mutex(CAST(mutex*, rwm));
+  rwm->_readers = 0;
+  return rwm;
+}
+
 void mutex_lock(mutex* self) {
   disable_interrupts();
 
@@ -74,6 +80,89 @@ void mutex_lock(mutex* self) {
   enable_interrupts();
 }
 
+volatile bool cccc = FALSE;
+
+void rwmutex_readlock(rwmutex* self) {
+  disable_interrupts();
+
+  mutex* mself = &self->super;
+
+  while (mself->_locked || self->_writerq > 0) {
+    save_context(_sched_suspend_on_wait_queue, &mself->super);
+  }
+
+  self->_readers++;
+
+  enable_interrupts();
+}
+
+void rwmutex_writelock(rwmutex* self) {
+  bool was_waiting;
+  disable_interrupts();
+
+  mutex* mself = &self->super;
+
+  if(was_waiting = (mself->_locked || self->_readers > 0)) self->_writerq++;
+
+  while (mself->_locked || self->_readers > 0) {
+    cccc = TRUE;
+    save_context(_sched_suspend_on_wait_queue, &mself->super);
+  }
+
+  if(was_waiting) self->_writerq--;
+  mself->_locked = TRUE;
+
+  enable_interrupts();
+}
+
+void rwmutex_readunlock(rwmutex* self) {
+  thread* t;
+  mutex* mself = &self->super;
+  disable_interrupts();
+
+  self->_readers--;
+  while ((t = wait_queue_head(&mself->super)) != NULL) {
+    sleep_queue_remove(t);
+    sleep_queue_detach(t);
+    _sched_reschedule_thread(t);
+  }
+  _sched_yield_if_necessary();
+
+  enable_interrupts();
+}
+
+void rwmutex_writeunlock(rwmutex* self) {
+  thread* t;
+  mutex* mself = &self->super;
+  disable_interrupts();
+
+  self->super._locked = FALSE;
+  while ((t = wait_queue_head(&mself->super)) != NULL) {
+    sleep_queue_remove(t);
+    sleep_queue_detach(t);
+    _sched_reschedule_thread(t);
+  }
+  _sched_yield_if_necessary();
+
+  enable_interrupts();
+}
+
+void mutex_unlock(mutex* self) {
+  disable_interrupts();
+
+  thread* t = wait_queue_head(&self->super);
+
+  if (t == NULL) {
+    self->_locked = FALSE;
+  } else {
+    sleep_queue_remove(t);
+    sleep_queue_detach(t);
+    _sched_reschedule_thread(t);
+    _sched_yield_if_necessary();
+  }
+
+  enable_interrupts();
+}
 
 bool mutex_lock_or_timeout(mutex* self, time timeout) {
     disable_interrupts();
@@ -108,23 +197,6 @@ bool mutex_lock_or_timeout(mutex* self, time timeout) {
   enable_interrupts();
 
   return TRUE;
-}
-
- void mutex_unlock(mutex* self) {
-  disable_interrupts();
-
-  thread* t = wait_queue_head(&self->super);
-
-  if (t == NULL) {
-    self->_locked = FALSE;
-  } else {
-    sleep_queue_remove(t);
-    sleep_queue_detach(t);
-    _sched_reschedule_thread(t);
-    _sched_yield_if_necessary();
-  }
-
-  enable_interrupts();
 }
 
 mutex* seq;////////////////////
@@ -493,13 +565,14 @@ void sched_setup(void_fn continuation) {
 }
 
 extern condvar* circular_buffer_cv;
+extern rwmutex* m;
 
 void sched_stats() {
-  // disable_interrupts();
+  disable_interrupts();
 // 
-  int n = 0;
-  int m = 0;
-  int p = 0;
+  // int n = 0;
+  // int m = 0;
+  // int p = 0;
 
   term_writeline(cout);
   term_write(cout, "Threads in wait queue:");
@@ -508,7 +581,7 @@ void sched_stats() {
     while (t != &readyq->super) {
       term_write(cout, thread_name(CAST(thread*, t)));
       term_write(cout, " ");
-      n++;
+      // n++;
       t = t->_next_in_wait_queue;
     }
   }
@@ -520,7 +593,7 @@ void sched_stats() {
     while (t != &sleepq->super) {
       term_write(cout, thread_name(CAST(thread*, t)));
       term_write(cout, " ");
-      m++;
+      // m++;
       t = t->_next_in_sleep_queue;
     }
   }
@@ -532,26 +605,24 @@ void sched_stats() {
     while (t != &sleepq->super) {
       term_write(cout, thread_name(CAST(thread*, t)));
       term_write(cout, " ");
-      m++;
+      // m++;
       t = t->_next_in_sleep_queue;
     }
   }
 
-  term_writeline(cout);
-  term_write(cout, "Circular BUFFER condvar (->):");
+  // term_writeline(cout);
+  // term_write(cout, "RW mutex (->):");
 
-  {
-    wait_mutex_node* t = circular_buffer_cv->super.super._next_in_wait_queue;
-    while (t != &circular_buffer_cv->super.super) {
-      term_write(cout, "(");
-      term_write(cout, CAST(uint32, t));
-      term_write(cout, "):");
-      term_write(cout, thread_name(CAST(thread*, t)));
-      term_write(cout, " ");
-      n++;
-      t = t->_next_in_wait_queue;
-    }
-  }
+  // {
+  //   wait_mutex_node* t = m->super.super.super._next_in_wait_queue;
+  //   while (t != &circular_buffer_cv->super.super) {
+  //     term_write(cout, thread_name(CAST(thread*, t)));
+  //     term_write(cout, " ");
+  //     // n++;
+  //     t = t->_next_in_wait_queue;
+  //   }
+  // }
+  term_writeline(cout);
 
   term_write(cout, " ");
 
@@ -587,7 +658,7 @@ void sched_stats() {
 
   term_write(cout, ")\n");
 
-  // enable_interrupts();
+  enable_interrupts();
 }
 
 void sched_reg_mutex(mutex* m) {
@@ -648,15 +719,41 @@ void _sched_switch_to_next_thread(uint32 cs, uint32 eflags, uint32* sp,
 
 void _sched_suspend_on_wait_queue(uint32 cs, uint32 eflags, uint32* sp,
                                   void* q) {
- ASSERT_INTERRUPTS_DISABLED();  // Interrupts should be disabled at this point
+  ASSERT_INTERRUPTS_DISABLED();  // Interrupts should be disabled at this point
+
+  if (cccc) {
+    debug_write("A");
+  }
 
   thread* current = sched_current_thread;
+
+  if (cccc) {
+    debug_write(thread_name(current));
+  }
 
   current->_sp = sp;
 
   wait_queue_remove(current);
+
+  if(cccc) {
+    debug_write("B");
+  }
+
   wait_queue_detach(current);
-  wait_queue_insert(current, CAST(wait_queue*, q));
+
+  if(cccc) {
+    debug_write("C");
+  }
+
+  wait_queue* wq = CAST(wait_queue*, q);
+
+  wait_queue_insert(current, wq);
+
+  if (cccc) {
+    debug_write("Putting to sleep:");
+    debug_write(thread_name(current));
+  }
+
   _sched_resume_next_thread();
 
   // ** NEVER REACHED ** (this function never returns)
