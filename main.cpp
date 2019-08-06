@@ -8,10 +8,9 @@
 
 //-----------------------------------------------------------------------------
 
+#include "drivers/filesystem/include/vfs.h"
 #include "chrono.h"
 #include "disk.h"
-#include "fat32.h"
-#include "fs.h"
 #include "general.h"
 #include "ps2.h"
 #include "rtlib.h"
@@ -22,6 +21,8 @@ int main() {
   term tty;
 
   term_init(&tty, 0, 366, 80, 13, &font_mono_5x7, &font_mono_5x7, L"tty", TRUE);
+  file_open(NULL, NULL, NULL);
+
 
 #ifdef MIMOSA_REPL
   term_run(&tty);
