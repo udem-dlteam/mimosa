@@ -138,15 +138,10 @@ static error_code normalize_path(native_string path, native_string new_path) {
   return NO_ERROR;
 }
 
-static error_code create_file(uint8* name, file* parent_folder, file** result) {
+static error_code create_file(native_char* name, file* parent_folder, file** result) {
   error_code err;
-  file_system* fs;
+  file_system* fs = parent_folder->fs;
 
-  if (fs_mod.nb_mounted_fs == 0) {
-    return FNF_ERROR;
-  }
-
-  fs = fs_mod.mounted_fs[0];
   switch (fs->kind) {
     case FAT12_FS:
     case FAT16_FS:
@@ -200,10 +195,10 @@ typedef struct short_file_name_struct {
   native_char name[FAT_NAME_LENGTH];
 } short_file_name;
 
-static short_file_name* decompose_path(native_string normalize_path, int* __count) {
+static short_file_name* decompose_path(native_string normalize_path, uint8* __count) {
   *__count = 0;
-  int count = 0;
-  int entry = 0;
+  uint8 count = 0;
+  uint8 entry = 0;
   short_file_name* result = NULL;
   native_char* scout = normalize_path;
 
@@ -279,7 +274,7 @@ static short_file_name* decompose_path(native_string normalize_path, int* __coun
   return result;
 }
 
-static error_code fat_fetch_entry(file_system* fs, file* parent, uint8* name, file** result) {
+static error_code fat_fetch_entry(file_system* fs, file* parent, native_char* name, file** result) {
   int count = 0;
   int found_count = 0;
   error_code err = NO_ERROR;
@@ -467,7 +462,13 @@ error_code open_file(native_string path, native_string mode, file** result) {
   error_code err = NO_ERROR;
   file_system* fs;
   file_mode md;
-  file* f;
+  native_char normalized_path[NAME_MAX + 1];
+  native_string child_name;
+  file *parent, *child;
+
+  if(!parse_mode(mode, &md)) {
+    return ARG_ERROR;
+  }
 
   if (fs_mod.nb_mounted_fs == 0) {
     // No file system mounted
@@ -476,33 +477,73 @@ error_code open_file(native_string path, native_string mode, file** result) {
     fs = fs_mod.mounted_fs[0];
   }
 
-  // Find the parent folder
-
+  switch (fs->kind)
+  {
+  case FAT12_FS:
+  case FAT16_FS:
+  case FAT32_FS:
+    break;
   
-
-
-  if(!parse_mode(mode, &md)) {
-    return UNKNOWN_ERROR;  // TODO!
+  default:
+    return UNIMPL_ERROR;
+    break;
   }
 
-  uint8 name[FAT_NAME_LENGTH];
-  switch (fs->kind) {
-    case FAT12_FS:
-    case FAT16_FS:
-    case FAT32_FS: {
-      if(ERROR(err = fat_fetch_entry(fs, path, &f, name)) && err != FNF_ERROR) {
-          return err;
-      } else if (HAS_NO_ERROR(err)) {
-        file_reset_cursor(f);
-      }
+  if (ERROR(err = normalize_path(path, normalized_path))) {
+#ifdef SHOW_DISK_INFO
+    term_write(cout, "Failed to normalize the path\n\r");
+#endif
+    return err;
+  }
+
+  if (ERROR(err = open_root_dir(fs, &parent))) {
+#ifdef SHOW_DISK_INFO
+    term_write(cout, "Error loading the root dir: ");
+    term_write(cout, err);
+    term_writeline(cout);
+#endif
+    return err;
+  }
+
+  // Find the parent folder
+  uint8 depth;
+  short_file_name_struct* parts = decompose_path(normalized_path, &depth);
+
+  if(0 == depth) {
+    return FNF_ERROR;
+  }
+
+
+  for(uint8 i = 0; i < depth - 1; ++i) {
+    // Go get the actual parent folder
+    if(ERROR(err = fat_fetch_entry(fs, parent, parts[i].name, &child))) {
       break;
+    } else {
+      close_file(parent);
+      parent = child;
+      child = NULL;
     }
-    default:
-      return UNIMPL_ERROR;
   }
+
+  if(ERROR(err)) {
+    if(NULL != parent) close_file(parent);
+    return err;
+  }
+  
+  child_name = parts[depth - 1].name;
+  if (HAS_NO_ERROR(err = fat_fetch_entry(fs, parent, child_name, &child))) {
+    file_set_to_absolute_position(parent, 0);
+    file_set_to_absolute_position(child, 0);
+  }
+
+  if (ERROR(err) && FNF_ERROR != err) {
+    if (NULL != parent) close_file(parent);
+    return err;
+  }
+
 
   // If it is a directory, there is not mode
-  if (!S_ISDIR(f->mode)) {
+  if (!S_ISDIR(child->mode)) {
   // Set the file mode
     switch (md) {
       case MODE_READ:
@@ -517,14 +558,14 @@ error_code open_file(native_string path, native_string mode, file** result) {
         if (ERROR(err)) {
           if (FNF_ERROR == err) {
             // Create the file
-            if (ERROR(err = create_file(name, &f))) {
+            if (ERROR(err = create_file(child_name, parent, &child))) {
               return err;
             }
           } else {
             return err;
           }
         } else {
-          if (ERROR(err = truncate_file(f))) {
+          if (ERROR(err = truncate_file(child))) {
             return err;
           }
         }
@@ -534,16 +575,15 @@ error_code open_file(native_string path, native_string mode, file** result) {
       case MODE_APPEND_PLUS: {
         if (ERROR(err)) {
           if (FNF_ERROR == err) {
-            debug_write("Creating a file:");
-            debug_write(CAST(native_string, name));
-            if (ERROR(err = create_file(name, &f))) {
+            if (ERROR(err = create_file(child_name, parent, &child))) {
               return err;
             }
           } else {
             return err;
           }
         } else {
-          if (ERROR(err = file_set_to_absolute_position(f, f->length - 1))) {
+          if (ERROR(err = file_set_to_absolute_position(child,
+                                                        child->length - 1))) {
             return err;
           }
         }
@@ -553,8 +593,9 @@ error_code open_file(native_string path, native_string mode, file** result) {
         break;
     }
   }
-
-  *result = f;
+  
+  if(NULL != parent) close_file(parent);
+  *result = child;
 
   return NO_ERROR;
 }
@@ -667,7 +708,7 @@ static error_code next_FAT_section(file* f) {
   return NO_ERROR;
 }
 
-error_code  write_file(file* f, void* buff, uint32 count) {
+error_code write_file(file* f, void* buff, uint32 count) {
   error_code err = NO_ERROR;
   file_system* fs = f->fs;
 
@@ -1344,6 +1385,10 @@ error_code file_move_cursor(file* f, int32 n) {
 error_code file_set_to_absolute_position(file* f, uint32 position) {
   // To goal of this method is to set the file cursor to an absolute position,
   // but maybe by using relative movements. It decides what is more appropriate.
+
+  if(f->current_pos == position) {
+    return NO_ERROR;
+  }
 
   if (0 == position) {
     file_reset_cursor(f);

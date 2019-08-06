@@ -60,7 +60,8 @@ typedef int32 error_code;
 #define FNF_ERROR     (-3)
 #define EOF_ERROR     (-4)
 #define DISK_OUT_OF_SPACE (-5)
-#define UNKNOWN_ERROR (-6)
+#define ARG_ERROR     (-6)
+#define UNKNOWN_ERROR (-7)
 
 #define NOP() do { __asm__ __volatile__ ("NOP" : : : "memory");} while(0)
 

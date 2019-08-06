@@ -5,7 +5,7 @@
 #include "rtlib.h"
 
 error_code fat_32_create_empty_file(file_system* fs, file* parent_folder,
-                                    uint8* name, file** result) {
+                                    native_char* name, file** result) {
   FAT_directory_entry de;
   error_code err;
   native_char normalized_path[NAME_MAX + 1];
@@ -13,8 +13,10 @@ error_code fat_32_create_empty_file(file_system* fs, file* parent_folder,
   file* f;
 
   // Section start is the LBA
-  uint32 position = parent_folder->current_pos;
+  // We reset the file to make sure to find the first position
+  file_set_to_absolute_position(parent_folder, 0);
 
+  uint32 position = parent_folder->current_pos;
   while ((err = read_file(parent_folder, &de, sizeof(de))) == sizeof(de)) {
     // This means the entry is available
     if (de.DIR_Name[0] == 0) break;
@@ -32,13 +34,8 @@ error_code fat_32_create_empty_file(file_system* fs, file* parent_folder,
     return MEM_ERROR;
   }
 
-  // Set the file to the last position so we can easily write there
-  // It is also the position of the directory entry so we set that at
-  // the same time
-  f->parent.first_cluster = parent_folder->first_cluster;
-  f->entry.position = position;
-  // We recalculate the position
-  file_set_to_absolute_position(f, position);
+  // We recalculate the position to write the entry
+  file_set_to_absolute_position(parent_folder, position);
 
   // We got a position for the root entry, we need to find an available FAT
   uint32 cluster = FAT32_FIRST_CLUSTER;
@@ -47,14 +44,7 @@ error_code fat_32_create_empty_file(file_system* fs, file* parent_folder,
     return err;
   }
 
-  // Fill with spaces
-  for (int i = 0; i < FAT_NAME_LENGTH; ++i) {
-    de.DIR_Name[i] = ' ';
-  }
-
-  // TODO get the right length to avoid an overrun
-
-  // Copy the name
+  // Copy the short name
   memcpy(de.DIR_Name, name, FAT_NAME_LENGTH);
 
   {  // Set the cluster in the descriptor
@@ -67,7 +57,7 @@ error_code fat_32_create_empty_file(file_system* fs, file* parent_folder,
     }
   }
 
-  if (ERROR(err = write_file(f, &de, sizeof(de)))) {
+  if (ERROR(err = write_file(parent_folder, &de, sizeof(de)))) {
     return err;
   }
 
@@ -77,6 +67,7 @@ error_code fat_32_create_empty_file(file_system* fs, file* parent_folder,
 
   // Correctly set to the right coordinates in the FAT
   // so we are at the beginning of the file
+  f->fs = parent_folder->fs;
   f->first_cluster = f->current_cluster = cluster;
   f->current_section_length =
       1 << (fs->_.FAT121632.log2_bps + fs->_.FAT121632.log2_spc);
@@ -85,6 +76,11 @@ error_code fat_32_create_empty_file(file_system* fs, file* parent_folder,
   f->current_section_pos = 0;
   f->current_pos = 0;
   f->length = 0;
+  // Set the file to the last position so we can easily write there
+  // It is also the position of the directory entry so we set that at
+  // the same time
+  f->parent.first_cluster = parent_folder->first_cluster;
+  f->entry.position = position;
   f->mode = S_IFREG;
 
   *result = f;
