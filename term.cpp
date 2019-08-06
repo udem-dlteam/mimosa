@@ -11,7 +11,6 @@
 #include "term.h"
 #include "thread.h"
 #include "ps2.h"
-#include "fs.h"
 #include "rtlib.h"
 
 //-----------------------------------------------------------------------------
@@ -687,67 +686,67 @@ static const int max_sz = 2056;
 static native_char buff[max_sz];
 
 void term_run(term* term) {
-  for (;;) {
-    term_write(term, ">");
+  // for (;;) {
+  //   term_write(term, ">");
 
-    uint32 i = 0;
-    while((buff[i++] = readline()) != '\0');
-    native_string line = buff;
+  //   uint32 i = 0;
+  //   while((buff[i++] = readline()) != '\0');
+  //   native_string line = buff;
 
-    // Find and exec command
-    // Hopefully there is no ls*** command lol
-    if (strcmpl(line, LS_CMD, 2)) {
-      term_writeline(term);
-      DIR* root_dir = opendir("/folder/dfolder");
+  //   // Find and exec command
+  //   // Hopefully there is no ls*** command lol
+  //   if (strcmpl(line, LS_CMD, 2)) {
+  //     term_writeline(term);
+  //     DIR* root_dir = opendir("/folder/dfolder");
 
-      if (NULL == root_dir) {
-        term_write(term, "Failed to read the root directory");
-      } else {
-        dirent* entry;
+  //     if (NULL == root_dir) {
+  //       term_write(term, "Failed to read the root directory");
+  //     } else {
+  //       dirent* entry;
 
-        while (NULL != (entry = readdir(root_dir))) {
-          term_write(term, "---> ");
-          term_write(term, entry->d_name);
-          term_writeline(term);
-        }
+  //       while (NULL != (entry = readdir(root_dir))) {
+  //         term_write(term, "---> ");
+  //         term_write(term, entry->d_name);
+  //         term_writeline(term);
+  //       }
 
-        closedir(root_dir);
-      }
-    } else if (strcmpl(line, EXEC_CMD, 4)) {
-      native_string file_name = &line[5];
+  //       closedir(root_dir);
+  //     }
+  //   } else if (strcmpl(line, EXEC_CMD, 4)) {
+  //     native_string file_name = &line[5];
 
-      file* prog;
-      if (NO_ERROR == open_file(file_name, "r+", &prog)) {
-        term_write(term, "Starting program ");
-        term_write(term, file_name);
-        term_writeline(term);
-        // sched_start_task(prog);
-      } else {
-        term_write(term, "Failed to open the program.\r\n");
-      }
-    } else if (strcmpl(line, CAT_CMD, 3)) {
-      error_code err = NO_ERROR;
-      native_string file_name = &line[4];
-      file* f;
-      if (HAS_NO_ERROR(err = open_file(file_name, "r+", &f))) {
-        // need free... lets use the static buff
-        native_string buff = (native_char*)kmalloc(sizeof(native_char) * f->length);
-        {
-          read_file(f, buff, f->length);
-          term_writeline(term);
-          term_write(term, buff);
-          term_writeline(term);
-        }
-        kfree(buff);
-      } else if(FNF_ERROR == err) {
-        term_write(term, "File not found\r\n");
-      } else {
-        term_write(term, "Failed to read the file.\r\n");
-      }
-    } else {
-      term_write(term, "Unknown command\r\n");
-    }
-  }
+  //     file* prog;
+  //     if (NO_ERROR == open_file(file_name, "r+", &prog)) {
+  //       term_write(term, "Starting program ");
+  //       term_write(term, file_name);
+  //       term_writeline(term);
+  //       // sched_start_task(prog);
+  //     } else {
+  //       term_write(term, "Failed to open the program.\r\n");
+  //     }
+  //   } else if (strcmpl(line, CAT_CMD, 3)) {
+  //     error_code err = NO_ERROR;
+  //     native_string file_name = &line[4];
+  //     file* f;
+  //     if (HAS_NO_ERROR(err = open_file(file_name, "r+", &f))) {
+  //       // need free... lets use the static buff
+  //       native_string buff = (native_char*)kmalloc(sizeof(native_char) * f->length);
+  //       {
+  //         read_file(f, buff, f->length);
+  //         term_writeline(term);
+  //         term_write(term, buff);
+  //         term_writeline(term);
+  //       }
+  //       kfree(buff);
+  //     } else if(FNF_ERROR == err) {
+  //       term_write(term, "File not found\r\n");
+  //     } else {
+  //       term_write(term, "Failed to read the file.\r\n");
+  //     }
+  //   } else {
+  //     term_write(term, "Unknown command\r\n");
+  //   }
+  // }
 }
 
 //-----------------------------------------------------------------------------

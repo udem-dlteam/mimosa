@@ -283,7 +283,7 @@ native_char readline() {
   }
 }
 
-extern void send_signal(int sig); // from libc/src/signal.c
+// extern void send_signal(int sig); // from libc/src/signal.c
 
 static void process_keyboard_data(uint8 data) {
 
@@ -309,7 +309,7 @@ static void process_keyboard_data(uint8 data) {
         uint8 ch = code & 0xff;
         keypress(ch);
         if (ch == 3) // CTRL-C
-          send_signal(2); // send SIGINT
+          // send_signal(2); // send SIGINT
       } else {
         while (*seq != '\0')
           keypress(*seq++);

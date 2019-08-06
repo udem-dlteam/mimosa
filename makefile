@@ -3,7 +3,9 @@
 OS_NAME = "\"MIMOSA version 1.2\""
 KERNEL_START = 0x20000
 
-KERNEL_OBJECTS = kernel.o drivers/filesystem/vfs.o libc/libc_os.o main.o drivers/filesystem/fat.o drivers/ide.o disk.o thread.o chrono.o ps2.o term.o video.o intr.o rtlib.o fat32.o uart.o $(NETWORK_OBJECTS)
+# libc/libc_os.o
+# fat32.o
+KERNEL_OBJECTS = kernel.o drivers/filesystem/vfs.o main.o drivers/filesystem/fat.o drivers/ide.o disk.o thread.o chrono.o ps2.o term.o video.o intr.o rtlib.o uart.o $(NETWORK_OBJECTS)
 #NETWORK_OBJECTS =
 #NETWORK_OBJECTS = eepro100.o tulip.o timer2.o misc.o pci.o config.o net.o
 DEFS = -DUSE_IRQ4_FOR_UART -DUSE_IRQ1_FOR_KEYBOARD -DINCLUDE_EEPRO100 
@@ -110,7 +112,7 @@ eepro100.o: eepro100.c etherboot.h osdep.h include/asm.h \
 	include/intr.h include/asm.h include/pic.h include/apic.h \
 	include/chrono.h include/pit.h include/queue.h include/term.h \
 	include/video.h include/rtlib.h
-drivers/filesystem/fat.o: drivers/filesystem/fs.cpp include/fs.h include/general.h include/disk.h include/ide.h \
+drivers/filesystem/fat.o: drivers/filesystem/fat.cpp include/general.h include/disk.h include/ide.h \
 	include/thread.h include/intr.h include/asm.h include/pic.h \
 	include/apic.h include/chrono.h include/pit.h include/queue.h \
 	include/term.h include/video.h include/rtlib.h \
@@ -137,7 +139,7 @@ ps2.o: ps2.cpp include/ps2.h include/general.h include/intr.h \
 rtlib.o: rtlib.cpp include/rtlib.h include/general.h include/intr.h \
 	include/asm.h include/pic.h include/apic.h include/chrono.h include/pit.h \
 	include/ide.h include/thread.h include/queue.h include/term.h \
-	include/video.h include/disk.h include/fs.h include/ps2.h
+	include/video.h include/disk.h include/ps2.h
 term.o: term.cpp include/term.h include/general.h include/video.h
 thread.o: thread.cpp include/thread.h include/general.h include/intr.h \
 	include/asm.h include/pic.h include/apic.h include/chrono.h include/pit.h \

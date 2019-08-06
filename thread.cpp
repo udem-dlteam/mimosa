@@ -13,7 +13,6 @@
 #include "pic.h"
 #include "apic.h"
 #include "pit.h"
-#include "fs.h"
 #include "intr.h"
 #include "chrono.h"
 #include "rtlib.h"
@@ -858,7 +857,7 @@ void _sched_set_timer(time t, time now) {
 #endif
 }
 
-extern void send_signal(int sig); // from libc/src/signal.c
+// extern void send_signal(int sig); // from libc/src/signal.c
 
 void _sched_timer_elapsed() {
 
@@ -906,7 +905,7 @@ void _sched_timer_elapsed() {
     //      cout << "timer is fast\n";/////////////
     _sched_set_timer(current->_end_of_quantum, now);
   } else {
-    send_signal(26); // send SIGVTALRM
+    // send_signal(26); // send SIGVTALRM
     save_context(_sched_switch_to_next_thread, NULL);
   }
 }

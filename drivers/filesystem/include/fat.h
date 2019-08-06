@@ -4,7 +4,7 @@
 #include "general.h"
 #include "disk.h"
 #include "ide.h"
-#include "include/vfs.h"
+#include "vfs.h"
 
 #define FAT12_FS 0
 #define FAT16_FS 1
@@ -119,20 +119,20 @@ typedef struct fat_file {
   } entry;
 } fat_file;
 
-// typedef struct FAT_directory_entry_struct {
-//   uint8 DIR_Name[FAT_NAME_LENGTH];
-//   uint8 DIR_Attr;
-//   uint8 DIR_NTRes;
-//   uint8 DIR_CrtTimeTenth;
-//   uint8 DIR_CrtTime[2];
-//   uint8 DIR_CrtDate[2];
-//   uint8 DIR_LstAccDate[2];
-//   uint8 DIR_FstClusHI[2];
-//   uint8 DIR_WrtTime[2];
-//   uint8 DIR_WrtDate[2];
-//   uint8 DIR_FstClusLO[2];
-//   uint8 DIR_FileSize[4];
-// } FAT_directory_entry;
+typedef struct FAT_directory_entry_struct {
+  uint8 DIR_Name[FAT_NAME_LENGTH];
+  uint8 DIR_Attr;
+  uint8 DIR_NTRes;
+  uint8 DIR_CrtTimeTenth;
+  uint8 DIR_CrtTime[2];
+  uint8 DIR_CrtDate[2];
+  uint8 DIR_LstAccDate[2];
+  uint8 DIR_FstClusHI[2];
+  uint8 DIR_WrtTime[2];
+  uint8 DIR_WrtDate[2];
+  uint8 DIR_FstClusLO[2];
+  uint8 DIR_FileSize[4];
+} FAT_directory_entry;
 
 void fat_reset_cursor(fat_file* f);
 error_code fat_move_cursor(fat_file* f, int32 n);
