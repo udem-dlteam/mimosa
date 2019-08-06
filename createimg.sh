@@ -19,6 +19,12 @@ cp ~/mimosa-build/gsc.exe      /mnt/tmp/gsc.exe
 cp ~/mimosa-build/.gambini.scm /mnt/tmp/gambini.scm
 cp ~/mimosa-build/gambext.scm  /mnt/tmp/gambext.scm
 cp ~/mimosa-build/fact.scm     /mnt/tmp/fact.scm
+mkdir /mnt/tmp/folder
+touch /mnt/tmp/folder/fif.tst
+echo "[0] This is a file pretty deep into the directory structure" >> /mnt/tmp/folder/fif.tst
+mkdir /mnt/tmp/folder/dfolder
+touch /mnt/tmp/folder/dfolder/dfif.tst
+echo "[1] This is a file pretty deep into the directory structure" >> /mnt/tmp/folder/dfolder/dfif.tst
 dd if=/dev/zero of=/mnt/tmp/dummy bs=512 count=2048
 
 # cp ~/mimosa-build/copypa.txt /mnt/tmp/copypa.txt

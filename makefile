@@ -10,8 +10,8 @@ DEFS = -DUSE_IRQ4_FOR_UART -DUSE_IRQ1_FOR_KEYBOARD -DINCLUDE_EEPRO100
 #DEFS = -DINCLUDE_TULIP
 #DEFS = -DINCLUDE_TULIP -DINCLUDE_EEPRO100 
 
-GCC = gcc-3.4 -m32 -Wno-write-strings -ggdb3
-GPP = g++-3.4 -m32 -Wno-write-strings -ggdb3
+GCC = gcc-3.4 -m32 -Wno-write-strings -g
+GPP = g++-3.4 -m32 -Wno-write-strings -g
 
 SPECIAL_OPTIONS =
 

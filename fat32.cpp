@@ -4,39 +4,40 @@
 #include "general.h"
 #include "rtlib.h"
 
-error_code 
-fat_32_create_empty_file(file_system* fs, uint8* name, file** result) {
+error_code fat_32_create_empty_file(file_system* fs, file* parent_folder,
+                                    native_char* name, file** result) {
   FAT_directory_entry de;
   error_code err;
   native_char normalized_path[NAME_MAX + 1];
   native_string p = normalized_path;
   file* f;
 
-  if (ERROR(err = open_root_dir(fs, &f))) {
-#ifdef SHOW_DISK_INFO
-    term_write(cout, "Error loading the root dir: ");
-    term_write(cout, err);
-    term_writeline(cout);
-#endif
-    return err;
-  }
-
   // Section start is the LBA
-  uint32 position = f->current_pos;
+  // We reset the file to make sure to find the first position
+  file_set_to_absolute_position(parent_folder, 0);
 
-  while ((err = read_file(f, &de, sizeof(de))) == sizeof(de)) {
+  uint32 position = parent_folder->current_pos;
+  while ((err = read_file(parent_folder, &de, sizeof(de))) == sizeof(de)) {
     // This means the entry is available
     if (de.DIR_Name[0] == 0) break;
     // Update the position with the information before
-    position = f->current_pos;
+    position = parent_folder->current_pos;
   }
 
-  // Set the file to the last position so we can easily write there
-  // It is also the position of the directory entry so we set that at
-  // the same time
-  f->entry.position = position;
-  // We recalculate the position
-  file_set_to_absolute_position(f, position);
+  if(ERROR(err)) {
+    panic(L"Not been taken care of yet");
+  }
+
+  f = CAST(file*, kmalloc(sizeof(file)));
+
+  if(NULL == f) {
+    return MEM_ERROR;
+  }
+
+  // We recalculate the position to write the entry
+  debug_write("Creating a file at position");
+  debug_write(position);
+  file_set_to_absolute_position(parent_folder, position);
 
   // We got a position for the root entry, we need to find an available FAT
   uint32 cluster = FAT32_FIRST_CLUSTER;
@@ -45,14 +46,7 @@ fat_32_create_empty_file(file_system* fs, uint8* name, file** result) {
     return err;
   }
 
-  // Fill with spaces
-  for (int i = 0; i < FAT_NAME_LENGTH; ++i) {
-    de.DIR_Name[i] = ' ';
-  }
-
-  // TODO get the right length to avoid an overrun
-
-  // Copy the name
+  // Copy the short name
   memcpy(de.DIR_Name, name, FAT_NAME_LENGTH);
 
   {  // Set the cluster in the descriptor
@@ -65,7 +59,7 @@ fat_32_create_empty_file(file_system* fs, uint8* name, file** result) {
     }
   }
 
-  if (ERROR(err = write_file(f, &de, sizeof(de)))) {
+  if (ERROR(err = write_file(parent_folder, &de, sizeof(de)))) {
     return err;
   }
 
@@ -75,6 +69,7 @@ fat_32_create_empty_file(file_system* fs, uint8* name, file** result) {
 
   // Correctly set to the right coordinates in the FAT
   // so we are at the beginning of the file
+  f->fs = parent_folder->fs;
   f->first_cluster = f->current_cluster = cluster;
   f->current_section_length =
       1 << (fs->_.FAT121632.log2_bps + fs->_.FAT121632.log2_spc);
@@ -83,6 +78,11 @@ fat_32_create_empty_file(file_system* fs, uint8* name, file** result) {
   f->current_section_pos = 0;
   f->current_pos = 0;
   f->length = 0;
+  // Set the file to the last position so we can easily write there
+  // It is also the position of the directory entry so we set that at
+  // the same time
+  f->parent.first_cluster = parent_folder->first_cluster;
+  f->entry.position = position;
   f->mode = S_IFREG;
 
   *result = f;
@@ -90,8 +90,7 @@ fat_32_create_empty_file(file_system* fs, uint8* name, file** result) {
   return err;
 }
 
-error_code 
-fat_32_open_root_dir(file_system* fs, file* f) {
+error_code fat_32_open_root_dir(file_system* fs, file* f) {
 #ifdef SHOW_DISK_INFO
   term_write(cout, "Loading FAT32 root dir\n\r");
 #endif

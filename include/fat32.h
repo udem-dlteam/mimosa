@@ -8,7 +8,7 @@
 #define FAT32_FIRST_CLUSTER 2
 #define AUTO_FLUSH_DIR_WRTS FALSE
 
-error_code fat_32_create_empty_file(file_system* fs, uint8* name, file** result);
+error_code fat_32_create_empty_file(file_system* fs, file* parent_folder, native_char* name, file** result);
 
 error_code fat_32_open_root_dir(file_system* fs,file* f);
 
