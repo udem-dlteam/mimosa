@@ -18,6 +18,25 @@
 #include "term.h"
 #include "thread.h"
 
+rwmutex* m;
+volatile uint32 print;
+
+void readroutine() {
+  for(;;) {
+    __surround_with_debug_t("Read lock", rwmutex_readlock(m););
+    debug_write(print);    
+    __surround_with_debug_t("Read unlock", rwmutex_readunlock(m););
+  }
+}
+
+void writeroutine() {
+  for (;;) {
+    __surround_with_debug_t("Write lock", rwmutex_writelock(m););
+    print++;
+    __surround_with_debug_t("Write unlock", rwmutex_writeunlock(m););
+  }
+}
+
 int main() {
   term tty;
 
@@ -65,10 +84,39 @@ int main() {
       term_write(&tty, "\r\n Failed to open the program.\r\n");
     }
   }
+#else 
+  // Test
+  m = CAST(rwmutex*, kmalloc(sizeof(rwmutex)));
+
+  thread* read1 = CAST(thread*, kmalloc(sizeof(thread)));
+  thread* read2 = CAST(thread*, kmalloc(sizeof(thread)));
+  thread* wrrt1 = CAST(thread*, kmalloc(sizeof(thread)));
+
+  // sched_stats();
+
+  thread_start(new_thread(read1, readroutine, "READ1"));
+  thread_start(new_thread(read2, readroutine, "READ2"));
+  thread_start(new_thread(wrrt1, writeroutine, "WRRT1"));
+
+  // sched_stats();
+
 #endif
 
   // Never exit, but never do anything either
-  for (;;) thread_yield();
+  for (;;) {
+    // sched_stats();
+    disable_interrupts();
+
+    term_write(cout, "[1] Sanity:");
+    term_write(cout, m->_readers);
+    term_writeline(cout);
+    term_write(cout, "[2] Sanity:");
+    term_write(cout, m->_writerq);
+    term_writeline(cout);
+    enable_interrupts();
+
+    thread_sleep(seconds_to_time(10).n);
+  }
 
   return 0;
 }

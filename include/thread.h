@@ -385,7 +385,8 @@ typedef struct mutex {
 
 typedef struct rwmutex {
   mutex super;
-  volatile uint32 _readers;
+  volatile uint16 _readers;
+  volatile uint16 _writerq;
 } rwmutex;
 
 mutex* new_mutex(mutex* m);
