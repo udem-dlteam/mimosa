@@ -167,9 +167,11 @@ static file* stdin;
 static void keypress(uint8 ch) {
   error_code err = NO_ERROR;
   // debug_write("[START] Keypress");
-
-  if(ERROR(err = file_write(stdin, &ch, 1))) {
-    // ignore errors
+  native_char zero = '\0';
+  if (HAS_NO_ERROR(err = file_write(stdin, &zero, 1))) {
+    if (ERROR(err = file_write(stdin, &ch, 1))) {
+      // ignore errors
+    }
   }
 
   // debug_write("[STOP ] Keypress");

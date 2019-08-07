@@ -156,6 +156,8 @@ static error_code stream_read(file* ff, void* buff, uint32 count) {
     if (rs->low == rs->high) {
       err = -1;
       goto temp;
+    } else {
+      count = sizeof(unicode_char);
     }
 
     int i;
