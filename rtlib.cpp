@@ -376,7 +376,7 @@ void __rtlib_setup ()
   setup_disk ();
   term_write(cout, "Loading up IDE controllers...\n");
   setup_ide ();
-  term_write(cout, "Loading up the virtual file system...");
+  term_write(cout, "Loading up the virtual file system...\n");
   error_code err = init_vfs();
 
   if(ERROR(err)) {
