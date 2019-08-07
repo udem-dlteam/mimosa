@@ -1,6 +1,6 @@
 #include "include/stdstream.h"
-#include "include/vfs.h"
 #include "general.h"
+#include "include/vfs.h"
 #include "rtlib.h"
 #include "thread.h"
 
@@ -15,7 +15,8 @@ static raw_stream stdout;
 static file_vtable __std_rw_stream_vtable;
 
 static error_code new_raw_stream(raw_stream* rs, bool autoresize);
-static error_code new_stream_file(stream_file* rs, file_mode mode, raw_stream* source);
+static error_code new_stream_file(stream_file* rs, file_mode mode,
+                                  raw_stream* source);
 
 static void stream_reset_cursor(file* f);
 static error_code stream_move_cursor(file* f, int32 n);
@@ -29,51 +30,46 @@ static error_code stream_read(file* f, void* buf, uint32 count);
 // -------------------------------------------------------------
 // Methods that don't make sense on a stream
 // -------------------------------------------------------------
-void stream_reset_cursor(file* f) {
-    return;
-}
+void stream_reset_cursor(file* f) { return; }
 
-static error_code stream_move_cursor(file* f, int32 n) {
-    return UNIMPL_ERROR;
-}
+static error_code stream_move_cursor(file* f, int32 n) { return UNIMPL_ERROR; }
 
 static error_code stream_set_to_absolute_position(file* f, uint32 position) {
-    return UNIMPL_ERROR;
+  return UNIMPL_ERROR;
 }
 
-static size_t stream_len(file* f) {
-    return 0;
-}
+static size_t stream_len(file* f) { return 0; }
 
 // -------------------------------------------------------------
 // Stream management
 // -------------------------------------------------------------
 
 static error_code new_raw_stream(raw_stream* rs, bool autoresize) {
-    if(NULL == rs) return ARG_ERROR;
+  if (NULL == rs) return ARG_ERROR;
 
-    error_code err = NO_ERROR;
-    rs->len = STREAM_DEFAULT_LEN;
-    rs->buff = kmalloc(sizeof(uint8) * rs->len);
-    
-    if(NULL == rs->buff) return MEM_ERROR;
-    
-    rs->autoresize = autoresize;
-    rs->low = rs->high = 0;
+  error_code err = NO_ERROR;
+  rs->len = STREAM_DEFAULT_LEN;
+  rs->buff = kmalloc(sizeof(uint8) * rs->len);
 
-    condvar* readycv = CAST(condvar*, kmalloc(sizeof(condvar)));
+  if (NULL == rs->buff) return MEM_ERROR;
 
-    if(NULL == readycv) {
-        kfree(rs->buff);
-        return MEM_ERROR;
-    }
+  rs->autoresize = autoresize;
+  rs->low = rs->high = 0;
 
-    rs->readycv = new_condvar(readycv);
+  condvar* readycv = CAST(condvar*, kmalloc(sizeof(condvar)));
 
-    return err;
+  if (NULL == readycv) {
+    kfree(rs->buff);
+    return MEM_ERROR;
+  }
+
+  rs->readycv = new_condvar(readycv);
+
+  return err;
 }
 
-static error_code new_stream_file(stream_file* rs, file_mode mode, raw_stream* source) {
+static error_code new_stream_file(stream_file* rs, file_mode mode,
+                                  raw_stream* source) {
   error_code err = NO_ERROR;
 
   if (NULL == rs) {
@@ -92,58 +88,16 @@ static error_code new_stream_file(stream_file* rs, file_mode mode, raw_stream* s
 }
 
 static error_code stream_close(file* ff) {
-    error_code err = NO_ERROR;
-    stream_file* f = CAST(stream_file*, ff);
+  error_code err = NO_ERROR;
+  stream_file* f = CAST(stream_file*, ff);
 
-    // TODO free all of it
+  // TODO free all of it
 
-    return err;
+  return err;
 }
 static error_code stream_write(file* ff, void* buff, uint32 count) {
-    debug_write("STR WRITE");
-    debug_write(count);
-    error_code err = NO_ERROR;
-    stream_file* f = CAST(stream_file*, ff);
-    raw_stream* rs = f->source;
-    condvar* streamcv = rs->readycv;
-    uint8* stream_buff = CAST(uint8*, rs->buff);
-    uint8* source_buff = CAST(uint8*, buff);
-
-    bool inter_disabled = ARE_INTERRUPTS_ENABLED();
-
-    {
-      if (inter_disabled) disable_interrupts();
-
-      // Loop like this and do not use mem copy because
-      // we want to signal every new character
-      int i;
-      for (i = 0; i < count; ++i) {
-        int next_hi = (rs->high + 1) % rs->len;
-
-        if (next_hi != rs->low) {
-          stream_buff[rs->high] = source_buff[i];
-          rs->high = next_hi;
-          condvar_mutexless_signal(streamcv);
-        } else if (rs->autoresize) {
-          // Resize
-          panic(L"STD stream resize not implemented yet");
-        } else {
-          err = MEM_ERROR;
-          break;
-        }
-      }
-
-      if (HAS_NO_ERROR(err) && i == count) {
-        err = count;
-      }
-
-      if (inter_disabled) enable_interrupts();
-    }
-
-    return err;
-}
-static error_code stream_read(file* ff, void* buff, uint32 count) {
-  debug_write("Stream read");
+  debug_write("STR WRITE");
+  debug_write(count);
   error_code err = NO_ERROR;
   stream_file* f = CAST(stream_file*, ff);
   raw_stream* rs = f->source;
@@ -155,6 +109,54 @@ static error_code stream_read(file* ff, void* buff, uint32 count) {
 
   {
     if (inter_disabled) disable_interrupts();
+
+    // Loop like this and do not use mem copy because
+    // we want to signal every new character
+    int i;
+    for (i = 0; i < count; ++i) {
+      int next_hi = (rs->high + 1) % rs->len;
+
+      if (next_hi != rs->low) {
+        stream_buff[rs->high] = source_buff[i];
+        rs->high = next_hi;
+        condvar_mutexless_signal(streamcv);
+      } else if (rs->autoresize) {
+        // Resize
+        panic(L"STD stream resize not implemented yet");
+      } else {
+        err = MEM_ERROR;
+        break;
+      }
+    }
+
+    if (HAS_NO_ERROR(err) && i == count) {
+      err = count;
+    }
+
+    if (inter_disabled) enable_interrupts();
+  }
+
+  return err;
+}
+static error_code stream_read(file* ff, void* buff, uint32 count) {
+  debug_write("Stream read");
+  debug_write(count);
+  error_code err = NO_ERROR;
+  stream_file* f = CAST(stream_file*, ff);
+  raw_stream* rs = f->source;
+  condvar* streamcv = rs->readycv;
+  uint8* stream_buff = CAST(uint8*, rs->buff);
+  uint8* source_buff = CAST(uint8*, buff);
+
+  bool inter_disabled = ARE_INTERRUPTS_ENABLED();
+
+  {
+    if (inter_disabled) disable_interrupts();
+
+    if (rs->low == rs->high) {
+      err = -1;
+      goto temp;
+    }
 
     int i;
     for (i = 0; i < count; ++i) {
@@ -169,11 +171,11 @@ static error_code stream_read(file* ff, void* buff, uint32 count) {
     }
 
     if (HAS_NO_ERROR(err) && i == count) err = count;
-
+  temp:
     if (inter_disabled) enable_interrupts();
-    }
+  }
 
-    return err;
+  return err;
 }
 
 error_code stream_open_file(native_string path, file_mode mode, file** result) {
@@ -192,7 +194,7 @@ error_code stream_open_file(native_string path, file_mode mode, file** result) {
     if (NULL == strm) {
       err = MEM_ERROR;
     } else {
-      err = new_stream_file(strm,mode, &stdout);
+      err = new_stream_file(strm, mode, &stdout);
     }
   } else {
     err = FNF_ERROR;
@@ -204,17 +206,18 @@ error_code stream_open_file(native_string path, file_mode mode, file** result) {
 }
 
 error_code init_streams() {
-    error_code err = NO_ERROR;
+  error_code err = NO_ERROR;
 
-    __std_rw_stream_vtable._file_close = stream_close;
-    __std_rw_stream_vtable._file_len = stream_len;
-    __std_rw_stream_vtable._file_move_cursor = stream_move_cursor;
-    __std_rw_stream_vtable._file_read = stream_read;
-    __std_rw_stream_vtable._file_set_to_absolute_position = stream_set_to_absolute_position;
-    __std_rw_stream_vtable._file_write = stream_write;
+  __std_rw_stream_vtable._file_close = stream_close;
+  __std_rw_stream_vtable._file_len = stream_len;
+  __std_rw_stream_vtable._file_move_cursor = stream_move_cursor;
+  __std_rw_stream_vtable._file_read = stream_read;
+  __std_rw_stream_vtable._file_set_to_absolute_position =
+      stream_set_to_absolute_position;
+  __std_rw_stream_vtable._file_write = stream_write;
 
-    if(ERROR(err = new_raw_stream(&stdin, FALSE))) return err;
-    if(ERROR(err = new_raw_stream(&stdout, FALSE))) return err;
+  if (ERROR(err = new_raw_stream(&stdin, FALSE))) return err;
+  if (ERROR(err = new_raw_stream(&stdout, FALSE))) return err;
 
-    return err;
+  return err;
 }
