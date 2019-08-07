@@ -14,11 +14,9 @@ echo "Mounting..."
 mount -t vfat ~/mimosa-build/floppy.img /mnt/tmp -o loop
 
 cp ~/mimosa-build/kernel.bin   /mnt/tmp/BOOT.SYS
-cp ~/mimosa-build/gsi.exe      /mnt/tmp/gsi.exe
-cp ~/mimosa-build/gsc.exe      /mnt/tmp/gsc.exe
-cp ~/mimosa-build/.gambini.scm /mnt/tmp/gambini.scm
-cp ~/mimosa-build/gambext.scm  /mnt/tmp/gambext.scm
-cp ~/mimosa-build/fact.scm     /mnt/tmp/fact.scm
+cp -r ~/mimosa-build/archive-items /mnt/tmp/
+
+
 mkdir /mnt/tmp/folder
 touch /mnt/tmp/folder/fif.tst
 echo "[0] This is a file pretty deep into the directory structure" >> /mnt/tmp/folder/fif.tst
