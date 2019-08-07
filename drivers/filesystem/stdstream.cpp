@@ -100,6 +100,8 @@ static error_code stream_close(file* ff) {
     return err;
 }
 static error_code stream_write(file* ff, void* buff, uint32 count) {
+    debug_write("STR WRITE");
+    debug_write(count);
     error_code err = NO_ERROR;
     stream_file* f = CAST(stream_file*, ff);
     raw_stream* rs = f->source;
@@ -141,33 +143,34 @@ static error_code stream_write(file* ff, void* buff, uint32 count) {
     return err;
 }
 static error_code stream_read(file* ff, void* buff, uint32 count) {
-    error_code err = NO_ERROR;
-    stream_file* f = CAST(stream_file*, ff);
-    raw_stream* rs = f->source;
-    condvar* streamcv = rs->readycv;
-    uint8* stream_buff = CAST(uint8*, rs->buff);
-    uint8* source_buff = CAST(uint8*, buff);
+  debug_write("Stream read");
+  error_code err = NO_ERROR;
+  stream_file* f = CAST(stream_file*, ff);
+  raw_stream* rs = f->source;
+  condvar* streamcv = rs->readycv;
+  uint8* stream_buff = CAST(uint8*, rs->buff);
+  uint8* source_buff = CAST(uint8*, buff);
 
-    bool inter_disabled = ARE_INTERRUPTS_ENABLED();
+  bool inter_disabled = ARE_INTERRUPTS_ENABLED();
 
-    {
-      if (inter_disabled) disable_interrupts();
+  {
+    if (inter_disabled) disable_interrupts();
 
-      int i;
-      for(i = 0; i < count; ++i) {
-        while (rs->low == rs->high) {
-          condvar_mutexless_wait(streamcv);
-        }
-
-        source_buff[i] = stream_buff[rs->low];
-        rs->low = (rs->low + 1) % rs->len;
-
-        condvar_mutexless_signal(streamcv);
+    int i;
+    for (i = 0; i < count; ++i) {
+      while (rs->low == rs->high) {
+        condvar_mutexless_wait(streamcv);
       }
 
-      if (HAS_NO_ERROR(err) && i == count) err = count;
+      source_buff[i] = stream_buff[rs->low];
+      rs->low = (rs->low + 1) % rs->len;
 
-      if (inter_disabled) enable_interrupts();
+      condvar_mutexless_signal(streamcv);
+    }
+
+    if (HAS_NO_ERROR(err) && i == count) err = count;
+
+    if (inter_disabled) enable_interrupts();
     }
 
     return err;
@@ -194,6 +197,8 @@ error_code stream_open_file(native_string path, file_mode mode, file** result) {
   } else {
     err = FNF_ERROR;
   }
+
+  *result = CAST(file*, strm);
 
   return err;
 }

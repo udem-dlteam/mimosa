@@ -107,7 +107,6 @@ size_t REDIRECT_NAME(fread)(void *__restrict __ptr, size_t __size, size_t __n,
   return fread(__ptr, __size, __n, __stream);
 
 #else
-  return 0;
 
   error_code err;
   file *f = __stream->f;
@@ -188,14 +187,17 @@ int REDIRECT_NAME(fclose)(FILE *__restrict __stream) {
   return fclose(__stream);
 
 #else
+  return 0;
 
-  file* sys_file = __stream->f;
-  error_code err = NO_ERROR;
-  if(ERROR(err = file_close(sys_file))) {
-    return (-1);
-  } else {
-    return 0;
-  }
+  // Before doing actual flclose, all streams must be actually streams (STDERR and STDOUT) 
+
+  // file* sys_file = __stream->f;
+  // error_code err = NO_ERROR;
+  // if(ERROR(err = file_close(sys_file))) {
+  //   return (-1);
+  // } else {
+  //   return 0;
+  // }
   
 #endif
 #endif
@@ -595,7 +597,6 @@ void libc_init_stdio(void) {
   
   error_code err;
   if (ERROR(err = file_open(STDIN_PATH, "r", &libc_stdin))) {
-    debug_write(STDIN_PATH);
     panic(L"Failed to load LIBC stdio");
   } else {
     FILE_stdin.f = libc_stdin;
