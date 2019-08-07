@@ -9,6 +9,8 @@
 
 //-----------------------------------------------------------------------------
 
+#include "drivers/filesystem/include/vfs.h"
+#include "drivers/filesystem/include/stdstream.h"
 #include "ps2.h"
 #include "intr.h"
 #include "asm.h"
@@ -155,132 +157,125 @@ static struct scancode_def keycode_table[] =
 };
 
 static uint32 keymap[4] = { 0, 0, 0, 0 };
+static file* stdin;
 
 #define PRESSED(code) (keymap[(code) >> 5] & (1 << ((code) & 0x1f)))
 
 #define BUFFER_SIZE 16
 #define LINE_BUFFER_SIZE (1 << 11)
 
-static volatile unicode_char circular_buffer[BUFFER_SIZE];
-static volatile native_char line_buffer[LINE_BUFFER_SIZE];
-static volatile int circular_buffer_lo = 0;
-static volatile int circular_buffer_hi = 0;
-condvar* circular_buffer_cv;
-
 static void keypress(uint8 ch) {
+  error_code err = NO_ERROR;
   // debug_write("[START] Keypress");
 
-  int next_hi = (circular_buffer_hi + 1) % BUFFER_SIZE;
-
-  if (next_hi != circular_buffer_lo) {
-    circular_buffer[circular_buffer_hi] = ch;
-    circular_buffer_hi = next_hi;
-    condvar_mutexless_signal(circular_buffer_cv);
+  if(ERROR(err = file_write(stdin, &ch, 1))) {
+    // ignore errors
   }
 
   // debug_write("[STOP ] Keypress");
 }
 
-int getchar0(bool blocking) {
+// int getchar0(bool blocking) {
 
-  int result = -1;
+//   int result = -1;
 
-  disable_interrupts();
+//   disable_interrupts();
 
-  if (blocking) {
-    // debug_write("Blocking for some reason");
-    while (circular_buffer_lo == circular_buffer_hi) {
-      condvar_mutexless_wait(circular_buffer_cv);
-    }
-  } else if (circular_buffer_lo == circular_buffer_hi) {
-    // debug_write("Not blocking, goto!");
-    goto getchar0_done;
-  } else {
-    // debug_write("Else condition...");
-  }
+//   if (blocking) {
+//     // debug_write("Blocking for some reason");
+//     while (circular_buffer_lo == circular_buffer_hi) {
+//       condvar_mutexless_wait(circular_buffer_cv);
+//     }
+//   } else if (circular_buffer_lo == circular_buffer_hi) {
+//     // debug_write("Not blocking, goto!");
+//     goto getchar0_done;
+//   } else {
+//     // debug_write("Else condition...");
+//   }
 
-  // debug_write("Fetching result from the buffer");
+//   // debug_write("Fetching result from the buffer");
 
-  result = circular_buffer[circular_buffer_lo];
-  circular_buffer_lo = (circular_buffer_lo + 1) % BUFFER_SIZE;
-  condvar_mutexless_signal(circular_buffer_cv);
+//   result = circular_buffer[circular_buffer_lo];
+//   circular_buffer_lo = (circular_buffer_lo + 1) % BUFFER_SIZE;
+//   condvar_mutexless_signal(circular_buffer_cv);
 
-getchar0_done:
-  enable_interrupts();
+// getchar0_done:
+//   enable_interrupts();
 
-  return result;
-}
+//   return result;
+// }
 
-unicode_char getchar() {
-  ASSERT_INTERRUPTS_ENABLED();
-  unicode_char result;
+// unicode_char getchar() {
+//   ASSERT_INTERRUPTS_ENABLED();
+//   unicode_char result;
 
-  disable_interrupts();
+//   disable_interrupts();
 
-  while (circular_buffer_lo == circular_buffer_hi) {
-    condvar_mutexless_wait(circular_buffer_cv);
-  }
+//   while (circular_buffer_lo == circular_buffer_hi) {
+//     condvar_mutexless_wait(circular_buffer_cv);
+//   }
 
-  result = circular_buffer[circular_buffer_lo];
+//   result = circular_buffer[circular_buffer_lo];
 
-  circular_buffer_lo = (circular_buffer_lo + 1) % BUFFER_SIZE;
+//   circular_buffer_lo = (circular_buffer_lo + 1) % BUFFER_SIZE;
 
-  condvar_mutexless_signal(circular_buffer_cv);
-  enable_interrupts();
+//   condvar_mutexless_signal(circular_buffer_cv);
+//   enable_interrupts();
 
-  return result;
-}
+//   return result;
+// }
 
 volatile bool buffer_flush = false;
 volatile uint16 buffer_flush_pos = 0;
 volatile uint16 buffer_write_pos = 0;
 
 native_char readline() {
-  term* io = cout;  // maybe get it from the running thread...
+  // term* io = cout;  // maybe get it from the running thread...
 
-  char read[2];
-  read[1] = '\0';
-  while (1) {
-    if (buffer_flush) {
-      if (buffer_flush_pos < buffer_write_pos) {
-        char to_return = line_buffer[buffer_flush_pos++];
-        return to_return;
-      } else {
-        buffer_flush = false;
-        buffer_flush_pos = buffer_write_pos = 0;
-      }
-    }
+  // char read[2];
+  // read[1] = '\0';
+  // while (1) {
+  //   if (buffer_flush) {
+  //     if (buffer_flush_pos < buffer_write_pos) {
+  //       char to_return = line_buffer[buffer_flush_pos++];
+  //       return to_return;
+  //     } else {
+  //       buffer_flush = false;
+  //       buffer_flush_pos = buffer_write_pos = 0;
+  //     }
+  //   }
 
-    ASSERT_INTERRUPTS_ENABLED();
-    char c = read[0] = getchar();
-    ASSERT_INTERRUPTS_ENABLED();
+  //   ASSERT_INTERRUPTS_ENABLED();
+  //   char c = read[0] = getchar();
+  //   ASSERT_INTERRUPTS_ENABLED();
 
-    if (IS_VISIBLE_CHAR(c)) {
-      term_write(io, c);
-      line_buffer[buffer_write_pos++] = c;
-    } else if (IS_NEWLINE(c)) {
-      // The newline terminates the input
-      term_write(io, "\n\r");
-      line_buffer[buffer_write_pos++] = '\n';
-      /* We want the \0 to be included */
-      line_buffer[buffer_write_pos++] = '\0';
-      buffer_flush = true;
-    } else if (ASCII_BACKSPACE == c) {
-      // Don't overrun the Gambit term.
-      if (buffer_write_pos > 0) {
-        term_write(io, c);
-        term_write(io, ' ');
-        term_write(io, c);
-        line_buffer[--buffer_write_pos] = ' ';
-      }
-    } else if (IS_DEL(c)) {
-      // trash
-    } else {
-      debug_write("Dropping unknown char: ");
-      debug_write(read);
-      debug_write((uint32)read[0]);
-    }
-  }
+  //   if (IS_VISIBLE_CHAR(c)) {
+  //     term_write(io, c);
+  //     line_buffer[buffer_write_pos++] = c;
+  //   } else if (IS_NEWLINE(c)) {
+  //     // The newline terminates the input
+  //     term_write(io, "\n\r");
+  //     line_buffer[buffer_write_pos++] = '\n';
+  //     /* We want the \0 to be included */
+  //     line_buffer[buffer_write_pos++] = '\0';
+  //     buffer_flush = true;
+  //   } else if (ASCII_BACKSPACE == c) {
+  //     // Don't overrun the Gambit term.
+  //     if (buffer_write_pos > 0) {
+  //       term_write(io, c);
+  //       term_write(io, ' ');
+  //       term_write(io, c);
+  //       line_buffer[--buffer_write_pos] = ' ';
+  //     }
+  //   } else if (IS_DEL(c)) {
+  //     // trash
+  //   } else {
+  //     debug_write("Dropping unknown char: ");
+  //     debug_write(read);
+  //     debug_write((uint32)read[0]);
+  //   }
+  // }
+  return '\0';
 }
 
 extern void send_signal(int sig); // from libc/src/signal.c
@@ -413,11 +408,13 @@ void irq12 ()
 
 //-----------------------------------------------------------------------------
 
-void setup_ps2 ()
-{
+error_code setup_ps2() {
+  error_code err = NO_ERROR;
   term_write(cout, "Enabling PS2\n\r");
 
-  circular_buffer_cv = new_condvar(CAST(condvar*, sizeof(condvar)));
+  if(ERROR(err = file_open(STDIN, "w", &stdin))) {
+    return err;
+  }
 
   controller_config
     (PS2_CONFIG_SCAN_CONVERT
@@ -448,7 +445,7 @@ void setup_ps2 ()
         }
     }
 
-  term_write(cout, "PS2 enabled\n\r");
+  return err;
 }
 
 #endif

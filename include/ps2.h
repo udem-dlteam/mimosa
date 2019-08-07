@@ -199,7 +199,7 @@
 #define IS_DEL(c) ((c) == 127)
 #define ASCII_BACKSPACE 0x08
 
-void setup_ps2 ();
+error_code setup_ps2();
 unicode_char getchar();
 int getchar0(bool blocking);
 char readline();

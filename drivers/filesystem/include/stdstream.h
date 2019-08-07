@@ -7,8 +7,10 @@
 typedef struct raw_stream_struct raw_stream;
 typedef struct stream_file_struct stream_file;
 
+native_string STDIN = "/dev/stdio";
+native_string STDOUT = "/dev/stdout";
+
 struct raw_stream_struct {
-    rwmutex* mut;
     condvar* readycv;
     size_t len;
     uint32 low;

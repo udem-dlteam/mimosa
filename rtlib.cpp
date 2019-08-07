@@ -167,6 +167,24 @@ native_string copy_without_trailing_spaces(uint8* src, native_string dst,
   return dst + end;
 }
 
+// Based off glibc's strcmp
+// I roughly modified it to fit in the general code style of mimosa
+int16 kstrcmp(native_string a, native_string b) {
+
+  native_string s1 = CAST(native_string, a);
+  native_string s2 = CAST(native_string, b);
+  native_char c1, c2;
+  do
+    {
+      c1 = CAST(native_char, *s1++);
+      c2 = CAST(native_char, *s2++);
+      if (c1 == '\0')
+        return c1 - c2;
+    }
+  while (c1 == c2);
+  return c1 - c2;
+}
+
 //-----------------------------------------------------------------------------
 
 // The function "__pure_virtual" is called when a pure virtual method
