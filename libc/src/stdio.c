@@ -3,7 +3,7 @@
 
 #ifdef USE_MIMOSA
 
-#include "fs.h"
+#include "../drivers/filesystem/include/vfs.h"
 #include "ps2.h"
 #include "general.h"
 #include "rtlib.h"
@@ -52,7 +52,7 @@ FILE *REDIRECT_NAME(fopen)(const char *__restrict __filename,
   } else {
     error_code err;
     file *f;
-    if (HAS_NO_ERROR(err = open_file(CAST(native_string, __filename),
+    if (HAS_NO_ERROR(err = file_open(CAST(native_string, __filename),
                                      CAST(native_string, __modes), &f))) {
       FILE *gambit_file = CAST(FILE *, kmalloc(sizeof(FILE)));
       gambit_file->f = f;
@@ -127,7 +127,7 @@ size_t REDIRECT_NAME(fread)(void *__restrict __ptr, size_t __size, size_t __n,
     file* f = __stream->f;
     uint32 count = __n * __size;
 
-    if(ERROR(err = read_file(f, __ptr, count))) {
+    if(ERROR(err = file_read(f, __ptr, count))) {
       // fread interface has 0 for an error
       __n = 0;
       __stream->err = err;
@@ -174,7 +174,7 @@ size_t REDIRECT_NAME(fwrite)(const void *__restrict __ptr, size_t __size,
     file *f = __stream->f;
     uint32 count = __size * __n;
 
-    if (ERROR(err = write_file(f, CAST(void *, __ptr), count))) {
+    if (ERROR(err = file_write(f, CAST(void *, __ptr), count))) {
       __stream->err = err;
       __n = 0;
     } else {

@@ -3,7 +3,8 @@
 OS_NAME = "\"MIMOSA version 1.2\""
 KERNEL_START = 0x20000
 
-KERNEL_OBJECTS = kernel.o libc/libc_os.o main.o fs.o ide.o disk.o thread.o chrono.o ps2.o term.o video.o intr.o rtlib.o fat32.o uart.o $(NETWORK_OBJECTS)
+# fat32.o
+KERNEL_OBJECTS = kernel.o libc/libc_os.o drivers/filesystem/vfs.o main.o drivers/filesystem/fat.o drivers/ide.o disk.o thread.o chrono.o ps2.o term.o video.o intr.o rtlib.o uart.o $(NETWORK_OBJECTS)
 #NETWORK_OBJECTS =
 #NETWORK_OBJECTS = eepro100.o tulip.o timer2.o misc.o pci.o config.o net.o
 DEFS = -DUSE_IRQ4_FOR_UART -DUSE_IRQ1_FOR_KEYBOARD -DINCLUDE_EEPRO100 
@@ -110,11 +111,12 @@ eepro100.o: eepro100.c etherboot.h osdep.h include/asm.h \
 	include/intr.h include/asm.h include/pic.h include/apic.h \
 	include/chrono.h include/pit.h include/queue.h include/term.h \
 	include/video.h include/rtlib.h
-fs.o: fs.cpp include/fs.h include/general.h include/disk.h include/ide.h \
+drivers/filesystem/fat.o: drivers/filesystem/fat.cpp include/general.h include/disk.h include/ide.h \
 	include/thread.h include/intr.h include/asm.h include/pic.h \
 	include/apic.h include/chrono.h include/pit.h include/queue.h \
-	include/term.h include/video.h include/rtlib.h
-ide.o: ide.cpp include/ide.h include/general.h include/thread.h \
+	include/term.h include/video.h include/rtlib.h \
+	drivers/filesystem/include/fat.h drivers/filesystem/include/vfs.h
+drivers/ide.o: drivers/ide.cpp include/ide.h include/general.h include/thread.h \
 	include/intr.h include/asm.h include/pic.h include/apic.h \
 	include/chrono.h include/pit.h include/queue.h include/term.h \
 	include/video.h include/rtlib.h include/disk.h
@@ -123,7 +125,7 @@ intr.o: intr.cpp include/intr.h include/general.h include/asm.h \
 main.o: main.cpp include/general.h include/term.h include/video.h \
 	include/thread.h include/intr.h include/asm.h \
 	include/pic.h include/apic.h include/chrono.h include/pit.h \
-	include/queue.h include/ps2.h include/fat32.h
+	include/queue.h include/ps2.h drivers/filesystem/include/vfs.h
 misc.o: misc.c etherboot.h osdep.h include/asm.h include/general.h
 net.o: net.cpp include/net.h include/general.h include/rtlib.h \
 	include/term.h include/video.h include/chrono.h include/asm.h \
@@ -136,7 +138,7 @@ ps2.o: ps2.cpp include/ps2.h include/general.h include/intr.h \
 rtlib.o: rtlib.cpp include/rtlib.h include/general.h include/intr.h \
 	include/asm.h include/pic.h include/apic.h include/chrono.h include/pit.h \
 	include/ide.h include/thread.h include/queue.h include/term.h \
-	include/video.h include/disk.h include/fs.h include/ps2.h
+	include/video.h include/disk.h include/ps2.h
 term.o: term.cpp include/term.h include/general.h include/video.h
 thread.o: thread.cpp include/thread.h include/general.h include/intr.h \
 	include/asm.h include/pic.h include/apic.h include/chrono.h include/pit.h \
@@ -151,6 +153,8 @@ tulip.o: tulip.c etherboot.h osdep.h include/asm.h include/general.h \
 video.o: video.cpp include/video.h include/general.h include/asm.h \
 	include/vga.h include/term.h mono_5x7.cpp mono_6x9.cpp
 fat32.o: fat32.cpp include/fat32.h include/general.h
+
+drivers/filesystem/vfs.o: drivers/filesystem/vfs.cpp drivers/filesystem/include/vfs.h drivers/filesystem/include/fat.h
 
 libc/libc_os.o: libc/libc_os.cpp \
                 libc/include/dirent.h \

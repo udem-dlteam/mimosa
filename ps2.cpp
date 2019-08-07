@@ -308,8 +308,9 @@ static void process_keyboard_data(uint8 data) {
       if (seq == NULL) {
         uint8 ch = code & 0xff;
         keypress(ch);
-        if (ch == 3) // CTRL-C
+        if (ch == 3) {// CTRL-C
           send_signal(2); // send SIGINT
+        }
       } else {
         while (*seq != '\0')
           keypress(*seq++);

@@ -13,7 +13,6 @@
 #include "pic.h"
 #include "apic.h"
 #include "pit.h"
-#include "fs.h"
 #include "intr.h"
 #include "chrono.h"
 #include "rtlib.h"

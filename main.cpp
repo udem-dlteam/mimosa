@@ -8,15 +8,16 @@
 
 //-----------------------------------------------------------------------------
 
+#include "drivers/filesystem/include/vfs.h"
 #include "chrono.h"
 #include "disk.h"
-#include "fat32.h"
-#include "fs.h"
 #include "general.h"
 #include "ps2.h"
 #include "rtlib.h"
 #include "term.h"
 #include "thread.h"
+
+volatile bool want_to_read;
 
 int main() {
   term tty;
@@ -32,18 +33,18 @@ int main() {
     native_string file_name = "GSC.EXE";
 
     file* prog;
-    if (NO_ERROR == open_file(file_name, "r", &prog)) {
+    if (NO_ERROR == file_open(file_name, "r", &prog)) {
       term_write(&tty, "\r\n Starting program ");
       term_write(&tty, file_name);
       term_writeline(&tty);
 
       // TODO:
       // The program thread needs to be aware of what its doing
-      uint32 len = prog->length;
+      uint32 len = file_len(prog);
       uint8* code = (uint8*)GAMBIT_START;
 
       error_code err;
-      if (ERROR(err = read_file(prog, code, len))) {
+      if (ERROR(err = file_read(prog, code, len))) {
         panic(L"ERR");
       }
 

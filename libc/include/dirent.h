@@ -6,7 +6,7 @@
 
 #ifdef USE_MIMOSA
 
-#include "fs.h"
+#include "../drivers/filesystem/include/vfs.h"
 
 #else
 
@@ -16,16 +16,16 @@ typedef struct {
   int state;
 } DIR;
 
-struct dirent {
+typedef struct dirent {
   char d_name[256];  // Null-terminated filename
-};
+} dirent;
 
 #endif
 
 #endif
 
 extern DIR *REDIRECT_NAME(opendir)(const char *__name);
-extern struct dirent *REDIRECT_NAME(readdir)(DIR *__dirp);
+extern dirent *REDIRECT_NAME(readdir)(DIR *__dirp);
 extern int REDIRECT_NAME(closedir)(DIR *__dirp);
 
 #ifndef USE_LIBC_LINK

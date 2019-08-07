@@ -34,6 +34,13 @@ void kfree(void* ptr);
 
 extern "C" void* memcpy(void* dest, const void* src, size_t n);
 
+// ----------------------------------------------------------------------------
+// Strings
+
+
+native_string copy_without_trailing_spaces(uint8* src, native_string dst,
+                                                  uint32 n);
+
 //-----------------------------------------------------------------------------
 
 // Execution of global constructors and destructors.

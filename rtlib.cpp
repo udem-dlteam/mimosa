@@ -8,13 +8,13 @@
 
 //-----------------------------------------------------------------------------
 
+#include "drivers/filesystem/include/vfs.h"
 #include "rtlib.h"
 #include "heap.h"
 #include "intr.h"
 #include "chrono.h"
 #include "ide.h"
 #include "disk.h"
-#include "fs.h"
 #include "ps2.h"
 #include "term.h"
 #include "thread.h"
@@ -152,6 +152,19 @@ extern "C" void* memcpy (void* dest, const void* src, size_t n)
   uint8* s = CAST(uint8*,src);
   while (n-- > 0) *d++ = *s++;
   return dest;
+}
+
+native_string copy_without_trailing_spaces(uint8* src, native_string dst,
+                                           uint32 n) {
+  uint32 i;
+  uint32 end = 0;
+
+  for (i = 0; i < n; i++) {
+    dst[i] = src[i];
+    if (src[i] != ' ') end = i + 1;
+  }
+
+  return dst + end;
 }
 
 //-----------------------------------------------------------------------------
@@ -374,12 +387,16 @@ void __rtlib_setup ()
   setup_disk ();
   term_write(cout, "Loading up IDE controllers...\n");
   setup_ide ();
-  term_write(cout, "Loading up the file system...\n");
-  setup_fs ();
+  term_write(cout, "Loading up the virtual file system...\n");
+  error_code err = init_vfs();
+
+  if(ERROR(err)) {
+    panic(L"Failed to load VFS driver");
+  }
 
   // setup_net ();
-  // FS is loaded, now load the cache maid
 
+  // FS is loaded, now load the cache maid
 #ifdef USE_CACHE_BLOCK_MAID
   term_write(cout, "Loading the cache block maid...\n");
 
