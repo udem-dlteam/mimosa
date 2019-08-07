@@ -154,6 +154,19 @@ extern "C" void* memcpy (void* dest, const void* src, size_t n)
   return dest;
 }
 
+native_string copy_without_trailing_spaces(uint8* src, native_string dst,
+                                           uint32 n) {
+  uint32 i;
+  uint32 end = 0;
+
+  for (i = 0; i < n; i++) {
+    dst[i] = src[i];
+    if (src[i] != ' ') end = i + 1;
+  }
+
+  return dst + end;
+}
+
 //-----------------------------------------------------------------------------
 
 // The function "__pure_virtual" is called when a pure virtual method

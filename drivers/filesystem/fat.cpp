@@ -442,7 +442,7 @@ static error_code fat_file_set_pos_from_start(fat_file* f, uint32 position) {
   cache_block* cb;
   disk* d = fs->_.FAT121632.d;
 
-  if (S_ISREG(f->mode) && (position > f->length)) {
+  if (S_ISREG(f->header.mode) && (position > f->length)) {
     return UNKNOWN_ERROR;  // TODO: better than this
   }
 
@@ -770,7 +770,7 @@ error_code fat_write_file(file* ff, void* buff, uint32 count) {
     break;
   }
 
-  if (!ERROR(err) && !S_ISDIR(f->mode)) {
+  if (!ERROR(err) && !S_ISDIR(f->header.mode)) {
     f->length += count;
     err = fat_update_file_length(f);
   }
@@ -799,7 +799,7 @@ error_code fat_read_file(file* ff, void* buf, uint32 count) {
         uint32 n;
         uint8* p;
 
-        if (!S_ISDIR(f->mode)) {
+        if (!S_ISDIR(f->header.mode)) {
           uint32 left = f->length - f->current_pos;
           if (count > left) count = left;
         }
@@ -892,7 +892,7 @@ static error_code fat_fetch_entry(fat_file_system* fs, fat_file* parent,
 
   uint32 i;
 
-  if (!S_ISDIR(parent->mode)) {
+  if (!S_ISDIR(parent->header.mode)) {
     return UNKNOWN_ERROR;
   }
 
@@ -927,9 +927,9 @@ static error_code fat_fetch_entry(fat_file_system* fs, fat_file* parent,
         f->length = as_uint32(de.DIR_FileSize);
 
         if (de.DIR_Attr & FAT_ATTR_DIRECTORY) {
-          f->mode = S_IFDIR;
+          f->header.mode = S_IFDIR;
         } else {
-          f->mode = S_IFREG;
+          f->header.mode = S_IFREG;
         }
 
         // Setup the entry file. It is relative to the file's
@@ -1004,7 +1004,7 @@ error_code fat_32_open_root_dir(fat_file_system* fs, fat_file* f) {
   // (it would be slow to calculate it everytime...). On a directory, the length
   // is not used anyways when reading the file. We simply read until EOF.
   f->length = 0;
-  f->mode = S_IFDIR;
+  f->header.mode = S_IFDIR;
 
   return NO_ERROR;
 }
@@ -1033,7 +1033,7 @@ static error_code fat_open_root_dir(fat_file_system* fs, file** result) {
       f->current_section_pos = 0;
       f->current_pos = 0;
       f->length = f->current_section_length;
-      f->mode = S_IFDIR;
+      f->header.mode = S_IFDIR;
       break;
     }
 
@@ -1265,7 +1265,7 @@ error_code fat_32_create_empty_file(fat_file_system* fs, fat_file* parent_folder
   // the same time
   f->parent.first_cluster = parent_folder->first_cluster;
   f->entry.position = position;
-  f->mode = S_IFREG;
+  f->header.mode = S_IFREG;
 
   *result = f;
 
@@ -1301,7 +1301,7 @@ static error_code fat_update_file_length(fat_file* f) {
 
   parent_dir->fs = f->fs;
   parent_dir->first_cluster = f->parent.first_cluster;
-  parent_dir->mode = S_IFDIR;
+  parent_dir->header.mode = S_IFDIR;
 
   fat_reset_cursor(parent_dir);
   fat_set_to_absolute_position(CAST(file*, parent_dir), f->entry.position);
@@ -1443,7 +1443,7 @@ error_code fat_open_file(native_string path, file_mode mode, file** result) {
 
 
   // If it is a directory, there is not mode
-  if (!S_ISDIR(child->mode)) {
+  if (!S_ISDIR(child->header.mode)) {
   // Set the file mode
     switch (mode) {
       case MODE_READ:
@@ -1506,6 +1506,47 @@ static size_t fat_file_len(file* ff) {
   return CAST(size_t, f->length);
 }
 
+static dirent* fat_readdir(DIR* dir) {
+  fat_file* f = CAST(fat_file*, dir->f);
+  error_code err;
+
+  switch (f->fs->kind) {
+    case FAT12_FS:
+    case FAT16_FS:
+    case FAT32_FS: {
+      FAT_directory_entry de;
+
+      while ((err = fat_read_file(CAST(file*, f), &de, sizeof(de))) == sizeof(de)) {
+        if (de.DIR_Name[0] == 0) break;
+        if (de.DIR_Name[0] != 0xe5) {
+          if ((de.DIR_Attr & FAT_ATTR_HIDDEN) == 0 &&
+              (de.DIR_Attr & FAT_ATTR_VOLUME_ID) == 0) {
+            native_string p1 = dir->ent.d_name;
+            native_string p2;
+
+            p1 = copy_without_trailing_spaces(&de.DIR_Name[0], p1, 8);
+            *p1++ = '.';
+            p2 = p1;
+            p1 = copy_without_trailing_spaces(&de.DIR_Name[8], p1, 3);
+            if (p1 == p2) p1--;
+            *p1++ = '\0';
+
+            dir->ent.d_type = (de.DIR_Attr & FAT_ATTR_DIRECTORY)
+                                  ? S_IFDIR
+                                  : (de.DIR_Attr ? 0 : S_IFREG);
+
+            return &dir->ent;
+          }
+        }
+      }
+
+      return NULL;
+    }
+  }
+
+  return NULL;
+}
+
 error_code init_fat() {
 
   // Init the VTable
@@ -1515,6 +1556,7 @@ error_code init_fat() {
   _fat_vtable._file_set_to_absolute_position = fat_set_to_absolute_position;
   _fat_vtable._file_write = fat_write_file;
   _fat_vtable._file_len = fat_file_len;
+  _fat_vtable._readdir = fat_readdir;
 
   disk_add_all_partitions();
   mount_all_partitions();

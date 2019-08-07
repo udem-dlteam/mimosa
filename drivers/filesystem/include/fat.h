@@ -107,7 +107,6 @@ typedef struct fat_file {
   uint32 current_section_pos;      // the offset in bytes from the section
   uint32 current_pos;              // the absolute position
   uint32 length;                   // in bytes
-  uint8 mode;
   struct {
     uint32 first_cluster;
   } parent;
@@ -143,28 +142,7 @@ error_code fat_open_file(native_string path, file_mode mode, file** f);
 
 void inline set_dir_entry_size(FAT_directory_entry* de, uint32 sz);
 
-struct dirent {
-  uint8 d_type;
-  native_char d_name[FAT_NAME_MAX + 1];
-};
-
-typedef struct DIR_struct {
-  struct dirent ent;
-  fat_file* f;
-} DIR;
-
-DIR* opendir(const char* path);
-struct dirent* readdir(DIR* dir);
-error_code closedir(DIR* dir);
-
-struct stat {
-  uint8 st_mode;
-  uint32 st_size;
-};
-
 error_code stat(native_string path, struct stat* buf);
-
-
 
 
 #endif

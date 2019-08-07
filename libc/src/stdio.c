@@ -3,7 +3,7 @@
 
 #ifdef USE_MIMOSA
 
-#include "drivers/filesystem/include/vfs.h"
+#include "../drivers/filesystem/include/vfs.h"
 #include "ps2.h"
 #include "general.h"
 #include "rtlib.h"

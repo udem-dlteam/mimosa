@@ -21,7 +21,7 @@ struct libc_link {
 
   // dirent.h
   DIR *(*_opendir)(const char *__name);
-  struct dirent *(*_readdir)(DIR *__dirp);
+  dirent *(*_readdir)(DIR *__dirp);
   int (*_closedir)(DIR *__dirp);
 
   // errno.h

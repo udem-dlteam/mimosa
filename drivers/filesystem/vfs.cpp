@@ -1,5 +1,6 @@
 #include "include/vfs.h"
 #include "general.h"
+#include "rtlib.h"
 #include "include/fat.h"
 #include "term.h"
 
@@ -9,6 +10,17 @@ error_code init_vfs() {
 
   return 0;
 }
+// error_code stat(native_string path, struct stat* buf) {
+//   file* f;
+//   error_code err;
+
+//   if (ERROR(err = open_file(path, "r", &f))) return err;
+
+//   buf->st_mode = f->mode;
+//   buf->st_size = f->length;
+
+//   return close_file(f);
+// }
 
 error_code normalize_path(native_string path, native_string new_path) {
   uint32 i = 0;
@@ -106,4 +118,42 @@ error_code file_open(native_string path, native_string mode, file** result) {
   }
 
   return err;
+}
+
+// -----------------------------------------------------------------------------------
+// WIP
+// -----------------------------------------------------------------------------------
+
+
+DIR* opendir(const char* path) {
+  file* f;
+  DIR* dir;
+  error_code err;
+
+  if (ERROR(err = file_open(CAST(native_string, path),"r", &f))) {
+    debug_write("Error while opening the file :/");
+    return NULL;
+  }
+
+  if (!S_ISDIR(f->mode) || (dir = CAST(DIR*, kmalloc(sizeof(DIR)))) == NULL) {
+    file_close(f);  // ignore error
+    return NULL;
+  }
+
+  dir->f = f;
+
+  return dir;
+}
+
+error_code closedir(DIR* dir) {
+  file_close(dir->f);  // ignore error
+  kfree(dir);          // ignore error
+
+  return NO_ERROR;
+}
+
+void inline set_dir_entry_size(FAT_directory_entry* de, uint32 sz) {
+  for (int i = 0; i < 4; ++i) {
+    de->DIR_FileSize[i] = as_uint8(sz, i);
+  }
 }

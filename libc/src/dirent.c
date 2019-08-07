@@ -23,7 +23,7 @@ DIR *REDIRECT_NAME(opendir)(const char *__name) {
 #endif
 }
 
-struct dirent *REDIRECT_NAME(readdir)(DIR *__dirp) {
+dirent *REDIRECT_NAME(readdir)(DIR *__dirp) {
 
 #ifdef USE_LIBC_LINK
 
