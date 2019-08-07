@@ -10,6 +10,7 @@
 #define MODE_TRUNC_PLUS (MODE_PLUS | MODE_TRUNC)
 #define MODE_APPEND (1 << 2)
 #define MODE_APPEND_PLUS (MODE_PLUS | MODE_APPEND)
+#define NAME_MAX 1024 + 1
 
 typedef enum fs_kind {
     FAT,
@@ -38,15 +39,23 @@ struct file_struct {
     file_vtable* _vtable;
 };
 
+typedef uint8 file_mode;
+
 error_code init_vfs();
 
-#define file_move_cursor(f, mvmt) f->_vtable->_file_move_cursor(f, mvmt)
-#define file_set_to_absolute_position(f, position) f->_vtable->_file_set_to_absolute_position(f, position)
-#define file_close(f) f->_vtable->_file_close(f)
-#define file_write(f, buff, count) f->_vtable->_file_write(f,buff,count)
-#define file_read(f, buff, count) f->_vtable->_file_read(f, buff, count)
+// -----------------------------------------------------------------------------------
+// Exposed methods
+// -----------------------------------------------------------------------------------
+
+#define file_move_cursor(f, mvmt) CAST(file*, f)->_vtable->_file_move_cursor(CAST(file*, f), mvmt)
+#define file_set_to_absolute_position(f, position) CAST(file*, f)->_vtable->_file_set_to_absolute_position(CAST(file*, f), position)
+#define file_close(f) CAST(file*, f)->_vtable->_file_close(CAST(file*, f))
+#define file_write(f, buff, count) CAST(file*, f)->_vtable->_file_write(CAST(file*, f),buff,count)
+#define file_read(f, buff, count) CAST(file*, f)->_vtable->_file_read(CAST(file*, f), buff, count)
 
 error_code file_open(native_string path, native_string mode, file** result);
+error_code normalize_path(native_string path, native_string new_path);
+bool parse_mode(native_string mode, file_mode* result);
 
 // void test_method() {
 //     file* f;
