@@ -31,6 +31,7 @@ typedef struct file_vtable_struct {
   error_code (*_file_close)(file* f);
   error_code (*_file_write)(file* f, void* buff, uint32 count);
   error_code (*_file_read)(file* f, void* buff, uint32 count);
+  size_t     (*_file_len)(file* f);
 } file_vtable;
 
 // A file descriptor header
@@ -47,20 +48,15 @@ error_code init_vfs();
 // Exposed methods
 // -----------------------------------------------------------------------------------
 
-// #define file_move_cursor(f, mvmt) CAST(file*, f)->_vtable->_file_move_cursor(CAST(file*, f), mvmt)
-// #define file_set_to_absolute_position(f, position) CAST(file*, f)->_vtable->_file_set_to_absolute_position(CAST(file*, f), position)
-// #define file_close(f) CAST(file*, f)->_vtable->_file_close(CAST(file*, f))
-// #define file_write(f, buff, count) CAST(file*, f)->_vtable->_file_write(CAST(file*, f),buff,count)
-// #define file_read(f, buff, count) CAST(file*, f)->_vtable->_file_read(CAST(file*, f), buff, count)
+#define file_move_cursor(f, mvmt) CAST(file*, f)->_vtable->_file_move_cursor(CAST(file*, f), mvmt)
+#define file_set_to_absolute_position(f, position) CAST(file*, f)->_vtable->_file_set_to_absolute_position(CAST(file*, f), position)
+#define file_close(f) CAST(file*, f)->_vtable->_file_close(CAST(file*, f))
+#define file_write(f, buff, count) CAST(file*, f)->_vtable->_file_write(CAST(file*, f),buff,count)
+#define file_read(f, buff, count) CAST(file*, f)->_vtable->_file_read(CAST(file*, f), buff, count)
+#define file_len(f) (CAST(file*, f))->_vtable->_file_len(CAST(file*, f));
 
 error_code file_open(native_string path, native_string mode, file** result);
 error_code normalize_path(native_string path, native_string new_path);
 bool parse_mode(native_string mode, file_mode* result);
-
-// void test_method() {
-//     file* f;
-//     uint32 dir =5;
-//     file_move_cursor(f, dir);
-// }
 
 #endif

@@ -23,8 +23,7 @@ typedef struct fs_module_struct {
 } fs_module;
 
 static fs_module fs_mod;
-
-file_vtable _fat_vtable;
+static file_vtable _fat_vtable;
 
 error_code new_fat_file(fat_file** result) {
   error_code err = NO_ERROR;
@@ -33,7 +32,7 @@ error_code new_fat_file(fat_file** result) {
   if(NULL == allocated) {
     err = MEM_ERROR;
   } else {
-    allocated->header->_vtable = &_fat_vtable;
+    allocated->header._vtable = &_fat_vtable;
   }
 
   *result = allocated;
@@ -43,15 +42,17 @@ error_code new_fat_file(fat_file** result) {
 
 static void fat_reset_cursor(file* f);
 static error_code fat_move_cursor(file* f, int32 n);
-static error_code fat_set_to_absolute_position(file *f, uint32 position);
+static error_code fat_set_to_absolute_position(file* f, uint32 position);
 static error_code fat_close_file(file* f);
 static error_code fat_write_file(file* f, void* buff, uint32 count);
 static error_code fat_read_file(file* f, void* buf, uint32 count);
 static error_code fat_open_root_dir(fat_file_system* fs, file** result);
-static error_code fat_32_find_first_empty_cluster(fat_file_system* fs, uint32* result);
+static error_code fat_32_find_first_empty_cluster(fat_file_system* fs,
+                                                  uint32* result);
 static error_code fat_32_set_fat_link_value(fat_file_system* fs, uint32 cluster,
-                                     uint32 value);
+                                            uint32 value);
 static error_code fat_update_file_length(fat_file* f);
+static size_t fat_file_len(file* f);
 
 // -------------------------------------------------------------
 // Mounting routines
@@ -777,7 +778,15 @@ error_code fat_write_file(file* ff, void* buff, uint32 count) {
   return err;
 }
 
+extern volatile bool want_to_read;
+
 error_code fat_read_file(file* ff, void* buf, uint32 count) {
+
+  if(want_to_read) {
+  debug_write("Reading FAT file");
+
+  }
+
   fat_file* f = CAST(fat_file*, ff);
   if (count > 0) {
     fat_file_system* fs = f->fs;
@@ -1354,17 +1363,12 @@ static error_code fat_truncate_file(fat_file* f) {
   return err;
 }
 
-error_code fat_open_file(native_string path, native_string mode, fat_file** result) {
+error_code fat_open_file(native_string path, file_mode mode, file** result) {
   error_code err = NO_ERROR;
   fat_file_system* fs;
-  file_mode md;
   native_char normalized_path[NAME_MAX + 1];
   native_string child_name;
   fat_file *parent,*child;
-
-  if(!parse_mode(mode, &md)) {
-    return ARG_ERROR;
-  }
 
   if (fs_mod.nb_mounted_fs == 0) {
     // No file system mounted
@@ -1441,7 +1445,7 @@ error_code fat_open_file(native_string path, native_string mode, fat_file** resu
   // If it is a directory, there is not mode
   if (!S_ISDIR(child->mode)) {
   // Set the file mode
-    switch (md) {
+    switch (mode) {
       case MODE_READ:
       case MODE_READ_WRITE: {
         if (ERROR(err)) return err;
@@ -1491,9 +1495,15 @@ error_code fat_open_file(native_string path, native_string mode, fat_file** resu
   }
   
   if(NULL != parent) fat_close_file(CAST(file*, parent));
-  *result = child;
+
+  *result = CAST(file*, child);
 
   return NO_ERROR;
+}
+
+static size_t fat_file_len(file* ff) {
+  fat_file* f = CAST(fat_file*, ff);
+  return CAST(size_t, f->length);
 }
 
 error_code init_fat() {
@@ -1504,7 +1514,7 @@ error_code init_fat() {
   _fat_vtable._file_read = fat_read_file;
   _fat_vtable._file_set_to_absolute_position = fat_set_to_absolute_position;
   _fat_vtable._file_write = fat_write_file;
-
+  _fat_vtable._file_len = fat_file_len;
 
   disk_add_all_partitions();
   mount_all_partitions();

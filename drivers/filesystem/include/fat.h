@@ -98,7 +98,7 @@ typedef struct fat_file_system_struct {
 } fat_file_system;
 
 typedef struct fat_file {
-  file* header;
+  file header;
   fat_file_system* fs;
   uint32 first_cluster;
   uint32 current_cluster;          // the "logical cluster"
@@ -139,7 +139,7 @@ typedef struct FAT_directory_entry_struct {
 error_code init_fat();
 
 
-error_code fat_open_file(native_string path, native_string mode, file** f);
+error_code fat_open_file(native_string path, file_mode mode, file** f);
 
 void inline set_dir_entry_size(FAT_directory_entry* de, uint32 sz);
 

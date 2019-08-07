@@ -1,14 +1,13 @@
 #include "include/vfs.h"
-#include "include/fat.h"
 #include "general.h"
+#include "include/fat.h"
 #include "term.h"
 
 error_code init_vfs() {
-    debug_write("Init VFS");
-    init_fat();
+  debug_write("Init VFS");
+  init_fat();
 
-
-    return 0;
+  return 0;
 }
 
 error_code normalize_path(native_string path, native_string new_path) {
@@ -58,8 +57,7 @@ bool parse_mode(native_string mode, file_mode* result) {
   file_mode f_mode = 0;
   native_char first = mode[0];
 
-  if(success = ('\0' != first)) {
-
+  if (success = ('\0' != first)) {
     switch (first) {
       case 'r':
       case 'R':
@@ -80,7 +78,7 @@ bool parse_mode(native_string mode, file_mode* result) {
     }
 
     native_char snd = mode[1];
-    if('+' == snd) {
+    if ('+' == snd) {
       f_mode |= MODE_PLUS;
     }
   }
@@ -90,5 +88,22 @@ bool parse_mode(native_string mode, file_mode* result) {
 }
 
 error_code file_open(native_string path, native_string mode, file** result) {
-    return 0;
+  error_code err = NO_ERROR;
+  file_mode md;
+  file* hit = NULL;
+
+  if (!parse_mode(mode, &md)) {
+    return ARG_ERROR;
+  }
+
+  // TODO: cascade with other file systems
+  if (ERROR(err = fat_open_file(path, md, &hit)) && FNF_ERROR != err) {
+    return err;
+  }
+
+  if (NULL != hit) {
+    *result = hit;
+  }
+
+  return err;
 }
