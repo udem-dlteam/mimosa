@@ -3,9 +3,8 @@
 OS_NAME = "\"MIMOSA version 1.2\""
 KERNEL_START = 0x20000
 
-# libc/libc_os.o
 # fat32.o
-KERNEL_OBJECTS = kernel.o drivers/filesystem/vfs.o main.o drivers/filesystem/fat.o drivers/ide.o disk.o thread.o chrono.o ps2.o term.o video.o intr.o rtlib.o uart.o $(NETWORK_OBJECTS)
+KERNEL_OBJECTS = kernel.o libc/libc_os.o drivers/filesystem/vfs.o main.o drivers/filesystem/fat.o drivers/ide.o disk.o thread.o chrono.o ps2.o term.o video.o intr.o rtlib.o uart.o $(NETWORK_OBJECTS)
 #NETWORK_OBJECTS =
 #NETWORK_OBJECTS = eepro100.o tulip.o timer2.o misc.o pci.o config.o net.o
 DEFS = -DUSE_IRQ4_FOR_UART -DUSE_IRQ1_FOR_KEYBOARD -DINCLUDE_EEPRO100 

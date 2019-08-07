@@ -6,7 +6,7 @@
 
 #ifdef USE_MIMOSA
 
-#include "fs.h"
+#include "../drivers/filesystem/include/vfs.h"
 
 #else
 

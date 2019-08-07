@@ -6,7 +6,8 @@
 #include "include/stddef.h"
 
 #ifdef USE_MIMOSA
-#include "fs.h"
+#include "general.h"
+#include "../drivers/filesystem/include/vfs.h"
 #endif
 
 #ifndef USE_HOST_LIBC
