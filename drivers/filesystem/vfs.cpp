@@ -1,15 +1,24 @@
 #include "include/vfs.h"
+#include "include/stream.h"
 #include "general.h"
 #include "rtlib.h"
 #include "include/fat.h"
 #include "term.h"
 
 error_code init_vfs() {
-  debug_write("Init VFS");
-  init_fat();
+  error_code err = NO_ERROR;
+  
+  if(ERROR(err = init_streams())) {
+    return err;
+  }
 
-  return 0;
+  if(ERROR(err = init_fat())) {
+    return err;
+  }
+
+  return err;
 }
+
 // error_code stat(native_string path, struct stat* buf) {
 //   file* f;
 //   error_code err;

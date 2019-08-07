@@ -11,14 +11,14 @@
 // Declarations for the mounted FS systems
 // -------------------------------------------------------------
 
-#define MAX_NB_MOUNTED_FS 8
+#define MAX_NB_MOUNTED_FAT_FS 8
 
 typedef struct short_file_name_struct {
   native_char name[FAT_NAME_LENGTH];
 } short_file_name;
 
 typedef struct fs_module_struct {
-  fat_file_system* mounted_fs[MAX_NB_MOUNTED_FS];
+  fat_file_system* mounted_fs[MAX_NB_MOUNTED_FAT_FS];
   uint32 nb_mounted_fs;
 } fs_module;
 
@@ -244,12 +244,10 @@ static error_code mount_partition(disk* d) {
     case 4:     // Primary DOS 16-bit FAT
     case 6:     // Primary big DOS >32Mb
     case 0x0C:  // FAT32 LBA
-
       if (ERROR(err = mount_FAT121632(d, &fs))) {
         term_write(cout, "Failed to mount\n\r");
         return err;
       }
-
       break;
     default:
       term_write(cout, "Unknown partition type: ");
@@ -259,7 +257,7 @@ static error_code mount_partition(disk* d) {
   }
 
   if (fs != NULL) {
-    if (fs_mod.nb_mounted_fs < MAX_NB_MOUNTED_FS) {
+    if (fs_mod.nb_mounted_fs < MAX_NB_MOUNTED_FAT_FS) {
       fs_mod.mounted_fs[fs_mod.nb_mounted_fs++] = fs;
 
       term_write(cout, "Mouting partition ");
@@ -279,6 +277,9 @@ static error_code mount_partition(disk* d) {
           break;
         case FAT32_FS:
           kind = "FAT32";
+          break;
+        default:
+          panic(L"Unknown FAT FS");
           break;
       }
 
@@ -778,14 +779,7 @@ error_code fat_write_file(file* ff, void* buff, uint32 count) {
   return err;
 }
 
-extern volatile bool want_to_read;
-
 error_code fat_read_file(file* ff, void* buf, uint32 count) {
-
-  if(want_to_read) {
-  debug_write("Reading FAT file");
-
-  }
 
   fat_file* f = CAST(fat_file*, ff);
   if (count > 0) {
@@ -1561,6 +1555,5 @@ error_code init_fat() {
   disk_add_all_partitions();
   mount_all_partitions();
 
-  debug_write("FAT INIT");
   return NO_ERROR;
 }

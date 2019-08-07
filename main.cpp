@@ -17,8 +17,6 @@
 #include "term.h"
 #include "thread.h"
 
-volatile bool want_to_read;
-
 int main() {
   term tty;
 
@@ -57,8 +55,7 @@ int main() {
         term_writeline(cout);
       }
 
-      program_thread* task =
-          CAST(program_thread*, kmalloc(sizeof(program_thread)));
+      program_thread* task = CAST(program_thread*, kmalloc(sizeof(program_thread)));
       new_program_thread(task, CAST(libc_startup_fn, code), "Gambit");
       thread_start(CAST(thread*, task));
 
