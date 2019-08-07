@@ -117,12 +117,22 @@ error_code file_open(native_string path, native_string mode, file** result) {
     return ARG_ERROR;
   }
 
-  // TODO: cascade with other file systems
+  if (ERROR(err = stream_open_file(path, md, &hit)) && FNF_ERROR != err) {
+    return err;
+  }
+
+  if(HAS_NO_ERROR(err)) goto vfs_open_found;
+
   if (ERROR(err = fat_open_file(path, md, &hit)) && FNF_ERROR != err) {
     return err;
   }
 
-  if (NULL != hit) {
+  if(HAS_NO_ERROR(err)) goto vfs_open_found;
+
+  // More search
+
+vfs_open_found:
+  if (HAS_NO_ERROR(err)) {
     *result = hit;
   }
 

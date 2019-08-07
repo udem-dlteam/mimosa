@@ -7,8 +7,8 @@
 typedef struct raw_stream_struct raw_stream;
 typedef struct stream_file_struct stream_file;
 
-native_string STDIN = "/dev/stdio";
-native_string STDOUT = "/dev/stdout";
+extern native_string STDIN_PATH;
+extern native_string STDOUT_PATH;
 
 struct raw_stream_struct {
     condvar* readycv;

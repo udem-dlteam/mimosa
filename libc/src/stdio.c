@@ -107,11 +107,11 @@ size_t REDIRECT_NAME(fread)(void *__restrict __ptr, size_t __size, size_t __n,
   return fread(__ptr, __size, __n, __stream);
 
 #else
+  return 0;
 
   error_code err;
   file *f = __stream->f;
   uint32 count = __n * __size;
-
   if (ERROR(err = file_read(f, __ptr, count))) {
     // fread interface has 0 for an error
     __n = 0;
@@ -594,7 +594,8 @@ void libc_init_stdio(void) {
 #else
   
   error_code err;
-  if (ERROR(err = file_open(STDIN, "r", &libc_stdin))) {
+  if (ERROR(err = file_open(STDIN_PATH, "r", &libc_stdin))) {
+    debug_write(STDIN_PATH);
     panic(L"Failed to load LIBC stdio");
   } else {
     FILE_stdin.f = libc_stdin;

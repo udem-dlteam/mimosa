@@ -386,6 +386,9 @@ extern void libc_init(void);
 
 void __rtlib_setup ()
 { 
+  error_code err;
+  thread* the_idle, *cache_block_maid_thread;
+
   ASSERT_INTERRUPTS_ENABLED();
 
   term_write(cout, "Initializing ");
@@ -394,9 +397,11 @@ void __rtlib_setup ()
   term_write(cout, "\033[0m\n\n");
 
   identify_cpu();
-  setup_ps2();
+  if(ERROR(err = setup_ps2()))
+    goto setup_panic;
 
-  thread* the_idle = CAST(thread*, kmalloc(sizeof(thread)));
+
+  the_idle = CAST(thread*, kmalloc(sizeof(thread)));
   thread_start(new_thread(the_idle, idle_thread_run, "Idle thread"));
 
   term_write(cout, "Loading up disks...\n");
@@ -404,7 +409,7 @@ void __rtlib_setup ()
   term_write(cout, "Loading up IDE controllers...\n");
   setup_ide ();
   term_write(cout, "Loading up the virtual file system...\n");
-  error_code err = init_vfs();
+  err = init_vfs();
 
   if(ERROR(err)) {
     panic(L"Failed to load VFS driver");
@@ -418,7 +423,7 @@ void __rtlib_setup ()
 #ifdef USE_CACHE_BLOCK_MAID
   term_write(cout, "Loading the cache block maid...\n");
 
-  thread* cache_block_maid_thread = CAST(thread*, kmalloc(sizeof(thread)));
+  cache_block_maid_thread = CAST(thread*, kmalloc(sizeof(thread)));
   thread_start(new_thread(cache_block_maid_thread, cache_block_maid_run,
                           "Cache block maid"));
 #endif
@@ -426,8 +431,10 @@ void __rtlib_setup ()
   main ();
 
   __do_global_dtors();
-
   panic(L"System termination");
+
+setup_panic:
+  panic(L"Boot error");
 }
 
 //-----------------------------------------------------------------------------

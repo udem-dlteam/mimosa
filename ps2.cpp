@@ -412,7 +412,7 @@ error_code setup_ps2() {
   error_code err = NO_ERROR;
   term_write(cout, "Enabling PS2\n\r");
 
-  if(ERROR(err = file_open(STDIN, "w", &stdin))) {
+  if(ERROR(err = file_open(STDIN_PATH, "w", &stdin))) {
     return err;
   }
 

@@ -6,6 +6,9 @@
 
 #define STREAM_DEFAULT_LEN 100
 
+native_string STDIN_PATH = "/dev/stdio";
+native_string STDOUT_PATH = "/dev/stdout";
+
 static raw_stream stdin;
 static raw_stream stdout;
 
@@ -70,7 +73,7 @@ static error_code new_raw_stream(raw_stream* rs, bool autoresize) {
     return err;
 }
 
-static error_code new_stream_file(stream_file* rs,file_mode mode, raw_stream* source) {
+static error_code new_stream_file(stream_file* rs, file_mode mode, raw_stream* source) {
   error_code err = NO_ERROR;
 
   if (NULL == rs) {
@@ -174,14 +177,14 @@ error_code stream_open_file(native_string path, file_mode mode, file** result) {
   error_code err = NO_ERROR;
   stream_file* strm;
 
-  if (0 == kstrcmp(STDIN, path)) {
+  if (0 == kstrcmp(STDIN_PATH, path)) {
     strm = CAST(stream_file*, kmalloc(sizeof(stream_file)));
     if (NULL == strm) {
       err = MEM_ERROR;
     } else {
       err = new_stream_file(strm, mode, &stdin);
     }
-  } else if (0 == kstrcmp(STDOUT, path)) {
+  } else if (0 == kstrcmp(STDOUT_PATH, path)) {
     strm = CAST(stream_file*, kmalloc(sizeof(stream_file)));
     if (NULL == strm) {
       err = MEM_ERROR;
