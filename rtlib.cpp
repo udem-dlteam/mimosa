@@ -8,6 +8,7 @@
 
 //-----------------------------------------------------------------------------
 
+#include "drivers/filesystem/include/vfs.h"
 #include "rtlib.h"
 #include "heap.h"
 #include "intr.h"
@@ -367,18 +368,24 @@ void __rtlib_setup ()
   thread* the_idle = CAST(thread*, kmalloc(sizeof(thread)));
   thread_start(new_thread(the_idle, idle_thread_run, "Idle thread"));
 
+
+
   // term_write(cout, "Loading up LIBC\n");
   // libc_init();
   term_write(cout, "Loading up disks...\n");
   setup_disk ();
   term_write(cout, "Loading up IDE controllers...\n");
   setup_ide ();
-  // term_write(cout, "Loading up the file system...\n");
-  // setup_fs ();
+  term_write(cout, "Loading up the virtual file system...");
+  error_code err = init_vfs();
+
+  if(ERROR(err)) {
+    panic(L"Failed to load VFS driver");
+  }
 
   // setup_net ();
-  // FS is loaded, now load the cache maid
 
+  // FS is loaded, now load the cache maid
 #ifdef USE_CACHE_BLOCK_MAID
   term_write(cout, "Loading the cache block maid...\n");
 

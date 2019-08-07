@@ -155,7 +155,7 @@ video.o: video.cpp include/video.h include/general.h include/asm.h \
 	include/vga.h include/term.h mono_5x7.cpp mono_6x9.cpp
 fat32.o: fat32.cpp include/fat32.h include/general.h
 
-drivers/filesystem/vfs.o: drivers/filesystem/vfs.cpp drivers/filesystem/include/vfs.h
+drivers/filesystem/vfs.o: drivers/filesystem/vfs.cpp drivers/filesystem/include/vfs.h drivers/filesystem/include/fat.h
 
 libc/libc_os.o: libc/libc_os.cpp \
                 libc/include/dirent.h \

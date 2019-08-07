@@ -134,6 +134,8 @@ typedef struct FAT_directory_entry_struct {
   uint8 DIR_FileSize[4];
 } FAT_directory_entry;
 
+error_code init_fat();
+
 void fat_reset_cursor(fat_file* f);
 error_code fat_move_cursor(fat_file* f, int32 n);
 error_code fat_set_to_absolute_position(fat_file *f, uint32 position);
