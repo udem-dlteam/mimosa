@@ -1,5 +1,5 @@
-#include "drivers/filesystem/include/stdstream.h"
-#include "drivers/filesystem/include/vfs.h"
+#include "include/stdstream.h"
+#include "include/vfs.h"
 #include "general.h"
 #include "rtlib.h"
 #include "thread.h"
@@ -12,7 +12,7 @@ static raw_stream stdout;
 static file_vtable __std_rw_stream_vtable;
 
 static error_code new_raw_stream(raw_stream* rs, bool autoresize);
-static error_code new_stream_file(stream_file* rs, raw_stream* source);
+static error_code new_stream_file(stream_file* rs, file_mode mode, raw_stream* source);
 
 static void stream_reset_cursor(file* f);
 static error_code stream_move_cursor(file* f, int32 n);
@@ -153,13 +153,13 @@ static error_code stream_read(file* ff, void* buff, uint32 count) {
       int i;
       for(i = 0; i < count; ++i) {
         while (rs->low == rs->high) {
-          condvar_mutexless_wait(circular_buffer_cv);
+          condvar_mutexless_wait(streamcv);
         }
 
         source_buff[i] = stream_buff[rs->low];
         rs->low = (rs->low + 1) % rs->len;
 
-        condvar_mutexless_signal(circular_buffer_cv);
+        condvar_mutexless_signal(streamcv);
       }
 
       if (HAS_NO_ERROR(err) && i == count) err = count;
@@ -179,14 +179,14 @@ error_code stream_open_file(native_string path, file_mode mode, file** result) {
     if (NULL == strm) {
       err = MEM_ERROR;
     } else {
-      err = new_stream_file(strm, &stdin);
+      err = new_stream_file(strm, mode, &stdin);
     }
   } else if (0 == kstrcmp(STDOUT, path)) {
     strm = CAST(stream_file*, kmalloc(sizeof(stream_file)));
     if (NULL == strm) {
       err = MEM_ERROR;
     } else {
-      err = new_stream_file(strm, &stdout);
+      err = new_stream_file(strm,mode, &stdout);
     }
   } else {
     err = FNF_ERROR;

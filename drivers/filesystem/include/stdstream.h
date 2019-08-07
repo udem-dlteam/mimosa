@@ -1,7 +1,7 @@
 #ifndef __STREAM_H
 #define __STREAM_H
 
-#include "include/vfs.h"
+#include "vfs.h"
 #include "thread.h"
 
 typedef struct raw_stream_struct raw_stream;

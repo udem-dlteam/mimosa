@@ -1,5 +1,5 @@
 #include "include/vfs.h"
-#include "include/stream.h"
+#include "include/stdstream.h"
 #include "general.h"
 #include "rtlib.h"
 #include "include/fat.h"
