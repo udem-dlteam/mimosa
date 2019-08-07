@@ -49,6 +49,9 @@ static error_code fat_write_file(file* f, void* buff, uint32 count);
 static error_code fat_read_file(file* f, void* buf, uint32 count);
 static error_code fat_open_root_dir(fat_file_system* fs, file** result);
 static error_code fat_32_find_first_empty_cluster(fat_file_system* fs, uint32* result);
+static error_code fat_32_set_fat_link_value(fat_file_system* fs, uint32 cluster,
+                                     uint32 value);
+static error_code fat_update_file_length(fat_file* f);
 
 // -------------------------------------------------------------
 // Mounting routines
@@ -312,7 +315,7 @@ error_code fat_close_file(file* ff) {
   return NO_ERROR;
 }
 
-void fat_file_reset_cursor(fat_file* f) {
+static void fat_reset_cursor(fat_file* f) {
   fat_file_system* fs = f->fs;
   f->current_cluster = f->first_cluster;
   f->current_section_length =
@@ -455,7 +458,7 @@ static error_code fat_file_set_pos_from_start(fat_file* f, uint32 position) {
         cluster_sz;  // determines how many cluster links we have to jump
     uint32 bytes_left_cluster = position % cluster_sz;
 
-    fat_file_reset_cursor(f);
+    fat_reset_cursor(f);
     // We are now at the beginning of the file.
     // We want to go to the position wanted, so
     // we walk through the FAT chain until we read
@@ -571,7 +574,7 @@ static error_code fat_set_to_absolute_position(file* ff, uint32 position) {
   }
 
   if (0 == position) {
-    fat_file_reset_cursor(f);
+    fat_reset_cursor(f);
     return NO_ERROR;
   }
 
@@ -768,7 +771,7 @@ error_code fat_write_file(file* ff, void* buff, uint32 count) {
 
   if (!ERROR(err) && !S_ISDIR(f->mode)) {
     f->length += count;
-    err = update_file_length(f);
+    err = fat_update_file_length(f);
   }
 
   return err;
@@ -1129,7 +1132,7 @@ static error_code fat_32_find_first_empty_cluster(fat_file_system* fs, uint32* r
 }
 
 
-error_code fat_32_set_fat_link_value(fat_file_system* fs, uint32 cluster,
+static error_code fat_32_set_fat_link_value(fat_file_system* fs, uint32 cluster,
                                      uint32 value) {
   uint32 lba;
   cache_block* cb;
@@ -1277,7 +1280,7 @@ static error_code fat_create_file(native_char* name, fat_file* parent_folder, fa
   return err;
 }
 
-static error_code update_file_length(fat_file* f) {
+static error_code fat_update_file_length(fat_file* f) {
   // Update the directory entry
   // to set the correct length of the file
   error_code err = NO_ERROR;
@@ -1291,7 +1294,7 @@ static error_code update_file_length(fat_file* f) {
   parent_dir->first_cluster = f->parent.first_cluster;
   parent_dir->mode = S_IFDIR;
 
-  fat_file_reset_cursor(parent_dir);
+  fat_reset_cursor(parent_dir);
   fat_set_to_absolute_position(CAST(file*, parent_dir), f->entry.position);
 
   if (ERROR(err = fat_read_file(CAST(file*, parent_dir), &de, sizeof(de)))) {
@@ -1346,7 +1349,7 @@ static error_code fat_truncate_file(fat_file* f) {
 
   f->length = 0;
   
-  if(ERROR(err = update_file_length(f))) return err;
+  if(ERROR(err = fat_update_file_length(f))) return err;
 
   return err;
 }
@@ -1505,5 +1508,7 @@ error_code init_fat() {
 
   disk_add_all_partitions();
   mount_all_partitions();
+
+  debug_write("FAT INIT");
   return NO_ERROR;
 }
