@@ -41,6 +41,15 @@ error_code new_fat_file(fat_file** result) {
   return err;
 }
 
+static void fat_reset_cursor(file* f);
+static error_code fat_move_cursor(file* f, int32 n);
+static error_code fat_set_to_absolute_position(file *f, uint32 position);
+static error_code fat_close_file(file* f);
+static error_code fat_write_file(file* f, void* buff, uint32 count);
+static error_code fat_read_file(file* f, void* buf, uint32 count);
+static error_code fat_open_root_dir(fat_file_system* fs, file** result);
+static error_code fat_32_find_first_empty_cluster(fat_file_system* fs, uint32* result);
+
 // -------------------------------------------------------------
 // Mounting routines
 // -------------------------------------------------------------
@@ -297,6 +306,279 @@ static void mount_all_partitions() {
 // FAT manipulation routines
 // ------------------------------------------------------
 
+error_code fat_close_file(file* ff) {
+  fat_file* f = CAST(fat_file*, ff);
+  kfree(f);
+  return NO_ERROR;
+}
+
+void fat_file_reset_cursor(fat_file* f) {
+  fat_file_system* fs = f->fs;
+  f->current_cluster = f->first_cluster;
+  f->current_section_length =
+      1 << (fs->_.FAT121632.log2_bps + fs->_.FAT121632.log2_spc);
+  f->current_section_start =
+      ((f->first_cluster - 2) << fs->_.FAT121632.log2_spc) +
+      fs->_.FAT121632.first_data_sector;
+  f->current_section_pos = 0;
+  f->current_pos = 0;
+}
+
+static error_code next_FAT_section(fat_file* f) {
+  fat_file_system* fs = f->fs;
+  uint32 n = f->current_cluster;
+  uint32 offset;
+  uint32 sector_pos;
+  uint32 cluster;
+  cache_block* cb;
+  error_code err;
+
+  if (fs->kind == FAT12_FS) {
+    //debug_write("Reading the next FAT12 section");
+    offset = n + (n >> 1);
+
+    sector_pos =
+        fs->_.FAT121632.reserved_sectors + (offset >> fs->_.FAT121632.log2_bps);
+
+    offset &= ~(~0U << fs->_.FAT121632.log2_bps);
+
+    {
+      if (ERROR(err = disk_cache_block_acquire(fs->_.FAT121632.d, sector_pos,
+                                               &cb)))
+        return err;
+      rwmutex_readlock(cb->mut);
+
+      cluster = *CAST(uint8*, cb->buf + offset);
+
+      if (offset == ~(~0U << fs->_.FAT121632.log2_bps)) {
+        rwmutex_readunlock(cb->mut);
+        if (ERROR(err = disk_cache_block_release(cb))) return err;
+        if (ERROR(err = disk_cache_block_acquire(fs->_.FAT121632.d,
+                                                 sector_pos + 1, &cb))) {
+          return err;
+        }
+        rwmutex_readlock(cb->mut);
+
+        offset = 0;
+      } else {
+        offset++;
+      }
+
+      if (n & 1) {
+        cluster = (cluster >> 4) +
+                  (CAST(uint32, *CAST(uint8*, cb->buf + offset)) << 4);
+      } else {
+        cluster = cluster +
+                  (CAST(uint32, *CAST(uint8*, cb->buf + offset) & 0xf) << 8);
+      }
+
+      rwmutex_readunlock(cb->mut);
+      if (ERROR(err = disk_cache_block_release(cb))) return err;
+    }
+
+    if (cluster >= 0xff8) return EOF_ERROR;
+  } else {
+
+    if (fs->kind == FAT16_FS) {
+      offset = n << 1;
+    } else {
+      offset = n << 2;
+    }
+
+    sector_pos =
+        fs->_.FAT121632.reserved_sectors + (offset >> fs->_.FAT121632.log2_bps);
+
+    offset &= ~(~0U << fs->_.FAT121632.log2_bps);
+
+    {
+      if (ERROR(err = disk_cache_block_acquire(fs->_.FAT121632.d, sector_pos,
+                                               &cb))) {
+        return err;
+      }
+
+      {
+        rwmutex_readlock(cb->mut);
+
+        if (fs->kind == FAT16_FS) {
+          cluster = *CAST(uint16*, cb->buf + offset);
+          if (cluster >= 0xfff8) err = EOF_ERROR;
+        } else {
+          cluster = *CAST(uint32*, cb->buf + offset) & 0x0fffffff;
+          if (cluster >= FAT_32_EOF) err = EOF_ERROR;
+        }
+
+        rwmutex_readunlock(cb->mut);
+      }
+
+      error_code release_err = disk_cache_block_release(cb);
+
+      if (ERROR(err)) {
+        return err;
+      } else if (ERROR(release_err)) {
+        return release_err;
+      }
+    }
+  }
+
+  f->current_cluster = cluster;
+  f->current_section_length =
+      1 << (fs->_.FAT121632.log2_bps + fs->_.FAT121632.log2_spc);
+  f->current_section_start = ((cluster - 2) << fs->_.FAT121632.log2_spc) +
+                             fs->_.FAT121632.first_data_sector;
+
+  f->current_section_pos = 0;
+
+  return NO_ERROR;
+}
+
+static error_code fat_file_set_pos_from_start(fat_file* f, uint32 position) {
+  error_code err, release_error = NO_ERROR;
+  fat_file_system* fs = f->fs;
+  BIOS_Parameter_Block* p;
+  cache_block* cb;
+  disk* d = fs->_.FAT121632.d;
+
+  if (S_ISREG(f->mode) && (position > f->length)) {
+    return UNKNOWN_ERROR;  // TODO: better than this
+  }
+
+  // FAT32 only
+  if (HAS_NO_ERROR(err = disk_cache_block_acquire(d, 0, &cb))) {
+    rwmutex_readlock(cb->mut);
+
+    p = CAST(BIOS_Parameter_Block*, cb->buf);
+    uint16 bytes_per_sector = as_uint16(p->BPB_BytsPerSec);
+    
+    uint32 cluster_sz = bytes_per_sector * p->BPB_SecPerClus;
+    uint32 no_of_clusters =
+        position /
+        cluster_sz;  // determines how many cluster links we have to jump
+    uint32 bytes_left_cluster = position % cluster_sz;
+
+    fat_file_reset_cursor(f);
+    // We are now at the beginning of the file.
+    // We want to go to the position wanted, so
+    // we walk through the FAT chain until we read
+    // as many clusters as required to get a correct position.
+    for (int i = 0; i < no_of_clusters; ++i) {
+      if (ERROR(err = next_FAT_section(f))) {
+        break;
+      }
+    }
+
+    f->current_section_pos += bytes_left_cluster;
+    f->current_pos = position;
+
+    rwmutex_readunlock(cb->mut);
+    release_error = disk_cache_block_release(cb);
+    
+    if(ERROR(err)) return err;
+    if(ERROR(release_error)) return release_error;
+  }
+
+  return err;
+}
+
+static error_code fat_move_cursor(file* ff, int32 n) {
+  fat_file* f = CAST(fat_file*, ff);
+  uint32 displacement;
+  BIOS_Parameter_Block* p;
+  cache_block* cb;
+  error_code err = NO_ERROR;
+  fat_file_system* fs = f->fs;
+  disk* d = fs->_.FAT121632.d;
+
+  if(n == 0) {
+    // No mvmt
+    return err;
+  } 
+    
+  if(n < 0) {
+    // Backwards mvmt
+    displacement = -n;
+    bool crosses_section_boundary = displacement > f->current_section_pos;
+
+    // If we cross a section boundary, the design of the FAT FS requires to start
+    // from the beginning.
+    if (crosses_section_boundary) {
+      // term_write(cout, "Pos. targeted:");
+      // term_write(cout, f->current_pos - displacement);
+      // term_writeline(cout);
+      return fat_file_set_pos_from_start(f, f->current_pos - displacement);
+    } else {
+      // Simply update the position
+      f->current_pos -= displacement;
+      f->current_section_pos -= displacement;
+    }
+  } else {
+    // Forward mvmt
+    displacement = n;
+    bool crosses_section_boundary = ((displacement + f->current_section_pos) >= f->current_section_length);
+
+    // term_write(cout, "Moving "); term_write(cout, n); term_write(cout, " positions forward");
+    // term_writeline(cout);
+
+    if(crosses_section_boundary) {
+      // We are moving forward.
+      if (HAS_NO_ERROR(err = disk_cache_block_acquire(d, 0, &cb))) {
+        uint32 cluster_sz;
+
+        {
+          rwmutex_readlock(cb->mut);
+          p = CAST(BIOS_Parameter_Block*, cb->buf);
+          uint16 bytes_per_sector = as_uint16(p->BPB_BytsPerSec);
+          cluster_sz = bytes_per_sector * p->BPB_SecPerClus;
+          rwmutex_readunlock(cb->mut);
+          if (ERROR(err = disk_cache_block_release(cb))) return err;
+        }
+
+        uint32 current_section_pos = f->current_section_pos;
+        uint32 new_section_pos = current_section_pos + displacement;
+        uint32 no_of_clusters = (new_section_pos / cluster_sz);
+        new_section_pos %= cluster_sz; // We put back in "section length" units
+
+        // term_write(cout, "This requires moving "); term_write(cout, no_of_clusters); term_write(cout, " cluster(s) forward");
+        // term_writeline(cout);
+
+        for (int i = 0; i < no_of_clusters; ++i) {
+          if(ERROR(err = next_FAT_section(f))) {
+            break;
+          }
+        }
+
+        if(HAS_NO_ERROR(err)) {
+          f->current_section_pos = new_section_pos;
+          f->current_pos += displacement;
+        }
+      }
+    } else {
+      // Simply update the position
+      f->current_pos += displacement;
+      f->current_section_pos += displacement;
+    }
+  }
+
+  return err;
+}
+
+static error_code fat_set_to_absolute_position(file* ff, uint32 position) {
+  fat_file* f = CAST(fat_file*, ff);
+  // To goal of this method is to set the file cursor to an absolute position,
+  // but maybe by using relative movements. It decides what is more appropriate.
+
+  if(f->current_pos == position) {
+    return NO_ERROR;
+  }
+
+  if (0 == position) {
+    fat_file_reset_cursor(f);
+    return NO_ERROR;
+  }
+
+  int32 mvmt = position - f->current_pos;
+  return fat_move_cursor(CAST(file*, f), mvmt);
+}
+
 static short_file_name* decompose_path(native_string normalize_path, uint8* __count) {
   *__count = 0;
   uint8 count = 0;
@@ -376,6 +658,210 @@ static short_file_name* decompose_path(native_string normalize_path, uint8* __co
   return result;
 }
 
+error_code fat_write_file(file* ff, void* buff, uint32 count) {
+  fat_file* f = CAST(fat_file*, ff);
+  error_code err = NO_ERROR;
+  fat_file_system* fs = f->fs;
+
+  if (count < 1) return err;
+
+  switch (fs->kind) {
+    case FAT32_FS: {
+      uint32 n;
+      uint8* p;
+
+      n = count;
+      p = CAST(uint8*, buff);
+
+      while (n > 0) {
+        uint32 left1;
+        uint32 left2;
+
+        if (f->current_section_pos >= f->current_section_length) {
+          if (ERROR(err = next_FAT_section(f))) {
+            if (err != EOF_ERROR) {
+              return err;
+            } else {
+              // Writing a file should not OEF, we allocate more
+              uint32 cluster;
+
+              if (ERROR(err = fat_32_find_first_empty_cluster(fs, &cluster))) {
+                return err;
+              }
+              
+              // We set the current last cluster to point towards the new one
+              if (ERROR(err = fat_32_set_fat_link_value(fs,
+                                                        f->current_cluster,
+                                                        cluster))) {
+                return err;
+              }
+
+              if (ERROR(err = fat_32_set_fat_link_value(fs, cluster,
+                                                        FAT_32_EOF))) {
+                return err;
+              }
+
+              // Retry to fetch the next cluster
+              if (ERROR(err = next_FAT_section(f))) {
+                if (err == EOF_ERROR) {
+                  panic(
+                      L"Failed to allocate a new FAT cluster, but no error was "
+                      L"returned");
+                } else {
+                  return err;
+                }
+              }
+            }
+          }
+        }
+
+        left1 = f->current_section_length - f->current_section_pos;
+
+        if (left1 > n) left1 = n;
+        while (left1 > 0) {
+          cache_block* cb;
+
+          {
+            if (ERROR(err = disk_cache_block_acquire(
+                          fs->_.FAT121632.d,
+                          f->current_section_start +
+                              (f->current_section_pos >> DISK_LOG2_BLOCK_SIZE),
+                          &cb))) {
+              return err;
+            }
+
+            // Lock the access to this cache block
+            rwmutex_writelock(cb->mut);
+
+            left2 = (1 << DISK_LOG2_BLOCK_SIZE) -
+                    (f->current_section_pos & ~(~0U << DISK_LOG2_BLOCK_SIZE));
+
+            if (left2 > left1) left2 = left1;
+
+            uint8* sector_buffer = cb->buf + (f->current_section_pos &
+                                              ~(~0U << DISK_LOG2_BLOCK_SIZE));
+            // Update the cache_block buffer
+            memcpy(sector_buffer, p, left2);
+
+            cb->dirty = TRUE;
+            rwmutex_writeunlock(cb->mut);
+
+            if (ERROR(err = disk_cache_block_release(cb))) return err;
+          }
+
+          left1 -= left2;
+          f->current_section_pos += left2;
+          f->current_pos += left2;
+          n -= left2;
+          p += left2;  // We read chars, skip to the next part
+        }
+      }
+
+      err = count - n;
+    } break;
+    default: {
+      debug_write("FAT FS not supported...");
+      err = UNIMPL_ERROR;
+    }
+    break;
+  }
+
+  if (!ERROR(err) && !S_ISDIR(f->mode)) {
+    f->length += count;
+    err = update_file_length(f);
+  }
+
+  return err;
+}
+
+error_code fat_read_file(file* ff, void* buf, uint32 count) {
+  fat_file* f = CAST(fat_file*, ff);
+  if (count > 0) {
+    fat_file_system* fs = f->fs;
+    error_code err;
+
+    switch (fs->kind) {
+      case FAT12_FS:
+      case FAT16_FS:
+      case FAT32_FS: {
+        uint32 n;
+        uint8* p;
+
+        if (!S_ISDIR(f->mode)) {
+          uint32 left = f->length - f->current_pos;
+          if (count > left) count = left;
+        }
+
+        n = count;
+        p = CAST(uint8*, buf);
+
+        while (n > 0) {
+          uint32 left1;
+          uint32 left2;
+
+          if (f->current_section_pos >= f->current_section_length) {
+            if (ERROR(err = next_FAT_section(f))) {
+              if (err != EOF_ERROR) return err;
+              break;
+            }
+          }
+
+          left1 = f->current_section_length - f->current_section_pos;
+
+          if (left1 > n) left1 = n;
+
+          while (left1 > 0) {
+            cache_block* cb;
+            
+            {
+              if (ERROR(
+                      err = disk_cache_block_acquire(
+                          fs->_.FAT121632.d,
+                          f->current_section_start +
+                              (f->current_section_pos >> DISK_LOG2_BLOCK_SIZE),
+                          &cb))) {
+                return err;
+              }
+
+              {
+                rwmutex_readlock(cb->mut);
+
+                left2 =
+                    (1 << DISK_LOG2_BLOCK_SIZE) -
+                    (f->current_section_pos & ~(~0U << DISK_LOG2_BLOCK_SIZE));
+
+                if (left2 > left1) left2 = left1;
+
+                memcpy(p,
+                       cb->buf + (f->current_section_pos &
+                                  ~(~0U << DISK_LOG2_BLOCK_SIZE)),
+                       left2);
+
+                rwmutex_readunlock(cb->mut);
+              }
+
+              if (ERROR(err = disk_cache_block_release(cb))) return err;
+            }
+
+            left1 -= left2;
+            f->current_section_pos += left2;
+            f->current_pos += left2;
+            n -= left2;
+            p += left2;  // We read chars, skip to the next part
+          }
+        }
+
+        return count - n;
+      }
+
+      default:
+        return UNIMPL_ERROR;
+    }
+  }
+
+  return 0;
+}
+
 static error_code fat_fetch_entry(fat_file_system* fs, fat_file* parent,
                                   native_char* name, fat_file** result) {
   int count = 0;
@@ -400,7 +886,7 @@ static error_code fat_fetch_entry(fat_file_system* fs, fat_file* parent,
 
   uint32 cluster = parent->first_cluster;
   uint32 position = parent->current_pos;
-  while ((err = fat_read_file(parent, &de, sizeof(de))) == sizeof(de)) {
+  while ((err = fat_read_file(CAST(file*, parent), &de, sizeof(de))) == sizeof(de)) {
     if (de.DIR_Name[0] == 0) break;  // No more entries
     // Only verify the file if it's readable
     if (de.DIR_Name[0] != 0xe5 && (de.DIR_Attr & FAT_ATTR_HIDDEN) == 0 &&
@@ -511,7 +997,7 @@ error_code fat_32_open_root_dir(fat_file_system* fs, fat_file* f) {
   return NO_ERROR;
 }
 
-error_code open_root_dir(fat_file_system* fs, fat_file** result) {
+static error_code fat_open_root_dir(fat_file_system* fs, file** result) {
   error_code err;
   fat_file* f;
   
@@ -551,7 +1037,7 @@ error_code open_root_dir(fat_file_system* fs, fat_file** result) {
       return UNIMPL_ERROR;
   }
 
-  *result = f;
+  *result = CAST(file*, f);
 
   return NO_ERROR;
 }
@@ -597,7 +1083,7 @@ error_code fat_32_get_fat_link_value(fat_file_system* fs, uint32 cluster,
   return err;
 }
 
-error_code fat_32_find_first_empty_cluster(fat_file_system* fs, uint32* result) {
+static error_code fat_32_find_first_empty_cluster(fat_file_system* fs, uint32* result) {
   error_code err = NO_ERROR;
   uint32 offset = 0;
   disk* d = fs->_.FAT121632.d;
@@ -698,10 +1184,10 @@ error_code fat_32_create_empty_file(fat_file_system* fs, fat_file* parent_folder
 
   // Section start is the LBA
   // We reset the file to make sure to find the first position
-  file_set_to_absolute_position(parent_folder, 0);
+  fat_set_to_absolute_position(CAST(file*, parent_folder), 0);
 
   uint32 position = parent_folder->current_pos;
-  while ((err = fat_read_file(parent_folder, &de, sizeof(de))) == sizeof(de)) {
+  while ((err = fat_read_file(CAST(file*, parent_folder), &de, sizeof(de))) == sizeof(de)) {
     // This means the entry is available
     if (de.DIR_Name[0] == 0) break;
     // Update the position with the information before
@@ -721,9 +1207,7 @@ error_code fat_32_create_empty_file(fat_file_system* fs, fat_file* parent_folder
   }
 
   // We recalculate the position to write the entry
-  debug_write("Creating a file at position");
-  debug_write(position);
-  file_set_to_absolute_position(parent_folder, position);
+  fat_set_to_absolute_position(CAST(file*, parent_folder), position);
 
   // We got a position for the root entry, we need to find an available FAT
   uint32 cluster = FAT32_FIRST_CLUSTER;
@@ -745,7 +1229,7 @@ error_code fat_32_create_empty_file(fat_file_system* fs, fat_file* parent_folder
     }
   }
 
-  if (ERROR(err = fat_write_file(parent_folder, &de, sizeof(de)))) {
+  if (ERROR(err = fat_write_file(CAST(file*, parent_folder), &de, sizeof(de)))) {
     return err;
   }
 
@@ -776,7 +1260,7 @@ error_code fat_32_create_empty_file(fat_file_system* fs, fat_file* parent_folder
   return err;
 }
 
-static error_code create_file(native_char* name, fat_file* parent_folder, fat_file** result) {
+static error_code fat_create_file(native_char* name, fat_file* parent_folder, fat_file** result) {
   error_code err;
   fat_file_system* fs = parent_folder->fs;
 
@@ -793,8 +1277,230 @@ static error_code create_file(native_char* name, fat_file* parent_folder, fat_fi
   return err;
 }
 
+static error_code update_file_length(fat_file* f) {
+  // Update the directory entry
+  // to set the correct length of the file
+  error_code err = NO_ERROR;
+  FAT_directory_entry de;
+  uint32 filesize;
+
+  fat_file* parent_dir;
+  if(ERROR(err = new_fat_file(&parent_dir))) return err;
+
+  parent_dir->fs = f->fs;
+  parent_dir->first_cluster = f->parent.first_cluster;
+  parent_dir->mode = S_IFDIR;
+
+  fat_file_reset_cursor(parent_dir);
+  fat_set_to_absolute_position(CAST(file*, parent_dir), f->entry.position);
+
+  if (ERROR(err = fat_read_file(CAST(file*, parent_dir), &de, sizeof(de)))) {
+    goto flush_file_update_dir_err_occured;
+  }
+
+  term_writeline(cout);
+  for(int i =0; i< 11; ++i) {
+    term_write(cout, CAST(native_char, de.DIR_Name[i]));
+  }
+  term_writeline(cout);
+
+  // Go backwards to overwrite the directory entry
+  fat_move_cursor(CAST(file*, parent_dir), -sizeof(de));
+
+  filesize = f->length;
+  
+  for (int i = 0; i < 4; ++i) {
+    de.DIR_FileSize[i] = as_uint8(filesize, i);
+  }
+
+  if (ERROR(err = fat_write_file(CAST(file*, parent_dir), &de, sizeof(de)))) {
+    goto flush_file_update_dir_err_occured;
+  }
+
+flush_file_update_dir_err_occured:
+  // Always close the file, even if there is an error
+  error_code closing_err = fat_close_file(CAST(file*, parent_dir));
+  return ERROR(err) ? err : closing_err;
+}
+
+static error_code fat_unlink_file(fat_file* f) {
+  error_code err = NO_ERROR;
+
+  uint32 cluster = f->first_cluster;
+  uint32 next_clus;
+  do {
+    if(ERROR(err = fat_32_get_fat_link_value(f->fs, cluster, &next_clus))) break;
+    if(ERROR(err = fat_32_set_fat_link_value(f->fs, cluster, NULL))) break;
+  } while(next_clus != FAT_32_EOF && next_clus > 0);
+
+  return err;
+}
+
+static error_code fat_truncate_file(fat_file* f) {
+  error_code err = NO_ERROR;
+  
+  if(ERROR(err = fat_unlink_file(f))) return err;
+  uint32 clus = f->first_cluster;
+  
+  if(ERROR(err = fat_32_set_fat_link_value(f->fs, clus, FAT_32_EOF))) return err;
+
+  f->length = 0;
+  
+  if(ERROR(err = update_file_length(f))) return err;
+
+  return err;
+}
+
+error_code fat_open_file(native_string path, native_string mode, fat_file** result) {
+  error_code err = NO_ERROR;
+  fat_file_system* fs;
+  file_mode md;
+  native_char normalized_path[NAME_MAX + 1];
+  native_string child_name;
+  fat_file *parent,*child;
+
+  if(!parse_mode(mode, &md)) {
+    return ARG_ERROR;
+  }
+
+  if (fs_mod.nb_mounted_fs == 0) {
+    // No file system mounted
+    return UNKNOWN_ERROR;
+  } else {
+    fs = fs_mod.mounted_fs[0];
+  }
+
+  switch (fs->kind)
+  {
+  case FAT12_FS:
+  case FAT16_FS:
+  case FAT32_FS:
+    break;
+  
+  default:
+    return UNIMPL_ERROR;
+    break;
+  }
+
+  if (ERROR(err = normalize_path(path, normalized_path))) {
+#ifdef SHOW_DISK_INFO
+    term_write(cout, "Failed to normalize the path\n\r");
+#endif
+    return err;
+  }
+
+  if (ERROR(err = fat_open_root_dir(fs, CAST(file**, &parent)))) {
+#ifdef SHOW_DISK_INFO
+    term_write(cout, "Error loading the root dir: ");
+    term_write(cout, err);
+    term_writeline(cout);
+#endif
+    return err;
+  }
+
+  // Find the parent folder
+  uint8 depth;
+  short_file_name_struct* parts = decompose_path(normalized_path, &depth);
+
+  if(0 == depth) {
+    return FNF_ERROR;
+  }
+
+
+  for(uint8 i = 0; i < depth - 1; ++i) {
+    // Go get the actual parent folder
+    if(ERROR(err = fat_fetch_entry(fs, parent, parts[i].name, &child))) {
+      break;
+    } else {
+      fat_close_file(CAST(file*, parent));
+      parent = child;
+      child = NULL;
+    }
+  }
+
+  if(ERROR(err)) {
+    if(NULL != parent) fat_close_file(CAST(file*, parent));
+    return err;
+  }
+  
+  child_name = parts[depth - 1].name;
+  if (HAS_NO_ERROR(err = fat_fetch_entry(fs, parent, child_name, &child))) {
+    fat_set_to_absolute_position(CAST(file*, parent), 0);
+    fat_set_to_absolute_position(CAST(file*, child), 0);
+  }
+  
+  if (ERROR(err) && FNF_ERROR != err) {
+    if (NULL != parent) fat_close_file(CAST(file*, parent));
+    return err;
+  }
+
+
+  // If it is a directory, there is not mode
+  if (!S_ISDIR(child->mode)) {
+  // Set the file mode
+    switch (md) {
+      case MODE_READ:
+      case MODE_READ_WRITE: {
+        if (ERROR(err)) return err;
+        // otherwise everything is ok, there is nothing to
+        // do in this mode beside having the cursor at the start.
+      } break;
+
+      case MODE_TRUNC:
+      case MODE_TRUNC_PLUS: {
+        if (ERROR(err)) {
+          if (FNF_ERROR == err) {
+            // Create the file
+            if (ERROR(err = fat_create_file(child_name, parent, &child))) {
+              return err;
+            }
+          } else {
+            return err;
+          }
+        } else {
+          if (ERROR(err = fat_truncate_file(child))) {
+            return err;
+          }
+        }
+      } break;
+
+      case MODE_APPEND:
+      case MODE_APPEND_PLUS: {
+        if (ERROR(err)) {
+          if (FNF_ERROR == err) {
+            if (ERROR(err = fat_create_file(child_name, parent, &child))) {
+              return err;
+            }
+          } else {
+            return err;
+          }
+        } else {
+          if (ERROR(err = fat_set_to_absolute_position(CAST(file*, child),
+                                                        child->length - 1))) {
+            return err;
+          }
+        }
+      } break;
+      default:
+        panic(L"Unhandled file mode");
+        break;
+    }
+  }
+  
+  if(NULL != parent) fat_close_file(CAST(file*, parent));
+  *result = child;
+
+  return NO_ERROR;
+}
+
 error_code init_fat() {
-  // TODO: init FAT Vtable
+
+  // Init the VTable
+  _fat_vtable._file_close = fat_close_file;
+  _fat_vtable._file_move_cursor = fat_move_cursor;
+  _fat_vtable._file_read = fat_read_file;
+  _fat_vtable._file_set_to_absolute_position = fat_set_to_absolute_position;
+  _fat_vtable._file_write = fat_write_file;
 
 
   disk_add_all_partitions();

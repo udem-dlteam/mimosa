@@ -138,14 +138,8 @@ typedef struct FAT_directory_entry_struct {
 
 error_code init_fat();
 
-void fat_reset_cursor(fat_file* f);
-error_code fat_move_cursor(fat_file* f, int32 n);
-error_code fat_set_to_absolute_position(fat_file *f, uint32 position);
-error_code fat_open_file(native_string path, native_string mode, fat_file** f);
-error_code fat_close_file(fat_file* f);
-error_code fat_write_file(fat_file* f, void* buff, uint32 count);
-error_code fat_read_file(fat_file* f, void* buf, uint32 count);
-error_code fat_open_root_dir(fat_file_system* fs, fat_file** result);
+
+error_code fat_open_file(native_string path, native_string mode, file** f);
 
 void inline set_dir_entry_size(FAT_directory_entry* de, uint32 sz);
 
