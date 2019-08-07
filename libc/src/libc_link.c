@@ -14,7 +14,7 @@
 #include "include/sys/resource.h"
 
 void libc_init(void) {
-
+    
   libc_trace("libc_init begin");
 
   // dirent.h
