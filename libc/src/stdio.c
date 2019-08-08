@@ -596,7 +596,9 @@ void libc_init_stdio(void) {
 #else
   
   error_code err;
-  if (ERROR(err = file_open(STDIN_PATH, "r", &libc_stdin))) {
+  // Open STDIN has a non blocking stream in readonly mode.
+  // This is a "gambit" particularity...
+  if (ERROR(err = file_open(STDIN_PATH, "rx", &libc_stdin))) {
     panic(L"Failed to load LIBC stdio");
   } else {
     FILE_stdin.f = libc_stdin;

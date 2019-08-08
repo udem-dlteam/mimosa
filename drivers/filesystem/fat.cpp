@@ -1437,6 +1437,7 @@ error_code fat_open_file(native_string path, file_mode mode, file** result) {
 
 
   // If it is a directory, there is not mode
+  // TODO wth
   if (!S_ISDIR(child->header.mode)) {
   // Set the file mode
     switch (mode) {

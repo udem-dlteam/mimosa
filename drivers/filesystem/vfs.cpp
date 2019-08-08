@@ -74,38 +74,43 @@ error_code normalize_path(native_string path, native_string new_path) {
 }
 
 bool parse_mode(native_string mode, file_mode* result) {
-  bool success = TRUE;
   file_mode f_mode = 0;
-  native_char first = mode[0];
+  native_char* c = mode;
 
-  if (success = ('\0' != first)) {
-    switch (first) {
-      case 'r':
-      case 'R':
-        f_mode = MODE_READ;
+  // We break away from the linux "fopen" spec. The order in which the
+  // mode specifiers are entered does not matter for mimosa. 
+  // We also have more specifiers (non blocking for instance).
+
+  while (*c != '\0') {
+    switch (*c++) {
+      case 'a':
+      case 'A':
+        f_mode |= MODE_APPEND;
         break;
       case 'w':
       case 'W':
-        f_mode = MODE_TRUNC;
+        f_mode |= MODE_TRUNC;
         break;
-      case 'a':
-      case 'A':
-        f_mode = MODE_APPEND;
+      case 'r':
+      case 'R':
+        f_mode |= MODE_READ;
+        break;
+      case '+':
+        f_mode |= MODE_PLUS;
+        break;
+      case 'x':
+      case 'X':
+        f_mode |= MODE_NONBLOCK_ACCESS;
         break;
       default:
-        success = FALSE;
-        return success;
+        goto vfs_parse_mode_loop_end;
         break;
-    }
-
-    native_char snd = mode[1];
-    if ('+' == snd) {
-      f_mode |= MODE_PLUS;
     }
   }
 
+vfs_parse_mode_loop_end:
   *result = f_mode;
-  return success;
+  return '\0' == *c; // if we stopped at the null terminator, we did not fail anywhere
 }
 
 error_code file_open(native_string path, native_string mode, file** result) {

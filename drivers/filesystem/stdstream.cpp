@@ -96,8 +96,6 @@ static error_code stream_close(file* ff) {
   return err;
 }
 static error_code stream_write(file* ff, void* buff, uint32 count) {
-  debug_write("STR WRITE");
-  debug_write(count);
   error_code err = NO_ERROR;
   stream_file* f = CAST(stream_file*, ff);
   raw_stream* rs = f->source;
@@ -139,8 +137,6 @@ static error_code stream_write(file* ff, void* buff, uint32 count) {
   return err;
 }
 static error_code stream_read(file* ff, void* buff, uint32 count) {
-  debug_write("Stream read");
-  debug_write(count);
   error_code err = NO_ERROR;
   stream_file* f = CAST(stream_file*, ff);
   raw_stream* rs = f->source;
@@ -150,16 +146,29 @@ static error_code stream_read(file* ff, void* buff, uint32 count) {
 
   bool inter_disabled = ARE_INTERRUPTS_ENABLED();
 
-  {
-    if (inter_disabled) disable_interrupts();
+  if (inter_disabled) disable_interrupts();
 
-    if (rs->low == rs->high) {
-      err = -1;
-      goto temp;
+  if (f->header.mode & MODE_NONBLOCK_ACCESS) {
+    if (rs->low != rs->high) {
+      int len = (rs->high - rs->low) % rs->len;
+      if(len < 0) len += rs->len;
+      if(count < len) len = count;
+
+      for (int i = 0; i < len; ++i) {
+        source_buff[i] = stream_buff[rs->low];
+        rs->low = (rs->low + 1) % rs->len;
+        if (rs->low == rs->high) break;
+      }
+
+      err = len;
+      // Signal afterwards in non blocking mode
+      // We want to read in one shot and stop
+      // afterwards
+      condvar_mutexless_signal(streamcv);
     } else {
-      count = sizeof(unicode_char);
+      err = EOF_ERROR;
     }
-
+  } else {
     int i;
     for (i = 0; i < count; ++i) {
       while (rs->low == rs->high) {
@@ -173,9 +182,8 @@ static error_code stream_read(file* ff, void* buff, uint32 count) {
     }
 
     if (HAS_NO_ERROR(err) && i == count) err = count;
-  temp:
-    if (inter_disabled) enable_interrupts();
   }
+  if (inter_disabled) enable_interrupts();
 
   return err;
 }

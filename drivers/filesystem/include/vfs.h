@@ -10,6 +10,12 @@
 #define MODE_TRUNC_PLUS (MODE_PLUS | MODE_TRUNC)
 #define MODE_APPEND (1 << 2)
 #define MODE_APPEND_PLUS (MODE_PLUS | MODE_APPEND)
+#define MODE_NONBLOCK_ACCESS (1 << 3)
+
+typedef uint8 file_mode;
+
+#define IS_MODE_NONBLOCK(md) ((md) & MODE_NONBLOCK)
+
 #define NAME_MAX 1024 + 1
 
 typedef enum fs_kind {
@@ -41,7 +47,7 @@ typedef struct file_vtable_struct {
 struct file_struct {
     fs_header* _fs_header;
     file_vtable* _vtable;
-    uint8 mode;
+    file_mode mode;
 };
 
 struct dirent_struct {
@@ -58,8 +64,6 @@ struct stat {
   uint8 st_mode;
   uint32 st_size;
 };
-
-typedef uint8 file_mode;
 
 error_code init_vfs();
 

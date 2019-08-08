@@ -55,10 +55,10 @@ typedef int32 error_code;
 
 #define IN_PROGRESS   1
 #define NO_ERROR      0
-#define UNIMPL_ERROR  (-1)
+#define EOF_ERROR     (-1)
 #define MEM_ERROR     (-2)
 #define FNF_ERROR     (-3)
-#define EOF_ERROR     (-4)
+#define UNIMPL_ERROR  (-4)
 #define DISK_OUT_OF_SPACE (-5)
 #define ARG_ERROR     (-6)
 #define UNKNOWN_ERROR (-7)
