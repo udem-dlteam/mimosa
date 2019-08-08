@@ -12,6 +12,51 @@
 int port_in_use = 0;
 
 void init_serial(int com_port) {
+  /*
+  Quoi faire!
+
+  Voici l'idee generale. On veut que mimosa soit controller par le port serial. En ce moment, dans mimosa, le systeme
+  a deux facons d'interagir avec l'utilisateur: STDIN, pour standard input et STDOUT, pour standard output. C'est un
+  peu a la *nix. STDIN, en general, c'est le clavier. STDOUT, c'est la console. 
+
+  L'idee, c'est de modifier mimosa pour que le port serial puisse aussi etre une entree standard de mimosa. Tu dois te dire, "fuck sa va
+  etre l'enfer". Et ben non, j'ai tout fait ca beau pour que ce soit facile!
+
+  STDOUT et STDIN sont deux streams. En gros, ce sont des trucs en memoire qui peuvent etre lu et ecrits par des objets dans le systeme.
+  En ce moment, tout le input du systeme passe deja par STDIN. Si tu suis, tu devrais comprendre qu'il suffit d'ecrire dans STDIN, et le 
+  systeme va etre capable de voir ce qui a ete ecrit. Pour STDOUT, il reste encore un peu de travail... Mais ca, c'est ma job. Tu peux quand meme
+  lire / ecrire dans STDOUT.
+
+  On a abstrait (comme dans *nix) les streams (et bien d'autre choses) dans des fichiers. Pour toi, il suffit d'utiliser les methodes d'ecriture
+  et de lecture dans un fichier, et le reste est transparent..
+
+  Voici ta mission. On veut etre capable d'initaliser un port COM pour qu'il se branche sur des streams. Des streams quelquonques! Dans la fonction
+  init_serial, il va falloir ajouter deux arguments: le premier va etre le stream de lecture, c'est a dire ce qu'on envoit comme information
+  dans le port COM et le deuxieme va etre le stream d'ecriture, c'est a dire ce qu'on recoit du port COM.
+
+  Si tu as bien suivit, les deux arguments que tu recoit ne vont pas etre de type stream, mais bien de type file*. Cela va permettre 
+  les trucs de communication a n'importe quoi. Si on veut que UART ecrive dans un fichier texte, on pourra le faire. Pour tester par contre,
+  il faudra que tu prenne vraiment STDIN (tu peux aller voir dans ps2.cpp, ca ouvre deja STDIN et STDOUT c'est similaire).
+
+  En resume:
+    -  STDIN est un fichier, STDOUT aussi
+    -  Tu ecrit dans STDIN
+    -  Tu lis STDOUT (tu va lire du vide pour l'instant, alors commence par STDIN)
+    -  vfs.h contient les routines de fichier. Les methodes de fichier sont des macros, mais tu as pas besoin
+       de necessairement comprendre ce qui se passe, tu peux voir les definitions dans le file_vtable (la structure),
+       les types d'arguments sont la, mais tu peux te baser sur ps2.cpp. 
+
+  Une petite particularite: Les caracteres lus du clavier sont des int et non pas des chars. Alors quand tu ecrit dans STDIN, il
+  faut que tu fasse int i = c;... file_write(stdin, &i, sizeof(i)). Inversement, quand tu lis de STDOUT, tu fais:
+
+  int i;
+  file_read(stdout, &i, sizeof(int));
+  char c = 0xFF & i;
+
+  Je pense que tu devrais etre pas pire avec ca!
+  
+   */
+
 
   port_in_use = com_port;
 
