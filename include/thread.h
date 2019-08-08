@@ -34,9 +34,11 @@ const uint32 GAMBIT_START = 0x100000;
 
 #ifdef CHECK_ASSERTIONS
 
+#define ARE_INTERRUPTS_ENABLED() (eflags_reg() & (1 << 9) )
+
 #define ASSERT_INTERRUPTS_DISABLED()                 \
   do {                                               \
-    if ((eflags_reg() & (1 << 9)) != 0) {            \
+    if (ARE_INTERRUPTS_ENABLED() != 0) {            \
       debug_write(__FILE__);                         \
       debug_write(":");                              \
       debug_write(__LINE__);                         \
@@ -46,7 +48,7 @@ const uint32 GAMBIT_START = 0x100000;
 
 #define ASSERT_INTERRUPTS_ENABLED()                 \
   do {                                              \
-    if (!(eflags_reg() & (1 << 9))) {               \
+    if (!ARE_INTERRUPTS_ENABLED()) {               \
       debug_write(__FILE__);                        \
       debug_write(":");                             \
       debug_write(__LINE__);                        \

@@ -9,6 +9,7 @@
 //-----------------------------------------------------------------------------
 
 #include "term.h"
+#include "drivers/filesystem/include/vfs.h"
 #include "thread.h"
 #include "ps2.h"
 #include "rtlib.h"
@@ -686,67 +687,75 @@ static const int max_sz = 2056;
 static native_char buff[max_sz];
 
 void term_run(term* term) {
-  // for (;;) {
-  //   term_write(term, ">");
+  for (;;) {
+    //TODO make a real REPL
+    for(int i = 0; i < max_sz; ++i) 
+      buff[i] = '\0'; // this is stupid
 
-  //   uint32 i = 0;
-  //   while((buff[i++] = readline()) != '\0');
-  //   native_string line = buff;
+    term_write(term, "> ");
 
-  //   // Find and exec command
-  //   // Hopefully there is no ls*** command lol
-  //   if (strcmpl(line, LS_CMD, 2)) {
-  //     term_writeline(term);
-  //     DIR* root_dir = opendir("/folder/dfolder");
+    uint32 i = 0;
+    while((buff[i++] = readline()) != '\0');
+    // Remove the newline
+    buff[i - 2] = '\0';
 
-  //     if (NULL == root_dir) {
-  //       term_write(term, "Failed to read the root directory");
-  //     } else {
-  //       dirent* entry;
+    native_string line = buff;
 
-  //       while (NULL != (entry = readdir(root_dir))) {
-  //         term_write(term, "---> ");
-  //         term_write(term, entry->d_name);
-  //         term_writeline(term);
-  //       }
+    // Find and exec command
+    // Hopefully there is no ls*** command lol
+    if (strcmpl(line, LS_CMD, 2)) {
+      term_writeline(term);
+      
+      DIR* directory = opendir(&line[3]);
 
-  //       closedir(root_dir);
-  //     }
-  //   } else if (strcmpl(line, EXEC_CMD, 4)) {
-  //     native_string file_name = &line[5];
+      if (NULL == directory) {
+        term_write(term, "Not a directory or not found");
+      } else {
+        dirent* entry;
 
-  //     file* prog;
-  //     if (NO_ERROR == open_file(file_name, "r+", &prog)) {
-  //       term_write(term, "Starting program ");
-  //       term_write(term, file_name);
-  //       term_writeline(term);
-  //       // sched_start_task(prog);
-  //     } else {
-  //       term_write(term, "Failed to open the program.\r\n");
-  //     }
-  //   } else if (strcmpl(line, CAT_CMD, 3)) {
-  //     error_code err = NO_ERROR;
-  //     native_string file_name = &line[4];
-  //     file* f;
-  //     if (HAS_NO_ERROR(err = open_file(file_name, "r+", &f))) {
-  //       // need free... lets use the static buff
-  //       native_string buff = (native_char*)kmalloc(sizeof(native_char) * f->length);
-  //       {
-  //         read_file(f, buff, f->length);
-  //         term_writeline(term);
-  //         term_write(term, buff);
-  //         term_writeline(term);
-  //       }
-  //       kfree(buff);
-  //     } else if(FNF_ERROR == err) {
-  //       term_write(term, "File not found\r\n");
-  //     } else {
-  //       term_write(term, "Failed to read the file.\r\n");
-  //     }
-  //   } else {
-  //     term_write(term, "Unknown command\r\n");
-  //   }
-  // }
+        while (NULL != (entry = readdir(directory))) {
+          term_write(term, "---> ");
+          term_write(term, entry->d_name);
+          term_writeline(term);
+        }
+
+        closedir(directory);
+      }
+    } else if (strcmpl(line, EXEC_CMD, 4)) {
+      native_string file_name = &line[5];
+
+      file* prog;
+      if (NO_ERROR == file_open(file_name, "r+", &prog)) {
+        term_write(term, "Starting program ");
+        term_write(term, file_name);
+        term_writeline(term);
+        // sched_start_task(prog);
+      } else {
+        term_write(term, "Failed to open the program.\r\n");
+      }
+    } else if (strcmpl(line, CAT_CMD, 3)) {
+      error_code err = NO_ERROR;
+      native_string file_name = &line[4];
+      file* f;
+      if (HAS_NO_ERROR(err = file_open(file_name, "r+", &f))) {
+        // need free... lets use the static buff
+        native_string buff = (native_char*)kmalloc(sizeof(native_char) * file_len(f));
+        {
+          file_read(f, buff, file_len(f));
+          term_writeline(term);
+          term_write(term, buff);
+          term_writeline(term);
+        }
+        kfree(buff);
+      } else if(FNF_ERROR == err) {
+        term_write(term, "File not found\r\n");
+      } else {
+        term_write(term, "Failed to read the file.\r\n");
+      }
+    } else {
+      term_write(term, "Unknown command\r\n");
+    }
+  }
 }
 
 //-----------------------------------------------------------------------------

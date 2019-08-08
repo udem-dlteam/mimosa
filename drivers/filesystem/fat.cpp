@@ -11,19 +11,16 @@
 // Declarations for the mounted FS systems
 // -------------------------------------------------------------
 
-#define MAX_NB_MOUNTED_FS 8
-
-typedef struct short_file_name_struct {
-  native_char name[FAT_NAME_LENGTH];
-} short_file_name;
+#define MAX_NB_MOUNTED_FAT_FS 8
 
 typedef struct fs_module_struct {
-  fat_file_system* mounted_fs[MAX_NB_MOUNTED_FS];
+  fat_file_system* mounted_fs[MAX_NB_MOUNTED_FAT_FS];
   uint32 nb_mounted_fs;
 } fs_module;
 
 static fs_module fs_mod;
-static file_vtable _fat_vtable;
+static file_vtable _fat_file_vtable;
+static fs_vtable _fat_vtable;
 
 error_code new_fat_file(fat_file** result) {
   error_code err = NO_ERROR;
@@ -32,7 +29,7 @@ error_code new_fat_file(fat_file** result) {
   if(NULL == allocated) {
     err = MEM_ERROR;
   } else {
-    allocated->header._vtable = &_fat_vtable;
+    allocated->header._vtable = &_fat_file_vtable;
   }
 
   *result = allocated;
@@ -40,6 +37,8 @@ error_code new_fat_file(fat_file** result) {
   return err;
 }
 
+
+static error_code fat_file_open(fs_header* header, short_file_name* parts, uint8 depth, file_mode mode, file** result);
 static void fat_reset_cursor(file* f);
 static error_code fat_move_cursor(file* f, int32 n);
 static error_code fat_set_to_absolute_position(file* f, uint32 position);
@@ -215,6 +214,8 @@ static error_code mount_FAT121632(disk* d, fat_file_system** result) {
   if (fs == NULL) {
     err = MEM_ERROR;
   } else {
+    fs->header.kind = FAT;
+    fs->header._vtable = &_fat_vtable;
     fs->kind = kind;
     fs->_.FAT121632.d = d;
     fs->_.FAT121632.log2_bps = log2_bps;
@@ -231,7 +232,9 @@ static error_code mount_FAT121632(disk* d, fat_file_system** result) {
   return err;
 }
 
-static error_code mount_partition(disk* d) {
+static int i = 1;
+
+static error_code mount_partition(disk* d, vfnode* parent) {
 #ifdef SHOW_DISK_INFO
   term_write(cout, "IN MOUNT PART\n\r");
 #endif
@@ -244,12 +247,23 @@ static error_code mount_partition(disk* d) {
     case 4:     // Primary DOS 16-bit FAT
     case 6:     // Primary big DOS >32Mb
     case 0x0C:  // FAT32 LBA
-
       if (ERROR(err = mount_FAT121632(d, &fs))) {
         term_write(cout, "Failed to mount\n\r");
         return err;
       }
 
+      vfnode* partition_mount_point = CAST(vfnode*, kmalloc(sizeof(vfnode)));
+      // TODO make mount names
+      
+      if(i++ == 1) {
+        new_vfnode(partition_mount_point, "DSK1       ", TYPE_MOUNTPOINT);
+      } else {
+        new_vfnode(partition_mount_point, "DSK2       ", TYPE_MOUNTPOINT);
+      }
+
+      partition_mount_point->_value.mountpoint.mounted_fs = CAST(fs_header*, fs);
+
+      vfnode_add_child(parent, partition_mount_point);
       break;
     default:
       term_write(cout, "Unknown partition type: ");
@@ -259,7 +273,7 @@ static error_code mount_partition(disk* d) {
   }
 
   if (fs != NULL) {
-    if (fs_mod.nb_mounted_fs < MAX_NB_MOUNTED_FS) {
+    if (fs_mod.nb_mounted_fs < MAX_NB_MOUNTED_FAT_FS) {
       fs_mod.mounted_fs[fs_mod.nb_mounted_fs++] = fs;
 
       term_write(cout, "Mouting partition ");
@@ -280,6 +294,9 @@ static error_code mount_partition(disk* d) {
         case FAT32_FS:
           kind = "FAT32";
           break;
+        default:
+          panic(L"Unknown FAT FS");
+          break;
       }
 
       term_write(term_write(cout, kind), "\n");
@@ -291,7 +308,7 @@ static error_code mount_partition(disk* d) {
   return UNKNOWN_ERROR;
 }
 
-static void mount_all_partitions() {
+static void mount_all_partitions(vfnode* parent) {
   uint32 index;
   disk* d;
 
@@ -300,7 +317,7 @@ static void mount_all_partitions() {
   index = 0;
 
   while ((d = disk_find(index)) != NULL) {
-    mount_partition(d);
+    mount_partition(d, parent);
     index++;
   }
 }
@@ -316,7 +333,8 @@ error_code fat_close_file(file* ff) {
   return NO_ERROR;
 }
 
-static void fat_reset_cursor(fat_file* f) {
+static void fat_reset_cursor(file* ff) {
+  fat_file* f = CAST(fat_file*, ff);
   fat_file_system* fs = f->fs;
   f->current_cluster = f->first_cluster;
   f->current_section_length =
@@ -442,7 +460,7 @@ static error_code fat_file_set_pos_from_start(fat_file* f, uint32 position) {
   cache_block* cb;
   disk* d = fs->_.FAT121632.d;
 
-  if (S_ISREG(f->header.mode) && (position > f->length)) {
+  if (IS_REGULAR_FILE(f->header.type) && (position > f->length)) {
     return UNKNOWN_ERROR;  // TODO: better than this
   }
 
@@ -459,7 +477,7 @@ static error_code fat_file_set_pos_from_start(fat_file* f, uint32 position) {
         cluster_sz;  // determines how many cluster links we have to jump
     uint32 bytes_left_cluster = position % cluster_sz;
 
-    fat_reset_cursor(f);
+    fat_reset_cursor(CAST(file*, f));
     // We are now at the beginning of the file.
     // We want to go to the position wanted, so
     // we walk through the FAT chain until we read
@@ -575,91 +593,12 @@ static error_code fat_set_to_absolute_position(file* ff, uint32 position) {
   }
 
   if (0 == position) {
-    fat_reset_cursor(f);
+    fat_reset_cursor(ff);
     return NO_ERROR;
   }
 
   int32 mvmt = position - f->current_pos;
   return fat_move_cursor(CAST(file*, f), mvmt);
-}
-
-static short_file_name* decompose_path(native_string normalize_path, uint8* __count) {
-  *__count = 0;
-  uint8 count = 0;
-  uint8 entry = 0;
-  short_file_name* result = NULL;
-  native_char* scout = normalize_path;
-
-  if('\0' == *scout) return NULL;
-  if('/' != *scout) return NULL;
-  
-  do {
-    count += (*scout == '/');
-  } while(*scout++ != '\0');
-
-  if(NULL == (result = CAST(short_file_name*, kmalloc(count * sizeof(short_file_name_struct))))) {
-    return NULL; // meh
-  }
-
-  char* p = normalize_path + 1; // skip the first '/'
-  //The first entry is the root dir, skip that
-
-  while (entry < count) {
-    int i = 0;
-    bool seen_next_slash = FALSE;
-    while (*p != '\0' && *p != '.') {
-      if (*p == '/') {
-        seen_next_slash = TRUE;
-        break;
-      }
-      if (i < 8) {
-        result[entry].name[i] = *p;
-      }
-      i++;
-      p++;
-    }
-
-    while (i < 8) result[entry].name[i++] = ' ';
-
-    i = 0;
-
-    if (*p == '.') {
-      p++;
-      while (*p != '\0') {
-
-        if(*p == '/') {
-          seen_next_slash = TRUE;
-          break;
-        }
-
-        if (i < 3) result[entry].name[8 + i] = *p;
-        i++;
-        p++;
-      }
-    }
-
-    while (i < 3) result[entry].name[8 + i++] = ' ';
-
-    if (!seen_next_slash) {
-      while (*p != '/') {
-        p++;
-      }
-    }
-
-    p++;
-    entry++;
-  }
-
-  *__count = count;
-
-  // for (int i = 0; i < count; ++i) {
-  //   term_writeline(cout);
-  //   for (int j = 0; j < FAT_NAME_LENGTH; ++j) {
-  //     term_write(cout, CAST(native_char, result[i].name[j]));
-  //   }
-  //   term_writeline(cout);
-  // }
-  return result;
 }
 
 error_code fat_write_file(file* ff, void* buff, uint32 count) {
@@ -770,7 +709,7 @@ error_code fat_write_file(file* ff, void* buff, uint32 count) {
     break;
   }
 
-  if (!ERROR(err) && !S_ISDIR(f->header.mode)) {
+  if (!ERROR(err) && !IS_FOLDER(f->header.type)) {
     f->length += count;
     err = fat_update_file_length(f);
   }
@@ -778,14 +717,7 @@ error_code fat_write_file(file* ff, void* buff, uint32 count) {
   return err;
 }
 
-extern volatile bool want_to_read;
-
 error_code fat_read_file(file* ff, void* buf, uint32 count) {
-
-  if(want_to_read) {
-  debug_write("Reading FAT file");
-
-  }
 
   fat_file* f = CAST(fat_file*, ff);
   if (count > 0) {
@@ -799,7 +731,7 @@ error_code fat_read_file(file* ff, void* buf, uint32 count) {
         uint32 n;
         uint8* p;
 
-        if (!S_ISDIR(f->header.mode)) {
+        if (!IS_FOLDER(f->header.type)) {
           uint32 left = f->length - f->current_pos;
           if (count > left) count = left;
         }
@@ -892,13 +824,28 @@ static error_code fat_fetch_entry(fat_file_system* fs, fat_file* parent,
 
   uint32 i;
 
-  if (!S_ISDIR(parent->header.mode)) {
+  uint32 cluster = parent->first_cluster;
+  uint32 position = parent->current_pos;
+
+  for(i = 0; i < FAT_NAME_LENGTH; ++i) {
+    if(name[i] != ' ') {
+      break;
+    }
+  }
+
+  if(i == FAT_NAME_LENGTH) {
+    // We want to open the parent
+    if(ERROR(err = new_fat_file(&f))) return err;
+    *f = *parent;
+    goto found;
+  }
+
+  if (!IS_FOLDER(parent->header.type)) {
     return UNKNOWN_ERROR;
   }
 
-  uint32 cluster = parent->first_cluster;
-  uint32 position = parent->current_pos;
-  while ((err = fat_read_file(CAST(file*, parent), &de, sizeof(de))) == sizeof(de)) {
+  while ((err = fat_read_file(CAST(file*, parent), &de, sizeof(de))) ==
+         sizeof(de)) {
     if (de.DIR_Name[0] == 0) break;  // No more entries
     // Only verify the file if it's readable
     if (de.DIR_Name[0] != 0xe5 && (de.DIR_Attr & FAT_ATTR_HIDDEN) == 0 &&
@@ -927,9 +874,9 @@ static error_code fat_fetch_entry(fat_file_system* fs, fat_file* parent,
         f->length = as_uint32(de.DIR_FileSize);
 
         if (de.DIR_Attr & FAT_ATTR_DIRECTORY) {
-          f->header.mode = S_IFDIR;
+          f->header.type = TYPE_FOLDER;
         } else {
-          f->header.mode = S_IFREG;
+          f->header.type = TYPE_REGULAR;
         }
 
         // Setup the entry file. It is relative to the file's
@@ -1004,7 +951,7 @@ error_code fat_32_open_root_dir(fat_file_system* fs, fat_file* f) {
   // (it would be slow to calculate it everytime...). On a directory, the length
   // is not used anyways when reading the file. We simply read until EOF.
   f->length = 0;
-  f->header.mode = S_IFDIR;
+  f->header.type = TYPE_FOLDER;
 
   return NO_ERROR;
 }
@@ -1033,7 +980,7 @@ static error_code fat_open_root_dir(fat_file_system* fs, file** result) {
       f->current_section_pos = 0;
       f->current_pos = 0;
       f->length = f->current_section_length;
-      f->header.mode = S_IFDIR;
+      f->header.type = TYPE_FOLDER;
       break;
     }
 
@@ -1265,7 +1212,7 @@ error_code fat_32_create_empty_file(fat_file_system* fs, fat_file* parent_folder
   // the same time
   f->parent.first_cluster = parent_folder->first_cluster;
   f->entry.position = position;
-  f->header.mode = S_IFREG;
+  f->header.type = TYPE_REGULAR;
 
   *result = f;
 
@@ -1301,9 +1248,9 @@ static error_code fat_update_file_length(fat_file* f) {
 
   parent_dir->fs = f->fs;
   parent_dir->first_cluster = f->parent.first_cluster;
-  parent_dir->header.mode = S_IFDIR;
+  parent_dir->header.type = TYPE_FOLDER;
 
-  fat_reset_cursor(parent_dir);
+  fat_reset_cursor(CAST(file*, parent_dir));
   fat_set_to_absolute_position(CAST(file*, parent_dir), f->entry.position);
 
   if (ERROR(err = fat_read_file(CAST(file*, parent_dir), &de, sizeof(de)))) {
@@ -1363,37 +1310,22 @@ static error_code fat_truncate_file(fat_file* f) {
   return err;
 }
 
-error_code fat_open_file(native_string path, file_mode mode, file** result) {
+error_code fat_file_open(fs_header* ffs, short_file_name* parts, uint8 depth, file_mode mode, file** result) {
   error_code err = NO_ERROR;
-  fat_file_system* fs;
+  fat_file_system* fs = CAST(fat_file_system*, ffs);
   native_char normalized_path[NAME_MAX + 1];
   native_string child_name;
   fat_file *parent,*child;
 
-  if (fs_mod.nb_mounted_fs == 0) {
-    // No file system mounted
-    return UNKNOWN_ERROR;
-  } else {
-    fs = fs_mod.mounted_fs[0];
-  }
+  switch (fs->kind) {
+    case FAT12_FS:
+    case FAT16_FS:
+    case FAT32_FS:
+      break;
 
-  switch (fs->kind)
-  {
-  case FAT12_FS:
-  case FAT16_FS:
-  case FAT32_FS:
-    break;
-  
-  default:
-    return UNIMPL_ERROR;
-    break;
-  }
-
-  if (ERROR(err = normalize_path(path, normalized_path))) {
-#ifdef SHOW_DISK_INFO
-    term_write(cout, "Failed to normalize the path\n\r");
-#endif
-    return err;
+    default:
+      return UNIMPL_ERROR;
+      break;
   }
 
   if (ERROR(err = fat_open_root_dir(fs, CAST(file**, &parent)))) {
@@ -1405,14 +1337,23 @@ error_code fat_open_file(native_string path, file_mode mode, file** result) {
     return err;
   }
 
-  // Find the parent folder
-  uint8 depth;
-  short_file_name_struct* parts = decompose_path(normalized_path, &depth);
+  // if(0 == kstrcmp("./.gambini", path)) {
+  //   // This is a hack! Neeeeds to be fixed.
+  //   path = "gambini";
+  // }
 
   if(0 == depth) {
     return FNF_ERROR;
   }
 
+  // term_writeline(cout);
+  // for(uint8 i = 0 ; i < depth; ++i) {
+  //   for(uint8 j = 0; j < 11; ++j) {
+  //     term_write(cout, parts[i].name[j]);
+  //   }
+  //   term_writeline(cout);
+  // }
+  // term_writeline(cout);
 
   for(uint8 i = 0; i < depth - 1; ++i) {
     // Go get the actual parent folder
@@ -1443,7 +1384,7 @@ error_code fat_open_file(native_string path, file_mode mode, file** result) {
 
 
   // If it is a directory, there is not mode
-  if (!S_ISDIR(child->header.mode)) {
+  if (!IS_FOLDER(child->header.type)) {
   // Set the file mode
     switch (mode) {
       case MODE_READ:
@@ -1494,8 +1435,12 @@ error_code fat_open_file(native_string path, file_mode mode, file** result) {
     }
   }
   
-  if(NULL != parent) fat_close_file(CAST(file*, parent));
+  if(HAS_NO_ERROR(err)) {
+    child->header.mode = mode;
+  }
 
+  if(NULL != parent) fat_close_file(CAST(file*, parent));
+  
   *result = CAST(file*, child);
 
   return NO_ERROR;
@@ -1531,9 +1476,7 @@ static dirent* fat_readdir(DIR* dir) {
             if (p1 == p2) p1--;
             *p1++ = '\0';
 
-            dir->ent.d_type = (de.DIR_Attr & FAT_ATTR_DIRECTORY)
-                                  ? S_IFDIR
-                                  : (de.DIR_Attr ? 0 : S_IFREG);
+            dir->ent.d_type = (de.DIR_Attr & FAT_ATTR_DIRECTORY) ? TYPE_FOLDER : TYPE_REGULAR;
 
             return &dir->ent;
           }
@@ -1547,20 +1490,22 @@ static dirent* fat_readdir(DIR* dir) {
   return NULL;
 }
 
-error_code init_fat() {
+error_code mount_fat(vfnode* parent) {
 
-  // Init the VTable
-  _fat_vtable._file_close = fat_close_file;
-  _fat_vtable._file_move_cursor = fat_move_cursor;
-  _fat_vtable._file_read = fat_read_file;
-  _fat_vtable._file_set_to_absolute_position = fat_set_to_absolute_position;
-  _fat_vtable._file_write = fat_write_file;
-  _fat_vtable._file_len = fat_file_len;
-  _fat_vtable._readdir = fat_readdir;
+  // Init the FS vtable
+  _fat_vtable._file_open = fat_file_open;
+
+  // Init the file vtable
+  _fat_file_vtable._file_close = fat_close_file;
+  _fat_file_vtable._file_move_cursor = fat_move_cursor;
+  _fat_file_vtable._file_read = fat_read_file;
+  _fat_file_vtable._file_set_to_absolute_position = fat_set_to_absolute_position;
+  _fat_file_vtable._file_write = fat_write_file;
+  _fat_file_vtable._file_len = fat_file_len;
+  _fat_file_vtable._readdir = fat_readdir;
 
   disk_add_all_partitions();
-  mount_all_partitions();
+  mount_all_partitions(parent);
 
-  debug_write("FAT INIT");
   return NO_ERROR;
 }

@@ -53,15 +53,16 @@ typedef int32 ssize_t;
 
 typedef int32 error_code;
 
-#define IN_PROGRESS   1
-#define NO_ERROR      0
-#define UNIMPL_ERROR  (-1)
-#define MEM_ERROR     (-2)
-#define FNF_ERROR     (-3)
-#define EOF_ERROR     (-4)
+#define IN_PROGRESS 1
+#define NO_ERROR 0
+#define EOF_ERROR (-1)
+#define MEM_ERROR (-2)
+#define FNF_ERROR (-3)
+#define UNIMPL_ERROR (-4)
 #define DISK_OUT_OF_SPACE (-5)
-#define ARG_ERROR     (-6)
+#define ARG_ERROR (-6)
 #define UNKNOWN_ERROR (-7)
+#define PERMISSION_ERROR (-8)
 
 #define NOP() do { __asm__ __volatile__ ("NOP" : : : "memory");} while(0)
 
@@ -141,7 +142,6 @@ typedef int32 error_code;
 #define RED_PANIC_SCREEN
 #define ENABLE_DEBUG_WRITE
 #define ENABLE_DEBUG_MARKER
-#define LOAD_GAMBIT
 #define ENABLE_MOUSE
 
 // BUSY_WAIT_INSTEAD_OF_SLEEP uses a simple for loop

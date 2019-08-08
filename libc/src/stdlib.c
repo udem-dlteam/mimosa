@@ -33,7 +33,7 @@ void *REDIRECT_NAME(malloc)(size_t __size) {
 
   {
 #define MB (1<<20)
-#define HEAP_SIZE 10*MB // needs to be at least 5*MB
+#define HEAP_SIZE 40*MB // needs to be at least 5*MB
 
     static char heap[HEAP_SIZE];
     static int alloc = HEAP_SIZE;

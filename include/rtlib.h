@@ -41,6 +41,10 @@ extern "C" void* memcpy(void* dest, const void* src, size_t n);
 native_string copy_without_trailing_spaces(uint8* src, native_string dst,
                                                   uint32 n);
 
+int16 kstrcmp(native_string a, native_string b);
+
+native_string kstrconcat(native_string a, native_string b);
+
 //-----------------------------------------------------------------------------
 
 // Execution of global constructors and destructors.

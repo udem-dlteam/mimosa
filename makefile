@@ -3,13 +3,10 @@
 OS_NAME = "\"MIMOSA version 1.2\""
 KERNEL_START = 0x20000
 
-# fat32.o
-KERNEL_OBJECTS = kernel.o libc/libc_os.o drivers/filesystem/vfs.o main.o drivers/filesystem/fat.o drivers/ide.o disk.o thread.o chrono.o ps2.o term.o video.o intr.o rtlib.o uart.o $(NETWORK_OBJECTS)
+KERNEL_OBJECTS = kernel.o libc/libc_os.o drivers/filesystem/vfs.o drivers/filesystem/stdstream.o main.o drivers/filesystem/fat.o drivers/ide.o disk.o thread.o chrono.o ps2.o term.o video.o intr.o rtlib.o uart.o $(NETWORK_OBJECTS)
 #NETWORK_OBJECTS =
 #NETWORK_OBJECTS = eepro100.o tulip.o timer2.o misc.o pci.o config.o net.o
 DEFS = -DUSE_IRQ4_FOR_UART -DUSE_IRQ1_FOR_KEYBOARD -DINCLUDE_EEPRO100 
-#DEFS = -DINCLUDE_TULIP
-#DEFS = -DINCLUDE_TULIP -DINCLUDE_EEPRO100 
 
 GCC = gcc-3.4 -m32 -Wno-write-strings -g
 GPP = g++-3.4 -m32 -Wno-write-strings -g
@@ -155,6 +152,8 @@ video.o: video.cpp include/video.h include/general.h include/asm.h \
 fat32.o: fat32.cpp include/fat32.h include/general.h
 
 drivers/filesystem/vfs.o: drivers/filesystem/vfs.cpp drivers/filesystem/include/vfs.h drivers/filesystem/include/fat.h
+
+drivers/filesystem/stdstream.o: drivers/filesystem/stdstream.cpp drivers/filesystem/include/stdstream.h drivers/filesystem/include/vfs.h
 
 libc/libc_os.o: libc/libc_os.cpp \
                 libc/include/dirent.h \

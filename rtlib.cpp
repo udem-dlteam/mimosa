@@ -167,6 +167,49 @@ native_string copy_without_trailing_spaces(uint8* src, native_string dst,
   return dst + end;
 }
 
+// Based off glibc's strcmp
+// I roughly modified it to fit in the general code style of mimosa
+int16 kstrcmp(native_string a, native_string b) {
+
+  native_string s1 = CAST(native_string, a);
+  native_string s2 = CAST(native_string, b);
+  native_char c1, c2;
+  do
+    {
+      c1 = CAST(native_char, *s1++);
+      c2 = CAST(native_char, *s2++);
+      if (c1 == '\0')
+        return c1 - c2;
+    }
+  while (c1 == c2);
+  return c1 - c2;
+}
+
+native_string kstrconcat(native_string a, native_string b) {
+  uint32 alen = 0, blen = 0;
+  native_char *p;
+  native_string out;
+
+  p = a;
+  while(*p != '\0') {
+    alen++;
+    p++;
+  }
+
+  p = b;
+   while(*p != '\0') {
+    blen++;
+    p++;
+  }
+  
+  out = CAST(native_string, kmalloc(sizeof(native_char) * (alen + blen + 1)));
+  memcpy(out, a, alen);
+  memcpy(out + alen, b, blen);
+  out[alen + blen] = '\0';
+
+  return out;
+}
+
 //-----------------------------------------------------------------------------
 
 // The function "__pure_virtual" is called when a pure virtual method
@@ -368,6 +411,9 @@ extern void libc_init(void);
 
 void __rtlib_setup ()
 { 
+  error_code err;
+  thread* the_idle, *cache_block_maid_thread;
+
   ASSERT_INTERRUPTS_ENABLED();
 
   term_write(cout, "Initializing ");
@@ -375,32 +421,37 @@ void __rtlib_setup ()
   term_write(cout, "Mimosa");
   term_write(cout, "\033[0m\n\n");
 
-  identify_cpu ();
-  setup_ps2 ();
-  
-  thread* the_idle = CAST(thread*, kmalloc(sizeof(thread)));
+  identify_cpu();
+
+  the_idle = CAST(thread*, kmalloc(sizeof(thread)));
   thread_start(new_thread(the_idle, idle_thread_run, "Idle thread"));
 
-  term_write(cout, "Loading up LIBC\n");
-  libc_init();
   term_write(cout, "Loading up disks...\n");
-  setup_disk ();
+  setup_disk();
   term_write(cout, "Loading up IDE controllers...\n");
   setup_ide ();
   term_write(cout, "Loading up the virtual file system...\n");
-  error_code err = init_vfs();
+
+  if(ERROR(err = init_vfs())) {
+    goto setup_panic;
+  }
+
+  if(ERROR(err = setup_ps2()))
+    goto setup_panic;
 
   if(ERROR(err)) {
     panic(L"Failed to load VFS driver");
   }
 
+  term_write(cout, "Loading up LIBC\n");
+  libc_init();
   // setup_net ();
 
   // FS is loaded, now load the cache maid
 #ifdef USE_CACHE_BLOCK_MAID
   term_write(cout, "Loading the cache block maid...\n");
 
-  thread* cache_block_maid_thread = CAST(thread*, kmalloc(sizeof(thread)));
+  cache_block_maid_thread = CAST(thread*, kmalloc(sizeof(thread)));
   thread_start(new_thread(cache_block_maid_thread, cache_block_maid_run,
                           "Cache block maid"));
 #endif
@@ -408,8 +459,10 @@ void __rtlib_setup ()
   main ();
 
   __do_global_dtors();
-
   panic(L"System termination");
+
+setup_panic:
+  panic(L"Boot error");
 }
 
 //-----------------------------------------------------------------------------

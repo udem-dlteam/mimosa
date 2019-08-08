@@ -4,9 +4,13 @@
 #ifdef USE_MIMOSA
 
 #include "../drivers/filesystem/include/vfs.h"
+#include "../drivers/filesystem/include/stdstream.h"
 #include "ps2.h"
+#include "term.h"
 #include "general.h"
 #include "rtlib.h"
+
+file* libc_stdin;
 
 #endif
 
@@ -50,6 +54,10 @@ FILE *REDIRECT_NAME(fopen)(const char *__restrict __filename,
 
     return &FILE_root_dir;
   } else {
+
+    debug_write("STDIO FOPEN");
+    debug_write(CAST(native_string, __filename));
+
     error_code err;
     file *f;
     if (HAS_NO_ERROR(err = file_open(CAST(native_string, __filename),
@@ -105,36 +113,16 @@ size_t REDIRECT_NAME(fread)(void *__restrict __ptr, size_t __size, size_t __n,
 
 #else
 
-  // TODO: implement reading other files than stdin
-
-  if (__stream == &FILE_stdin) {
-
-    unicode_char *p = CAST(unicode_char*,__ptr);
-    int n = __size * __n / sizeof(unicode_char);
-    int i = 0;
-
-    while (i < n) {
-      int c = getchar0(FALSE);
-      if (c < 0) break;
-      *p++ = c;
-      i++;
-    }
-
-    __n = i * sizeof(unicode_char) / __size;
-
+  error_code err;
+  file *f = __stream->f;
+  uint32 count = __n * __size;
+  if (ERROR(err = file_read(f, __ptr, count))) {
+    // fread interface has 0 for an error
+    __n = 0;
+    __stream->err = err;
   } else {
-    error_code err;
-    file* f = __stream->f;
-    uint32 count = __n * __size;
-
-    if(ERROR(err = file_read(f, __ptr, count))) {
-      // fread interface has 0 for an error
-      __n = 0;
-      __stream->err = err;
-    } else {
-      // Number of items read, not byte count
-      __n = err / __size;
-    }
+    // Number of items read, not byte count
+    __n = err / __size;
   }
 
   return __n;
@@ -204,11 +192,18 @@ int REDIRECT_NAME(fclose)(FILE *__restrict __stream) {
   return fclose(__stream);
 
 #else
-
-  // TODO: implement
-  // Success is 0. EOF is an error. See ferror for an error
   return 0;
 
+  // Before doing actual flclose, all streams must be actually streams (STDERR and STDOUT) 
+
+  // file* sys_file = __stream->f;
+  // error_code err = NO_ERROR;
+  // if(ERROR(err = file_close(sys_file))) {
+  //   return (-1);
+  // } else {
+  //   return 0;
+  // }
+  
 #endif
 #endif
 }
@@ -604,6 +599,20 @@ void libc_init_stdio(void) {
   LIBC_LINK._stdout = stdout;
   LIBC_LINK._stderr = stderr;
 #else
+  
+  error_code err;
+  // Open STDIN has a non blocking stream in readonly mode.
+  // This is a "gambit" particularity...
+  if (ERROR(err = file_open(STDIN_PATH, "rx", &libc_stdin))) {
+    panic(L"Failed to load LIBC stdio");
+  } else {
+    FILE_stdin.f = libc_stdin;
+  }
+
+  if(ERROR(err = file_open("/dsk1", "r", &FILE_root_dir.f))) {
+    panic(L"Failed to load the root dir for gambit");
+  }
+
   LIBC_LINK._stdin  = &FILE_stdin;
   LIBC_LINK._stdout = &FILE_stdout;
   LIBC_LINK._stderr = &FILE_stderr;
