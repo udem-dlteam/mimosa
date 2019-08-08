@@ -1358,6 +1358,12 @@ static error_code fat_truncate_file(fat_file* f) {
 }
 
 error_code fat_open_file(native_string path, file_mode mode, file** result) {
+  if(0 == kstrcmp("./.gambini", path)) {
+    // This is a hack! Neeeeds to be fixed.
+    path = "gambini";
+  }
+
+
   error_code err = NO_ERROR;
   fat_file_system* fs;
   native_char normalized_path[NAME_MAX + 1];
