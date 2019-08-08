@@ -14,7 +14,9 @@
 
 typedef uint8 file_mode;
 
-#define IS_MODE_NONBLOCK(md) ((md) & MODE_NONBLOCK)
+#define IS_MODE_NONBLOCK(md) ((md) & MODE_NONBLOCK_ACCESS)
+#define IS_REGULAR_FILE(tpe) ((tpe) & TYPE_REGULAR)
+#define IS_FOLDER(tpe) ((tpe) & TYPE_FOLDER)
 
 #define NAME_MAX 1024 + 1
 
