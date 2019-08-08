@@ -6,7 +6,7 @@
 
 #define STREAM_DEFAULT_LEN 100
 
-native_string STDIN_PATH = "/dev/stdio";
+native_string STDIN_PATH = "/dev/stdin";
 native_string STDOUT_PATH = "/dev/stdout";
 
 static raw_stream stdin;
@@ -215,7 +215,7 @@ error_code stream_open_file(native_string path, file_mode mode, file** result) {
   return err;
 }
 
-error_code init_streams() {
+error_code init_streams(vfnode* parent) {
   error_code err = NO_ERROR;
 
   __std_rw_stream_vtable._file_close = stream_close;
@@ -228,6 +228,23 @@ error_code init_streams() {
 
   if (ERROR(err = new_raw_stream(&stdin, FALSE))) return err;
   if (ERROR(err = new_raw_stream(&stdout, FALSE))) return err;
+
+  vfnode* dev_node = CAST(vfnode*, kmalloc(sizeof(vfnode)));
+  new_vfnode(dev_node, "DEV        ", TYPE_VFOLDER);
+  vfnode_add_child(parent, dev_node);
+
+  vfnode* stdout_node = CAST(vfnode*, kmalloc(sizeof(vfnode)));
+  vfnode* stdin_node = CAST(vfnode*, kmalloc(sizeof(vfnode)));
+
+  // TODO: eliminate the duplication of names
+  new_vfnode(stdout_node, "STDOUT     ", TYPE_VFILE);
+  new_vfnode(stdout_node, "STDIN      ", TYPE_VFILE);
+
+  vfnode_add_child(dev_node, stdout_node);
+  vfnode_add_child(dev_node, stdin_node);
+
+  // stdin_node->_value.file.linked_file = &stdin;
+  // stdout_node->_value.file.linked_file = &stdout;
 
   return err;
 }

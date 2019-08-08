@@ -52,8 +52,28 @@ static error_code vfnode_read(file* f, void* buff, uint32 count) {
   return PERMISSION_ERROR;
 }
 
-static dirent*    vfnode_readdir(DIR* dir) {
-  return NULL;
+static dirent* vfnode_readdir(DIR* dir) {
+  error_code err;
+
+  VDIR* vdir = CAST(VDIR*, dir);
+  vfnode* f = CAST(vfnode*, dir->f);
+
+  if(NULL == vdir->child_cursor) {
+    return NULL;
+  }
+
+  vfnode* child = vdir->child_cursor;
+  dirent* result = &dir->ent;
+  result->d_type = child->header.type;
+
+  //TODO: When LFN supports comes around this needs to be better
+  for(int i = 0; i < 11; ++i) {
+    result->d_name[i] = child->name[i];
+  }
+  result->d_name[11] = '\0';
+  vdir->child_cursor = child->_next_sibling;
+  
+  return result;
 }
 
 error_code normalize_path(native_string path, native_string new_path) {
@@ -298,7 +318,7 @@ error_code file_open(native_string path, native_string mode, file** result) {
       *result = hit;
     }
   } else {
-    debug_write("Went all in");
+      *result = CAST(file*, deepest);
   }
 
   return err;
@@ -314,15 +334,27 @@ DIR* opendir(const char* path) {
   DIR* dir;
   error_code err;
 
-  if (ERROR(err = file_open(CAST(native_string, path),"r", &f))) {
+  if (ERROR(err = file_open(CAST(native_string, path), "r", &f))) {
     debug_write("Error while opening the file :/");
     return NULL;
   }
 
-  if (!IS_FOLDER(f->type) || (dir = CAST(DIR*, kmalloc(sizeof(DIR)))) == NULL) {
-    debug_write("Failed to open the DIR!");
+  if (!IS_FOLDER(f->type)) {
     file_close(f);  // ignore error
     return NULL;
+  }
+
+  if(IS_VIRTUAL(f->type)) {
+    if((dir = CAST(DIR*, kmalloc(sizeof(VDIR)))) == NULL) {
+      return NULL;
+    }
+    vfnode* vf = CAST(vfnode*, f);
+    VDIR* vdir = CAST(VDIR*, dir);
+    vdir->child_cursor = vf->_first_child;
+  } else {
+    if((dir = CAST(DIR*, kmalloc(sizeof(DIR)))) == NULL) {
+      return NULL;
+    }
   }
 
   dir->f = f;
@@ -343,6 +375,36 @@ void inline set_dir_entry_size(FAT_directory_entry* de, uint32 sz) {
   }
 }
 
+void vfnode_add_child(vfnode* parent, vfnode* child) {
+  if(NULL == parent->_first_child) {
+    parent->_first_child = child;
+  } else {
+    vfnode *prev, *scout;
+    scout = parent->_first_child;
+
+    do {
+      prev = scout;
+      scout = scout->_next_sibling;
+    } while(NULL != scout);
+
+    prev->_next_sibling = child;
+    // child->prev_sibling = prev;
+  }
+
+  child->_parent = parent;
+}
+
+vfnode* new_vfnode(vfnode* vf, native_string name, file_type type) {
+  vf->header.mode = MODE_READ;
+  vf->header.type = type;
+  vf->header._fs_header = NULL;
+  vf->header._vtable = &__vfnode_vtable;
+  vf->name = name;
+  vf->_first_child = vf->_next_sibling = vf->_parent = NULL;
+
+  return vf;
+}
+
 error_code init_vfs() {
   error_code err = NO_ERROR;
 
@@ -354,16 +416,9 @@ error_code init_vfs() {
   __vfnode_vtable._file_write = vfnode_write;
   __vfnode_vtable._readdir = vfnode_readdir;
 
-  {
-    sys_root.header.mode = MODE_READ;
-    sys_root.header.type = TYPE_VFOLDER;
-    sys_root.header._fs_header = NULL;
-    sys_root.header._vtable = &__vfnode_vtable;
-    sys_root.name = "           ";
-    sys_root._first_child = sys_root._next_sibling = sys_root._parent = NULL;
-  }
+  new_vfnode(&sys_root, "           ", TYPE_VFOLDER);
 
-  if(ERROR(err = init_streams())) {
+  if(ERROR(err = init_streams(&sys_root))) {
     return err;
   }
 

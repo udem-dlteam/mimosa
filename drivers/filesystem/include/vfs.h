@@ -14,8 +14,10 @@
 
 #define TYPE_REGULAR (1 << 0)
 #define TYPE_FOLDER  (1 << 1)
-#define TYPE_VFOLDER (1 << 2)
+#define TYPE_VIRTUAL (1 << 2)
 #define TYPE_MOUNTPOINT (1 << 3)
+#define TYPE_VFOLDER (TYPE_VIRTUAL | TYPE_FOLDER)
+#define TYPE_VFILE (TYPE_VIRTUAL | TYPE_REGULAR)
 
 typedef uint8 file_mode;
 typedef uint8 file_type;
@@ -24,6 +26,7 @@ typedef uint8 file_type;
 
 #define IS_REGULAR_FILE(tpe) ((tpe) & TYPE_REGULAR)
 #define IS_FOLDER(tpe) ((tpe) & TYPE_FOLDER)
+#define IS_VIRTUAL(tpe) ((tpe) & TYPE_VIRTUAL)
 
 #define NAME_MAX 1024 + 1
 
@@ -41,6 +44,7 @@ typedef struct fs_header_struct {
 typedef struct file_struct file;
 typedef struct vfnode_struct vfnode;
 typedef struct DIR_struct DIR;
+typedef struct VDIR_struct VDIR;
 typedef struct dirent_struct dirent;
 
 typedef struct short_file_name_struct {
@@ -76,6 +80,9 @@ struct vfnode_struct {
     struct {
         fs_header* mounted_fs;
     } mountpoint;
+    struct {
+      file* linked_file;
+    } file;
   } _value;
 };
 
@@ -87,6 +94,11 @@ struct dirent_struct {
 struct DIR_struct {
   dirent ent;
   file* f;
+};
+
+struct VDIR_struct {
+  DIR header;
+  vfnode* child_cursor;
 };
 
 struct stat {
@@ -101,6 +113,8 @@ error_code init_vfs();
 // -----------------------------------------------------------------------------------
 
 void vfnode_add_child(vfnode* parent, vfnode* child);
+
+vfnode* new_vfnode(vfnode* vf, native_string name, file_type type);
 
 #define file_move_cursor(f, mvmt) CAST(file*, f)->_vtable->_file_move_cursor(CAST(file*, f), mvmt)
 #define file_set_to_absolute_position(f, position) CAST(file*, f)->_vtable->_file_set_to_absolute_position(CAST(file*, f), position)

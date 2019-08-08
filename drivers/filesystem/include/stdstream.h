@@ -24,7 +24,7 @@ struct stream_file_struct {
     raw_stream* source;
 };
 
-error_code init_streams();
+error_code init_streams(vfnode* parent);
 
 error_code stream_open_file(native_string path, file_mode mode, file** result);
 
