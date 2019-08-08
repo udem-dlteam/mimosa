@@ -54,11 +54,16 @@ static dirent* vfnode_readdir(DIR* dir) {
   dirent* result = &dir->ent;
   result->d_type = child->header.type;
 
-  //TODO: When LFN supports comes around this needs to be better
-  for(int i = 0; i < 11; ++i) {
-    result->d_name[i] = child->name[i];
-  }
-  result->d_name[11] = '\0';
+  native_string p1 = dir->ent.d_name;
+  native_string p2;
+
+  p1 = copy_without_trailing_spaces(CAST(uint8*, child->name), p1, 8);
+  *p1++ = '.';
+  p2 = p1;
+  p1 = copy_without_trailing_spaces(CAST(uint8*, child->name) + 8, p1, 3);
+  if (p1 == p2) p1--; // erase the dot
+  *p1++ = '\0';
+
   vdir->child_cursor = child->_next_sibling;
   
   return result;

@@ -1452,7 +1452,6 @@ static size_t fat_file_len(file* ff) {
 }
 
 static dirent* fat_readdir(DIR* dir) {
-  debug_write("FAT readdir");
   fat_file* f = CAST(fat_file*, dir->f);
   error_code err;
 
@@ -1477,9 +1476,7 @@ static dirent* fat_readdir(DIR* dir) {
             if (p1 == p2) p1--;
             *p1++ = '\0';
 
-            dir->ent.d_type = (de.DIR_Attr & FAT_ATTR_DIRECTORY)
-                                  ? TYPE_FOLDER
-                                  : (de.DIR_Attr ? 0 : TYPE_REGULAR);
+            dir->ent.d_type = (de.DIR_Attr & FAT_ATTR_DIRECTORY) ? TYPE_FOLDER : TYPE_REGULAR;
 
             return &dir->ent;
           }
