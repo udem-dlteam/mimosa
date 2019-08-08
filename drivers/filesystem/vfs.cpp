@@ -28,6 +28,34 @@ static dirent*    vfnode_readdir(DIR* dir);
 //   return close_file(f);
 // }
 
+static error_code vfnode_close(file* f) {
+  return PERMISSION_ERROR;
+}
+
+static size_t vfnode_len(file* f) {
+  return 0;
+}
+
+static error_code vfnode_move_cursor(file* f, int32 mvmt) {
+  return PERMISSION_ERROR;
+}
+
+static error_code vfnode_set_abs(file* f, uint32 pos) {
+  return PERMISSION_ERROR;
+}
+
+static error_code vfnode_write(file* f, void* buff, uint32 count) {
+  return PERMISSION_ERROR;
+}
+
+static error_code vfnode_read(file* f, void* buff, uint32 count) {
+  return PERMISSION_ERROR;
+}
+
+static dirent*    vfnode_readdir(DIR* dir) {
+  return NULL;
+}
+
 error_code normalize_path(native_string path, native_string new_path) {
   uint32 i = 0;
 
@@ -70,6 +98,92 @@ error_code normalize_path(native_string path, native_string new_path) {
   return NO_ERROR;
 }
 
+short_file_name* decompose_path(native_string normalized_Path, uint8* __count) {
+  *__count = 0;
+  uint8 count = 0;
+  uint8 entry = 0;
+  short_file_name* result = NULL;
+  native_char* scout = normalized_Path;
+
+  if('\0' == *scout) return NULL;
+  if('/' != *scout) return NULL;
+  
+  do {
+    count += (*scout == '/');
+  } while(*scout++ != '\0');
+  count++;
+
+  if(NULL == (result = CAST(short_file_name*, kmalloc(count * sizeof(short_file_name_struct))))) {
+    return NULL; // meh
+  }
+
+  char* p = normalized_Path;
+  debug_write(normalized_Path);
+  while (entry < count) {
+    int i = 0;
+    bool seen_next_slash = FALSE;
+    
+    if (*p == '\0') {
+      // Overshot the count
+      --count;
+      goto decompose_path_end;
+    }
+
+    while (*p != '\0' && *p != '.') {
+      if (*p == '/') {
+        seen_next_slash = TRUE;
+        break;
+      }
+      if (i < 8) {
+        result[entry].name[i] = *p;
+      }
+      i++;
+      p++;
+    }
+
+    while (i < 8) result[entry].name[i++] = ' ';
+
+    i = 0;
+
+    if (*p == '.') {
+      p++;
+      while (*p != '\0') {
+
+        if(*p == '/') {
+          seen_next_slash = TRUE;
+          break;
+        }
+
+        if (i < 3) result[entry].name[8 + i] = *p;
+        i++;
+        p++;
+      }
+    }
+
+    while (i < 3) result[entry].name[8 + i++] = ' ';
+
+    if (!seen_next_slash) {
+      while (*p != '/') {
+        p++;
+      }
+    }
+
+    p++;
+    entry++;
+  }
+decompose_path_end:
+  *__count = count;
+
+  // for (int i = 0; i < count; ++i) {
+  //   term_writeline(cout);
+  //   for (int j = 0; j < FAT_NAME_LENGTH; ++j) {
+  //     term_write(cout, CAST(native_char, result[i].name[j]));
+  //   }
+  //   term_writeline(cout);
+  // }
+  return result;
+}
+
 bool parse_mode(native_string mode, file_mode* result) {
   file_mode f_mode = 0;
   native_char* c = mode;
@@ -110,32 +224,81 @@ vfs_parse_mode_loop_end:
   return '\0' == *c; // if we stopped at the null terminator, we did not fail anywhere
 }
 
+static vfnode* explore(short_file_name* parts, uint8 *depth) {
+  vfnode* last_candidate = NULL;
+  vfnode* scout = &sys_root;
+  uint8 bottom = *depth;
+  do {
+    if(0 == kstrcmp(scout->name, parts[bottom - *depth].name)) {
+      last_candidate = scout;
+      scout = scout->_first_child;
+      *depth = *depth - 1;
+    } else if(NULL != scout->_next_sibling) {
+      scout = scout->_next_sibling;
+    } else {
+      scout = NULL;
+    }
+  } while(NULL != scout);
+
+  return last_candidate;
+}
+
 error_code file_open(native_string path, native_string mode, file** result) {
   error_code err = NO_ERROR;
-  file_mode md;
-  file* hit = NULL;
+  native_char normalized_path[NAME_MAX + 1];
+  uint8 depth;
 
-  if (!parse_mode(mode, &md)) {
-    return ARG_ERROR;
-  }
-
-  if (ERROR(err = stream_open_file(path, md, &hit)) && FNF_ERROR != err) {
+  if (ERROR(err = normalize_path(path, normalized_path))) {
+#ifdef SHOW_DISK_INFO
+    term_write(cout, "Failed to normalize the path\n\r");
+#endif
     return err;
   }
+  debug_write(normalized_path);
+  short_file_name* parts = decompose_path(normalized_path, &depth);
 
-  if(HAS_NO_ERROR(err)) goto vfs_open_found;
-
-  if (ERROR(err = fat_open_file(path, md, &hit)) && FNF_ERROR != err) {
-    return err;
+  term_write(cout, "Parts:");
+  for(int i = 0; i < depth; ++i) {
+    term_write(cout, "|");
+    for(int j = 0; j < 11; ++j) {
+      term_write(cout, parts[i].name[j]);
+    }
+    term_write(cout, "|");
   }
+  term_writeline(cout);
 
-  if(HAS_NO_ERROR(err)) goto vfs_open_found;
+  vfnode* deepest = explore(parts, &depth);
+  
+  if(depth > 0) {
+    debug_write("Depth left to explore");
 
-  // More search
+    file_mode md;
+    file* hit = NULL;
 
-vfs_open_found:
-  if (HAS_NO_ERROR(err)) {
-    *result = hit;
+    if (!parse_mode(mode, &md)) {
+      return ARG_ERROR;
+    }
+
+    if (ERROR(err = stream_open_file(path, md, &hit)) && FNF_ERROR != err) {
+      return err;
+    }
+
+    if (HAS_NO_ERROR(err)) goto vfs_open_found;
+
+    if (ERROR(err = fat_open_file(path, md, &hit)) && FNF_ERROR != err) {
+      return err;
+    }
+
+    if (HAS_NO_ERROR(err)) goto vfs_open_found;
+
+    // More search
+
+  vfs_open_found:
+    if (HAS_NO_ERROR(err)) {
+      *result = hit;
+    }
+  } else {
+    debug_write("Went all in");
   }
 
   return err;
@@ -157,6 +320,7 @@ DIR* opendir(const char* path) {
   }
 
   if (!IS_FOLDER(f->type) || (dir = CAST(DIR*, kmalloc(sizeof(DIR)))) == NULL) {
+    debug_write("Failed to open the DIR!");
     file_close(f);  // ignore error
     return NULL;
   }
@@ -195,7 +359,8 @@ error_code init_vfs() {
     sys_root.header.type = TYPE_VFOLDER;
     sys_root.header._fs_header = NULL;
     sys_root.header._vtable = &__vfnode_vtable;
-    sys_root.name = "/";
+    sys_root.name = "           ";
+    sys_root._first_child = sys_root._next_sibling = sys_root._parent = NULL;
   }
 
   if(ERROR(err = init_streams())) {

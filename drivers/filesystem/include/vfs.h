@@ -43,6 +43,10 @@ typedef struct vfnode_struct vfnode;
 typedef struct DIR_struct DIR;
 typedef struct dirent_struct dirent;
 
+typedef struct short_file_name_struct {
+  native_char name[11];
+} short_file_name;
+
 typedef struct file_vtable_struct {
   error_code (*_file_move_cursor)(file* f, int32 mvmt);
   error_code (*_file_set_to_absolute_position)(file* f, uint32 position);
@@ -104,12 +108,13 @@ void vfnode_add_child(vfnode* parent, vfnode* child);
 #define file_write(f, buff, count) CAST(file*, f)->_vtable->_file_write(CAST(file*, f),buff,count)
 #define file_read(f, buff, count) CAST(file*, f)->_vtable->_file_read(CAST(file*, f), buff, count)
 #define file_len(f) (CAST(file*, f))->_vtable->_file_len(CAST(file*, f))
-#define readdir(dir) (CAST(file*, dir->f))->_vtable->_readdir(dir)
+#define readdir(dir) (CAST(file*, dir->f))->_vtable->_readdir(CAST(DIR*, dir))
 #define file_is_dir(f) IS_FOLDER(((f)->type))
 #define file_is_reg(f) IS_REGULAR_FILE(((f)->type))
 
 error_code file_open(native_string path, native_string mode, file** result);
 error_code normalize_path(native_string path, native_string new_path);
+short_file_name* decompose_path(native_string normalize_path, uint8* __count);
 bool parse_mode(native_string mode, file_mode* result);
 
 DIR* opendir(const char* path);

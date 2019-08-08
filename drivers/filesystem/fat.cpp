@@ -13,10 +13,6 @@
 
 #define MAX_NB_MOUNTED_FAT_FS 8
 
-typedef struct short_file_name_struct {
-  native_char name[FAT_NAME_LENGTH];
-} short_file_name;
-
 typedef struct fs_module_struct {
   fat_file_system* mounted_fs[MAX_NB_MOUNTED_FAT_FS];
   uint32 nb_mounted_fs;
@@ -317,7 +313,8 @@ error_code fat_close_file(file* ff) {
   return NO_ERROR;
 }
 
-static void fat_reset_cursor(fat_file* f) {
+static void fat_reset_cursor(file* ff) {
+  fat_file* f = CAST(fat_file*, ff);
   fat_file_system* fs = f->fs;
   f->current_cluster = f->first_cluster;
   f->current_section_length =
@@ -460,7 +457,7 @@ static error_code fat_file_set_pos_from_start(fat_file* f, uint32 position) {
         cluster_sz;  // determines how many cluster links we have to jump
     uint32 bytes_left_cluster = position % cluster_sz;
 
-    fat_reset_cursor(f);
+    fat_reset_cursor(CAST(file*, f));
     // We are now at the beginning of the file.
     // We want to go to the position wanted, so
     // we walk through the FAT chain until we read
@@ -576,91 +573,12 @@ static error_code fat_set_to_absolute_position(file* ff, uint32 position) {
   }
 
   if (0 == position) {
-    fat_reset_cursor(f);
+    fat_reset_cursor(ff);
     return NO_ERROR;
   }
 
   int32 mvmt = position - f->current_pos;
   return fat_move_cursor(CAST(file*, f), mvmt);
-}
-
-static short_file_name* decompose_path(native_string normalize_path, uint8* __count) {
-  *__count = 0;
-  uint8 count = 0;
-  uint8 entry = 0;
-  short_file_name* result = NULL;
-  native_char* scout = normalize_path;
-
-  if('\0' == *scout) return NULL;
-  if('/' != *scout) return NULL;
-  
-  do {
-    count += (*scout == '/');
-  } while(*scout++ != '\0');
-
-  if(NULL == (result = CAST(short_file_name*, kmalloc(count * sizeof(short_file_name_struct))))) {
-    return NULL; // meh
-  }
-
-  char* p = normalize_path + 1; // skip the first '/'
-  //The first entry is the root dir, skip that
-
-  while (entry < count) {
-    int i = 0;
-    bool seen_next_slash = FALSE;
-    while (*p != '\0' && *p != '.') {
-      if (*p == '/') {
-        seen_next_slash = TRUE;
-        break;
-      }
-      if (i < 8) {
-        result[entry].name[i] = *p;
-      }
-      i++;
-      p++;
-    }
-
-    while (i < 8) result[entry].name[i++] = ' ';
-
-    i = 0;
-
-    if (*p == '.') {
-      p++;
-      while (*p != '\0') {
-
-        if(*p == '/') {
-          seen_next_slash = TRUE;
-          break;
-        }
-
-        if (i < 3) result[entry].name[8 + i] = *p;
-        i++;
-        p++;
-      }
-    }
-
-    while (i < 3) result[entry].name[8 + i++] = ' ';
-
-    if (!seen_next_slash) {
-      while (*p != '/') {
-        p++;
-      }
-    }
-
-    p++;
-    entry++;
-  }
-
-  *__count = count;
-
-  // for (int i = 0; i < count; ++i) {
-  //   term_writeline(cout);
-  //   for (int j = 0; j < FAT_NAME_LENGTH; ++j) {
-  //     term_write(cout, CAST(native_char, result[i].name[j]));
-  //   }
-  //   term_writeline(cout);
-  // }
-  return result;
 }
 
 error_code fat_write_file(file* ff, void* buff, uint32 count) {
@@ -886,13 +804,28 @@ static error_code fat_fetch_entry(fat_file_system* fs, fat_file* parent,
 
   uint32 i;
 
+  uint32 cluster = parent->first_cluster;
+  uint32 position = parent->current_pos;
+
+  for(i = 0; i < FAT_NAME_LENGTH; ++i) {
+    if(name[i] != ' ') {
+      break;
+    }
+  }
+
+  if(i == FAT_NAME_LENGTH) {
+    // We want to open the parent
+    if(ERROR(err = new_fat_file(&f))) return err;
+    *f = *parent;
+    goto found;
+  }
+
   if (!IS_FOLDER(parent->header.type)) {
     return UNKNOWN_ERROR;
   }
 
-  uint32 cluster = parent->first_cluster;
-  uint32 position = parent->current_pos;
-  while ((err = fat_read_file(CAST(file*, parent), &de, sizeof(de))) == sizeof(de)) {
+  while ((err = fat_read_file(CAST(file*, parent), &de, sizeof(de))) ==
+         sizeof(de)) {
     if (de.DIR_Name[0] == 0) break;  // No more entries
     // Only verify the file if it's readable
     if (de.DIR_Name[0] != 0xe5 && (de.DIR_Attr & FAT_ATTR_HIDDEN) == 0 &&
@@ -1297,7 +1230,7 @@ static error_code fat_update_file_length(fat_file* f) {
   parent_dir->first_cluster = f->parent.first_cluster;
   parent_dir->header.type = TYPE_FOLDER;
 
-  fat_reset_cursor(parent_dir);
+  fat_reset_cursor(CAST(file*, parent_dir));
   fat_set_to_absolute_position(CAST(file*, parent_dir), f->entry.position);
 
   if (ERROR(err = fat_read_file(CAST(file*, parent_dir), &de, sizeof(de)))) {
@@ -1358,12 +1291,6 @@ static error_code fat_truncate_file(fat_file* f) {
 }
 
 error_code fat_open_file(native_string path, file_mode mode, file** result) {
-  if(0 == kstrcmp("./.gambini", path)) {
-    // This is a hack! Neeeeds to be fixed.
-    path = "gambini";
-  }
-
-
   error_code err = NO_ERROR;
   fat_file_system* fs;
   native_char normalized_path[NAME_MAX + 1];
@@ -1404,15 +1331,31 @@ error_code fat_open_file(native_string path, file_mode mode, file** result) {
 #endif
     return err;
   }
+  
+  if(0 == kstrcmp("./.gambini", path)) {
+    // This is a hack! Neeeeds to be fixed.
+    path = "gambini";
+  }
 
   // Find the parent folder
   uint8 depth;
   short_file_name_struct* parts = decompose_path(normalized_path, &depth);
 
+  debug_write("Depth:");
+  debug_write(depth);
+
   if(0 == depth) {
     return FNF_ERROR;
   }
 
+  term_writeline(cout);
+  for(uint8 i = 0 ; i < depth; ++i) {
+    for(uint8 j = 0; j < 11; ++j) {
+      term_write(cout, parts[i].name[j]);
+    }
+    term_writeline(cout);
+  }
+  term_writeline(cout);
 
   for(uint8 i = 0; i < depth - 1; ++i) {
     // Go get the actual parent folder
@@ -1511,6 +1454,7 @@ static size_t fat_file_len(file* ff) {
 }
 
 static dirent* fat_readdir(DIR* dir) {
+  debug_write("FAT readdir");
   fat_file* f = CAST(fat_file*, dir->f);
   error_code err;
 

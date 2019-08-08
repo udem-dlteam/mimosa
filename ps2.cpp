@@ -230,52 +230,59 @@ volatile bool buffer_flush = false;
 volatile uint16 buffer_flush_pos = 0;
 volatile uint16 buffer_write_pos = 0;
 
+native_char line_buffer[512];
+
 native_char readline() {
-  // term* io = cout;  // maybe get it from the running thread...
+  error_code err;
+  term* io = cout;  // maybe get it from the running thread...
 
-  // char read[2];
-  // read[1] = '\0';
-  // while (1) {
-  //   if (buffer_flush) {
-  //     if (buffer_flush_pos < buffer_write_pos) {
-  //       char to_return = line_buffer[buffer_flush_pos++];
-  //       return to_return;
-  //     } else {
-  //       buffer_flush = false;
-  //       buffer_flush_pos = buffer_write_pos = 0;
-  //     }
-  //   }
+  int data;
+  while (1) {
+    if (buffer_flush) {
+      if (buffer_flush_pos < buffer_write_pos) {
+        char to_return = line_buffer[buffer_flush_pos++];
+        return to_return;
+      } else {
+        buffer_flush = false;
+        buffer_flush_pos = buffer_write_pos = 0;
+      }
+    }
 
-  //   ASSERT_INTERRUPTS_ENABLED();
-  //   char c = read[0] = getchar();
-  //   ASSERT_INTERRUPTS_ENABLED();
+    ASSERT_INTERRUPTS_ENABLED();
+    if(ERROR(err = file_read(stdin, &data, sizeof(data)))) {
+      NOP();
+    }
 
-  //   if (IS_VISIBLE_CHAR(c)) {
-  //     term_write(io, c);
-  //     line_buffer[buffer_write_pos++] = c;
-  //   } else if (IS_NEWLINE(c)) {
-  //     // The newline terminates the input
-  //     term_write(io, "\n\r");
-  //     line_buffer[buffer_write_pos++] = '\n';
-  //     /* We want the \0 to be included */
-  //     line_buffer[buffer_write_pos++] = '\0';
-  //     buffer_flush = true;
-  //   } else if (ASCII_BACKSPACE == c) {
-  //     // Don't overrun the Gambit term.
-  //     if (buffer_write_pos > 0) {
-  //       term_write(io, c);
-  //       term_write(io, ' ');
-  //       term_write(io, c);
-  //       line_buffer[--buffer_write_pos] = ' ';
-  //     }
-  //   } else if (IS_DEL(c)) {
-  //     // trash
-  //   } else {
-  //     debug_write("Dropping unknown char: ");
-  //     debug_write(read);
-  //     debug_write((uint32)read[0]);
-  //   }
-  // }
+    native_char c = data & 0xFF;
+
+    ASSERT_INTERRUPTS_ENABLED();
+
+    if (IS_VISIBLE_CHAR(c)) {
+      term_write(io, c);
+      line_buffer[buffer_write_pos++] = c;
+    } else if (IS_NEWLINE(c)) {
+      // The newline terminates the input
+      term_write(io, "\n\r");
+      line_buffer[buffer_write_pos++] = '\n';
+      /* We want the \0 to be included */
+      line_buffer[buffer_write_pos++] = '\0';
+      buffer_flush = true;
+    } else if (ASCII_BACKSPACE == c) {
+      // Don't overrun the Gambit term.
+      if (buffer_write_pos > 0) {
+        term_write(io, c);
+        term_write(io, ' ');
+        term_write(io, c);
+        line_buffer[--buffer_write_pos] = ' ';
+      }
+    } else if (IS_DEL(c)) {
+      // trash
+    } else {
+      debug_write("Dropping unknown char: ");
+      debug_write(data & 0xFF);
+      debug_write(data);
+    }
+  }
   return '\0';
 }
 

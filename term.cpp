@@ -698,7 +698,8 @@ void term_run(term* term) {
     // Hopefully there is no ls*** command lol
     if (strcmpl(line, LS_CMD, 2)) {
       term_writeline(term);
-      DIR* root_dir = opendir("/folder/dfolder");
+      
+      DIR* root_dir = opendir("/");
 
       if (NULL == root_dir) {
         term_write(term, "Failed to read the root directory");
