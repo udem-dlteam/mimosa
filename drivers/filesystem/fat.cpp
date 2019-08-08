@@ -443,7 +443,7 @@ static error_code fat_file_set_pos_from_start(fat_file* f, uint32 position) {
   cache_block* cb;
   disk* d = fs->_.FAT121632.d;
 
-  if (S_ISREG(f->header.mode) && (position > f->length)) {
+  if (IS_REGULAR_FILE(f->header.type) && (position > f->length)) {
     return UNKNOWN_ERROR;  // TODO: better than this
   }
 
@@ -771,7 +771,7 @@ error_code fat_write_file(file* ff, void* buff, uint32 count) {
     break;
   }
 
-  if (!ERROR(err) && !S_ISDIR(f->header.mode)) {
+  if (!ERROR(err) && !IS_FOLDER(f->header.type)) {
     f->length += count;
     err = fat_update_file_length(f);
   }
@@ -793,7 +793,7 @@ error_code fat_read_file(file* ff, void* buf, uint32 count) {
         uint32 n;
         uint8* p;
 
-        if (!S_ISDIR(f->header.mode)) {
+        if (!IS_FOLDER(f->header.type)) {
           uint32 left = f->length - f->current_pos;
           if (count > left) count = left;
         }
@@ -886,7 +886,7 @@ static error_code fat_fetch_entry(fat_file_system* fs, fat_file* parent,
 
   uint32 i;
 
-  if (!S_ISDIR(parent->header.mode)) {
+  if (!IS_FOLDER(parent->header.type)) {
     return UNKNOWN_ERROR;
   }
 
@@ -921,9 +921,9 @@ static error_code fat_fetch_entry(fat_file_system* fs, fat_file* parent,
         f->length = as_uint32(de.DIR_FileSize);
 
         if (de.DIR_Attr & FAT_ATTR_DIRECTORY) {
-          f->header.mode = S_IFDIR;
+          f->header.type = TYPE_FOLDER;
         } else {
-          f->header.mode = S_IFREG;
+          f->header.type = TYPE_REGULAR;
         }
 
         // Setup the entry file. It is relative to the file's
@@ -998,7 +998,7 @@ error_code fat_32_open_root_dir(fat_file_system* fs, fat_file* f) {
   // (it would be slow to calculate it everytime...). On a directory, the length
   // is not used anyways when reading the file. We simply read until EOF.
   f->length = 0;
-  f->header.mode = S_IFDIR;
+  f->header.type = TYPE_FOLDER;
 
   return NO_ERROR;
 }
@@ -1027,7 +1027,7 @@ static error_code fat_open_root_dir(fat_file_system* fs, file** result) {
       f->current_section_pos = 0;
       f->current_pos = 0;
       f->length = f->current_section_length;
-      f->header.mode = S_IFDIR;
+      f->header.type = TYPE_FOLDER;
       break;
     }
 
@@ -1259,7 +1259,7 @@ error_code fat_32_create_empty_file(fat_file_system* fs, fat_file* parent_folder
   // the same time
   f->parent.first_cluster = parent_folder->first_cluster;
   f->entry.position = position;
-  f->header.mode = S_IFREG;
+  f->header.type = TYPE_REGULAR;
 
   *result = f;
 
@@ -1295,7 +1295,7 @@ static error_code fat_update_file_length(fat_file* f) {
 
   parent_dir->fs = f->fs;
   parent_dir->first_cluster = f->parent.first_cluster;
-  parent_dir->header.mode = S_IFDIR;
+  parent_dir->header.type = TYPE_FOLDER;
 
   fat_reset_cursor(parent_dir);
   fat_set_to_absolute_position(CAST(file*, parent_dir), f->entry.position);
@@ -1437,8 +1437,7 @@ error_code fat_open_file(native_string path, file_mode mode, file** result) {
 
 
   // If it is a directory, there is not mode
-  // TODO wth
-  if (!S_ISDIR(child->header.mode)) {
+  if (!IS_FOLDER(child->header.type)) {
   // Set the file mode
     switch (mode) {
       case MODE_READ:
@@ -1489,8 +1488,12 @@ error_code fat_open_file(native_string path, file_mode mode, file** result) {
     }
   }
   
-  if(NULL != parent) fat_close_file(CAST(file*, parent));
+  if(HAS_NO_ERROR(err)) {
+    child->header.mode = mode;
+  }
 
+  if(NULL != parent) fat_close_file(CAST(file*, parent));
+  
   *result = CAST(file*, child);
 
   return NO_ERROR;
@@ -1527,8 +1530,8 @@ static dirent* fat_readdir(DIR* dir) {
             *p1++ = '\0';
 
             dir->ent.d_type = (de.DIR_Attr & FAT_ATTR_DIRECTORY)
-                                  ? S_IFDIR
-                                  : (de.DIR_Attr ? 0 : S_IFREG);
+                                  ? TYPE_FOLDER
+                                  : (de.DIR_Attr ? 0 : TYPE_REGULAR);
 
             return &dir->ent;
           }

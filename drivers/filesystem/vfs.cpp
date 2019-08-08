@@ -159,7 +159,7 @@ DIR* opendir(const char* path) {
     return NULL;
   }
 
-  if (!S_ISDIR(f->mode) || (dir = CAST(DIR*, kmalloc(sizeof(DIR)))) == NULL) {
+  if (!IS_FOLDER(f->type) || (dir = CAST(DIR*, kmalloc(sizeof(DIR)))) == NULL) {
     file_close(f);  // ignore error
     return NULL;
   }

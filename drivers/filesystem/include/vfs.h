@@ -12,7 +12,13 @@
 #define MODE_APPEND_PLUS (MODE_PLUS | MODE_APPEND)
 #define MODE_NONBLOCK_ACCESS (1 << 3)
 
+#define TYPE_REGULAR (1 << 0)
+#define TYPE_FOLDER  (1 << 1)
+#define TYPE_VFOLDER (1 << 2)
+#define TYPE_MOUNTPOINT (1 << 3)
+
 typedef uint8 file_mode;
+typedef uint8 file_type;
 
 #define IS_MODE_NONBLOCK(md) ((md) & MODE_NONBLOCK_ACCESS)
 #define IS_REGULAR_FILE(tpe) ((tpe) & TYPE_REGULAR)
@@ -49,11 +55,12 @@ typedef struct file_vtable_struct {
 struct file_struct {
     fs_header* _fs_header;
     file_vtable* _vtable;
+    file_type type;
     file_mode mode;
 };
 
 struct dirent_struct {
-  uint8 d_type;
+  file_type d_type;
   native_char d_name[NAME_MAX + 1];
 };
 
@@ -63,7 +70,7 @@ struct DIR_struct {
 };
 
 struct stat {
-  uint8 st_mode;
+  file_mode st_mode;
   uint32 st_size;
 };
 
@@ -80,6 +87,8 @@ error_code init_vfs();
 #define file_read(f, buff, count) CAST(file*, f)->_vtable->_file_read(CAST(file*, f), buff, count)
 #define file_len(f) (CAST(file*, f))->_vtable->_file_len(CAST(file*, f))
 #define readdir(dir) (CAST(file*, dir->f))->_vtable->_readdir(dir)
+#define file_is_dir(f) IS_FOLDER(((f)->type))
+#define file_is_reg(f) IS_REGULAR_FILE(((f)->type))
 
 error_code file_open(native_string path, native_string mode, file** result);
 error_code normalize_path(native_string path, native_string new_path);

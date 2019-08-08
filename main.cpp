@@ -36,6 +36,14 @@ int main() {
       term_write(&tty, file_name);
       term_writeline(&tty);
 
+      if(file_is_dir(prog)) {
+        term_write(cout, "Gambit is a directory");
+      } else if(file_is_reg(prog)) {
+        term_write(cout, "Gambit is a file");
+      } else {
+        term_write(cout, "Gambit is nothing! :O");
+      }
+
       // TODO:
       // The program thread needs to be aware of what its doing
       uint32 len = file_len(prog);
@@ -58,6 +66,7 @@ int main() {
       program_thread* task = CAST(program_thread*, kmalloc(sizeof(program_thread)));
       new_program_thread(task, CAST(libc_startup_fn, code), "Gambit");
       thread_start(CAST(thread*, task));
+      debug_write("Gambit thread started");
 
     } else {
       term_write(&tty, "\r\n Failed to open the program.\r\n");

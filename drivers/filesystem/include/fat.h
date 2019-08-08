@@ -27,12 +27,6 @@
 #define FAT_NAME_LENGTH 11
 #define FAT_DIR_ENTRY_SIZE 32
 
-#define S_IFREG 1
-#define S_IFDIR 2
-
-#define S_ISREG(m) ((m) == S_IFREG)
-#define S_ISDIR(m) ((m) == S_IFDIR)
-
 
 // Layout of the combined Boot Sector (BS) and BIOS Parameter Block
 // (BPB).  The BPB describes the format of the file system if it is
