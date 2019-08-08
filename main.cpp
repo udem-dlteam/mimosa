@@ -18,31 +18,16 @@
 #include "thread.h"
 
 int main() {
-
 #ifdef MIMOSA_REPL
   term_run(cout);
 #endif
 
 #ifdef GAMBIT_REPL
   {
-    native_string file_name = "GSC.EXE";
+    native_string file_name = "/dsk1/GSC.EXE";
 
     file* prog;
     if (NO_ERROR == file_open(file_name, "r", &prog)) {
-      term_write(&tty, "\r\n Starting program ");
-      term_write(&tty, file_name);
-      term_writeline(&tty);
-
-      if(file_is_dir(prog)) {
-        term_write(cout, "Gambit is a directory");
-      } else if(file_is_reg(prog)) {
-        term_write(cout, "Gambit is a file");
-      } else {
-        term_write(cout, "Gambit is nothing! :O");
-      }
-
-      // TODO:
-      // The program thread needs to be aware of what its doing
       uint32 len = file_len(prog);
       uint8* code = (uint8*)GAMBIT_START;
 
@@ -51,22 +36,11 @@ int main() {
         panic(L"ERR");
       }
 
-      term_write(cout, "File loaded. Starting program at: ");
-      term_write(cout, code);
-
-      thread_sleep(1000);
-
-      for (int i = 0; i < 5; ++i) {
-        term_writeline(cout);
-      }
-
       program_thread* task = CAST(program_thread*, kmalloc(sizeof(program_thread)));
       new_program_thread(task, CAST(libc_startup_fn, code), "Gambit");
       thread_start(CAST(thread*, task));
-      debug_write("Gambit thread started");
-
     } else {
-      term_write(&tty, "\r\n Failed to open the program.\r\n");
+      term_write(cout, "\r\n Failed to open Gambit.\r\n");
     }
   }
 #endif

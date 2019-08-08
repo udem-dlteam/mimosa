@@ -302,6 +302,7 @@ error_code file_open(native_string path, native_string mode, file** result) {
   }
 
   if (HAS_NO_ERROR(err)) {
+    hit->path = path;
     *result = hit;
   }
 

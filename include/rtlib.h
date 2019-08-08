@@ -43,6 +43,8 @@ native_string copy_without_trailing_spaces(uint8* src, native_string dst,
 
 int16 kstrcmp(native_string a, native_string b);
 
+native_string kstrconcat(native_string a, native_string b);
+
 //-----------------------------------------------------------------------------
 
 // Execution of global constructors and destructors.

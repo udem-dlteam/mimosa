@@ -185,6 +185,31 @@ int16 kstrcmp(native_string a, native_string b) {
   return c1 - c2;
 }
 
+native_string kstrconcat(native_string a, native_string b) {
+  uint32 alen = 0, blen = 0;
+  native_char *p;
+  native_string out;
+
+  p = a;
+  while(*p != '\0') {
+    alen++;
+    p++;
+  }
+
+  p = b;
+   while(*p != '\0') {
+    blen++;
+    p++;
+  }
+  
+  out = CAST(native_string, kmalloc(sizeof(native_char) * (alen + blen + 1)));
+  memcpy(out, a, alen);
+  memcpy(out + alen, b, blen);
+  out[alen + blen] = '\0';
+
+  return out;
+}
+
 //-----------------------------------------------------------------------------
 
 // The function "__pure_virtual" is called when a pure virtual method

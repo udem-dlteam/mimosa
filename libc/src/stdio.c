@@ -6,6 +6,7 @@
 #include "../drivers/filesystem/include/vfs.h"
 #include "../drivers/filesystem/include/stdstream.h"
 #include "ps2.h"
+#include "term.h"
 #include "general.h"
 #include "rtlib.h"
 
@@ -53,6 +54,10 @@ FILE *REDIRECT_NAME(fopen)(const char *__restrict __filename,
 
     return &FILE_root_dir;
   } else {
+
+    debug_write("STDIO FOPEN");
+    debug_write(CAST(native_string, __filename));
+
     error_code err;
     file *f;
     if (HAS_NO_ERROR(err = file_open(CAST(native_string, __filename),
@@ -604,6 +609,9 @@ void libc_init_stdio(void) {
     FILE_stdin.f = libc_stdin;
   }
 
+  if(ERROR(err = file_open("/dsk1", "r", &FILE_root_dir.f))) {
+    panic(L"Failed to load the root dir for gambit");
+  }
 
   LIBC_LINK._stdin  = &FILE_stdin;
   LIBC_LINK._stdout = &FILE_stdout;

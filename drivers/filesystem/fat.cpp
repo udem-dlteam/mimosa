@@ -1311,10 +1311,6 @@ static error_code fat_truncate_file(fat_file* f) {
 }
 
 error_code fat_file_open(fs_header* ffs, short_file_name* parts, uint8 depth, file_mode mode, file** result) {
-
-  debug_write("Opening a file:");
-  debug_write(parts[0].name);
-
   error_code err = NO_ERROR;
   fat_file_system* fs = CAST(fat_file_system*, ffs);
   native_char normalized_path[NAME_MAX + 1];
@@ -1340,7 +1336,6 @@ error_code fat_file_open(fs_header* ffs, short_file_name* parts, uint8 depth, fi
 #endif
     return err;
   }
-  
 
   // if(0 == kstrcmp("./.gambini", path)) {
   //   // This is a hack! Neeeeds to be fixed.
@@ -1351,14 +1346,14 @@ error_code fat_file_open(fs_header* ffs, short_file_name* parts, uint8 depth, fi
     return FNF_ERROR;
   }
 
-  term_writeline(cout);
-  for(uint8 i = 0 ; i < depth; ++i) {
-    for(uint8 j = 0; j < 11; ++j) {
-      term_write(cout, parts[i].name[j]);
-    }
-    term_writeline(cout);
-  }
-  term_writeline(cout);
+  // term_writeline(cout);
+  // for(uint8 i = 0 ; i < depth; ++i) {
+  //   for(uint8 j = 0; j < 11; ++j) {
+  //     term_write(cout, parts[i].name[j]);
+  //   }
+  //   term_writeline(cout);
+  // }
+  // term_writeline(cout);
 
   for(uint8 i = 0; i < depth - 1; ++i) {
     // Go get the actual parent folder
