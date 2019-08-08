@@ -17,7 +17,7 @@ void init_serial(int com_port) {
 
   if (!(com_port == COM1_PORT_BASE || com_port == COM2_PORT_BASE ||
         com_port == COM3_PORT_BASE || com_port == COM4_PORT_BASE)) {
-    fatal_error("Trying to init a serial port with an invalid COM port...");
+    panic(L"Trying to init a serial port with an invalid COM port...");
   }
 
   outb(0x00, com_port + UART_8250_IER);  // Disable all interrupts
@@ -49,50 +49,6 @@ void init_serial(int com_port) {
    }
 }
 
-// Circular Buffer linked to MSR interrupt
-#define BUFFER_SIZE 16
-
-static volatile unicode_char circular_buffer[BUFFER_SIZE];
-static volatile int circular_buffer_lo = 0;
-static volatile int circular_buffer_hi = 0;
-static condvar* circular_buffer_cv;
-
-//#pragma GCC push_options
-//#pragma GCC optimize("O0")
-
-static void keypress2(uint8 ch) {
-  // debug_write("[START] Keypress");
-
-  int next_hi = (circular_buffer_hi + 1) % BUFFER_SIZE;
-
-  if (next_hi != circular_buffer_lo) {
-    circular_buffer[circular_buffer_hi] = ch;
-    circular_buffer_hi = next_hi;
-    circular_buffer_cv->mutexless_signal();
-  }
-  // debug_write("[STOP ] Keypress");
-}
-
-unicode_char getchar2() {
-  disable_interrupts();
-
-  while (circular_buffer_lo == circular_buffer_hi) {
-    circular_buffer_cv->mutexless_wait();
-  }
-
-  unicode_char result = circular_buffer[circular_buffer_lo];
-
-  circular_buffer_lo = (circular_buffer_lo + 1) % BUFFER_SIZE;
-
-  circular_buffer_cv->mutexless_signal();
-  enable_interrupts();
-
-  return result;
-}
-
-volatile bool buffer2_flush = false;
-volatile uint16 buffer2_flush_pos = 0;
-volatile uint16 buffer2_write_pos = 0;
 
 // Modem Status Register read
 static void read_msr(uint16 port){
@@ -131,7 +87,6 @@ static void handle_thr(uint16 port){
     //if(UART_IIR_GET_FIFO_STATE( inb( port + UART_IIR_FIFO_NO_FIFO ))){}
 
     //TODO : write buffer in THR ?
-    outb(port + UART_8250_THR, getchar2());
     term_write(cout, "\r\ndata wrote in THR\r\n");
   }
 }
@@ -143,7 +98,6 @@ static void read_RHR(int com_port) {
   char c = (char)inb(com_port);
   
   term_write(cout, c);
-  keypress2(c);
   term_write(cout, "\r\ndata has been read and put into circular buffer\r\n");
 }
 
@@ -241,7 +195,7 @@ void _handle_interrupt(uint16 port, uint8 com_index, uint8 iir) {
     break;
 
   default:
-    fatal_error("Illegal UART interrupt cause");
+    panic(L"Illegal UART interrupt cause");
     break;
   }
 }
@@ -270,7 +224,7 @@ void irq3() {
     _handle_interrupt(COM4_PORT_BASE, 4, com4_iir);
   }
   if (!(caught_something)){
-    fatal_error("Misconfiguration of IRQ3.");
+    panic(L"Misconfiguration of IRQ3.");
   }
 }
 
@@ -296,7 +250,7 @@ void irq4() {
     _handle_interrupt(COM3_PORT_BASE, 3, com3_iir);
   }
   if (!(caught_something)){
-    fatal_error("Misconfiguration of IRQ4.");
+    panic(L"Misconfiguration of IRQ4.");
   }
 }
 #endif
