@@ -1,7 +1,18 @@
 #include "include/libc_common.h"
 #include "include/stdio.h"
+
+#ifdef USE_MIMOSA
+
+#include "../drivers/filesystem/include/vfs.h"
+#include "../drivers/filesystem/include/stdstream.h"
 #include "ps2.h"
+#include "term.h"
 #include "general.h"
+#include "rtlib.h"
+
+file* libc_stdin;
+
+#endif
 
 #ifndef USE_LIBC_LINK
 
@@ -16,8 +27,8 @@ FILE FILE_root_dir;
 
 #endif
 
-FILE *fopen(const char *__restrict __filename,
-            const char *__restrict __modes) {
+FILE *REDIRECT_NAME(fopen)(const char *__restrict __filename,
+                           const char *__restrict __modes) {
 
 #ifdef USE_LIBC_LINK
 
@@ -29,34 +40,41 @@ FILE *fopen(const char *__restrict __filename,
 
 #ifdef USE_HOST_LIBC
 
-#undef fopen
-
   return fopen(__filename, __modes);
 
 #else
 
-  /* TODO: implement */
+  // TODO: implement
   if (__filename[0] == '.' &&
       __filename[1] == '/' &&
       __filename[2] == '\0') {
-    /*
-     * The file "./" is opened by Gambit by the path normalization
-     * function and it must not return NULL.
-     */
+
+    // The file "./" is opened by Gambit by the path normalization
+    // function and it must not return NULL.
+
     return &FILE_root_dir;
   } else {
-    /*
-     * It is OK to return NULL for other files (of course this means
-     * files can't be accessed).
-     */
-    return NULL;
+
+    debug_write("STDIO FOPEN");
+    debug_write(CAST(native_string, __filename));
+
+    error_code err;
+    file *f;
+    if (HAS_NO_ERROR(err = file_open(CAST(native_string, __filename),
+                                     CAST(native_string, __modes), &f))) {
+      FILE *gambit_file = CAST(FILE *, kmalloc(sizeof(FILE)));
+      gambit_file->f = f;
+      return gambit_file;
+    } else {
+      return NULL;
+    }
   }
 
 #endif
 #endif
 }
 
-FILE *fdopen(int __fd, const char *__modes) {
+FILE *REDIRECT_NAME(fdopen)(int __fd, const char *__modes) {
 
 #ifdef USE_LIBC_LINK
 
@@ -68,21 +86,19 @@ FILE *fdopen(int __fd, const char *__modes) {
 
 #ifdef USE_HOST_LIBC
 
-#undef fdopen
-
   return fdopen(__fd, __modes);
 
 #else
 
-  /* TODO: implement */
+  // TODO: implement
   return NULL;
 
 #endif
 #endif
 }
 
-size_t fread(void *__restrict __ptr, size_t __size, size_t __n,
-             FILE *__restrict __stream) {
+size_t REDIRECT_NAME(fread)(void *__restrict __ptr, size_t __size, size_t __n,
+                            FILE *__restrict __stream) {
 #ifdef USE_LIBC_LINK
 
   return LIBC_LINK._fread(__ptr, __size, __n, __stream);
@@ -93,33 +109,29 @@ size_t fread(void *__restrict __ptr, size_t __size, size_t __n,
 
 #ifdef USE_HOST_LIBC
 
-#undef fread
   return fread(__ptr, __size, __n, __stream);
+
 #else
 
-  /* TODO: implement reading other files than stdin */
-
-  int i = 0;
-  if (__stream == &FILE_stdin) {
-    char *p = (char *)__ptr;
-    int n = __n;
-    while (i < n) {
-      int c = getchar0(FALSE);
-      if (c < 0) break;
-      *p++ = c;
-      i++;
-    }
+  error_code err;
+  file *f = __stream->f;
+  uint32 count = __n * __size;
+  if (ERROR(err = file_read(f, __ptr, count))) {
+    // fread interface has 0 for an error
+    __n = 0;
+    __stream->err = err;
   } else {
-    debug_write("Incorrect stream");
+    // Number of items read, not byte count
+    __n = err / __size;
   }
 
-  return i;
+  return __n;
 #endif
 #endif
 }
 
-size_t fwrite(const void *__restrict __ptr, size_t __size,
-              size_t __n, FILE *__restrict __stream) {
+size_t REDIRECT_NAME(fwrite)(const void *__restrict __ptr, size_t __size,
+                             size_t __n, FILE *__restrict __stream) {
 
 #ifdef USE_LIBC_LINK
 
@@ -131,22 +143,31 @@ size_t fwrite(const void *__restrict __ptr, size_t __size,
 
 #ifdef USE_HOST_LIBC
 
-#undef fwrite
-
   return fwrite(__ptr, __size, __n, __stream);
 
 #else
 
-  /* TODO: implement writing to files other than stdout/stderr */
-
+  // TODO: implement writing to files other than stdout/stderr
   if (__stream == &FILE_stdout || __stream == &FILE_stderr) {
 
-    char *p = (char*)__ptr;
-    int n = __size * __n;
+    unicode_char *p = CAST(unicode_char*,__ptr);
+    int n = __size * __n / sizeof(unicode_char);
 
     while (n > 0) {
       libc_wr_char(1, *p++);
       n--;
+    }
+  } else {
+    error_code err;
+    file *f = __stream->f;
+    uint32 count = __size * __n;
+
+    if (ERROR(err = file_write(f, CAST(void *, __ptr), count))) {
+      __stream->err = err;
+      __n = 0;
+    } else {
+      // No of items returned
+      __n = err / __size;
     }
   }
 
@@ -156,7 +177,7 @@ size_t fwrite(const void *__restrict __ptr, size_t __size,
 #endif
 }
 
-int fclose(FILE *__restrict __stream) {
+int REDIRECT_NAME(fclose)(FILE *__restrict __stream) {
 
 #ifdef USE_LIBC_LINK
 
@@ -168,20 +189,26 @@ int fclose(FILE *__restrict __stream) {
 
 #ifdef USE_HOST_LIBC
 
-#undef fclose
-
   return fclose(__stream);
 
 #else
-
-  /* TODO: implement */
   return 0;
 
+  // Before doing actual flclose, all streams must be actually streams (STDERR and STDOUT) 
+
+  // file* sys_file = __stream->f;
+  // error_code err = NO_ERROR;
+  // if(ERROR(err = file_close(sys_file))) {
+  //   return (-1);
+  // } else {
+  //   return 0;
+  // }
+  
 #endif
 #endif
 }
 
-int fflush(FILE *__restrict __stream) {
+int REDIRECT_NAME(fflush)(FILE *__restrict __stream) {
 
 #ifdef USE_LIBC_LINK
 
@@ -193,20 +220,18 @@ int fflush(FILE *__restrict __stream) {
 
 #ifdef USE_HOST_LIBC
 
-#undef fflush
-
   return fflush(__stream);
 
 #else
 
-  /* TODO: implement */
+  // TODO: implement
   return 0;
 
 #endif
 #endif
 }
 
-int fseek(FILE *__restrict __stream, long __off, int __whence) {
+int REDIRECT_NAME(fseek)(FILE *__restrict __stream, long __off, int __whence) {
 
 #ifdef USE_LIBC_LINK
 
@@ -218,20 +243,18 @@ int fseek(FILE *__restrict __stream, long __off, int __whence) {
 
 #ifdef USE_HOST_LIBC
 
-#undef fseek
-
   return fseek(__stream, __off, __whence);
 
 #else
 
-  /* TODO: implement */
+  // TODO: implement
   return 0;
 
 #endif
 #endif
 }
 
-long ftell(FILE *__restrict __stream) {
+long REDIRECT_NAME(ftell)(FILE *__restrict __stream) {
 
 #ifdef USE_LIBC_LINK
 
@@ -243,20 +266,18 @@ long ftell(FILE *__restrict __stream) {
 
 #ifdef USE_HOST_LIBC
 
-#undef ftell
-
   return ftell(__stream);
 
 #else
 
-  /* TODO: implement */
+  // TODO: implement
   return 0;
 
 #endif
 #endif
 }
 
-int ferror(FILE *__restrict __stream) {
+int REDIRECT_NAME(ferror)(FILE *__restrict __stream) {
 
 #ifdef USE_LIBC_LINK
 
@@ -268,20 +289,18 @@ int ferror(FILE *__restrict __stream) {
 
 #ifdef USE_HOST_LIBC
 
-#undef ferror
-
   return ferror(__stream);
 
 #else
 
-  /* TODO: implement */
-  return 0;
+  // TODO: implement
+  return ERROR(__stream->err);
 
 #endif
 #endif
 }
 
-int feof(FILE *__restrict __stream) {
+int REDIRECT_NAME(feof)(FILE *__restrict __stream) {
 
 #ifdef USE_LIBC_LINK
 
@@ -293,24 +312,21 @@ int feof(FILE *__restrict __stream) {
 
 #ifdef USE_HOST_LIBC
 
-#undef feof
-
   return feof(__stream);
 
 #else
 
-  /* TODO: implement */
-  return 0;
+  return __stream->err == EOF_ERROR;
 
 #endif
 #endif
 }
 
-void clearerr(FILE *__restrict __stream) {
+void REDIRECT_NAME(clearerr)(FILE *__restrict __stream) {
 
 #ifdef USE_LIBC_LINK
 
-  return LIBC_LINK._clearerr(__stream);
+  LIBC_LINK._clearerr(__stream);
 
 #else
 
@@ -318,19 +334,41 @@ void clearerr(FILE *__restrict __stream) {
 
 #ifdef USE_HOST_LIBC
 
-#undef clearerr
-
   clearerr(__stream);
 
 #else
 
-  /* TODO: implement */
+  __stream->err = NO_ERROR;
 
 #endif
 #endif
 }
 
-void setbuf (FILE *__restrict __stream, char *__restrict __buf) {
+int REDIRECT_NAME(fileno)(FILE *__restrict __stream) {
+
+#ifdef USE_LIBC_LINK
+
+  return LIBC_LINK._fileno(__stream);
+
+#else
+
+  libc_trace("fileno");
+
+#ifdef USE_HOST_LIBC
+
+  return fileno(__stream);
+
+#else
+
+  // TODO: implement
+  return 0;
+
+#endif
+#endif
+}
+
+void REDIRECT_NAME(setbuf )(FILE *__restrict __stream, char *__restrict __buf) {
+
 #ifdef USE_LIBC_LINK
 
   return LIBC_LINK._setbuf(__stream, __buf);
@@ -341,19 +379,17 @@ void setbuf (FILE *__restrict __stream, char *__restrict __buf) {
 
 #ifdef USE_HOST_LIBC
 
-#undef setbuf
-
   setbuf(__stream, __buf);
 
 #else
 
-  /* TODO: implement */
+  // TODO: implement
 
 #endif
 #endif
 }
 
-int rename(const char *__oldpath, const char *__newpath) {
+int REDIRECT_NAME(rename)(const char *__oldpath, const char *__newpath) {
 
 #ifdef USE_LIBC_LINK
 
@@ -365,13 +401,11 @@ int rename(const char *__oldpath, const char *__newpath) {
 
 #ifdef USE_HOST_LIBC
 
-#undef rename
-
   return rename(__oldpath, __newpath);
 
 #else
 
-  /* TODO: implement */
+  // TODO: implement
   return 0;
 
 #endif
@@ -380,10 +414,10 @@ int rename(const char *__oldpath, const char *__newpath) {
 
 #ifndef USE_LIBC_LINK
 
-typedef long longlong; /* fake it to avoid 64 bit operations */
+typedef long longlong; // fake it to avoid 64 bit operations
 
 int fprintf_aux_char(FILE *__restrict __stream, char __c) {
-  fwrite(&__c, 1, 1, __stream);
+  REDIRECT_NAME(fwrite)(&__c, 1, 1, __stream);
   return 1;
 }
 
@@ -430,7 +464,7 @@ int fprintf_aux_longlong(FILE *__restrict __stream, longlong __num, int __base, 
   return fprintf_aux_string(__stream, p, 0);
 }
 
-int fprintf_aux(FILE *__restrict __stream, const char **__format) {
+int REDIRECT_NAME(fprintf_aux)(FILE *__restrict __stream, const char **__format) {
 
 #define VA_LIST const char *
 #define VA_ARG(ap, type) (ap += sizeof(type), *(type*)(ap-sizeof(type)))
@@ -527,7 +561,7 @@ int fprintf_aux(FILE *__restrict __stream, const char **__format) {
 
 #endif
 
-int fprintf(FILE *__restrict __stream, const char *__format, ...) {
+int REDIRECT_NAME(fprintf)(FILE *__restrict __stream, const char *__format, ...) {
 
 #ifdef USE_LIBC_LINK
 
@@ -537,12 +571,12 @@ int fprintf(FILE *__restrict __stream, const char *__format, ...) {
 
   libc_trace("fprintf");
 
-  return fprintf_aux(__stream, &__format);
+  return REDIRECT_NAME(fprintf_aux)(__stream, &__format);
 
 #endif
 }
 
-int printf(const char *__format, ...) {
+int REDIRECT_NAME(printf)(const char *__format, ...) {
 
 #ifdef USE_LIBC_LINK
 
@@ -552,7 +586,7 @@ int printf(const char *__format, ...) {
 
   libc_trace("printf");
 
-  return fprintf_aux(LIBC_LINK._stdout, &__format);
+  return REDIRECT_NAME(fprintf_aux)(LIBC_LINK._stdout, &__format);
 
 #endif
 }
@@ -565,6 +599,20 @@ void libc_init_stdio(void) {
   LIBC_LINK._stdout = stdout;
   LIBC_LINK._stderr = stderr;
 #else
+  
+  error_code err;
+  // Open STDIN has a non blocking stream in readonly mode.
+  // This is a "gambit" particularity...
+  if (ERROR(err = file_open(STDIN_PATH, "rx", &libc_stdin))) {
+    panic(L"Failed to load LIBC stdio");
+  } else {
+    FILE_stdin.f = libc_stdin;
+  }
+
+  if(ERROR(err = file_open("/dsk1", "r", &FILE_root_dir.f))) {
+    panic(L"Failed to load the root dir for gambit");
+  }
+
   LIBC_LINK._stdin  = &FILE_stdin;
   LIBC_LINK._stdout = &FILE_stdout;
   LIBC_LINK._stderr = &FILE_stderr;

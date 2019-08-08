@@ -1,7 +1,7 @@
 #include "include/libc_common.h"
 #include "include/math.h"
 
-double acos(double __x) {
+double REDIRECT_NAME(acos)(double __x) {
 
 #ifdef USE_LIBC_LINK
 
@@ -13,20 +13,17 @@ double acos(double __x) {
 
 #ifdef USE_HOST_LIBC
 
-#undef acos
-
   return acos(__x);
 
 #else
 
-  /* TODO: implement */
-  return 0.0;
+  return acos(__x);
 
 #endif
 #endif
 }
 
-double acosh(double __x) {
+double REDIRECT_NAME(acosh)(double __x) {
 
 #ifdef USE_LIBC_LINK
 
@@ -34,24 +31,22 @@ double acosh(double __x) {
 
 #else
 
-  libc_trace("acosh");
+  libc_trace("acosh");debug_write("acosh");
 
 #ifdef USE_HOST_LIBC
-
-#undef acosh
 
   return acosh(__x);
 
 #else
 
-  /* TODO: implement */
+  // TODO: implement
   return 0.0;
 
 #endif
 #endif
 }
 
-double asin(double __x) {
+double REDIRECT_NAME(asin)(double __x) {
 
 #ifdef USE_LIBC_LINK
 
@@ -63,20 +58,17 @@ double asin(double __x) {
 
 #ifdef USE_HOST_LIBC
 
-#undef asin
-
   return asin(__x);
 
 #else
 
-  /* TODO: implement */
-  return 0.0;
+  return asin(__x);
 
 #endif
 #endif
 }
 
-double asinh(double __x) {
+double REDIRECT_NAME(asinh)(double __x) {
 
 #ifdef USE_LIBC_LINK
 
@@ -84,24 +76,22 @@ double asinh(double __x) {
 
 #else
 
-  libc_trace("asinh");
+  libc_trace("asinh");debug_write("asinh");
 
 #ifdef USE_HOST_LIBC
-
-#undef asinh
 
   return asinh(__x);
 
 #else
 
-  /* TODO: implement */
+  // TODO: implement
   return 0.0;
 
 #endif
 #endif
 }
 
-double atan(double __x) {
+double REDIRECT_NAME(atan)(double __x) {
 
 #ifdef USE_LIBC_LINK
 
@@ -109,24 +99,22 @@ double atan(double __x) {
 
 #else
 
-  libc_trace("atan");
+  libc_trace("atan");debug_write("atan");
 
 #ifdef USE_HOST_LIBC
-
-#undef atan
 
   return atan(__x);
 
 #else
 
-  /* TODO: implement */
+  // TODO: implement
   return 0.0;
 
 #endif
 #endif
 }
 
-double atan2(double __y, double __x) {
+double REDIRECT_NAME(atan2)(double __y, double __x) {
 
 #ifdef USE_LIBC_LINK
 
@@ -134,24 +122,22 @@ double atan2(double __y, double __x) {
 
 #else
 
-  libc_trace("atan2");
+  libc_trace("atan2");debug_write("atan2");
 
 #ifdef USE_HOST_LIBC
-
-#undef atan2
 
   return atan2(__y, __x);
 
 #else
 
-  /* TODO: implement */
+  // TODO: implement
   return 0.0;
 
 #endif
 #endif
 }
 
-double atanh(double __x) {
+double REDIRECT_NAME(atanh)(double __x) {
 
 #ifdef USE_LIBC_LINK
 
@@ -159,24 +145,22 @@ double atanh(double __x) {
 
 #else
 
-  libc_trace("atanh");
+  libc_trace("atanh");debug_write("atanh");
 
 #ifdef USE_HOST_LIBC
-
-#undef atanh
 
   return atanh(__x);
 
 #else
 
-  /* TODO: implement */
+  // TODO: implement
   return 0.0;
 
 #endif
 #endif
 }
 
-double ceil(double __x) {
+double REDIRECT_NAME(ceil)(double __x) {
 
 #ifdef USE_LIBC_LINK
 
@@ -188,20 +172,17 @@ double ceil(double __x) {
 
 #ifdef USE_HOST_LIBC
 
-#undef ceil
-
   return ceil(__x);
 
 #else
 
-  /* TODO: implement */
-  return 0.0;
+  return ceil(__x);
 
 #endif
 #endif
 }
 
-double cos(double __x) {
+double REDIRECT_NAME(cos)(double __x) {
 
 #ifdef USE_LIBC_LINK
 
@@ -209,24 +190,22 @@ double cos(double __x) {
 
 #else
 
-  libc_trace("cos");
+  libc_trace("cos");debug_write("cos");
 
 #ifdef USE_HOST_LIBC
-
-#undef cos
 
   return cos(__x);
 
 #else
 
-  /* TODO: implement */
+  // TODO: implement
   return 0.0;
 
 #endif
 #endif
 }
 
-double cosh(double __x) {
+double REDIRECT_NAME(cosh)(double __x) {
 
 #ifdef USE_LIBC_LINK
 
@@ -234,49 +213,22 @@ double cosh(double __x) {
 
 #else
 
-  libc_trace("cosh");
+  libc_trace("cosh");debug_write("cosh");
 
 #ifdef USE_HOST_LIBC
-
-#undef cosh
 
   return cosh(__x);
 
 #else
 
-  /* TODO: implement */
+  // TODO: implement
   return 0.0;
 
 #endif
 #endif
 }
 
-double exp(double __x) {
-
-#ifdef USE_LIBC_LINK
-
-  return LIBC_LINK._exp(__x);
-
-#else
-
-  libc_trace("exp");
-
-#ifdef USE_HOST_LIBC
-
-#undef exp
-
-  return exp(__x);
-
-#else
-
-  /* TODO: implement */
-  return 0.0;
-
-#endif
-#endif
-}
-
-double expm1(double __x) {
+double REDIRECT_NAME(expm1)(double __x) {
 
 #ifdef USE_LIBC_LINK
 
@@ -288,20 +240,39 @@ double expm1(double __x) {
 
 #ifdef USE_HOST_LIBC
 
-#undef expm1
-
   return expm1(__x);
 
 #else
 
-  /* TODO: implement */
-  return 0.0;
+  return expm1(__x);
 
 #endif
 #endif
 }
 
-double fabs(double __x) {
+double REDIRECT_NAME(exp)(double __x) {
+
+#ifdef USE_LIBC_LINK
+
+  return LIBC_LINK._exp(__x);
+
+#else
+
+  libc_trace("exp");
+
+#ifdef USE_HOST_LIBC
+
+  return exp(__x);
+
+#else
+
+  return expm1(__x) + 1.0;
+
+#endif
+#endif
+}
+
+double REDIRECT_NAME(fabs)(double __x) {
 
 #ifdef USE_LIBC_LINK
 
@@ -313,20 +284,17 @@ double fabs(double __x) {
 
 #ifdef USE_HOST_LIBC
 
-#undef fabs
-
   return fabs(__x);
 
 #else
 
-  /* TODO: implement */
-  return 0.0;
+  return fabs(__x);
 
 #endif
 #endif
 }
 
-double floor(double __x) {
+double REDIRECT_NAME(floor)(double __x) {
 
 #ifdef USE_LIBC_LINK
 
@@ -338,20 +306,17 @@ double floor(double __x) {
 
 #ifdef USE_HOST_LIBC
 
-#undef floor
-
   return floor(__x);
 
 #else
 
-  /* TODO: implement */
-  return 0.0;
+  return floor(__x);
 
 #endif
 #endif
 }
 
-double hypot(double __x, double __y) {
+double REDIRECT_NAME(hypot)(double __x, double __y) {
 
 #ifdef USE_LIBC_LINK
 
@@ -359,24 +324,22 @@ double hypot(double __x, double __y) {
 
 #else
 
-  libc_trace("hypot");
+  libc_trace("hypot");debug_write("hypot");
 
 #ifdef USE_HOST_LIBC
-
-#undef hypot
 
   return hypot(__x, __y);
 
 #else
 
-  /* TODO: implement */
+  // TODO: implement
   return 0.0;
 
 #endif
 #endif
 }
 
-int ilogb(double __x) {
+int REDIRECT_NAME(ilogb)(double __x) {
 
 #ifdef USE_LIBC_LINK
 
@@ -384,24 +347,22 @@ int ilogb(double __x) {
 
 #else
 
-  libc_trace("ilogb");
+  libc_trace("ilogb");debug_write("ilogb");
 
 #ifdef USE_HOST_LIBC
-
-#undef ilogb
 
   return ilogb(__x);
 
 #else
 
-  /* TODO: implement */
+  // TODO: implement
   return 0;
 
 #endif
 #endif
 }
 
-double log(double __x) {
+double REDIRECT_NAME(log)(double __x) {
 
 #ifdef USE_LIBC_LINK
 
@@ -413,20 +374,62 @@ double log(double __x) {
 
 #ifdef USE_HOST_LIBC
 
-#undef log
-
   return log(__x);
 
 #else
 
-  /* TODO: implement */
-  return 0.0;
+  {
+    static double pospow2[10] =
+      { 2.0, 4.0, 16.0, 256.0, 65536.0, 4294967296.0,
+        1.8446744073709552e19, 3.402823669209385e38,
+        1.157920892373162e77, 1.3407807929942597e154
+      };
+    static double negpow2[10] =
+      { 0.5, 0.25, 0.0625, 0.00390625, 1.52587890625e-5,
+        2.3283064365386963e-10, 5.421010862427522e-20,
+        2.938735877055719e-39, 8.636168555094445e-78,
+        7.458340731200207e-155
+      };
+    double y = __x;
+    double a;
+    double b;
+    double r;
+    int i = 9;
+    int e = 0;
+    int p;
+    if (y < 1) {
+      while (i >= 0) {
+        if (y <= negpow2[i]) {
+          y *= pospow2[i];
+          e -= (1<<i);
+        }
+        i--;
+      }
+      e++;
+      y *= 2;
+    } else {
+      while (i >= 0) {
+        if (y >= pospow2[i]) {
+          y *= negpow2[i];
+          e += (1<<i);
+        }
+        i--;
+      }
+    }
+    a = (y-1)/(y+1);
+    b = a*a;
+    r = a;
+    p = 3;
+#define STEP a *= b; r += a/p; p += 2;
+    STEP; STEP; STEP; STEP; STEP; STEP; STEP;
+    return e * 0.6931471805599453 + 2 * r;
+  }
 
 #endif
 #endif
 }
 
-double log1p(double __x) {
+double REDIRECT_NAME(log1p)(double __x) {
 
 #ifdef USE_LIBC_LINK
 
@@ -434,24 +437,22 @@ double log1p(double __x) {
 
 #else
 
-  libc_trace("log1p");
+  libc_trace("log1p");debug_write("log1p");
 
 #ifdef USE_HOST_LIBC
-
-#undef log1p
 
   return log1p(__x);
 
 #else
 
-  /* TODO: implement */
+  // TODO: implement
   return 0.0;
 
 #endif
 #endif
 }
 
-double modf(double __x, double *__iptr) {
+double REDIRECT_NAME(modf)(double __x, double *__iptr) {
 
 #ifdef USE_LIBC_LINK
 
@@ -463,20 +464,41 @@ double modf(double __x, double *__iptr) {
 
 #ifdef USE_HOST_LIBC
 
-#undef modf
-
   return modf(__x, __iptr);
 
 #else
 
-  /* TODO: implement */
-  return 0.0;
+  if (__x == 0.0) {
+    return *__iptr = __x;
+  } else if (__x < 0.0) {
+    return __x - (*__iptr = ceil(__x));
+  } else {
+    return __x - (*__iptr = floor(__x));
+  }
 
 #endif
 #endif
 }
 
-double pow(double __x, double __y) {
+#ifndef USE_LIBC_LINK
+#ifndef USE_HOST_LIBC
+
+double pow_aux(double x, int y) {
+  if (y == 0) {
+    return 1.0;
+  } if (y == 1) {
+    return x;
+  } if (y & 1) {
+    return x * pow_aux(x*x, y/2);
+  } else {
+    return pow_aux(x*x, y/2);
+  }
+}
+
+#endif
+#endif
+
+double REDIRECT_NAME(pow)(double __x, double __y) {
 
 #ifdef USE_LIBC_LINK
 
@@ -488,20 +510,37 @@ double pow(double __x, double __y) {
 
 #ifdef USE_HOST_LIBC
 
-#undef pow
-
   return pow(__x, __y);
 
 #else
 
-  /* TODO: implement */
-  return 0.0;
+  // TODO: improve algorithm (correctness and precision)
+  {
+    double f;
+    double i;
+    double r;
+    double e;
+
+    if (__y < 0.0) e = -__y; else e = __y;
+
+    f = REDIRECT_NAME(modf)(e, &i);
+
+    r = pow_aux(__x, CAST(int,i));
+
+    if (f != 0.0)
+      r = r * REDIRECT_NAME(exp)(REDIRECT_NAME(log)(__x) * f);
+
+    if (__y < 0.0)
+      r = 1.0 / r;
+
+    return r;
+  }
 
 #endif
 #endif
 }
 
-double sin(double __x) {
+double REDIRECT_NAME(sin)(double __x) {
 
 #ifdef USE_LIBC_LINK
 
@@ -509,24 +548,22 @@ double sin(double __x) {
 
 #else
 
-  libc_trace("sin");
+  libc_trace("sin");debug_write("sin");
 
 #ifdef USE_HOST_LIBC
-
-#undef sin
 
   return sin(__x);
 
 #else
 
-  /* TODO: implement */
+  // TODO: implement
   return 0.0;
 
 #endif
 #endif
 }
 
-double sinh(double __x) {
+double REDIRECT_NAME(sinh)(double __x) {
 
 #ifdef USE_LIBC_LINK
 
@@ -534,24 +571,22 @@ double sinh(double __x) {
 
 #else
 
-  libc_trace("sinh");
+  libc_trace("sinh");debug_write("sinh");
 
 #ifdef USE_HOST_LIBC
-
-#undef sinh
 
   return sinh(__x);
 
 #else
 
-  /* TODO: implement */
+  // TODO: implement
   return 0.0;
 
 #endif
 #endif
 }
 
-double sqrt(double __x) {
+double REDIRECT_NAME(sqrt)(double __x) {
 
 #ifdef USE_LIBC_LINK
 
@@ -563,20 +598,17 @@ double sqrt(double __x) {
 
 #ifdef USE_HOST_LIBC
 
-#undef sqrt
-
   return sqrt(__x);
 
 #else
 
-  /* TODO: implement */
-  return 0.0;
+  return REDIRECT_NAME(pow)(__x, 0.5);
 
 #endif
 #endif
 }
 
-double tan(double __x) {
+double REDIRECT_NAME(tan)(double __x) {
 
 #ifdef USE_LIBC_LINK
 
@@ -588,20 +620,17 @@ double tan(double __x) {
 
 #ifdef USE_HOST_LIBC
 
-#undef tan
-
   return tan(__x);
 
 #else
 
-  /* TODO: implement */
-  return 0.0;
+  return tan(__x);
 
 #endif
 #endif
 }
 
-double tanh(double __x) {
+double REDIRECT_NAME(tanh)(double __x) {
 
 #ifdef USE_LIBC_LINK
 
@@ -609,24 +638,22 @@ double tanh(double __x) {
 
 #else
 
-  libc_trace("tanh");
+  libc_trace("tanh");debug_write("tanh");
 
 #ifdef USE_HOST_LIBC
-
-#undef tanh
 
   return tanh(__x);
 
 #else
 
-  /* TODO: implement */
+  // TODO: implement
   return 0.0;
 
 #endif
 #endif
 }
 
-double scalbn(double __x, int __exp) {
+double REDIRECT_NAME(scalbn)(double __x, int __exp) {
 
 #ifdef USE_LIBC_LINK
 
@@ -634,17 +661,15 @@ double scalbn(double __x, int __exp) {
 
 #else
 
-  libc_trace("scalbn");
+  libc_trace("scalbn");debug_write("scalbn");
 
 #ifdef USE_HOST_LIBC
-
-#undef scalbn
 
   return scalbn(__x, __exp);
 
 #else
 
-  /* TODO: implement */
+  // TODO: implement
   return 0.0;
 
 #endif

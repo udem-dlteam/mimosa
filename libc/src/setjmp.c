@@ -1,7 +1,7 @@
 #include "include/libc_common.h"
 #include "include/setjmp.h"
 
-int setjmp(jmp_buf __env) {
+int REDIRECT_NAME(setjmp)(jmp_buf __env) {
 
 #ifdef USE_LIBC_LINK
 
@@ -13,20 +13,18 @@ int setjmp(jmp_buf __env) {
 
 #ifdef USE_HOST_LIBC
 
-#undef setjmp
-
   return setjmp(__env);
 
 #else
 
-  /* TODO: implement */
+  // TODO: implement
   return 0;
 
 #endif
 #endif
 }
 
-void longjmp(jmp_buf __env, int __val) {
+void REDIRECT_NAME(longjmp)(jmp_buf __env, int __val) {
 
 #ifdef USE_LIBC_LINK
 
@@ -38,14 +36,12 @@ void longjmp(jmp_buf __env, int __val) {
 
 #ifdef USE_HOST_LIBC
 
-#undef longjmp
-
-  exit(0); /* don't actually longjmp, because setjmp definition above is bogus */
+  exit(0); // don't actually longjmp, because setjmp definition above is bogus
   longjmp(__env, __val);
 
 #else
 
-  /* TODO: implement */
+  // TODO: implement
   for (;;) ;
 
 #endif

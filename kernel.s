@@ -16,121 +16,179 @@ kernel_entry:  # this is the kernel's entry point
   .code16  # at this point the processor is in 16 bit real mode
            # and %cs is equal to (KERNEL_START>>4)
 
-set_video_mode:
+  # setup %es to point to this module to simplify access to data
+
+  movw  $(KERNEL_START>>4),%ax
+  movw  %ax,%es
+
+setup_video_mode:
 
 # Setup an appropriate video mode.
 
-# Try to find a high resolution VESA mode using VBE 1.2 predefined modes
-# with 16M colors.
+  jmp   set_video_mode_fallback # comment out to use VBE high resolution modes
 
-  movl  $(modes-kernel_entry+KERNEL_START),0x4444
+# Try to find a high resolution 256 color mode using VBE BIOS functions.
 
-  movw  $0x11b,%cx  # 1280x1024 16M colors
-  call  check_video_mode
+  movb  $1,%es:video_planes-kernel_entry
+  movb  $8,%es:video_bpp-kernel_entry
 
-  movw  $0x118,%cx  # 1024x768 16M colors
-  call  check_video_mode
+  jmp   try_1024x768x256 # don't try the highest resolutions for now...
 
-  movw  $0x115,%cx  # 800x600 16M colors
-  call  check_video_mode
+try_1600x1200x256:
 
-  movw  $0x112,%cx  # 640x480 16M colors
-  call  check_video_mode
+  movw  $1600,%es:video_width-kernel_entry
+  movw  $1200,%es:video_height-kernel_entry
+  call  set_video_mode_with_vbe
+  jc    setup_video_mode_done
 
-  movw  $0x10f,%cx  # 320x200 16M colors
-  call  check_video_mode
+try_1280x1024x256:
 
-  movw  $((vbe_info-kernel_entry+KERNEL_START)>>4)&0xffff,%ax
-  movw  %ax,%es
-  movw  $(vbe_info-kernel_entry+KERNEL_START)&0xf,%di
-  movb  $'V',%es:(%di)
+  movw  $1280,%es:video_width-kernel_entry
+  movw  $1024,%es:video_height-kernel_entry
+  call  set_video_mode_with_vbe
+  jc    setup_video_mode_done
+
+try_1024x768x256:
+
+  movw  $1024,%es:video_width-kernel_entry
+  movw  $768,%es:video_height-kernel_entry
+  call  set_video_mode_with_vbe
+  jc    setup_video_mode_done
+
+try_800x600x256:
+
+  movw  $800,%es:video_width-kernel_entry
+  movw  $600,%es:video_height-kernel_entry
+  call  set_video_mode_with_vbe
+  jc    setup_video_mode_done
+
+# None of the above resolutions were found, so fallback on VGA
+# graphics mode 17 (640x480 B/W), 18 (640x480 16 colors), or 19
+# (320x200 256 colors).  This has to be done while we are still in 16
+# bit real mode, because that's what the BIOS expects.
+
+set_video_mode_fallback:
+
+  jmp   set_video_mode_18  # choose between modes 17, 18, and 19
+
+set_video_mode_17:
+
+  movw  $17,%es:video_mode-kernel_entry
+  movw  $640,%es:video_width-kernel_entry
+  movw  $480,%es:video_height-kernel_entry
+  movb  $1,%es:video_planes-kernel_entry
+  movb  $1,%es:video_bpp-kernel_entry
+  jmp   set_video_mode_with_vga
+
+set_video_mode_18:
+
+  movw  $18,%es:video_mode-kernel_entry
+  movw  $640,%es:video_width-kernel_entry
+  movw  $480,%es:video_height-kernel_entry
+  movb  $4,%es:video_planes-kernel_entry
+  movb  $4,%es:video_bpp-kernel_entry
+  jmp   set_video_mode_with_vga
+
+set_video_mode_19:
+
+  movw  $19,%es:video_mode-kernel_entry
+  movw  $320,%es:video_width-kernel_entry
+  movw  $200,%es:video_height-kernel_entry
+  movb  $1,%es:video_planes-kernel_entry
+  movb  $8,%es:video_bpp-kernel_entry
+  jmp   set_video_mode_with_vga
+
+set_video_mode_with_vga:
+
+  movw  $0x0000,%es:PhysBasePtr-kernel_entry # frame buffer always at 0xa0000
+  movw  $0x000a,%es:PhysBasePtr+2-kernel_entry
+
+  movw  %es:video_mode-kernel_entry,%ax
+  int   $0x10  # call BIOS
+
+setup_video_mode_done:
+
+  jmp   setup_memory
+
+# Use VBE BIOS functions to select the screen mode according to
+# resolution indicated in video_width, video_height, video_planes,
+# video_bpp.
+
+set_video_mode_with_vbe:
+
+  movw  $vbe_info-kernel_entry,%di
+  movb  $'V',%es:0(%di)
   movb  $'B',%es:1(%di)
   movb  $'E',%es:2(%di)
   movb  $'2',%es:3(%di)
   movw  $0x4f00,%ax # select BIOS function: "Return VBE Controller Information"
   int   $0x10  # call BIOS
 
-  movl  %es:(VideoModePtr-vbe_info)(%di),%eax
-  xorl  %edx,%edx
-  movw  %ax,%dx
-  shrl  $12,%eax
-  andw  $0xfff0,%ax
-  addl  %eax,%edx
+  cmpw  $0x4f,%ax  # check if got VBE BIOS info
+  jne   set_video_mode_with_vbe_failed
 
-check_next_video_mode:
+  movw  %es:(VideoModePtr-kernel_entry),%ax
+  movw  %ax,%es:(video_offset-kernel_entry)
+  movw  %es:(VideoModePtr+2-kernel_entry),%ax
+  movw  %ax,%es:(video_segment-kernel_entry)
 
-  movl  %edx,%ebx
-  shrl  $4,%ebx
-  movw  %bx,%es
-  movw  %dx,%bx
-  andw  $0xf,%bx
+set_video_mode_with_vbe_try_next:
 
-  movw  %es:(%bx),%cx
-  addl  $2,%edx
+  movw  %es:(video_segment-kernel_entry),%ax
+  movw  %ax,%fs
+  movw  %es:(video_offset-kernel_entry),%si
 
-  cmpw  $0xffff,%cx
-  je    all_video_modes_tried
+  movw  %fs:(%si),%cx
+  addw  $2,%si
+  movw  %si,%es:(video_offset-kernel_entry)
+  movw  %cx,%es:(video_mode-kernel_entry)
 
-  call  check_video_mode
+  cmpw  $0xffff,%cx  # check end of list of modes
+  je    set_video_mode_with_vbe_failed
 
-  jmp   check_next_video_mode
-
-check_video_mode:
-
-  movw  $((mode_info-kernel_entry+KERNEL_START)>>4)&0xffff,%ax
-  movw  %ax,%es
-  movw  $(mode_info-kernel_entry+KERNEL_START)&0xf,%di
+  movw  $vbe_mode_info-kernel_entry,%di
   movw  $0x4f01,%ax # select BIOS function: "Return VBE Mode Information"
   int   $0x10  # call BIOS
 
-  cmpw  $0x4f,%ax
-  jne   check_video_mode_return
+  cmpw  $0x4f,%ax  # check if got VBE BIOS mode info
+  jne   set_video_mode_with_vbe_failed
 
-  movw  %es:(ModeAttributes-mode_info)(%di),%ax
-  andw  $(1<<7)+(1<<4)+(1<<3)+(1<<0),%ax
-  cmpw  $(1<<7)+(1<<4)+(1<<3)+(1<<0),%ax
-  jne   check_video_mode_return
+# continue search if resolution doesn't match
 
-  cmpb  $32,%es:(BitsPerPixel-mode_info)(%di)
-  jne   check_video_mode_return
+  movw  %es:(video_width-kernel_entry),%ax
+  cmpw  %es:(XResolution-kernel_entry),%ax
+  jne   set_video_mode_with_vbe_try_next
+  movw  %es:(video_height-kernel_entry),%ax
+  cmpw  %es:(YResolution-kernel_entry),%ax
+  jne   set_video_mode_with_vbe_try_next
+  movb  %es:(video_planes-kernel_entry),%al
+  cmpb  %es:(NumberOfPlanes-kernel_entry),%al
+  jne   set_video_mode_with_vbe_try_next
+  movb  %es:(video_bpp-kernel_entry),%al
+  cmpb  %es:(BitsPerPixel-kernel_entry),%al
+  jne   set_video_mode_with_vbe_try_next
 
-  movw  %es:(YResolution-mode_info)(%di),%ax
-  shll  $16,%eax
-  movw  %es:(XResolution-mode_info)(%di),%ax
-  shll  $16,%ecx
-  movb  %es:(BitsPerPixel-mode_info)(%di),%cl
+# set the video mode
 
-  movl  0x4444,%ebx
-  shrl  $4,%ebx
-  movw  %bx,%es
-  movl  0x4444,%ebx
-  andw  $0xf,%bx
+  movw  %es:(video_mode-kernel_entry),%bx
+  orw   $0x4000,%bx # enable linear frame buffer
+  movw  $0x4f02,%ax # select BIOS function: "SET SuperVGA VIDEO MODE"
+  int   $0x10  # call BIOS
 
-  movl  %eax,%es:(%bx)
-  movl  %ecx,%es:4(%bx)
-  movl  $0,%es:8(%bx)
-  movl  0x4444,%ebx
-  addl  $8,%ebx
-  movl  %ebx,0x4444
+  cmpw  $0x4f,%ax  # check if got VBE BIOS mode info
+  jne   set_video_mode_with_vbe_failed
 
-check_video_mode_return:
-
+  stc # indicate success
   ret
 
-  movw  $0x4f02,%ax # select BIOS function: "SET SuperVGA VIDEO MODE"
-  movw  $0x12b+(1<<14),%bx   # mode = 1024x768x16M
-  int   $0x10  # call BIOS
+set_video_mode_with_vbe_failed:
 
-all_video_modes_tried:
-
-# Set video mode to mode 18 (graphic 640x480 16 colors, fb at 0xa0000).
-# This has to be done while we are still in 16 bit real mode, because that's
-# what the BIOS expects.
-
-  movw  $(0<<8)+18,%ax
-  int   $0x10  # call BIOS
+  clc # indicate failure
+  ret
 
 #------------------------------------------------------------------------------
+
+setup_memory:
 
 # Physical memory map:
 #
@@ -140,7 +198,7 @@ all_video_modes_tried:
 #            |     .      |
 # 0x01000000 +------------+
 #            |     .      |
-#            |   Gambit   |
+#            |application |
 # 0x00100000 |     .      |
 #            +------------+
 #            |     .      |
@@ -867,141 +925,172 @@ irq0_intr:
 
   .globl irq0
 
+  cli
   pusha
   call  irq0
   popa
+  sti
   iret
 
 irq1_intr:
 
   .globl irq1
 
+  cli
   pusha
   call  irq1
   popa
+  sti
   iret
 
 irq2_intr:
 
   .globl irq2
 
+  cli
   pusha
   call  irq2
   popa
+  sti
   iret
 
 irq3_intr:
 
   .globl irq3
 
+  cli
   pusha
   call  irq3
   popa
+  sti
   iret
 
 irq4_intr:
 
   .globl irq4
 
+  cli
   pusha
   call  irq4
   popa
+  sti
   iret
 
 irq5_intr:
 
   .globl irq5
 
- pusha
+  cli
+  pusha
   call  irq5
   popa
+  sti
   iret
 
 irq6_intr:
 
   .globl irq6
 
+  cli
   pusha
   call  irq6
   popa
+  sti
   iret
 
 irq7_intr:
 
   .globl irq7
 
+  cli
   pusha
   call  irq7
   popa
+  sti
   iret
 
 irq8_intr:
 
   .globl irq8
 
- pusha
+  cli
+  pusha
   call  irq8
   popa
+  sti
   iret
 
 irq9_intr:
 
   .globl irq9
 
+  cli
   pusha
   call  irq9
   popa
+  sti
   iret
 
 irq10_intr:
 
   .globl irq10
 
- pusha
+  cli
+  pusha
   call  irq10
   popa
+  sti
   iret
 
 irq11_intr:
 
   .globl irq11
 
+  cli
   pusha
   call  irq11
   popa
+  sti
   iret
 
 irq12_intr:
 
   .globl irq12
 
+  cli
   pusha
   call  irq12
   popa
+  sti
   iret
 
 irq13_intr:
 
   .globl irq13
 
+  cli
   pusha
   call  irq13
   popa
+  sti
   iret
 
 irq14_intr:
 
   .globl irq14
 
+  cli
   pusha
   call  irq14
   popa
+  sti
   iret
 
 irq15_intr:
 
   .globl irq15
 
+  cli
   pusha
   call  irq15
   popa
@@ -1058,6 +1147,12 @@ sys_intr:
   # make sure the C code does not affect ESP
   pushl %esp
   call  sys_irq
+  
+  debug_sys_intr_ret:
+  movb $'A', %al
+  outb %al, $0xe9
+
+  jmp debug_sys_intr_ret
   popl  %esp
   popa
   sti
@@ -1069,10 +1164,19 @@ sys_intr:
 
   .align 2
 
+  .globl video_width
+  .globl video_height
+  .globl video_planes
+  .globl video_bpp
   .globl video_mode
 
-video_mode:
-  .space 2
+video_width:           .space 2
+video_height:          .space 2
+video_planes:          .space 1
+video_bpp:             .space 1
+video_mode:            .space 2
+video_segment:         .space 2
+video_offset:          .space 2
 
   .globl vbe_info
 
@@ -1091,9 +1195,9 @@ OemProductRevPtr:      .space 4
                        .space 222
 OemData:               .space 256
 
-  .globl mode_info
+  .globl vbe_mode_info
 
-mode_info:
+vbe_mode_info:
 
 ModeAttributes:        .space 2
 WinAAttributes:        .space 1
@@ -1140,9 +1244,9 @@ LinRsvdFieldPosition:  .space 1
 MaxPixelClock:         .space 4
                        .space 191 # VBE 3.0 spec says: 189
 
-  .globl modes
+  .globl vbe_modes
 
-modes:
+vbe_modes:
   .space 1024
 
 #------------------------------------------------------------------------------

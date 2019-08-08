@@ -7,14 +7,24 @@ if [ ! -f ~/empty_usb.img ]; then
     rm ~/mimosa-build/empty_usb.img
 fi
 
-echo "Mount and write the OS unto the FS"
+echo "Mount and write the OS onto the FS"
 mkdir -p /mnt/tmp
 cp ~/empty_usb.img ~/mimosa-build/floppy.img
 echo "Mounting..."
 mount -t vfat ~/mimosa-build/floppy.img /mnt/tmp -o loop
 
-cp ~/mimosa-build/kernel.bin /mnt/tmp/BOOT.SYS
-cp ~/mimosa-build/gsi.exe    /mnt/tmp/gsi.exe
+cp ~/mimosa-build/kernel.bin   /mnt/tmp/BOOT.SYS
+cp -r ~/mimosa-build/archive-items/. /mnt/tmp/
+
+
+# mkdir /mnt/tmp/folder
+# touch /mnt/tmp/folder/fif.tst
+# echo "[0] This is a file pretty deep into the directory structure" >> /mnt/tmp/folder/fif.tst
+# mkdir /mnt/tmp/folder/dfolder
+# touch /mnt/tmp/folder/dfolder/dfif.tst
+# echo "[1] This is a file pretty deep into the directory structure" >> /mnt/tmp/folder/dfolder/dfif.tst
+dd if=/dev/zero of=/mnt/tmp/dummy bs=512 count=2048
+
 # cp ~/mimosa-build/copypa.txt /mnt/tmp/copypa.txt
 
 ls -al /mnt/tmp # List all the files in the img

@@ -526,8 +526,8 @@ volatile int32 counter = 0;
 
 void goa ()
 {
-  //  cout << thread::self () << "\n";
-  //  cout << thread::self ()->_stack << "\n";
+  //  cout << thread_self () << "\n";
+  //  cout << thread_self ()->_stack << "\n";
   int x;
   cout << &x << "\n";
 
@@ -547,7 +547,7 @@ void goa ()
       for (int i=0; i<10; i++) ;
       counter = c;
       enable_interrupts ();//m.unlock ();
-      //      thread::yield ();
+      //      thread_yield ();
     }
 }
 
@@ -558,8 +558,8 @@ void gob ()
 
   //  enable_interrupts ();
 
-  //  window << thread::self () << "\n";
-  //  window << thread::self ()->_stack << "\n";
+  //  window << thread_self () << "\n";
+  //  window << thread_self ()->_stack << "\n";
   int x;
   window << &x << "\n";
 
@@ -578,7 +578,7 @@ void gob ()
       for (int i=0; i<10; i++) ;
       counter = c+1;
       enable_interrupts ();//m.lock ();
-      //      thread::yield ();
+      //      thread_yield ();
     }
 }
 
@@ -598,19 +598,19 @@ void goc ()
       int x = csw;
       //for (int i=0; i<1000000; i++) { disable_interrupts (); for (int j=0; j<1; j++) ; enable_interrupts (); }
       for (int i=0; i<1000000; i++);
-      //        thread::yield ();
+      //        thread_yield ();
       x -= csw;
       gettimeofday (&c_tv, NULL);
       uint32 c = c_tv.tv_usec - b_tv.tv_usec
                  + (c_tv.tv_sec - b_tv.tv_sec) * 1000000;
-      cout << "usecs = " << c << " csw=" << -x << " csw/sec=" << (CAST(uint64,-x)*1000000)/c << " nsecs/csw=" << c*1000/CAST(uint64,-x) << " pit counts=" << time_to_pit_counts (thread::self ()->_quantum) << "\n";
+      cout << "usecs = " << c << " csw=" << -x << " csw/sec=" << (CAST(uint64,-x)*1000000)/c << " nsecs/csw=" << c*1000/CAST(uint64,-x) << " pit counts=" << time_to_pit_counts (thread_self ()->_quantum) << "\n";
       if (j%5==0)
         {
           thread1->_quantum.n = thread1->_quantum.n * 2 / 3;
           thread2->_quantum.n = thread2->_quantum.n * 2 / 3;
         }
       //cout << CAST(void*,APIC_CURRENT_TIMER_COUNT) << "\n";
-      //thread::yield ();
+      //thread_yield ();
     }
 }
 
@@ -618,7 +618,7 @@ void god ()
 {
   for (;;)
     {
-      //      thread::yield ();
+      //      thread_yield ();
     }
 }
 
@@ -1013,7 +1013,7 @@ ECh: Identify Drive
   uint64 i;
 
   for (i = 0; i<30000; i++)
-    thread::yield ();
+    thread_yield ();
 
   struct timeval y_tv;
 
@@ -1051,7 +1051,7 @@ ECh: Identify Drive
   cout << c1 << " " << c2 << "\n";
 #endif
 
-  thread1 = thread::self ();
+  thread1 = thread_self ();
   thread2 = new thread (god);
 #if 0
   thread* t3 = new thread (goa);

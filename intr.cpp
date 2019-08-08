@@ -349,14 +349,24 @@ void unhandled_interrupt(int num) {
 void interrupt_handle(interrupt_data data) {
   debug_write("INT NO:");
   debug_write(data.int_no);
-  debug_write(" EIP=");
-  // TODO: implement a full fledge debug write
-  // debug_write((void*) data.eip);
-  debug_write(" INT ARG: ");
+  debug_write("EIP=");
+  debug_write(data.eip);
+  debug_write("INT ARG: ");
   debug_write(data.error_code);
   debug_write("\n\r");
-  
-  fatal_error("CPU exception occured :<(");
+
+  bool handled = TRUE;
+
+  switch (data.int_no) {
+    default:
+      // All CPU faults not managed should crash the system
+      handled = FALSE;
+      break;
+  }
+
+  if(!handled) {
+    panic(L"Unhandled CPU exception");
+  }
 }
 
 //-----------------------------------------------------------------------------

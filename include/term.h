@@ -30,7 +30,8 @@ typedef struct term {
   int _y;
   int _nb_columns;
   int _nb_rows;
-  font_c* _fn;
+  font_c* _fn_normal;
+  font_c* _fn_bold;
   unicode_string _title;
   int _cursor_column;
   int _cursor_row;
@@ -46,8 +47,9 @@ typedef struct term {
   int _bg;
 } term;
 
-term new_term(int x, int y, int nb_columns, int nb_rows, font_c* font,
-              unicode_string title, bool initialy_visible);
+term* term_init(term* self, int x, int y, int nb_columns, int nb_rows,
+                font_c* font_normal, font_c* font_bold,
+                unicode_string title, bool initialy_visible);
 
 void term_show(term* self);  //#!
 
@@ -83,7 +85,25 @@ void debug_write(native_string x);
 
 void term_run(term* term);
 
+size_t strlen(char* str);
+
+unsigned char strcmpl(char* a, char* b, size_t sz);
+
+unsigned char strcmp(char* a, char* b);
+
 //-----------------------------------------------------------------------------
+
+#ifdef ENABLE_DEBUG_MARKER
+#define __debug_marker() \
+  do { \
+    term_write(cout, __FILE__); \
+    term_write(cout, ":");      \
+    term_write(cout, __LINE__); \
+    term_writeline(cout);       \
+  } while(0);
+#else
+#define __debug_marker() NOP()
+#endif
 
 #define __surround_with_debug(code) \
   do {                              \

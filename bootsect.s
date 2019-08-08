@@ -59,11 +59,11 @@ nb_heads:
   .word 0x02 # number of heads
 nb_hidden_sectors:
   .long 0x00 # number of hidden sectors
-nb_logical_sectors:
-  .long 65536
 # --------------------------------------------------------------------------
 # FAT 32 EBP
 # --------------------------------------------------------------------------
+nb_logical_sectors:
+  .long 65536
 nb_sectors_per_fat:
   .long 504
 mirror_flags:

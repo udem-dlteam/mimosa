@@ -20,6 +20,7 @@
 // Definitions for 8042 keyboard controller.
 //
 
+#define PS2_MOUSE_BUFF_SIZE 3
 #define PS2_PORT_A 0x60
 #define PS2_PORT_B 0x61
 #define PS2_PORT_C 0x62
@@ -198,7 +199,7 @@
 #define IS_DEL(c) ((c) == 127)
 #define ASCII_BACKSPACE 0x08
 
-void setup_ps2 ();
+error_code setup_ps2();
 unicode_char getchar();
 int getchar0(bool blocking);
 char readline();

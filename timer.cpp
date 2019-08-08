@@ -41,7 +41,7 @@ void irq0 ()
 
   start_timer (1);
 
-  thread::yield ();
+  thread_yield ();
 }
 
 #endif

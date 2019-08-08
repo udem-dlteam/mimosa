@@ -4,39 +4,37 @@
 
 #include "include/libc_header.h"
 
-extern double acos(double __x);
-extern double acosh(double __x);
-extern double asin(double __x);
-extern double asinh(double __x);
-extern double atan(double __x);
-extern double atan2(double __y, double __x);
-extern double atanh(double __x);
-extern double ceil(double __x);
-extern double cos(double __x);
-extern double cosh(double __x);
-extern double exp(double __x);
-extern double expm1(double __x);
-extern double fabs(double __x);
-extern double floor(double __x);
-extern double hypot(double __x, double __y);
-extern int ilogb(double __x);
-extern double log(double __x);
-extern double log1p(double __x);
-extern double modf(double __x, double *__iptr);
-extern double pow(double __x, double __y);
-extern double sin(double __x);
-extern double sinh(double __x);
-extern double sqrt(double __x);
-extern double tan(double __x);
-extern double tanh(double __x);
-extern double scalbn(double __x, int __exp);
+extern double REDIRECT_NAME(acos)(double __x);
+extern double REDIRECT_NAME(acosh)(double __x);
+extern double REDIRECT_NAME(asin)(double __x);
+extern double REDIRECT_NAME(asinh)(double __x);
+extern double REDIRECT_NAME(atan)(double __x);
+extern double REDIRECT_NAME(atan2)(double __y, double __x);
+extern double REDIRECT_NAME(atanh)(double __x);
+extern double REDIRECT_NAME(ceil)(double __x);
+extern double REDIRECT_NAME(cos)(double __x);
+extern double REDIRECT_NAME(cosh)(double __x);
+extern double REDIRECT_NAME(exp)(double __x);
+extern double REDIRECT_NAME(expm1)(double __x);
+extern double REDIRECT_NAME(fabs)(double __x);
+extern double REDIRECT_NAME(floor)(double __x);
+extern double REDIRECT_NAME(hypot)(double __x, double __y);
+extern int REDIRECT_NAME(ilogb)(double __x);
+extern double REDIRECT_NAME(log)(double __x);
+extern double REDIRECT_NAME(log1p)(double __x);
+extern double REDIRECT_NAME(modf)(double __x, double *__iptr);
+extern double REDIRECT_NAME(pow)(double __x, double __y);
+extern double REDIRECT_NAME(sin)(double __x);
+extern double REDIRECT_NAME(sinh)(double __x);
+extern double REDIRECT_NAME(sqrt)(double __x);
+extern double REDIRECT_NAME(tan)(double __x);
+extern double REDIRECT_NAME(tanh)(double __x);
+extern double REDIRECT_NAME(scalbn)(double __x, int __exp);
 
 #ifndef USE_LIBC_LINK
-
-#include "include/libc_link.h"
 
 extern void libc_init_math(void);
 
 #endif
 
-#endif /* math.h  */
+#endif // math.h

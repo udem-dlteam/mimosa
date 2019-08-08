@@ -17,7 +17,7 @@
 
 // Error handling.
 
-void fatal_error (native_string msg);
+void panic(unicode_string msg);
 
 //-----------------------------------------------------------------------------
 
@@ -29,11 +29,21 @@ uint8 log2 (uint32 n);
 
 // Memory management.
 
-void* kmalloc (size_t size);
-void kfree (void* ptr);
+void* kmalloc(size_t size);
+void kfree(void* ptr);
 
-extern "C"
-void* memcpy (void* dest, const void* src, size_t n);
+extern "C" void* memcpy(void* dest, const void* src, size_t n);
+
+// ----------------------------------------------------------------------------
+// Strings
+
+
+native_string copy_without_trailing_spaces(uint8* src, native_string dst,
+                                                  uint32 n);
+
+int16 kstrcmp(native_string a, native_string b);
+
+native_string kstrconcat(native_string a, native_string b);
 
 //-----------------------------------------------------------------------------
 

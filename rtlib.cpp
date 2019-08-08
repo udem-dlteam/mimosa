@@ -8,25 +8,25 @@
 
 //-----------------------------------------------------------------------------
 
+#include "drivers/filesystem/include/vfs.h"
 #include "rtlib.h"
+#include "heap.h"
 #include "intr.h"
 #include "chrono.h"
 #include "ide.h"
 #include "disk.h"
-#include "fs.h"
 #include "ps2.h"
 #include "term.h"
 #include "thread.h"
-#include "mono_5x7.h"
-#include "mono_6x9.h"
 #include "video.h"
 
 void __rtlib_setup (); // forward declaration
 
-font_c font_mono_5x7;
-font_c font_mono_6x9;
 term term_console;
 video screen;
+
+thread_vtable _thread_vtable;
+thread_vtable _program_thread_vtable;
 
 raw_bitmap_vtable _raw_bitmap_vtable;
 raw_bitmap_vtable _raw_bitmap_in_memory_vtable;
@@ -38,20 +38,17 @@ raw_bitmap_in_memory mouse_save;
 
 //-----------------------------------------------------------------------------
 
-void fatal_error (native_string msg)
+void panic (unicode_string msg)
 {
   __asm__ __volatile__ ("cli" : : : "memory");
-  debug_write(msg);
 
   #ifdef RED_PANIC_SCREEN
     raw_bitmap_fill_rect((raw_bitmap*)&screen, 0, 0, 640, 480, &pattern_red);
 
-    font_draw_string(&font_mono_6x9, &screen.super, 640 / 2, 480 / 2,
-                     CAST(unicode_string, msg), &pattern_white, &pattern_black);
+    font_draw_string(&font_mono_6x13, &screen.super, 0, 0, msg, &pattern_white, &pattern_black);
 #endif
   
-  for (;;) ; // freeze execution
-
+  for (;;) NOP(); // freeze execution
   // ** NEVER REACHED ** (this function never returns)
 }
 
@@ -107,67 +104,46 @@ uint8 log2 (uint32 n)
 
 // Memory management functions.
 
-// For now, a simple linear allocator is used.  Memory is never reclaimed.
+// A simple heap manager that doesn't reclaim memory
 
-static uint32 alloc_ptr = 0xB * (1<<20); // start at 1MB
-
-void* kmalloc (size_t size)
-{
-  uint32 ptr = alloc_ptr;
-
-  alloc_ptr = ptr + ((size + 7) & ~7);
-
-  return CAST(void*,ptr);
+void heap_init(struct heap *h, void *start, size_t size) {
+  h->start = start;
+  h->size = size;
+  h->alloc = 0;
 }
 
-void kfree (void* ptr)
-{
-  // Not implemented yet.
+void *heap_malloc(struct heap *h, size_t size) {
+
+  size_t a = h->alloc;
+
+  // maintain word alignment
+  size = (size + sizeof(void*) - 1) & ~(sizeof(void*) - 1);
+
+  if (a + size > h->size) {
+    debug_write("HEAP OVERFLOW");
+    return NULL; // heap overflow
+  }
+
+  h->alloc = a + size;
+
+  return CAST(void*,CAST(char*,h->start)+a);
 }
 
-// Implementation of the C++ "new" operator.
-
-#if 0
-void* __builtin_new (size_t size)
-#else
-void* operator new (size_t size)
-#endif
-{
-  return kmalloc (size);
+void heap_free(struct heap *h, void *ptr) {
 }
 
-// Implementation of the C++ "delete" operator.
+struct heap kheap; // kernel heap
 
-#if 0
-void __builtin_delete (void* obj)
-#else
-void operator delete (void* obj)
-#endif
-{
-  if (obj != NULL)
-    kfree (obj);
+void* kmalloc(size_t size) {
+  return heap_malloc(&kheap, size);
 }
 
-// Implementation of the C++ "new[]" operator.
-
-#if 0
-void* __builtin_vec_new (size_t size)
-#else
-void* operator new[] (size_t size)
-#endif
-{
-  return operator new (size);
+void kfree(void* ptr) {
+  heap_free(&kheap, ptr);
 }
 
-// Implementation of the C++ "delete[]" operator.
-
-#if 0
-void __builtin_vec_delete (void* obj)
-#else
-void operator delete[] (void* obj)
-#endif
-{
-  operator delete (obj);
+static void setup_kheap() {
+  heap_init(&kheap, CAST(void*,11*(1<<20)), 5*(1<<20));
 }
 
 extern "C" void* memcpy (void* dest, const void* src, size_t n)
@@ -178,6 +154,62 @@ extern "C" void* memcpy (void* dest, const void* src, size_t n)
   return dest;
 }
 
+native_string copy_without_trailing_spaces(uint8* src, native_string dst,
+                                           uint32 n) {
+  uint32 i;
+  uint32 end = 0;
+
+  for (i = 0; i < n; i++) {
+    dst[i] = src[i];
+    if (src[i] != ' ') end = i + 1;
+  }
+
+  return dst + end;
+}
+
+// Based off glibc's strcmp
+// I roughly modified it to fit in the general code style of mimosa
+int16 kstrcmp(native_string a, native_string b) {
+
+  native_string s1 = CAST(native_string, a);
+  native_string s2 = CAST(native_string, b);
+  native_char c1, c2;
+  do
+    {
+      c1 = CAST(native_char, *s1++);
+      c2 = CAST(native_char, *s2++);
+      if (c1 == '\0')
+        return c1 - c2;
+    }
+  while (c1 == c2);
+  return c1 - c2;
+}
+
+native_string kstrconcat(native_string a, native_string b) {
+  uint32 alen = 0, blen = 0;
+  native_char *p;
+  native_string out;
+
+  p = a;
+  while(*p != '\0') {
+    alen++;
+    p++;
+  }
+
+  p = b;
+   while(*p != '\0') {
+    blen++;
+    p++;
+  }
+  
+  out = CAST(native_string, kmalloc(sizeof(native_char) * (alen + blen + 1)));
+  memcpy(out, a, alen);
+  memcpy(out + alen, b, blen);
+  out[alen + blen] = '\0';
+
+  return out;
+}
+
 //-----------------------------------------------------------------------------
 
 // The function "__pure_virtual" is called when a pure virtual method
@@ -186,13 +218,13 @@ extern "C" void* memcpy (void* dest, const void* src, size_t n)
 extern "C"
 void __pure_virtual ()
 {
-  fatal_error ("pure virtual function called");
+  panic(L"pure virtual function called");
 }
 
 extern "C"
 void __cxa_pure_virtual ()
 {
-  fatal_error ("pure virtual function called");
+  panic(L"pure virtual function called");
 }
 
 //-----------------------------------------------------------------------------
@@ -218,6 +250,9 @@ void __do_global_ctors ()
   _video_vtable.show_mouse = video_show_mouse;
   _video_vtable._select_layer = video_select_layer;
 
+  _thread_vtable.thread_run = virtual_thread_run;
+  _program_thread_vtable.thread_run = virtual_program_thread_run;
+
   _raw_bitmap_in_memory_vtable.hide_mouse = raw_bitmap_in_memory_hide_mouse;
   _raw_bitmap_in_memory_vtable.show_mouse = raw_bitmap_in_memory_show_mouse;
   _raw_bitmap_in_memory_vtable._select_layer = _raw_bitmap_in_memory_select_layer;
@@ -227,21 +262,20 @@ void __do_global_ctors ()
   _raw_bitmap_vtable._select_layer = _raw_bitmap_select_layer;
   
   // Screen
-  screen = new_video(18);
+  video_init(&screen);
 
   raw_bitmap_fill_rect(&screen.super, 0, 0, screen.super._width,
                        screen.super._height, &pattern_gray50);
 
-  mouse_save = new_raw_bitmap_in_memory(
-    mouse_bitmap, MOUSE_WIDTH_IN_BITMAP_WORDS << LOG2_BITMAP_WORD_WIDTH,
-    MOUSE_HEIGHT, 4);
-
-  // Create the fonts that might be used
-  font_mono_5x7 = create_mono_5x7();
-  font_mono_6x9 = create_mono_6x9();
+  raw_bitmap_in_memory_init
+    (&mouse_save,
+     mouse_bitmap, MOUSE_WIDTH_IN_BITMAP_WORDS << LOG2_BITMAP_WORD_WIDTH,
+     MOUSE_HEIGHT, 4);
 
   // Create the console terminal
-  term_console = new_term(0, 0, 80, 30, &font_mono_6x9, L"console", true);
+  term_init(&term_console, 0, 0, 80, 25,
+            &font_mono_6x13, &font_mono_6x13B,
+            L"console", TRUE);
 }
 
 void __do_global_dtors ()
@@ -269,6 +303,7 @@ extern "C"
 void __rtlib_entry ()
 {
   setup_bss ();
+  setup_kheap ();
   setup_intr ();
   setup_time ();
 
@@ -358,7 +393,7 @@ static void identify_cpu ()
     term_write(cout, "/");
     term_write(cout, _cpu_bus_multiplier.den);
     term_write(cout, " is not an integer!\n");
-    fatal_error("CPU/bus clock multiplier is not an integer\n");
+    panic(L"CPU/bus clock multiplier is not an integer\n");
   }
 
 #endif
@@ -366,54 +401,68 @@ static void identify_cpu ()
 #endif
 }
 
-class idle_thread : public thread
-  {
-  public:
-
-    idle_thread ();
-
-  protected:
-    virtual void run ();
-  };
-
-idle_thread::idle_thread()
-{
-}
-
-void idle_thread::run() {
-  for (;;) thread::yield();
+void idle_thread_run() {
+  for (;;) {
+    thread_yield();
+  }
 }
 
 extern void libc_init(void);
 
 void __rtlib_setup ()
 { 
-  enable_interrupts();
+  error_code err;
+  thread* the_idle, *cache_block_maid_thread;
+
+  ASSERT_INTERRUPTS_ENABLED();
+
   term_write(cout, "Initializing ");
   term_write(cout, "\033[46m");
-  term_write(cout, OS_NAME);
+  term_write(cout, "Mimosa");
   term_write(cout, "\033[0m\n\n");
 
-  identify_cpu ();
-  setup_ps2 ();
+  identify_cpu();
 
-  (new idle_thread)->start (); // need an idle thread to prevent deadlocks
+  the_idle = CAST(thread*, kmalloc(sizeof(thread)));
+  thread_start(new_thread(the_idle, idle_thread_run, "Idle thread"));
+
+  term_write(cout, "Loading up disks...\n");
+  setup_disk();
+  term_write(cout, "Loading up IDE controllers...\n");
+  setup_ide ();
+  term_write(cout, "Loading up the virtual file system...\n");
+
+  if(ERROR(err = init_vfs())) {
+    goto setup_panic;
+  }
+
+  if(ERROR(err = setup_ps2()))
+    goto setup_panic;
+
+  if(ERROR(err)) {
+    panic(L"Failed to load VFS driver");
+  }
 
   term_write(cout, "Loading up LIBC\n");
   libc_init();
-  term_write(cout, "Loading up disks...\n");
-  setup_disk ();
-  term_write(cout, "Loading up IDE controllers...\n");
-  setup_ide ();
-  term_write(cout, "Loading up the file system...\n");
-  setup_fs ();
-  //setup_net ();
+  // setup_net ();
+
+  // FS is loaded, now load the cache maid
+#ifdef USE_CACHE_BLOCK_MAID
+  term_write(cout, "Loading the cache block maid...\n");
+
+  cache_block_maid_thread = CAST(thread*, kmalloc(sizeof(thread)));
+  thread_start(new_thread(cache_block_maid_thread, cache_block_maid_run,
+                          "Cache block maid"));
+#endif
 
   main ();
 
-  __do_global_dtors ();
+  __do_global_dtors();
+  panic(L"System termination");
 
-  fatal_error ("System termination");
+setup_panic:
+  panic(L"Boot error");
 }
 
 //-----------------------------------------------------------------------------

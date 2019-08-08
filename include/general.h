@@ -45,23 +45,29 @@ typedef int32 ssize_t;
 #define as_uint32(x) \
 ((((((CAST(uint32,(x)[3])<<8)+(x)[2])<<8)+(x)[1])<<8)+(x)[0])
 
+#define as_uint8(x, i) (((x) & ((0xFF) << ((i) << 3))) >> ((i) << 3))
+
 //-----------------------------------------------------------------------------
 
 // Error codes.
 
 typedef int32 error_code;
 
-#define IN_PROGRESS   1
-#define NO_ERROR      0
-#define UNIMPL_ERROR  (-1)
-#define MEM_ERROR     (-2)
-#define FNF_ERROR     (-3)
-#define EOF_ERROR     (-4)
-#define UNKNOWN_ERROR (-5)
+#define IN_PROGRESS 1
+#define NO_ERROR 0
+#define EOF_ERROR (-1)
+#define MEM_ERROR (-2)
+#define FNF_ERROR (-3)
+#define UNIMPL_ERROR (-4)
+#define DISK_OUT_OF_SPACE (-5)
+#define ARG_ERROR (-6)
+#define UNKNOWN_ERROR (-7)
+#define PERMISSION_ERROR (-8)
 
 #define NOP() do { __asm__ __volatile__ ("NOP" : : : "memory");} while(0)
 
-#define ERROR(x) ((x)<0)
+#define HAS_NO_ERROR(x) ((x) >= 0)
+#define ERROR(x) ((x) < 0)
 
 //-----------------------------------------------------------------------------
 
@@ -114,18 +120,29 @@ typedef int32 error_code;
 // #define USE_IRET_FOR_RESTORE_CONTEXT
 #define USE_RET_FOR_RESTORE_CONTEXT
 
+#define GAMBIT_REPL
+// #define MIMOSA_REPL
+
+#ifdef GAMBIT_REPL
+#ifdef MIMOSA_REPL
+#error "Only one REPL should be used"
+#endif
+#endif
+
 // #define SHOW_INTERRUPTS
-//#define SHOW_TIMER_INTERRUPTS
+// #define SHOW_TIMER_INTERRUPTS
 //#define SHOW_CPU_INFO
 // #define SHOW_IDE_INFO
 // #define SHOW_DISK_INFO
-// #define CHECK_ASSERTIONS
+#define CHECK_ASSERTIONS
 // #define PRINT_ASSERTIONS
+#define USE_CACHE_BLOCK_MAID
+#define USE_BLOCK_REF_COUNTER_FREE
 #define SHOW_UART_MESSAGES
 #define RED_PANIC_SCREEN
 #define ENABLE_DEBUG_WRITE
-#define LOAD_GAMBIT
-// #define ENABLE_MOUSE
+#define ENABLE_DEBUG_MARKER
+#define ENABLE_MOUSE
 
 // BUSY_WAIT_INSTEAD_OF_SLEEP uses a simple for loop
 // to perform sleep operations. This is bad, but it might
@@ -135,6 +152,13 @@ typedef int32 error_code;
 
 // #define ENABLE_LIBC_TRACE
 //-----------------------------------------------------------------------------
+
+#ifndef USE_CACHE_BLOCK_MAID
+#ifndef USE_BLOCK_REF_COUNTER_FREE
+#error "A cache block cleaning strategy must be defined"
+#endif
+#endif
+
 #endif
 
 // Local Variables: //

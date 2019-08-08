@@ -1,9 +1,9 @@
 #include "include/libc_common.h"
+
+#ifdef USE_MIMOSA
+
 #include "term.h"
 #include "ps2.h"
-
-#define USE_MIMOSA
-#ifdef USE_MIMOSA
 
 void libc_wr_char(int fd, char c) {
   // write(fd, &c, 1);
@@ -26,7 +26,7 @@ int libc_rd_char(int fd) {
 
 #ifndef USE_HOST_LIBC
 
-/* normally in unistd.h */
+// normally in unistd.h
 typedef int ssize_t;
 ssize_t write(int fd, const void *buf, size_t count);
 ssize_t read(int fd, void *buf, size_t count);
@@ -57,8 +57,6 @@ int libc_rd_char(int fd) {
 void libc_trace_(const char *msg) {
 
 #ifdef USE_HOST_LIBC
-
-#undef printf
 
   printf("------> %s\n", msg);
 

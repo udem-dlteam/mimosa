@@ -2,7 +2,7 @@
 #include "term.h"////////////
 
 /*
- * Copyright (c) 2001 by Marc Feeley and Université de Montréal, All
+ * Copyright (c) 2001 by Marc Feeley and Universitï¿½ de Montrï¿½al, All
  * Rights Reserved.
  *
  * Revision History
@@ -78,18 +78,18 @@ inline ELEMTYPE* NAMESPACE_PREFIX(head) (QUEUETYPE* queue)
   return NULL;
 }
 
+extern condvar* circular_buffer_cv;
 
 inline void NAMESPACE_PREFIX(insert) (ELEMTYPE* elem, QUEUETYPE* queue)
 {
   NODETYPE* node2 = CAST(NODETYPE*,queue);
   NODETYPE* node1 = PREV (node2);
 
-  while (node1 != CAST(NODETYPE*,queue) &&
-         BEFORE (elem, CAST(ELEMTYPE*,node1)))
-    {
-      node2 = node1;
-      node1 = PREV (node2);
-    }
+  while (node1 != CAST(NODETYPE*, queue) &&
+         BEFORE(elem, CAST(ELEMTYPE*, node1))) {
+    node2 = node1;
+    node1 = PREV(node2);
+  }
 
   // insert elem between node1 and node2
 

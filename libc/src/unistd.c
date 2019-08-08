@@ -1,7 +1,7 @@
 #include "include/libc_common.h"
 #include "include/unistd.h"
 
-char *getcwd(char *__buf, size_t __size) {
+char *REDIRECT_NAME(getcwd)(char *__buf, size_t __size) {
 
 #ifdef USE_LIBC_LINK
 
@@ -13,13 +13,11 @@ char *getcwd(char *__buf, size_t __size) {
 
 #ifdef USE_HOST_LIBC
 
-#undef getcwd
-
   return getcwd(__buf, __size);
 
 #else
 
-  /* TODO: implement */
+  // TODO: implement
   __buf[0] = '/';
   __buf[1] = '\0';
   return __buf;
@@ -28,7 +26,7 @@ char *getcwd(char *__buf, size_t __size) {
 #endif
 }
 
-int mkdir(const char *__pathname, mode_t __mode) {
+int REDIRECT_NAME(mkdir)(const char *__pathname, mode_t __mode) {
 
 #ifdef USE_LIBC_LINK
 
@@ -40,20 +38,18 @@ int mkdir(const char *__pathname, mode_t __mode) {
 
 #ifdef USE_HOST_LIBC
 
-#undef mkdir
-
   return mkdir(__pathname, __mode);
 
 #else
 
-  /* TODO: implement */
+  // TODO: implement
   return 0;
 
 #endif
 #endif
 }
 
-int remove(const char *__pathname) {
+int REDIRECT_NAME(remove)(const char *__pathname) {
 
 #ifdef USE_LIBC_LINK
 
@@ -65,20 +61,18 @@ int remove(const char *__pathname) {
 
 #ifdef USE_HOST_LIBC
 
-#undef remove
-
   return remove(__pathname);
 
 #else
 
-  /* TODO: implement */
+  // TODO: implement
   return 0;
 
 #endif
 #endif
 }
 
-int lstat(const char *__pathname, struct_stat *__buf) {
+int REDIRECT_NAME(lstat)(const char *__pathname, struct_stat *__buf) {
 
 #ifdef USE_LIBC_LINK
 
@@ -90,20 +84,18 @@ int lstat(const char *__pathname, struct_stat *__buf) {
 
 #ifdef USE_HOST_LIBC
 
-#undef lstat
-
   return lstat(__pathname, __buf);
 
 #else
 
-  /* TODO: implement */
+  // TODO: implement
   return 0;
 
 #endif
 #endif
 }
 
-int stat(const char *__pathname, struct_stat *__buf) {
+int REDIRECT_NAME(stat)(const char *__pathname, struct_stat *__buf) {
 
 #ifdef USE_LIBC_LINK
 
@@ -115,13 +107,34 @@ int stat(const char *__pathname, struct_stat *__buf) {
 
 #ifdef USE_HOST_LIBC
 
-#undef stat
-
   return stat(__pathname, __buf);
 
 #else
 
-  /* TODO: implement */
+  // TODO: implement
+  return 0;
+
+#endif
+#endif
+}
+
+int REDIRECT_NAME(isatty)(int __fd) {
+
+#ifdef USE_LIBC_LINK
+
+  return LIBC_LINK._isatty(__fd);
+
+#else
+
+  libc_trace("isatty");
+
+#ifdef USE_HOST_LIBC
+
+  return isatty(__fd);
+
+#else
+
+  // TODO: implement
   return 0;
 
 #endif

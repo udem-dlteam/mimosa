@@ -9,38 +9,40 @@
 //-----------------------------------------------------------------------------
 
 #include "term.h"
+#include "drivers/filesystem/include/vfs.h"
 #include "thread.h"
 #include "ps2.h"
-#include "fs.h"
+#include "rtlib.h"
 
 //-----------------------------------------------------------------------------
 
-term new_term(int x, int y, int nb_columns, int nb_rows, font_c* font,
-              unicode_string title, bool initialy_visible) {
-  term term;
+term* term_init(term* self, int x, int y, int nb_columns, int nb_rows,
+                font_c* font_normal, font_c* font_bold,
+                unicode_string title, bool initialy_visible) {
 
-  term._x = x;
-  term._y = y;
-  term._nb_columns = nb_columns;
-  term._nb_rows = nb_rows;
-  term._fn = font;
-  term._title = title;
-  term._visible = FALSE;
-  term._cursor_column = term._cursor_row = 0;
-  term._cursor_visible = FALSE;
+  self->_x = x;
+  self->_y = y;
+  self->_nb_columns = nb_columns;
+  self->_nb_rows = nb_rows;
+  self->_fn_normal = font_normal;
+  self->_fn_bold = font_bold;
+  self->_title = title;
+  self->_visible = FALSE;
+  self->_cursor_column = self->_cursor_row = 0;
+  self->_cursor_visible = FALSE;
   // VT 100
-  term._param_num = -2;
-  term._bold = FALSE;
-  term._underline = FALSE;
-  term._reverse = FALSE;
-  term._fg = term_normal_foreground;
-  term._bg = term_normal_background;
+  self->_param_num = -2;
+  self->_bold = FALSE;
+  self->_underline = FALSE;
+  self->_reverse = FALSE;
+  self->_fg = term_normal_foreground;
+  self->_bg = term_normal_background;
 
   if (initialy_visible) {
-    term_show(&term);
+    term_show(self);
   }
 
-  return term;
+  return self;
 }
 
 void term_show(term* self) {
@@ -49,7 +51,7 @@ void term_show(term* self) {
   }
 
   int sx, sy, ex, ey;
-  int char_height = font_get_height(self->_fn);
+  int char_height = font_get_height(self->_fn_normal);
 
   pattern* background;
 
@@ -90,14 +92,14 @@ void term_show(term* self) {
   // EO TODO
 
   int curr_x = font_draw_string(
-      self->_fn, &screen.super,
+      self->_fn_normal, &screen.super,
       self->_x + term_outer_border + term_frame_border + term_inner_border,
       self->_y + term_outer_border + term_frame_border + term_inner_border,
       L"\x25b6 ",  // rightward triangle and space
       &pattern_blue, &pattern_black);
 
   font_draw_string(
-      self->_fn, &screen.super, curr_x,
+      self->_fn_normal, &screen.super, curr_x,
       self->_y + term_outer_border + term_frame_border + term_inner_border,
       self->_title, &pattern_blue, &pattern_black);
 
@@ -113,8 +115,8 @@ void term_show(term* self) {
 
 void term_char_coord_to_screen_coord(term* self, int column, int row, int* sx,
                                      int* sy, int* ex, int* ey) {
-  int char_max_width = font_get_max_width(self->_fn);
-  int char_height = font_get_height(self->_fn);
+  int char_max_width = font_get_max_width(self->_fn_normal);
+  int char_height = font_get_height(self->_fn_normal);
 
   *sx = self->_x + column * char_max_width + term_outer_border +
         term_frame_border + term_inner_border;
@@ -177,6 +179,7 @@ void term_toggle_cursor(term* self) {
 }
 
 int term_write(term* self, unicode_char* buf, int count) {
+
   int start, end, i;
   unicode_char c;
 
@@ -433,7 +436,8 @@ int term_write(term* self, unicode_char* buf, int count) {
 
       term_hide_cursor(self);
 
-      font_draw_text(self->_fn, &screen.super, sx, sy, buf + start, n,
+      font_draw_text(self->_bold ? self->_fn_bold : self->_fn_normal,
+                     &screen.super, sx, sy, buf + start, n,
                      foreground, background);
 
       start += n;
@@ -649,23 +653,21 @@ void debug_write(native_string str) {
   outb('\r', OUT_PORT);
 }
 
-const native_string LS_CMD = "ls";
-const native_string EXEC_CMD = "exec";
-const native_string CAT_CMD = "cat";
-
-uint32 strlen(native_string str) {
+size_t strlen(char* str) {
   int i;
-  for(i = 0; str[i] != '\0'; ++i);
+  for (i = 0; str[i] != '\0'; ++i)
+    ;
   return i;
 }
 
-uint8 strcmp(native_string a, native_string b, uint32 sz) {
+unsigned char strcmpl(char* a, char* b, size_t sz) {
   int i = 0;
-  for(i = 0; i < sz && a[i] == b[i]; ++i);
+  for (i = 0; i < sz && a[i] == b[i]; ++i)
+    ;
   return i == sz;
 }
 
-uint8 strcmp(native_string a, native_string b) {
+unsigned char strcmp(char* a, char* b) {
   while (*a == *b) {
     if (*a == '\0') {
       break;
@@ -677,59 +679,83 @@ uint8 strcmp(native_string a, native_string b) {
   return *a == *b;
 }
 
+const native_string LS_CMD = "ls";
+const native_string EXEC_CMD = "exec";
+const native_string CAT_CMD = "cat";
+
 static const int max_sz = 2056;
 static native_char buff[max_sz];
 
 void term_run(term* term) {
-  // for (;;) {
-  //   term_write(term, ">");
+  for (;;) {
+    //TODO make a real REPL
+    for(int i = 0; i < max_sz; ++i) 
+      buff[i] = '\0'; // this is stupid
 
-  //   uint32 i = 0;
-  //   native_string line = readline(term, &i);
-  //   debug_write(line);
+    term_write(term, "> ");
 
-  //   // Find and exec command
-  //   // Hopefully there is no ls*** command lol
-  //   if (strcmp(line, LS_CMD)) {
-  //     term_writeline(term);
-  //     DIR* root_dir = opendir("/");
-  //     dirent* entry;
+    uint32 i = 0;
+    while((buff[i++] = readline()) != '\0');
+    // Remove the newline
+    buff[i - 2] = '\0';
 
-  //     while (NULL != (entry = readdir(root_dir))) {
-  //       term_write(term, "---> ");
-  //       term_write(term, entry->d_name);
-  //       term_writeline(term);
-  //     }
+    native_string line = buff;
 
-  //     closedir(root_dir);
-  //   } else if (strcmp(line, EXEC_CMD, 4)) {
-  //     native_string file_name = &line[5];
+    // Find and exec command
+    // Hopefully there is no ls*** command lol
+    if (strcmpl(line, LS_CMD, 2)) {
+      term_writeline(term);
+      
+      DIR* directory = opendir(&line[3]);
 
-  //     file* prog;
-  //     if (NO_ERROR == open_file(file_name, &prog)) {
-  //       term_write(term, "\r\n Starting program ");
-  //       term_write(term, file_name);
-  //       term_writeline(term);
-  //       // sched_start_task(prog);
-  //     } else {
-  //       term_write(term, "\r\n Failed to open the program.\r\n");
-  //     }
-  //   } else if (strcmp(line, CAT_CMD, 3)) {
-  //     native_string file_name = &line[4];
-  //     file* f;
-  //     if (NO_ERROR == open_file(file_name, &f)) {
-  //       // need free... lets use the static buff
-  //       read_file(f, buff, 2056);
-  //       term_writeline(term);
-  //       term_write(term, CAST(native_string, buff));
-  //       term_writeline(term);
-  //     } else {
-  //       term_write(term, "\r\n Failed to read the file.\r\n");
-  //     }
-  //   } else {
-  //     term_write(term, "\r\nUnknown command\r\n");
-  //   }
-  // }
+      if (NULL == directory) {
+        term_write(term, "Not a directory or not found");
+      } else {
+        dirent* entry;
+
+        while (NULL != (entry = readdir(directory))) {
+          term_write(term, "---> ");
+          term_write(term, entry->d_name);
+          term_writeline(term);
+        }
+
+        closedir(directory);
+      }
+    } else if (strcmpl(line, EXEC_CMD, 4)) {
+      native_string file_name = &line[5];
+
+      file* prog;
+      if (NO_ERROR == file_open(file_name, "r+", &prog)) {
+        term_write(term, "Starting program ");
+        term_write(term, file_name);
+        term_writeline(term);
+        // sched_start_task(prog);
+      } else {
+        term_write(term, "Failed to open the program.\r\n");
+      }
+    } else if (strcmpl(line, CAT_CMD, 3)) {
+      error_code err = NO_ERROR;
+      native_string file_name = &line[4];
+      file* f;
+      if (HAS_NO_ERROR(err = file_open(file_name, "r+", &f))) {
+        // need free... lets use the static buff
+        native_string buff = (native_char*)kmalloc(sizeof(native_char) * file_len(f));
+        {
+          file_read(f, buff, file_len(f));
+          term_writeline(term);
+          term_write(term, buff);
+          term_writeline(term);
+        }
+        kfree(buff);
+      } else if(FNF_ERROR == err) {
+        term_write(term, "File not found\r\n");
+      } else {
+        term_write(term, "Failed to read the file.\r\n");
+      }
+    } else {
+      term_write(term, "Unknown command\r\n");
+    }
+  }
 }
 
 //-----------------------------------------------------------------------------

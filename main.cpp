@@ -8,40 +8,47 @@
 
 //-----------------------------------------------------------------------------
 
-#include "general.h"
-#include "term.h"
-#include "thread.h"
+#include "drivers/filesystem/include/vfs.h"
 #include "chrono.h"
 #include "disk.h"
-#include "fs.h"
-#include "fat32.h"
+#include "general.h"
 #include "ps2.h"
 #include "rtlib.h"
-#include "uart.h"
+#include "term.h"
+#include "thread.h"
 
 int main() {
+#ifdef MIMOSA_REPL
+  term_run(cout);
+#endif
 
-  term* tty = &new_term(0, 320, 80, 10, &font_mono_6x9, L"tty", true);
+#ifdef GAMBIT_REPL
+  {
+    native_string file_name = "/dsk1/GSC.EXE";
 
-  term_write(cout, "INIT SERIAL\n");
-  init_serial(COM1_PORT_BASE);
-  //term_write(cout, "sending serial test to COM1_PORT_BASE\n");
-  //send_serial(COM1_PORT_BASE, "HELLO WORLD");
-  //term_write(cout, "sent\n");
+    file* prog;
+    if (NO_ERROR == file_open(file_name, "r", &prog)) {
+      uint32 len = file_len(prog);
+      uint8* code = (uint8*)GAMBIT_START;
 
-  // while(true){
-  //   native_char c = read_serial(COM1_PORT_BASE);
-  //   term_write(cout, (unsigned)c &0xff);
-  //   term_write(cout, "\r\n");
-  //   send_serial(COM1_PORT_BASE, "A\n");
-  // }
-  send_serial(COM1_PORT_BASE, "test");
-  term_write(cout, "Read");
-  send_serial(COM1_PORT_BASE, "test2");
-  
-  // Never exit, but never do anything either
-  for(;;) thread::yield();
-  
+      error_code err;
+      if (ERROR(err = file_read(prog, code, len))) {
+        panic(L"ERR");
+      }
+
+      program_thread* task = CAST(program_thread*, kmalloc(sizeof(program_thread)));
+      new_program_thread(task, CAST(libc_startup_fn, code), "Gambit");
+      thread_start(CAST(thread*, task));
+    } else {
+      term_write(cout, "\r\n Failed to open Gambit.\r\n");
+    }
+  }
+#endif
+
+  do {
+    thread_yield();
+  } while(1);
+
   return 0;
 }
 

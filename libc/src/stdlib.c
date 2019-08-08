@@ -1,7 +1,13 @@
 #include "include/libc_common.h"
 #include "include/stdlib.h"
 
-void *malloc(size_t __size) {
+#ifdef USE_MIMOSA
+#include "heap.h"
+struct heap appheap;
+
+#endif
+
+void *REDIRECT_NAME(malloc)(size_t __size) {
 
 #ifdef USE_LIBC_LINK
 
@@ -13,17 +19,21 @@ void *malloc(size_t __size) {
 
 #ifdef USE_HOST_LIBC
 
-#undef malloc
-
   return malloc(__size);
 
 #else
 
-  /* TODO: implement */
+  // TODO: implement
+
+#ifdef USE_MIMOSA
+
+  return heap_malloc(&appheap, __size);
+
+#else
 
   {
 #define MB (1<<20)
-#define HEAP_SIZE 10*MB /* needs to be at least 5*MB */
+#define HEAP_SIZE 40*MB // needs to be at least 5*MB
 
     static char heap[HEAP_SIZE];
     static int alloc = HEAP_SIZE;
@@ -40,10 +50,12 @@ void *malloc(size_t __size) {
   }
 
 #endif
+
+#endif
 #endif
 }
 
-void free(void *__ptr) {
+void REDIRECT_NAME(free)(void *__ptr) {
 
 #ifdef USE_LIBC_LINK
 
@@ -55,19 +67,25 @@ void free(void *__ptr) {
 
 #ifdef USE_HOST_LIBC
 
-#undef free
-
   free(__ptr);
 
 #else
 
-  /* TODO: implement */
+#ifdef USE_MIMOSA
+
+  return heap_free(&appheap, __ptr);
+
+#else
+
+  // TODO: implement
+
+#endif
 
 #endif
 #endif
 }
 
-void exit(int __status) {
+void REDIRECT_NAME(exit)(int __status) {
 
 #ifdef USE_LIBC_LINK
 
@@ -79,22 +97,20 @@ void exit(int __status) {
 
 #ifdef USE_HOST_LIBC
 
-#undef exit
-
   exit(__status);
 
 #else
 
-  /* TODO: implement */
+  // TODO: implement
   for (;;) ;
 
 #endif
 #endif
 
-  /*NOTREACHED*/
+  // NOTREACHED
 }
 
-char *getenv(const char *__name) {
+char *REDIRECT_NAME(getenv)(const char *__name) {
 
 #ifdef USE_LIBC_LINK
 
@@ -106,20 +122,18 @@ char *getenv(const char *__name) {
 
 #ifdef USE_HOST_LIBC
 
-#undef getenv
-
   return getenv(__name);
 
 #else
 
-  /* TODO: implement */
+  // TODO: implement
   return NULL;
 
 #endif
 #endif
 }
 
-int system(const char *__command) {
+int REDIRECT_NAME(system)(const char *__command) {
 
 #ifdef USE_LIBC_LINK
 
@@ -131,13 +145,11 @@ int system(const char *__command) {
 
 #ifdef USE_HOST_LIBC
 
-#undef system
-
   return system(__command);
 
 #else
 
-  /* TODO: implement */
+  // TODO: implement
   return 0;
 
 #endif
@@ -147,6 +159,12 @@ int system(const char *__command) {
 #ifndef USE_LIBC_LINK
 
 void libc_init_stdlib(void) {
+
+#ifdef USE_MIMOSA
+
+  heap_init(&appheap, CAST(void*,32*(1<<20)), 256*(1<<20));
+
+#endif
 }
 
 #endif

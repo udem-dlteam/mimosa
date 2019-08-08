@@ -89,6 +89,23 @@ error_code disk_read_sectors(disk* d, uint32 sector_pos, void* buf,
   return UNKNOWN_ERROR;
 }
 
+error_code disk_write_sectors(disk* d, uint32 sector_pos, void* sector_buffs, uint32 sector_count) {
+  
+    error_code err = UNKNOWN_ERROR;
+
+    if (sector_pos < d->partition_length && sector_pos + sector_count <= d->partition_length) {
+    switch (d->kind) {
+      case DISK_IDE:
+        return ide_write_sectors(d->_.ide.dev, d->partition_start + sector_pos,
+                                 sector_buffs, sector_count);
+      default:
+        return UNIMPL_ERROR;
+    }
+  }
+
+  return err;
+}
+
 error_code disk_cache_block_acquire(disk* d, uint32 sector_pos,
                                     cache_block** block) {
 
@@ -101,7 +118,7 @@ error_code disk_cache_block_acquire(disk* d, uint32 sector_pos,
 
 again:
 
-  disk_mod.cache_mut->lock();
+  mutex_lock(disk_mod.cache_mut);
 
   for (;;) {
     LRU_deq = &disk_mod.LRU_deq;
@@ -143,13 +160,15 @@ again:
       cb->LRU_deq.prev = LRU_deq;
 
       cb->refcount++;
-      cb->mut->lock();
-      disk_mod.cache_mut->unlock();
+
+      rwmutex_writelock(cb->mut);
+      mutex_unlock(disk_mod.cache_mut);
       while ((err = cb->err) == IN_PROGRESS) {
-        cb->cv->wait(cb->mut);
+        condvar_wait(cb->cv, &cb->mut->super);
       }
-      cb->mut->unlock();
-      cb->cv->signal();
+
+      rwmutex_writeunlock(cb->mut);
+      condvar_signal(cb->cv);
 
       if (ERROR(err)) {
         disk_cache_block_release(cb);  // ignore error
@@ -165,7 +184,15 @@ again:
       cb = CAST(cache_block*,
                 CAST(uint8*, LRU_probe) -
                     (CAST(uint8*, &cb->LRU_deq) - CAST(uint8*, cb)));
+
+#ifdef USE_BLOCK_REF_COUNTER_FREE
       if (cb->refcount == 0) break;
+#else
+      // If we dont use the reference counting,
+      // we cannot allocate dirty blocks
+      if ((cb->refcount == 0) && (!cb->dirty)) break;
+#endif
+
       LRU_probe = LRU_probe->prev;
     }
 
@@ -194,20 +221,20 @@ again:
       cb->refcount = 1;
       cb->d = d;
       cb->sector_pos = sector_pos;
-      cb->mut->lock();
-      disk_mod.cache_mut->unlock();
+      rwmutex_writelock(cb->mut);
+      mutex_unlock(disk_mod.cache_mut);
       cb->err = IN_PROGRESS;
       err =
           disk_read_sectors(d, sector_pos, cb->buf,
                             1 << (DISK_LOG2_BLOCK_SIZE - d->log2_sector_size));
       cb->err = err;
-      cb->mut->unlock();
-      cb->cv->signal();
+      rwmutex_writeunlock(cb->mut);
+      condvar_signal(cb->cv);
 
       if (ERROR(err)) {
-        disk_mod.cache_mut->lock();
+        mutex_lock(disk_mod.cache_mut);
         cb->d = NULL;  // so that this cache block can't be found again
-        disk_mod.cache_mut->unlock();
+        mutex_unlock(disk_mod.cache_mut);
         disk_cache_block_release(cb);  // ignore error
         return err;
       }
@@ -215,7 +242,7 @@ again:
       break;
     }
 
-    disk_mod.cache_cv->wait(disk_mod.cache_mut);
+    condvar_wait(disk_mod.cache_cv, disk_mod.cache_mut);
   }
 
   *block = cb;
@@ -223,16 +250,58 @@ again:
   return NO_ERROR;
 }
 
+static error_code flush_block(cache_block* block, time timeout) {
+  error_code err = NO_ERROR;
+
+  if (!block->dirty) {
+    return err;
+  }
+
+  if (mutex_lock_or_timeout(CAST(mutex*, block->mut), timeout)) {
+    // Make sure it hasn't been cleaned in the wait
+    if (block->dirty) {
+      if (HAS_NO_ERROR(err = disk_write_sectors(block->d, block->sector_pos,
+                                                block->buf, 1))) {
+        block->dirty = 0;
+        err = 1;  // We flushed a single block
+      }
+    }
+
+    mutex_unlock(CAST(mutex*, block->mut));
+  }
+
+  return err;
+}
+
 error_code disk_cache_block_release(cache_block* block) {
+  error_code err = NO_ERROR;
   uint32 n;
 
-  disk_mod.cache_mut->lock();
-  n = --block->refcount;
-  disk_mod.cache_mut->unlock();
+#ifdef USE_BLOCK_REF_COUNTER_FREE
+  if (block->refcount == 1) {
+    // we are the last reference to this block
+    // this means we don't need any lock on it.
+    // If the cache block maid is activated, we
+    // will never have to wait on a lock, since
+    // we are the last reference to it.
+    // However, it is possible that we wait because
+    // of the maid.
 
-  if (n == 0) disk_mod.cache_cv->signal();
+    flush_block(block, seconds_to_time(0));
+  }
+#endif
 
-  return NO_ERROR;
+  if(HAS_NO_ERROR(err)) {
+    mutex_lock(disk_mod.cache_mut);
+    n = --block->refcount;
+    mutex_unlock(disk_mod.cache_mut);
+
+    if (n == 0) {
+      condvar_signal(disk_mod.cache_cv);
+    }
+  }
+
+  return err;
 }
 
 //-----------------------------------------------------------------------------
@@ -411,8 +480,8 @@ void setup_disk() {
 
   for (i = 0; i < MAX_NB_DISKS; i++) disk_mod.disk_table[i].id = i;
 
-  disk_mod.cache_mut = new mutex;
-  disk_mod.cache_cv = new condvar;
+  disk_mod.cache_mut = new_mutex(CAST(mutex*, kmalloc(sizeof(mutex))));
+  disk_mod.cache_cv = new_condvar(CAST(condvar*, kmalloc(sizeof(condvar))));
 
   disk_mod.LRU_deq.next = &disk_mod.LRU_deq;
   disk_mod.LRU_deq.prev = &disk_mod.LRU_deq;
@@ -428,7 +497,7 @@ void setup_disk() {
     cache_block_deq* hash_bucket_deq;
     cache_block* cb = CAST(cache_block*, kmalloc(sizeof(cache_block)));
 
-    if (cb == NULL) fatal_error("can't allocate disk cache");
+    if (cb == NULL) panic(L"can't allocate disk cache");
 
     LRU_deq = &cb->LRU_deq;
     hash_bucket_deq = &cb->hash_bucket_deq;
@@ -444,8 +513,41 @@ void setup_disk() {
     // cb->d and cb->sector_pos and cb->err can stay undefined
 
     cb->refcount = 0;
-    cb->mut = new mutex;
-    cb->cv = new condvar;
+    cb->mut = new_rwmutex(CAST(rwmutex*, kmalloc(sizeof(rwmutex))));
+    cb->cv = new_condvar(CAST(condvar*, kmalloc(sizeof(condvar))));
+  }
+}
+
+//-----------------------------------------------------------------------------
+// Cache block cleaning thread
+//-----------------------------------------------------------------------------
+
+void cache_block_maid_run() {
+  cache_block* cb;
+  cache_block_deq* deq;
+  cache_block_deq* lru_probe;
+  for (;;) {
+    uint32 flushed_count = 0;
+    thread_sleep(seconds_to_time(60).n);
+    
+    if(mutex_lock_or_timeout(disk_mod.cache_mut, seconds_to_time(60))) {
+      cb = NULL;
+      deq = &disk_mod.LRU_deq;
+      lru_probe = deq->prev;
+
+      while (lru_probe != deq) {
+        cb = CAST(cache_block*, CAST(uint8*, lru_probe) - (CAST(uint8*, &cb->LRU_deq) - CAST(uint8*, cb)));
+
+        if (flush_block(cb, seconds_to_time(10)) > 0) {
+          flushed_count += 1;
+        }
+
+        lru_probe = lru_probe->prev;
+      }
+
+      // Done the cleaning task
+      mutex_unlock(disk_mod.cache_mut);
+    }
   }
 }
 
