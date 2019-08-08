@@ -37,18 +37,21 @@ typedef enum fs_kind {
 } fs_kind;
 
 // A file system descriptor header
-typedef struct fs_header_struct {
-    fs_kind kind;
-} fs_header;
 
 typedef struct file_struct file;
 typedef struct vfnode_struct vfnode;
 typedef struct DIR_struct DIR;
 typedef struct VDIR_struct VDIR;
 typedef struct dirent_struct dirent;
+typedef struct fs_vtable_struct fs_vtable;
+
+typedef struct fs_header_struct {
+    fs_kind kind;
+    fs_vtable* _vtable;
+} fs_header;
 
 typedef struct short_file_name_struct {
-  native_char name[11];
+  native_char name[12];
 } short_file_name;
 
 typedef struct file_vtable_struct {
@@ -60,6 +63,10 @@ typedef struct file_vtable_struct {
   size_t     (*_file_len)(file* f);
   dirent*    (*_readdir)(DIR* dir);
 } file_vtable;
+
+struct fs_vtable_struct {
+  error_code (*_file_open)(fs_header* header, short_file_name* parts, uint8 depth, file_mode mode, file** result);
+};
 
 // A file descriptor header
 struct file_struct {
@@ -125,6 +132,8 @@ vfnode* new_vfnode(vfnode* vf, native_string name, file_type type);
 #define readdir(dir) (CAST(file*, dir->f))->_vtable->_readdir(CAST(DIR*, dir))
 #define file_is_dir(f) IS_FOLDER(((f)->type))
 #define file_is_reg(f) IS_REGULAR_FILE(((f)->type))
+
+#define fs_file_open(fs, parts, depth, mode, result) CAST(fs_header*, fs)->_vtable->_file_open(CAST(fs_header*, fs), parts, depth, mode, result)
 
 error_code file_open(native_string path, native_string mode, file** result);
 error_code normalize_path(native_string path, native_string new_path);

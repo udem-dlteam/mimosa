@@ -397,9 +397,6 @@ void __rtlib_setup ()
   term_write(cout, "\033[0m\n\n");
 
   identify_cpu();
-  if(ERROR(err = setup_ps2()))
-    goto setup_panic;
-
 
   the_idle = CAST(thread*, kmalloc(sizeof(thread)));
   thread_start(new_thread(the_idle, idle_thread_run, "Idle thread"));
@@ -409,7 +406,13 @@ void __rtlib_setup ()
   term_write(cout, "Loading up IDE controllers...\n");
   setup_ide ();
   term_write(cout, "Loading up the virtual file system...\n");
-  err = init_vfs();
+
+  if(ERROR(err = init_vfs())) {
+    goto setup_panic;
+  }
+
+  if(ERROR(err = setup_ps2()))
+    goto setup_panic;
 
   if(ERROR(err)) {
     panic(L"Failed to load VFS driver");

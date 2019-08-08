@@ -9,10 +9,16 @@
 native_string STDIN_PATH = "/dev/stdin";
 native_string STDOUT_PATH = "/dev/stdout";
 
+static native_string STDIN_PART = "STDIN      ";
+static native_string STDOUT_PART = "STDOUT     ";
+
+static fs_header fs_std_stream;
+
 static raw_stream stdin;
 static raw_stream stdout;
 
-static file_vtable __std_rw_stream_vtable;
+static file_vtable __std_rw_file_stream_vtable;
+static fs_vtable   __std_stream_vtable;
 
 static error_code new_raw_stream(raw_stream* rs, bool autoresize);
 static error_code new_stream_file(stream_file* rs, file_mode mode,
@@ -81,7 +87,7 @@ static error_code new_stream_file(stream_file* rs, file_mode mode,
   }
 
   rs->header.mode = mode;
-  rs->header._vtable = &__std_rw_stream_vtable;
+  rs->header._vtable = &__std_rw_file_stream_vtable;
   rs->source = source;
 
   return err;
@@ -188,18 +194,20 @@ static error_code stream_read(file* ff, void* buff, uint32 count) {
   return err;
 }
 
-error_code stream_open_file(native_string path, file_mode mode, file** result) {
+error_code stream_open_file(fs_header* header, short_file_name* parts, uint8 depth, file_mode mode, file** result) {
   error_code err = NO_ERROR;
   stream_file* strm;
 
-  if (0 == kstrcmp(STDIN_PATH, path)) {
+  if(depth == 0) return FNF_ERROR;
+
+  if (0 == kstrcmp(STDIN_PART, parts[0].name)) {
     strm = CAST(stream_file*, kmalloc(sizeof(stream_file)));
     if (NULL == strm) {
       err = MEM_ERROR;
     } else {
       err = new_stream_file(strm, mode, &stdin);
     }
-  } else if (0 == kstrcmp(STDOUT_PATH, path)) {
+  } else if (0 == kstrcmp(STDOUT_PART, parts[0].name)) {
     strm = CAST(stream_file*, kmalloc(sizeof(stream_file)));
     if (NULL == strm) {
       err = MEM_ERROR;
@@ -215,36 +223,31 @@ error_code stream_open_file(native_string path, file_mode mode, file** result) {
   return err;
 }
 
-error_code init_streams(vfnode* parent) {
+error_code mount_streams(vfnode* parent) {
   error_code err = NO_ERROR;
+  
+  __std_stream_vtable._file_open = stream_open_file;
 
-  __std_rw_stream_vtable._file_close = stream_close;
-  __std_rw_stream_vtable._file_len = stream_len;
-  __std_rw_stream_vtable._file_move_cursor = stream_move_cursor;
-  __std_rw_stream_vtable._file_read = stream_read;
-  __std_rw_stream_vtable._file_set_to_absolute_position =
+  fs_std_stream.kind = STREAM;
+  fs_std_stream._vtable = &__std_stream_vtable;
+
+  __std_rw_file_stream_vtable._file_close = stream_close;
+  __std_rw_file_stream_vtable._file_len = stream_len;
+  __std_rw_file_stream_vtable._file_move_cursor = stream_move_cursor;
+  __std_rw_file_stream_vtable._file_read = stream_read;
+  __std_rw_file_stream_vtable._file_set_to_absolute_position =
       stream_set_to_absolute_position;
-  __std_rw_stream_vtable._file_write = stream_write;
+  __std_rw_file_stream_vtable._file_write = stream_write;
 
+  // Init streams
   if (ERROR(err = new_raw_stream(&stdin, FALSE))) return err;
   if (ERROR(err = new_raw_stream(&stdout, FALSE))) return err;
 
+  // Init mount point
   vfnode* dev_node = CAST(vfnode*, kmalloc(sizeof(vfnode)));
-  new_vfnode(dev_node, "DEV        ", TYPE_VFOLDER);
+  new_vfnode(dev_node, "DEV        ", TYPE_MOUNTPOINT);
+  dev_node->_value.mountpoint.mounted_fs = &fs_std_stream;
   vfnode_add_child(parent, dev_node);
-
-  vfnode* stdout_node = CAST(vfnode*, kmalloc(sizeof(vfnode)));
-  vfnode* stdin_node = CAST(vfnode*, kmalloc(sizeof(vfnode)));
-
-  // TODO: eliminate the duplication of names
-  new_vfnode(stdout_node, "STDOUT     ", TYPE_VFILE);
-  new_vfnode(stdout_node, "STDIN      ", TYPE_VFILE);
-
-  vfnode_add_child(dev_node, stdout_node);
-  vfnode_add_child(dev_node, stdin_node);
-
-  // stdin_node->_value.file.linked_file = &stdin;
-  // stdout_node->_value.file.linked_file = &stdout;
 
   return err;
 }

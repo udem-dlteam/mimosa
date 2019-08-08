@@ -19,7 +19,8 @@ typedef struct fs_module_struct {
 } fs_module;
 
 static fs_module fs_mod;
-static file_vtable _fat_vtable;
+static file_vtable _fat_file_vtable;
+static fs_vtable _fat_vtable;
 
 error_code new_fat_file(fat_file** result) {
   error_code err = NO_ERROR;
@@ -28,7 +29,7 @@ error_code new_fat_file(fat_file** result) {
   if(NULL == allocated) {
     err = MEM_ERROR;
   } else {
-    allocated->header._vtable = &_fat_vtable;
+    allocated->header._vtable = &_fat_file_vtable;
   }
 
   *result = allocated;
@@ -36,6 +37,8 @@ error_code new_fat_file(fat_file** result) {
   return err;
 }
 
+
+static error_code fat_file_open(fs_header* header, short_file_name* parts, uint8 depth, file_mode mode, file** result);
 static void fat_reset_cursor(file* f);
 static error_code fat_move_cursor(file* f, int32 n);
 static error_code fat_set_to_absolute_position(file* f, uint32 position);
@@ -211,6 +214,8 @@ static error_code mount_FAT121632(disk* d, fat_file_system** result) {
   if (fs == NULL) {
     err = MEM_ERROR;
   } else {
+    fs->header.kind = FAT;
+    fs->header._vtable = &_fat_vtable;
     fs->kind = kind;
     fs->_.FAT121632.d = d;
     fs->_.FAT121632.log2_bps = log2_bps;
@@ -227,7 +232,9 @@ static error_code mount_FAT121632(disk* d, fat_file_system** result) {
   return err;
 }
 
-static error_code mount_partition(disk* d) {
+static int i = 1;
+
+static error_code mount_partition(disk* d, vfnode* parent) {
 #ifdef SHOW_DISK_INFO
   term_write(cout, "IN MOUNT PART\n\r");
 #endif
@@ -244,6 +251,19 @@ static error_code mount_partition(disk* d) {
         term_write(cout, "Failed to mount\n\r");
         return err;
       }
+
+      vfnode* partition_mount_point = CAST(vfnode*, kmalloc(sizeof(vfnode)));
+      // TODO make mount names
+      
+      if(i++ == 1) {
+        new_vfnode(partition_mount_point, "DSK1       ", TYPE_MOUNTPOINT);
+      } else {
+        new_vfnode(partition_mount_point, "DSK2       ", TYPE_MOUNTPOINT);
+      }
+
+      partition_mount_point->_value.mountpoint.mounted_fs = CAST(fs_header*, fs);
+
+      vfnode_add_child(parent, partition_mount_point);
       break;
     default:
       term_write(cout, "Unknown partition type: ");
@@ -288,7 +308,7 @@ static error_code mount_partition(disk* d) {
   return UNKNOWN_ERROR;
 }
 
-static void mount_all_partitions() {
+static void mount_all_partitions(vfnode* parent) {
   uint32 index;
   disk* d;
 
@@ -297,7 +317,7 @@ static void mount_all_partitions() {
   index = 0;
 
   while ((d = disk_find(index)) != NULL) {
-    mount_partition(d);
+    mount_partition(d, parent);
     index++;
   }
 }
@@ -1290,37 +1310,26 @@ static error_code fat_truncate_file(fat_file* f) {
   return err;
 }
 
-error_code fat_open_file(native_string path, file_mode mode, file** result) {
+error_code fat_file_open(fs_header* ffs, short_file_name* parts, uint8 depth, file_mode mode, file** result) {
+
+  debug_write("Opening a file:");
+  debug_write(parts[0].name);
+
   error_code err = NO_ERROR;
-  fat_file_system* fs;
+  fat_file_system* fs = CAST(fat_file_system*, ffs);
   native_char normalized_path[NAME_MAX + 1];
   native_string child_name;
   fat_file *parent,*child;
 
-  if (fs_mod.nb_mounted_fs == 0) {
-    // No file system mounted
-    return UNKNOWN_ERROR;
-  } else {
-    fs = fs_mod.mounted_fs[0];
-  }
+  switch (fs->kind) {
+    case FAT12_FS:
+    case FAT16_FS:
+    case FAT32_FS:
+      break;
 
-  switch (fs->kind)
-  {
-  case FAT12_FS:
-  case FAT16_FS:
-  case FAT32_FS:
-    break;
-  
-  default:
-    return UNIMPL_ERROR;
-    break;
-  }
-
-  if (ERROR(err = normalize_path(path, normalized_path))) {
-#ifdef SHOW_DISK_INFO
-    term_write(cout, "Failed to normalize the path\n\r");
-#endif
-    return err;
+    default:
+      return UNIMPL_ERROR;
+      break;
   }
 
   if (ERROR(err = fat_open_root_dir(fs, CAST(file**, &parent)))) {
@@ -1332,17 +1341,11 @@ error_code fat_open_file(native_string path, file_mode mode, file** result) {
     return err;
   }
   
-  if(0 == kstrcmp("./.gambini", path)) {
-    // This is a hack! Neeeeds to be fixed.
-    path = "gambini";
-  }
 
-  // Find the parent folder
-  uint8 depth;
-  short_file_name_struct* parts = decompose_path(normalized_path, &depth);
-
-  debug_write("Depth:");
-  debug_write(depth);
+  // if(0 == kstrcmp("./.gambini", path)) {
+  //   // This is a hack! Neeeeds to be fixed.
+  //   path = "gambini";
+  // }
 
   if(0 == depth) {
     return FNF_ERROR;
@@ -1495,19 +1498,22 @@ static dirent* fat_readdir(DIR* dir) {
   return NULL;
 }
 
-error_code init_fat() {
+error_code mount_fat(vfnode* parent) {
 
-  // Init the VTable
-  _fat_vtable._file_close = fat_close_file;
-  _fat_vtable._file_move_cursor = fat_move_cursor;
-  _fat_vtable._file_read = fat_read_file;
-  _fat_vtable._file_set_to_absolute_position = fat_set_to_absolute_position;
-  _fat_vtable._file_write = fat_write_file;
-  _fat_vtable._file_len = fat_file_len;
-  _fat_vtable._readdir = fat_readdir;
+  // Init the FS vtable
+  _fat_vtable._file_open = fat_file_open;
+
+  // Init the file vtable
+  _fat_file_vtable._file_close = fat_close_file;
+  _fat_file_vtable._file_move_cursor = fat_move_cursor;
+  _fat_file_vtable._file_read = fat_read_file;
+  _fat_file_vtable._file_set_to_absolute_position = fat_set_to_absolute_position;
+  _fat_file_vtable._file_write = fat_write_file;
+  _fat_file_vtable._file_len = fat_file_len;
+  _fat_file_vtable._readdir = fat_readdir;
 
   disk_add_all_partitions();
-  mount_all_partitions();
+  mount_all_partitions(parent);
 
   return NO_ERROR;
 }

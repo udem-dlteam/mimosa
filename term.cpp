@@ -688,10 +688,17 @@ static native_char buff[max_sz];
 
 void term_run(term* term) {
   for (;;) {
-    term_write(term, ">");
+    //TODO make a real REPL
+    for(int i = 0; i < max_sz; ++i) 
+      buff[i] = '\0'; // this is stupid
+
+    term_write(term, "> ");
 
     uint32 i = 0;
     while((buff[i++] = readline()) != '\0');
+    // Remove the newline
+    buff[i - 2] = '\0';
+
     native_string line = buff;
 
     // Find and exec command
@@ -699,20 +706,20 @@ void term_run(term* term) {
     if (strcmpl(line, LS_CMD, 2)) {
       term_writeline(term);
       
-      DIR* root_dir = opendir("/");
+      DIR* directory = opendir(&line[3]);
 
-      if (NULL == root_dir) {
-        term_write(term, "Failed to read the root directory");
+      if (NULL == directory) {
+        term_write(term, "Not a directory or not found");
       } else {
         dirent* entry;
 
-        while (NULL != (entry = readdir(root_dir))) {
+        while (NULL != (entry = readdir(directory))) {
           term_write(term, "---> ");
           term_write(term, entry->d_name);
           term_writeline(term);
         }
 
-        closedir(root_dir);
+        closedir(directory);
       }
     } else if (strcmpl(line, EXEC_CMD, 4)) {
       native_string file_name = &line[5];

@@ -16,18 +16,6 @@ static error_code vfnode_read(file* f, void* buff, uint32 count);
 static error_code vfnode_write(file* f, void* buff, uint32 count);
 static dirent*    vfnode_readdir(DIR* dir);
 
-// error_code stat(native_string path, struct stat* buf) {
-//   file* f;
-//   error_code err;
-
-//   if (ERROR(err = open_file(path, "r", &f))) return err;
-
-//   buf->st_mode = f->mode;
-//   buf->st_size = f->length;
-
-//   return close_file(f);
-// }
-
 static error_code vfnode_close(file* f) {
   return PERMISSION_ERROR;
 }
@@ -118,12 +106,12 @@ error_code normalize_path(native_string path, native_string new_path) {
   return NO_ERROR;
 }
 
-short_file_name* decompose_path(native_string normalized_Path, uint8* __count) {
+short_file_name* decompose_path(native_string normalized_path, uint8* __count) {
   *__count = 0;
   uint8 count = 0;
   uint8 entry = 0;
   short_file_name* result = NULL;
-  native_char* scout = normalized_Path;
+  native_char* scout = normalized_path;
 
   if('\0' == *scout) return NULL;
   if('/' != *scout) return NULL;
@@ -137,8 +125,8 @@ short_file_name* decompose_path(native_string normalized_Path, uint8* __count) {
     return NULL; // meh
   }
 
-  char* p = normalized_Path;
-  debug_write(normalized_Path);
+  char* p = normalized_path;
+  debug_write(normalized_path);
   while (entry < count) {
     int i = 0;
     bool seen_next_slash = FALSE;
@@ -187,7 +175,8 @@ short_file_name* decompose_path(native_string normalized_Path, uint8* __count) {
         p++;
       }
     }
-
+  
+    result[entry].name[11] = '\0';
     p++;
     entry++;
   }
@@ -249,7 +238,7 @@ static vfnode* explore(short_file_name* parts, uint8 *depth) {
   vfnode* scout = &sys_root;
   uint8 bottom = *depth;
   do {
-    if(0 == kstrcmp(scout->name, parts[bottom - *depth].name)) {
+    if(0 == kstrcmp(scout->name, parts[bottom - (*depth)].name)) {
       last_candidate = scout;
       scout = scout->_first_child;
       *depth = *depth - 1;
@@ -264,9 +253,11 @@ static vfnode* explore(short_file_name* parts, uint8 *depth) {
 }
 
 error_code file_open(native_string path, native_string mode, file** result) {
-  error_code err = NO_ERROR;
-  native_char normalized_path[NAME_MAX + 1];
   uint8 depth;
+  error_code err = NO_ERROR;
+  file* hit = NULL;
+  file_mode md;
+  native_char normalized_path[NAME_MAX + 1];
 
   if (ERROR(err = normalize_path(path, normalized_path))) {
 #ifdef SHOW_DISK_INFO
@@ -274,52 +265,47 @@ error_code file_open(native_string path, native_string mode, file** result) {
 #endif
     return err;
   }
-  debug_write(normalized_path);
   short_file_name* parts = decompose_path(normalized_path, &depth);
 
-  term_write(cout, "Parts:");
-  for(int i = 0; i < depth; ++i) {
-    term_write(cout, "|");
-    for(int j = 0; j < 11; ++j) {
-      term_write(cout, parts[i].name[j]);
-    }
-    term_write(cout, "|");
-  }
-  term_writeline(cout);
+  // Those lines are left as comments since they help debugging
 
+  // term_write(cout, "Parts in FOPEN:");
+  // for(int i = 0; i < depth; ++i) {
+  //   term_write(cout, "|");
+  //   for(int j = 0; j < 11; ++j) {
+  //     term_write(cout, parts[i].name[j]);
+  //   }
+  //   term_write(cout, "|");
+  // }
+  // term_writeline(cout);
+
+  uint8 bottom = depth;
   vfnode* deepest = explore(parts, &depth);
-  
-  if(depth > 0) {
-    debug_write("Depth left to explore");
 
-    file_mode md;
-    file* hit = NULL;
-
-    if (!parse_mode(mode, &md)) {
-      return ARG_ERROR;
-    }
-
-    if (ERROR(err = stream_open_file(path, md, &hit)) && FNF_ERROR != err) {
-      return err;
-    }
-
-    if (HAS_NO_ERROR(err)) goto vfs_open_found;
-
-    if (ERROR(err = fat_open_file(path, md, &hit)) && FNF_ERROR != err) {
-      return err;
-    }
-
-    if (HAS_NO_ERROR(err)) goto vfs_open_found;
-
-    // More search
-
-  vfs_open_found:
-    if (HAS_NO_ERROR(err)) {
-      *result = hit;
-    }
-  } else {
-      *result = CAST(file*, deepest);
+  if (!parse_mode(mode, &md)) {
+    return ARG_ERROR;
   }
+
+  if(NULL == deepest) {
+    err = FNF_ERROR;
+  } else if(deepest->header.type & TYPE_MOUNTPOINT) {
+    fs_header* fs = deepest->_value.mountpoint.mounted_fs;
+    if (depth > 0) {
+      err = fs_file_open(fs, parts + (bottom - depth), depth, md, &hit);
+    } else {
+      err = fs_file_open(fs, parts, 1, md, &hit);
+    }
+  } else if(depth == 0) {
+    hit = CAST(file*, deepest);
+  } else { 
+    err = FNF_ERROR;
+  }
+
+  if (HAS_NO_ERROR(err)) {
+    *result = hit;
+  }
+
+  kfree(parts);
 
   return err;
 }
@@ -327,7 +313,6 @@ error_code file_open(native_string path, native_string mode, file** result) {
 // -----------------------------------------------------------------------------------
 // WIP
 // -----------------------------------------------------------------------------------
-
 
 DIR* opendir(const char* path) {
   file* f;
@@ -418,11 +403,11 @@ error_code init_vfs() {
 
   new_vfnode(&sys_root, "           ", TYPE_VFOLDER);
 
-  if(ERROR(err = init_streams(&sys_root))) {
+  if(ERROR(err = mount_streams(&sys_root))) {
     return err;
   }
 
-  if(ERROR(err = init_fat())) {
+  if(ERROR(err = mount_fat(&sys_root))) {
     return err;
   }
 

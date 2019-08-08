@@ -129,8 +129,7 @@ typedef struct FAT_directory_entry_struct {
 } FAT_directory_entry;
 
 
-error_code init_fat();
-
+error_code mount_fat(vfnode* parent);
 
 error_code fat_open_file(native_string path, file_mode mode, file** f);
 

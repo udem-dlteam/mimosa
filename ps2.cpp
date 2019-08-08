@@ -278,9 +278,9 @@ native_char readline() {
     } else if (IS_DEL(c)) {
       // trash
     } else {
-      debug_write("Dropping unknown char: ");
-      debug_write(data & 0xFF);
-      debug_write(data);
+      // debug_write("Dropping unknown char: ");
+      // debug_write(data & 0xFF);
+      // debug_write(data);
     }
   }
   return '\0';

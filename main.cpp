@@ -18,12 +18,9 @@
 #include "thread.h"
 
 int main() {
-  term tty;
-
-  term_init(&tty, 0, 366, 80, 13, &font_mono_5x7, &font_mono_5x7, L"tty", TRUE);
 
 #ifdef MIMOSA_REPL
-  term_run(&tty);
+  term_run(cout);
 #endif
 
 #ifdef GAMBIT_REPL
