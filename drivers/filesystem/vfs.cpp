@@ -5,19 +5,16 @@
 #include "include/fat.h"
 #include "term.h"
 
-error_code init_vfs() {
-  error_code err = NO_ERROR;
-  
-  if(ERROR(err = init_streams())) {
-    return err;
-  }
+static file_vtable __vfnode_vtable;
+static vfnode sys_root;
 
-  if(ERROR(err = init_fat())) {
-    return err;
-  }
-
-  return err;
-}
+static error_code vfnode_close(file* f);
+static size_t vfnode_len(file* f);
+static error_code vfnode_move_cursor(file* f, int32 mvmt);
+static error_code vfnode_set_abs(file* f, uint32 pos);
+static error_code vfnode_read(file* f, void* buff, uint32 count);
+static error_code vfnode_write(file* f, void* buff, uint32 count);
+static dirent*    vfnode_readdir(DIR* dir);
 
 // error_code stat(native_string path, struct stat* buf) {
 //   file* f;
@@ -180,4 +177,34 @@ void inline set_dir_entry_size(FAT_directory_entry* de, uint32 sz) {
   for (int i = 0; i < 4; ++i) {
     de->DIR_FileSize[i] = as_uint8(sz, i);
   }
+}
+
+error_code init_vfs() {
+  error_code err = NO_ERROR;
+
+  __vfnode_vtable._file_close = vfnode_close;
+  __vfnode_vtable._file_len = vfnode_len;
+  __vfnode_vtable._file_move_cursor = vfnode_move_cursor;
+  __vfnode_vtable._file_set_to_absolute_position = vfnode_set_abs;
+  __vfnode_vtable._file_read = vfnode_read;
+  __vfnode_vtable._file_write = vfnode_write;
+  __vfnode_vtable._readdir = vfnode_readdir;
+
+  {
+    sys_root.header.mode = MODE_READ;
+    sys_root.header.type = TYPE_VFOLDER;
+    sys_root.header._fs_header = NULL;
+    sys_root.header._vtable = &__vfnode_vtable;
+    sys_root.name = "/";
+  }
+
+  if(ERROR(err = init_streams())) {
+    return err;
+  }
+
+  if(ERROR(err = init_fat())) {
+    return err;
+  }
+
+  return err;
 }

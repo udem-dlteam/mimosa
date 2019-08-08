@@ -21,6 +21,7 @@ typedef uint8 file_mode;
 typedef uint8 file_type;
 
 #define IS_MODE_NONBLOCK(md) ((md) & MODE_NONBLOCK_ACCESS)
+
 #define IS_REGULAR_FILE(tpe) ((tpe) & TYPE_REGULAR)
 #define IS_FOLDER(tpe) ((tpe) & TYPE_FOLDER)
 
@@ -38,6 +39,7 @@ typedef struct fs_header_struct {
 } fs_header;
 
 typedef struct file_struct file;
+typedef struct vfnode_struct vfnode;
 typedef struct DIR_struct DIR;
 typedef struct dirent_struct dirent;
 
@@ -57,6 +59,20 @@ struct file_struct {
     file_vtable* _vtable;
     file_type type;
     file_mode mode;
+};
+
+struct vfnode_struct {
+  file header;
+  vfnode* _first_child;
+  vfnode* _next_sibling;
+  vfnode* _parent;
+  // vfnode* _last_sibling; // This will be required if we want to remove them
+  native_string name;
+  union {
+    struct {
+        fs_header* mounted_fs;
+    } mountpoint;
+  } _value;
 };
 
 struct dirent_struct {
@@ -79,6 +95,8 @@ error_code init_vfs();
 // -----------------------------------------------------------------------------------
 // Exposed methods
 // -----------------------------------------------------------------------------------
+
+void vfnode_add_child(vfnode* parent, vfnode* child);
 
 #define file_move_cursor(f, mvmt) CAST(file*, f)->_vtable->_file_move_cursor(CAST(file*, f), mvmt)
 #define file_set_to_absolute_position(f, position) CAST(file*, f)->_vtable->_file_set_to_absolute_position(CAST(file*, f), position)
