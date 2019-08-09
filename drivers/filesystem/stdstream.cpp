@@ -161,7 +161,8 @@ static error_code stream_read(file* ff, void* buff, uint32 count) {
       if(count < len) len = count;
 
       for (int i = 0; i < len; ++i) {
-        source_buff[i] = stream_buff[rs->low];
+        if(NULL != source_buff) 
+          source_buff[i] = stream_buff[rs->low];
         rs->low = (rs->low + 1) % rs->len;
         if (rs->low == rs->high) break;
       }
@@ -181,7 +182,8 @@ static error_code stream_read(file* ff, void* buff, uint32 count) {
         condvar_mutexless_wait(streamcv);
       }
 
-      source_buff[i] = stream_buff[rs->low];
+      if(NULL != source_buff) 
+        source_buff[i] = stream_buff[rs->low];
       rs->low = (rs->low + 1) % rs->len;
 
       condvar_mutexless_signal(streamcv);
