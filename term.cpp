@@ -10,11 +10,30 @@
 
 #include "term.h"
 #include "drivers/filesystem/include/vfs.h"
+#include "drivers/filesystem/include/stdstream.h"
 #include "thread.h"
 #include "ps2.h"
 #include "rtlib.h"
 
 //-----------------------------------------------------------------------------
+
+static file* term_stdout;
+static volatile bool stdout_bridge;
+
+error_code init_terms() {
+  term_write(cout, "Enabling the terminal STDOUT bridge\n");
+  error_code err = NO_ERROR;
+
+  if(ERROR(err = file_open(STDOUT_PATH, "rw", &term_stdout))) {
+    return err;
+  }
+
+  stdout_bridge = HAS_NO_ERROR(err);
+  debug_write(CAST(uint32, stdout_bridge));
+
+
+  return err;
+}
 
 term* term_init(term* self, int x, int y, int nb_columns, int nb_rows,
                 font_c* font_normal, font_c* font_bold,
@@ -179,13 +198,35 @@ void term_toggle_cursor(term* self) {
 }
 
 int term_write(term* self, unicode_char* buf, int count) {
-
+  error_code err;
   int start, end, i;
   unicode_char c;
 
   screen.super.vtable->hide_mouse(&screen);
 
   term_show(self);
+
+  // We want to write to a stream iif the term_stdout bridge is up
+  // We want to write characters sent as-is (with the escape sequences)
+  // We want to read immediately: if we are the only reader we don't want
+  // to let it get full
+  if (stdout_bridge) {
+    file* stream;
+
+    if (cout == self) {
+      stream = term_stdout;
+    } else {
+      // ignore, but STDERR would be useful to.
+    }
+
+    if (ERROR(err = file_write(stream, buf, sizeof(unicode_char) * count))) {
+      // ignore
+    }
+
+    if (ERROR(err = file_read(stream, NULL, sizeof(unicode_char) * count))) {
+      // ignore
+    }
+  }
 
   start = end = 0;
 

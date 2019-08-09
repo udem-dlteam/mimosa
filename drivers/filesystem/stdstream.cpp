@@ -79,10 +79,12 @@ static error_code new_stream_file(stream_file* rs, file_mode mode,
   error_code err = NO_ERROR;
 
   if (NULL == rs) {
+    debug_write("B11");
     return ARG_ERROR;
   }
 
   if (NULL == source) {
+    debug_write("B11");
     return ARG_ERROR;
   }
 
@@ -197,6 +199,7 @@ static error_code stream_read(file* ff, void* buff, uint32 count) {
 }
 
 error_code stream_open_file(fs_header* header, short_file_name* parts, uint8 depth, file_mode mode, file** result) {
+
   error_code err = NO_ERROR;
   stream_file* strm;
 
@@ -221,6 +224,7 @@ error_code stream_open_file(fs_header* header, short_file_name* parts, uint8 dep
   }
 
   *result = CAST(file*, strm);
+
 
   return err;
 }

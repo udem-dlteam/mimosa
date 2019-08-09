@@ -47,6 +47,8 @@ typedef struct term {
   int _bg;
 } term;
 
+error_code init_terms();
+
 term* term_init(term* self, int x, int y, int nb_columns, int nb_rows,
                 font_c* font_normal, font_c* font_bold,
                 unicode_string title, bool initialy_visible);
