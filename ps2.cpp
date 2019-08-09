@@ -248,7 +248,7 @@ native_char readline() {
       }
     }
 
-    while(ERROR(err = file_read(stdin, &data, sizeof(int)))) {
+    if(ERROR(err = file_read(stdin, &data, sizeof(int)))) {
       NOP();
     }
 
@@ -417,7 +417,7 @@ error_code setup_ps2() {
   error_code err = NO_ERROR;
   term_write(cout, "Enabling PS2\n\r");
 
-  if(ERROR(err = file_open(STDIN_PATH, "rwx", &stdin))) {
+  if(ERROR(err = file_open(STDIN_PATH, "rw", &stdin))) {
     return err;
   }
 

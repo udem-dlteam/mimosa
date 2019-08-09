@@ -114,10 +114,11 @@ static error_code stream_close(file* ff) {
   return err;
 }
 
-#define stream_reset(rs)          \
-  do {                            \
-    (rs)->_reset = !(rs)->_reset; \
-    (rs)->high = 0;               \
+#define stream_reset(rs)                     \
+  do {                                       \
+    (rs)->_reset = !(rs)->_reset;            \
+    (rs)->high = 0;                          \
+    condvar_mutexless_signal((rs)->readycv); \
   } while (0);
 
 static error_code stream_write(file* ff, void* buff, uint32 count) {
@@ -146,13 +147,14 @@ static error_code stream_write(file* ff, void* buff, uint32 count) {
         ++i;
         // No one is caught up: there's a new char
         rs->late = rs->readers;
-        condvar_mutexless_signal(streamcv);
+        condvar_mutexless_signal(streamcv);        
       } else if (rs->late == 0) {
         stream_reset(rs);
       } else if (rs->autoresize) {
         // Resize
         panic(L"STD stream resize not implemented yet");
       } else {
+        panic(L"MEM err!");
         err = MEM_ERROR;
         break;
       }
@@ -173,7 +175,7 @@ static error_code stream_read(file* ff, void* buff, uint32 count) {
   raw_stream* rs = f->_source;
   condvar* streamcv = rs->readycv;
   uint8* stream_buff = CAST(uint8*, rs->buff);
-  uint8* source_buff = CAST(uint8*, buff);
+  uint8* read_buff = CAST(uint8*, buff);
 
   bool inter_disabled = ARE_INTERRUPTS_ENABLED();
 
@@ -192,7 +194,7 @@ static error_code stream_read(file* ff, void* buff, uint32 count) {
       if (count < len) len = count;
 
       for (int i = 0; i < len; ++i) {
-        if (NULL != source_buff) source_buff[i] = stream_buff[f->_lo];
+        if (NULL != read_buff) read_buff[i] = stream_buff[f->_lo];
         f->_lo++;
       }
 
@@ -208,29 +210,43 @@ static error_code stream_read(file* ff, void* buff, uint32 count) {
       // Signal afterwards in non blocking mode
       // We want to read in one shot and stop
       // afterwards
-      condvar_mutexless_signal(streamcv);
     } else if (f->_lo == rs->high) {
       err = EOF_ERROR;
     } else {
       panic(L"Stream reader desynced");
     }
   } else {
-    int i;
-    panic(L"Not implemented: for now open streams with 'x' option");
-    // for (i = 0; i < count; ++i) {
-    //   while (rs->low == rs->high) {
-    //     condvar_mutexless_wait(streamcv);
-    //   }
+    uint32 i;
+    for (i = 0; i < count; ++i) {
+      if (f->_reset != rs->_reset) {
+        f->_lo = 0;
+        f->_reset = rs->_reset;
+      }
 
-    //   if(NULL != source_buff)
-    //     source_buff[i] = stream_buff[rs->low];
+      while (f->_lo == rs->high) {
+        if (f->_reset != rs->_reset) {
+          f->_lo = 0;
+          f->_reset = rs->_reset;
+        } else {
+          __surround_with_debug_t("wait",
+                                  { condvar_mutexless_wait(streamcv); });
+        }
+      }
 
-    //   rs->low = (rs->low + 1) % rs->len;
+      if(NULL != read_buff)
+        read_buff[i] = stream_buff[f->_lo];
 
-    //   condvar_mutexless_signal(streamcv);
-    // }
+      f->_lo = f->_lo + 1;
+      // Be a good citizen
+      if (f->_lo == rs->high) {
+        rs->late--;
+        if (rs->late == 0) {
+          stream_reset(rs);
+        }
+      }
+    }
 
-    // if (HAS_NO_ERROR(err) && i == count) err = count;
+    err = count;
   }
   if (inter_disabled) enable_interrupts();
 
