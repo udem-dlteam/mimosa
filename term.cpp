@@ -10,11 +10,28 @@
 
 #include "term.h"
 #include "drivers/filesystem/include/vfs.h"
+#include "drivers/filesystem/include/stdstream.h"
 #include "thread.h"
 #include "ps2.h"
 #include "rtlib.h"
 
 //-----------------------------------------------------------------------------
+
+static file* term_stdout_write;
+static volatile bool stdout_bridge;
+
+error_code init_terms() {
+  term_write(cout, "Enabling the terminal STDOUT bridge\n");
+  error_code err = NO_ERROR;
+
+  if (ERROR(err = file_open(STDOUT_PATH, "w", &term_stdout_write))) {
+    return err;
+  }
+
+  stdout_bridge = HAS_NO_ERROR(err);
+
+  return err;
+}
 
 term* term_init(term* self, int x, int y, int nb_columns, int nb_rows,
                 font_c* font_normal, font_c* font_bold,
@@ -179,13 +196,31 @@ void term_toggle_cursor(term* self) {
 }
 
 int term_write(term* self, unicode_char* buf, int count) {
-
+  error_code err;
   int start, end, i;
   unicode_char c;
 
   screen.super.vtable->hide_mouse(&screen);
 
   term_show(self);
+
+  // We want to write to a stream iif the term_stdout bridge is up
+  // We want to write characters sent as-is (with the escape sequences)
+  // We want to read immediately: if we are the only reader we don't want
+  // to let it get full
+  if (stdout_bridge) {
+    file* stream_write;
+
+    if (cout == self) {
+      stream_write = term_stdout_write;
+    } else {
+      // ignore, but STDERR would be useful to.
+    }
+
+    if (ERROR(err = file_write(term_stdout_write, buf, sizeof(unicode_char) * count))) {
+      debug_write("Failed to write ><");
+    }
+  }
 
   start = end = 0;
 
@@ -639,10 +674,10 @@ void debug_write(uint32 x) {
   debug_write(str);
 }
 
-void debug_write(native_char c) {
+void _debug_write(native_char c) {
   outb(c, OUT_PORT);
-  outb('\n', OUT_PORT);
-  outb('\r', OUT_PORT);
+  // outb('\n', OUT_PORT);
+  // outb('\r', OUT_PORT);
 }
 
 void debug_write(native_string str) {

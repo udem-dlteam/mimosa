@@ -55,8 +55,8 @@ FILE *REDIRECT_NAME(fopen)(const char *__restrict __filename,
     return &FILE_root_dir;
   } else {
 
-    debug_write("STDIO FOPEN");
-    debug_write(CAST(native_string, __filename));
+    // debug_write("STDIO FOPEN");
+    // debug_write(CAST(native_string, __filename));
 
     error_code err;
     file *f;

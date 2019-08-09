@@ -8,9 +8,10 @@
 
 //-----------------------------------------------------------------------------
 
-#include "drivers/filesystem/include/vfs.h"
 #include "chrono.h"
 #include "disk.h"
+#include "drivers/filesystem/include/stdstream.h"
+#include "drivers/filesystem/include/vfs.h"
 #include "general.h"
 #include "ps2.h"
 #include "rtlib.h"
@@ -36,7 +37,8 @@ int main() {
         panic(L"ERR");
       }
 
-      program_thread* task = CAST(program_thread*, kmalloc(sizeof(program_thread)));
+      program_thread* task =
+          CAST(program_thread*, kmalloc(sizeof(program_thread)));
       new_program_thread(task, CAST(libc_startup_fn, code), "Gambit");
       thread_start(CAST(thread*, task));
     } else {
@@ -45,9 +47,32 @@ int main() {
   }
 #endif
 
+  thread_sleep(seconds_to_time(30).n);
+
+#ifdef STREAM_STDOUT_TO_DEBUG_CONSOLE
+  file* __stdout;
+  if (ERROR(file_open(STDOUT_PATH, "rx", &__stdout))) {
+    panic(L"Nope");
+  }
+
+  unicode_char buff[512];
+  error_code err;
+#endif
+
   do {
+    
+#ifdef STREAM_STDOUT_TO_DEBUG_CONSOLE
+    if (!ERROR(err = file_read(__stdout, buff, 512 * sizeof(unicode_char)))) {
+      for (uint32 i = 0; i < (err / sizeof(unicode_char)); ++i) {
+        _debug_write(CAST(native_char, buff[i] & 0xFF));
+      }
+    } else if (err != EOF_ERROR) {
+      panic(L"Error!");
+    }
+#endif
+
     thread_yield();
-  } while(1);
+  } while (1);
 
   return 0;
 }
