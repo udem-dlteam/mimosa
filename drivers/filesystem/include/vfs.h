@@ -125,14 +125,40 @@ void vfnode_add_child(vfnode* parent, vfnode* child);
 vfnode* new_vfnode(vfnode* vf, native_string name, file_type type);
 
 #define file_move_cursor(f, mvmt) CAST(file*, f)->_vtable->_file_move_cursor(CAST(file*, f), mvmt)
+
 #define file_set_to_absolute_position(f, position) CAST(file*, f)->_vtable->_file_set_to_absolute_position(CAST(file*, f), position)
+
 #define file_close(f) CAST(file*, f)->_vtable->_file_close(CAST(file*, f))
+
+/**
+ * error_code file_write(file* f, void* b, uint32 n)
+ * 
+ * Write n bytes to a file f from the buffer b.
+ * b cannot be null or an ARG_ERROR will be returned.
+ * n can be 0.
+ * 
+ */
 #define file_write(f, buff, count) CAST(file*, f)->_vtable->_file_write(CAST(file*, f),buff,count)
+
+/**
+ * error_code file_read(file* f, void* b, uint32 n)
+ * 
+ * Read n bytes into a buffer b from the file f.
+ * A NULL buffer is tolerated. The read will be done exactly
+ * like a normal read operation, but no data will be copied anywhere.
+ * Count may be 0.
+ * 
+ */
 #define file_read(f, buff, count) CAST(file*, f)->_vtable->_file_read(CAST(file*, f), buff, count)
+
 #define file_len(f) (CAST(file*, f))->_vtable->_file_len(CAST(file*, f))
+
 #define readdir(dir) (CAST(file*, dir->f))->_vtable->_readdir(CAST(DIR*, dir))
+
 #define file_is_dir(f) IS_FOLDER(((f)->type))
+
 #define file_is_reg(f) IS_REGULAR_FILE(((f)->type))
+
 
 #define fs_file_open(fs, parts, depth, mode, result) CAST(fs_header*, fs)->_vtable->_file_open(CAST(fs_header*, fs), parts, depth, mode, result)
 
