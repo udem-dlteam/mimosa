@@ -13,15 +13,20 @@ extern native_string STDOUT_PATH;
 struct raw_stream_struct {
     condvar* readycv;
     size_t len;
-    uint32 low;
-    uint32 high;
+    uint16 volatile readers;
+    uint16 volatile late;
+    uint32 volatile high;
+    uint8 volatile _reset:1;
     bool autoresize;
     void* buff;
 };
 
 struct stream_file_struct {
     file header;
-    raw_stream* source;
+    raw_stream* _source;
+    uint16 _readno;
+    uint32 _lo;
+    uint8 _reset:1;
 };
 
 error_code mount_streams(vfnode* parent);

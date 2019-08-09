@@ -438,14 +438,13 @@ void __rtlib_setup ()
 
   if(ERROR(err = setup_ps2()))
     goto setup_panic;
-
-  if(ERROR(err)) {
-    panic(L"Failed to load VFS driver");
+  
+  if(ERROR(err = init_terms())) {
+    goto setup_panic;
   }
-
+  
   term_write(cout, "Loading up LIBC\n");
   libc_init();
-  // setup_net ();
 
   // FS is loaded, now load the cache maid
 #ifdef USE_CACHE_BLOCK_MAID
@@ -462,6 +461,7 @@ void __rtlib_setup ()
   panic(L"System termination");
 
 setup_panic:
+  debug_write("Panic");
   panic(L"Boot error");
 }
 

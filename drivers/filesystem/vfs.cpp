@@ -111,6 +111,10 @@ error_code normalize_path(native_string path, native_string new_path) {
   return NO_ERROR;
 }
 
+/**
+ * This is where parts are constructed
+ * If relative paths were to be implemented, this is where it should be done.
+ */
 short_file_name* decompose_path(native_string normalized_path, uint8* __count) {
   *__count = 0;
   uint8 count = 0;
@@ -131,7 +135,6 @@ short_file_name* decompose_path(native_string normalized_path, uint8* __count) {
   }
 
   char* p = normalized_path;
-  debug_write(normalized_path);
   while (entry < count) {
     int i = 0;
     bool seen_next_slash = FALSE;

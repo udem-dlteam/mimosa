@@ -605,7 +605,8 @@ error_code fat_write_file(file* ff, void* buff, uint32 count) {
   fat_file* f = CAST(fat_file*, ff);
   error_code err = NO_ERROR;
   fat_file_system* fs = f->fs;
-
+  
+  if (NULL == buff) return ARG_ERROR;
   if (count < 1) return err;
 
   switch (fs->kind) {
@@ -718,7 +719,6 @@ error_code fat_write_file(file* ff, void* buff, uint32 count) {
 }
 
 error_code fat_read_file(file* ff, void* buf, uint32 count) {
-
   fat_file* f = CAST(fat_file*, ff);
   if (count > 0) {
     fat_file_system* fs = f->fs;
@@ -756,8 +756,12 @@ error_code fat_read_file(file* ff, void* buf, uint32 count) {
 
           while (left1 > 0) {
             cache_block* cb;
-            
-            {
+            left2 = (1 << DISK_LOG2_BLOCK_SIZE) -
+                    (f->current_section_pos & ~(~0U << DISK_LOG2_BLOCK_SIZE));
+
+            if (left2 > left1) left2 = left1;
+
+            if (NULL != buf) {
               if (ERROR(
                       err = disk_cache_block_acquire(
                           fs->_.FAT121632.d,
@@ -769,12 +773,6 @@ error_code fat_read_file(file* ff, void* buf, uint32 count) {
 
               {
                 rwmutex_readlock(cb->mut);
-
-                left2 =
-                    (1 << DISK_LOG2_BLOCK_SIZE) -
-                    (f->current_section_pos & ~(~0U << DISK_LOG2_BLOCK_SIZE));
-
-                if (left2 > left1) left2 = left1;
 
                 memcpy(p,
                        cb->buf + (f->current_section_pos &
