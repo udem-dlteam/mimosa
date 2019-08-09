@@ -17,20 +17,18 @@
 
 //-----------------------------------------------------------------------------
 
-static file* term_stdout;
+static file* term_stdout_write;
 static volatile bool stdout_bridge;
 
 error_code init_terms() {
   term_write(cout, "Enabling the terminal STDOUT bridge\n");
   error_code err = NO_ERROR;
 
-  if(ERROR(err = file_open(STDOUT_PATH, "rw", &term_stdout))) {
+  if (ERROR(err = file_open(STDOUT_PATH, "w", &term_stdout_write))) {
     return err;
   }
 
   stdout_bridge = HAS_NO_ERROR(err);
-  debug_write(CAST(uint32, stdout_bridge));
-
 
   return err;
 }
@@ -211,20 +209,16 @@ int term_write(term* self, unicode_char* buf, int count) {
   // We want to read immediately: if we are the only reader we don't want
   // to let it get full
   if (stdout_bridge) {
-    file* stream;
+    file* stream_write;
 
     if (cout == self) {
-      stream = term_stdout;
+      stream_write = term_stdout_write;
     } else {
       // ignore, but STDERR would be useful to.
     }
 
-    if (ERROR(err = file_write(stream, buf, sizeof(unicode_char) * count))) {
-      // ignore
-    }
-
-    if (ERROR(err = file_read(stream, NULL, sizeof(unicode_char) * count))) {
-      // ignore
+    if (ERROR(err = file_write(term_stdout_write, buf, sizeof(unicode_char) * count))) {
+      debug_write("Failed to write ><");
     }
   }
 
@@ -680,10 +674,10 @@ void debug_write(uint32 x) {
   debug_write(str);
 }
 
-void debug_write(native_char c) {
+void _debug_write(native_char c) {
   outb(c, OUT_PORT);
-  outb('\n', OUT_PORT);
-  outb('\r', OUT_PORT);
+  // outb('\n', OUT_PORT);
+  // outb('\r', OUT_PORT);
 }
 
 void debug_write(native_string str) {

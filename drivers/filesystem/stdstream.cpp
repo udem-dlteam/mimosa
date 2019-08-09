@@ -4,7 +4,7 @@
 #include "rtlib.h"
 #include "thread.h"
 
-#define STREAM_DEFAULT_LEN 100
+#define STREAM_DEFAULT_LEN 512
 
 native_string STDIN_PATH = "/dev/stdin";
 native_string STDOUT_PATH = "/dev/stdout";
@@ -18,7 +18,7 @@ static raw_stream stdin;
 static raw_stream stdout;
 
 static file_vtable __std_rw_file_stream_vtable;
-static fs_vtable   __std_stream_vtable;
+static fs_vtable __std_stream_vtable;
 
 static error_code new_raw_stream(raw_stream* rs, bool autoresize);
 static error_code new_stream_file(stream_file* rs, file_mode mode,
@@ -60,7 +60,7 @@ static error_code new_raw_stream(raw_stream* rs, bool autoresize) {
   if (NULL == rs->buff) return MEM_ERROR;
 
   rs->autoresize = autoresize;
-  rs->low = rs->high = 0;
+  rs->high = 0;
 
   condvar* readycv = CAST(condvar*, kmalloc(sizeof(condvar)));
 
@@ -79,18 +79,28 @@ static error_code new_stream_file(stream_file* rs, file_mode mode,
   error_code err = NO_ERROR;
 
   if (NULL == rs) {
-    debug_write("B11");
     return ARG_ERROR;
   }
 
   if (NULL == source) {
-    debug_write("B11");
     return ARG_ERROR;
+  }
+
+  bool write_only;
+
+  if (IS_MODE_WRITE_ONLY(mode)) {
+    write_only = TRUE;
+  } else {
+    write_only = FALSE;
   }
 
   rs->header.mode = mode;
   rs->header._vtable = &__std_rw_file_stream_vtable;
-  rs->source = source;
+  rs->_source = source;
+  rs->_lo = 0;
+  rs->_reset = source->_reset;
+
+  if (!write_only) source->readers++;
 
   return err;
 }
@@ -103,10 +113,19 @@ static error_code stream_close(file* ff) {
 
   return err;
 }
+
+#define stream_reset(rs)          \
+  do {                            \
+    (rs)->_reset = !(rs)->_reset; \
+    (rs)->high = 0;               \
+  } while (0);
+
 static error_code stream_write(file* ff, void* buff, uint32 count) {
+  // if (!IS_MODE_WRITE(ff->type)) return PERMISSION_ERROR;
+
   error_code err = NO_ERROR;
   stream_file* f = CAST(stream_file*, ff);
-  raw_stream* rs = f->source;
+  raw_stream* rs = f->_source;
   condvar* streamcv = rs->readycv;
   uint8* stream_buff = CAST(uint8*, rs->buff);
   uint8* source_buff = CAST(uint8*, buff);
@@ -117,15 +136,19 @@ static error_code stream_write(file* ff, void* buff, uint32 count) {
     if (inter_disabled) disable_interrupts();
 
     // Loop like this and do not use mem copy because
-    // we want to signal every new character
+    // we want to signal every new character)
     int i;
-    for (i = 0; i < count; ++i) {
-      int next_hi = (rs->high + 1) % rs->len;
-
-      if (next_hi != rs->low) {
+    for (i = 0; i < count; /*++i is in the write branch*/) {
+      int next_hi = (rs->high + 1);
+      if (next_hi < rs->len) {
         stream_buff[rs->high] = source_buff[i];
         rs->high = next_hi;
+        ++i;
+        // No one is caught up: there's a new char
+        rs->late = rs->readers;
         condvar_mutexless_signal(streamcv);
+      } else if (rs->late == 0) {
+        stream_reset(rs);
       } else if (rs->autoresize) {
         // Resize
         panic(L"STD stream resize not implemented yet");
@@ -147,7 +170,7 @@ static error_code stream_write(file* ff, void* buff, uint32 count) {
 static error_code stream_read(file* ff, void* buff, uint32 count) {
   error_code err = NO_ERROR;
   stream_file* f = CAST(stream_file*, ff);
-  raw_stream* rs = f->source;
+  raw_stream* rs = f->_source;
   condvar* streamcv = rs->readycv;
   uint8* stream_buff = CAST(uint8*, rs->buff);
   uint8* source_buff = CAST(uint8*, buff);
@@ -157,16 +180,28 @@ static error_code stream_read(file* ff, void* buff, uint32 count) {
   if (inter_disabled) disable_interrupts();
 
   if (f->header.mode & MODE_NONBLOCK_ACCESS) {
-    if (rs->low != rs->high) {
-      int len = (rs->high - rs->low) % rs->len;
-      if(len < 0) len += rs->len;
-      if(count < len) len = count;
+
+    if (f->_reset != rs->_reset) {
+      f->_lo = 0;
+      f->_reset = rs->_reset;
+    }
+
+    if (f->_lo < rs->high) {
+      // Read as much as possible
+      int len = (rs->high - f->_lo);
+      if (count < len) len = count;
 
       for (int i = 0; i < len; ++i) {
-        if(NULL != source_buff) 
-          source_buff[i] = stream_buff[rs->low];
-        rs->low = (rs->low + 1) % rs->len;
-        if (rs->low == rs->high) break;
+        if (NULL != source_buff) source_buff[i] = stream_buff[f->_lo];
+        f->_lo++;
+      }
+
+      if (f->_lo == rs->high) {
+        rs->late--;
+
+        if (rs->late == 0) {
+          stream_reset(rs);
+        }
       }
 
       err = len;
@@ -174,36 +209,40 @@ static error_code stream_read(file* ff, void* buff, uint32 count) {
       // We want to read in one shot and stop
       // afterwards
       condvar_mutexless_signal(streamcv);
-    } else {
+    } else if (f->_lo == rs->high) {
       err = EOF_ERROR;
+    } else {
+      panic(L"Stream reader desynced");
     }
   } else {
     int i;
-    for (i = 0; i < count; ++i) {
-      while (rs->low == rs->high) {
-        condvar_mutexless_wait(streamcv);
-      }
+    panic(L"Not implemented: for now open streams with 'x' option");
+    // for (i = 0; i < count; ++i) {
+    //   while (rs->low == rs->high) {
+    //     condvar_mutexless_wait(streamcv);
+    //   }
 
-      if(NULL != source_buff) 
-        source_buff[i] = stream_buff[rs->low];
-      rs->low = (rs->low + 1) % rs->len;
+    //   if(NULL != source_buff)
+    //     source_buff[i] = stream_buff[rs->low];
 
-      condvar_mutexless_signal(streamcv);
-    }
+    //   rs->low = (rs->low + 1) % rs->len;
 
-    if (HAS_NO_ERROR(err) && i == count) err = count;
+    //   condvar_mutexless_signal(streamcv);
+    // }
+
+    // if (HAS_NO_ERROR(err) && i == count) err = count;
   }
   if (inter_disabled) enable_interrupts();
 
   return err;
 }
 
-error_code stream_open_file(fs_header* header, short_file_name* parts, uint8 depth, file_mode mode, file** result) {
-
+error_code stream_open_file(fs_header* header, short_file_name* parts,
+                            uint8 depth, file_mode mode, file** result) {
   error_code err = NO_ERROR;
   stream_file* strm;
 
-  if(depth == 0) return FNF_ERROR;
+  if (depth == 0) return FNF_ERROR;
 
   if (0 == kstrcmp(STDIN_PART, parts[0].name)) {
     strm = CAST(stream_file*, kmalloc(sizeof(stream_file)));
@@ -225,13 +264,12 @@ error_code stream_open_file(fs_header* header, short_file_name* parts, uint8 dep
 
   *result = CAST(file*, strm);
 
-
   return err;
 }
 
 error_code mount_streams(vfnode* parent) {
   error_code err = NO_ERROR;
-  
+
   __std_stream_vtable._file_open = stream_open_file;
 
   fs_std_stream.kind = STREAM;

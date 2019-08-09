@@ -32,6 +32,7 @@ typedef struct term {
   int _nb_rows;
   font_c* _fn_normal;
   font_c* _fn_bold;
+
   unicode_string _title;
   int _cursor_column;
   int _cursor_row;
@@ -84,6 +85,7 @@ term* term_write(term* self, unicode_string x);
 
 void debug_write(uint32 x);
 void debug_write(native_string x);
+void _debug_write(native_char x);
 
 void term_run(term* term);
 

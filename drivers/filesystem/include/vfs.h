@@ -12,6 +12,8 @@
 #define MODE_APPEND_PLUS (MODE_PLUS | MODE_APPEND)
 #define MODE_NONBLOCK_ACCESS (1 << 3)
 
+#define IS_MODE_WRITE_ONLY(md) (((md) == MODE_TRUNC) || (md) == ((MODE_TRUNC | MODE_NONBLOCK_ACCESS)))
+
 #define TYPE_REGULAR (1 << 0)
 #define TYPE_FOLDER  (1 << 1)
 #define TYPE_VIRTUAL (1 << 2)
