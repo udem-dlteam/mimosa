@@ -38,17 +38,25 @@ raw_bitmap_in_memory mouse_save;
 
 //-----------------------------------------------------------------------------
 
-void panic (unicode_string msg)
-{
-  __asm__ __volatile__ ("cli" : : : "memory");
+void panic(unicode_string msg) {
+  __asm__ __volatile__("cli" : : : "memory");
 
-  #ifdef RED_PANIC_SCREEN
-    raw_bitmap_fill_rect((raw_bitmap*)&screen, 0, 0, 640, 480, &pattern_red);
+#ifdef RED_PANIC_SCREEN
+  raw_bitmap_fill_rect((raw_bitmap*)&screen, 0, 0, 640, 480, &pattern_red);
 
-    font_draw_string(&font_mono_6x13, &screen.super, 0, 0, msg, &pattern_white, &pattern_black);
+  font_draw_string(&font_mono_6x13, &screen.super, 0, 0, msg, &pattern_white,
+                   &pattern_black);
+#else
+  debug_write("PANIC!");
+  unicode_char* p = msg;
+  while(*p != '\0') {
+    native_char c = *p & 0xFF;
+    _debug_write(c);
+    p++;
+  }
 #endif
-  
-  for (;;) NOP(); // freeze execution
+
+  for (;;) NOP();  // freeze execution
   // ** NEVER REACHED ** (this function never returns)
 }
 

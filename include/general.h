@@ -120,12 +120,18 @@ typedef int32 error_code;
 // #define USE_IRET_FOR_RESTORE_CONTEXT
 #define USE_RET_FOR_RESTORE_CONTEXT
 
-#define GAMBIT_REPL
-// #define MIMOSA_REPL
+// #define GAMBIT_REPL
+#define MIMOSA_REPL
 
 #ifdef GAMBIT_REPL
 #ifdef MIMOSA_REPL
 #error "Only one REPL should be used"
+#endif
+#endif
+
+#ifndef GAMBIT_REPL
+#ifndef MIMOSA_REPL
+#error "At least a REPL should be defined"
 #endif
 #endif
 
@@ -140,7 +146,7 @@ typedef int32 error_code;
 #define USE_CACHE_BLOCK_MAID
 #define USE_BLOCK_REF_COUNTER_FREE
 #define SHOW_UART_MESSAGES
-#define RED_PANIC_SCREEN
+// #define RED_PANIC_SCREEN
 #define ENABLE_DEBUG_WRITE
 #define ENABLE_DEBUG_MARKER
 #define ENABLE_MOUSE

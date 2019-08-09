@@ -248,14 +248,11 @@ native_char readline() {
       }
     }
 
-    ASSERT_INTERRUPTS_ENABLED();
-    if(ERROR(err = file_read(stdin, &data, sizeof(data)))) {
+    while(ERROR(err = file_read(stdin, &data, sizeof(int)))) {
       NOP();
     }
 
     native_char c = data & 0xFF;
-
-    ASSERT_INTERRUPTS_ENABLED();
 
     if (IS_VISIBLE_CHAR(c)) {
       term_write(io, c);
@@ -420,7 +417,7 @@ error_code setup_ps2() {
   error_code err = NO_ERROR;
   term_write(cout, "Enabling PS2\n\r");
 
-  if(ERROR(err = file_open(STDIN_PATH, "w", &stdin))) {
+  if(ERROR(err = file_open(STDIN_PATH, "rwx", &stdin))) {
     return err;
   }
 
