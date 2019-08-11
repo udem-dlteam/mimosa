@@ -147,14 +147,13 @@ static error_code stream_write(file* ff, void* buff, uint32 count) {
         ++i;
         // No one is caught up: there's a new char
         rs->late = rs->readers;
-        condvar_mutexless_signal(streamcv);        
+        condvar_mutexless_signal(streamcv);
       } else if (rs->late == 0) {
         stream_reset(rs);
       } else if (rs->autoresize) {
         // Resize
         panic(L"STD stream resize not implemented yet");
       } else {
-        panic(L"MEM err!");
         err = MEM_ERROR;
         break;
       }
@@ -169,6 +168,7 @@ static error_code stream_write(file* ff, void* buff, uint32 count) {
 
   return err;
 }
+
 static error_code stream_read(file* ff, void* buff, uint32 count) {
   error_code err = NO_ERROR;
   stream_file* f = CAST(stream_file*, ff);
@@ -182,7 +182,6 @@ static error_code stream_read(file* ff, void* buff, uint32 count) {
   if (inter_disabled) disable_interrupts();
 
   if (f->header.mode & MODE_NONBLOCK_ACCESS) {
-
     if (f->_reset != rs->_reset) {
       f->_lo = 0;
       f->_reset = rs->_reset;
@@ -199,8 +198,7 @@ static error_code stream_read(file* ff, void* buff, uint32 count) {
       }
 
       if (f->_lo == rs->high) {
-        rs->late--;
-
+        rs->late = rs->late - 1;
         if (rs->late == 0) {
           stream_reset(rs);
         }
@@ -217,32 +215,39 @@ static error_code stream_read(file* ff, void* buff, uint32 count) {
     }
   } else {
     uint32 i;
+
     for (i = 0; i < count; ++i) {
+
       if (f->_reset != rs->_reset) {
         f->_lo = 0;
         f->_reset = rs->_reset;
       }
 
-      while (f->_lo == rs->high) {
-        if (f->_reset != rs->_reset) {
-          f->_lo = 0;
-          f->_reset = rs->_reset;
-        } else {
-          __surround_with_debug_t("wait",
-                                  { condvar_mutexless_wait(streamcv); });
-        }
-      }
-
-      if(NULL != read_buff)
-        read_buff[i] = stream_buff[f->_lo];
-
-      f->_lo = f->_lo + 1;
-      // Be a good citizen
       if (f->_lo == rs->high) {
-        rs->late--;
+        rs->late = rs->late - 1;
         if (rs->late == 0) {
           stream_reset(rs);
         }
+      }
+
+      while (f->_lo == rs->high) {
+        condvar_mutexless_wait(streamcv);
+
+        if (f->_reset != rs->_reset) {
+          f->_lo = 0;
+          f->_reset = rs->_reset;
+        }
+      }
+
+      if (NULL != read_buff) read_buff[i] = stream_buff[f->_lo];
+
+      f->_lo = f->_lo + 1;
+    }
+
+    if (f->_lo == rs->high) {
+      rs->late = rs->late - 1;
+      if (rs->late == 0) {
+        stream_reset(rs);
       }
     }
 

@@ -603,11 +603,16 @@ void libc_init_stdio(void) {
   error_code err;
   // Open STDIN has a non blocking stream in readonly mode.
   // This is a "gambit" particularity...
+
+  // Opening a stream but not reading it will lead to it being
+  // full. We don't open it if we won't read it.
+#ifdef GAMBIT_REPL
   if (ERROR(err = file_open(STDIN_PATH, "rx", &libc_stdin))) {
     panic(L"Failed to load LIBC stdio");
   } else {
     FILE_stdin.f = libc_stdin;
   }
+#endif
 
   if(ERROR(err = file_open("/dsk1", "r", &FILE_root_dir.f))) {
     panic(L"Failed to load the root dir for gambit");

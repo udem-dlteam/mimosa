@@ -416,37 +416,12 @@ void idle_thread_run() {
   }
 }
 
-void not_so_idle() {
-  file* __stdout;
-
-  if (ERROR(file_open(STDIN_PATH, "rx", &__stdout))) {
-    panic(L"Nope");
-  }
-
-  unicode_char buff[512];
-  error_code err;
-
-  do {
-    if (!ERROR(err = file_read(__stdout, buff, 512 * sizeof(unicode_char)))) {
-      for (uint32 i = 0; i < (err / sizeof(unicode_char)); ++i) {
-        _debug_write(CAST(native_char, buff[i] & 0xFF));
-      }
-    } else if (err != EOF_ERROR) {
-      panic(L"Error!");
-
-      thread_yield();
-    } else {
-      debug_write("EOF");
-    }
-  } while (1);
-}
-
 extern void libc_init(void);
 
 void __rtlib_setup ()
 { 
   error_code err;
-  thread* the_idle, *cache_block_maid_thread, *t;
+  thread* the_idle, *cache_block_maid_thread;
 
   ASSERT_INTERRUPTS_ENABLED();
 
@@ -469,9 +444,6 @@ void __rtlib_setup ()
   if(ERROR(err = init_vfs())) {
     goto setup_panic;
   }
-
-  t = CAST(thread*, kmalloc(sizeof(thread)));
-  thread_start(new_thread(t, not_so_idle, "Not so idle"));
 
   if(ERROR(err = setup_ps2()))
     goto setup_panic;
