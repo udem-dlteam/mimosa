@@ -129,6 +129,12 @@ typedef int32 error_code;
 #endif
 #endif
 
+#ifndef GAMBIT_REPL
+#ifndef MIMOSA_REPL
+#error "At least a REPL should be defined"
+#endif
+#endif
+
 // #define STREAM_STDOUT_TO_DEBUG_CONSOLE
 // #define SHOW_INTERRUPTS
 // #define SHOW_TIMER_INTERRUPTS
@@ -140,7 +146,7 @@ typedef int32 error_code;
 #define USE_CACHE_BLOCK_MAID
 #define USE_BLOCK_REF_COUNTER_FREE
 #define SHOW_UART_MESSAGES
-#define RED_PANIC_SCREEN
+// #define RED_PANIC_SCREEN
 #define ENABLE_DEBUG_WRITE
 #define ENABLE_DEBUG_MARKER
 #define ENABLE_MOUSE

@@ -114,10 +114,11 @@ static error_code stream_close(file* ff) {
   return err;
 }
 
-#define stream_reset(rs)          \
-  do {                            \
-    (rs)->_reset = !(rs)->_reset; \
-    (rs)->high = 0;               \
+#define stream_reset(rs)                     \
+  do {                                       \
+    (rs)->_reset = !(rs)->_reset;            \
+    (rs)->high = 0;                          \
+    condvar_mutexless_signal((rs)->readycv); \
   } while (0);
 
 static error_code stream_write(file* ff, void* buff, uint32 count) {
@@ -167,20 +168,20 @@ static error_code stream_write(file* ff, void* buff, uint32 count) {
 
   return err;
 }
+
 static error_code stream_read(file* ff, void* buff, uint32 count) {
   error_code err = NO_ERROR;
   stream_file* f = CAST(stream_file*, ff);
   raw_stream* rs = f->_source;
   condvar* streamcv = rs->readycv;
   uint8* stream_buff = CAST(uint8*, rs->buff);
-  uint8* source_buff = CAST(uint8*, buff);
+  uint8* read_buff = CAST(uint8*, buff);
 
   bool inter_disabled = ARE_INTERRUPTS_ENABLED();
 
   if (inter_disabled) disable_interrupts();
 
   if (f->header.mode & MODE_NONBLOCK_ACCESS) {
-
     if (f->_reset != rs->_reset) {
       f->_lo = 0;
       f->_reset = rs->_reset;
@@ -192,13 +193,12 @@ static error_code stream_read(file* ff, void* buff, uint32 count) {
       if (count < len) len = count;
 
       for (int i = 0; i < len; ++i) {
-        if (NULL != source_buff) source_buff[i] = stream_buff[f->_lo];
+        if (NULL != read_buff) read_buff[i] = stream_buff[f->_lo];
         f->_lo++;
       }
 
       if (f->_lo == rs->high) {
-        rs->late--;
-
+        rs->late = rs->late - 1;
         if (rs->late == 0) {
           stream_reset(rs);
         }
@@ -208,29 +208,50 @@ static error_code stream_read(file* ff, void* buff, uint32 count) {
       // Signal afterwards in non blocking mode
       // We want to read in one shot and stop
       // afterwards
-      condvar_mutexless_signal(streamcv);
     } else if (f->_lo == rs->high) {
       err = EOF_ERROR;
     } else {
       panic(L"Stream reader desynced");
     }
   } else {
-    int i;
-    panic(L"Not implemented: for now open streams with 'x' option");
-    // for (i = 0; i < count; ++i) {
-    //   while (rs->low == rs->high) {
-    //     condvar_mutexless_wait(streamcv);
-    //   }
+    uint32 i;
 
-    //   if(NULL != source_buff)
-    //     source_buff[i] = stream_buff[rs->low];
+    for (i = 0; i < count; ++i) {
 
-    //   rs->low = (rs->low + 1) % rs->len;
+      if (f->_reset != rs->_reset) {
+        f->_lo = 0;
+        f->_reset = rs->_reset;
+      }
 
-    //   condvar_mutexless_signal(streamcv);
-    // }
+      if (f->_lo == rs->high) {
+        rs->late = rs->late - 1;
+        if (rs->late == 0) {
+          stream_reset(rs);
+        }
+      }
 
-    // if (HAS_NO_ERROR(err) && i == count) err = count;
+      while (f->_lo == rs->high) {
+        condvar_mutexless_wait(streamcv);
+
+        if (f->_reset != rs->_reset) {
+          f->_lo = 0;
+          f->_reset = rs->_reset;
+        }
+      }
+
+      if (NULL != read_buff) read_buff[i] = stream_buff[f->_lo];
+
+      f->_lo = f->_lo + 1;
+    }
+
+    if (f->_lo == rs->high) {
+      rs->late = rs->late - 1;
+      if (rs->late == 0) {
+        stream_reset(rs);
+      }
+    }
+
+    err = count;
   }
   if (inter_disabled) enable_interrupts();
 

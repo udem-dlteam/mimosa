@@ -166,65 +166,11 @@ static file* stdin;
 
 static void keypress(uint8 ch) {
   error_code err = NO_ERROR;
-  // debug_write("[START] Keypress");
   int kpr = ch;
-  
   if (ERROR(err = file_write(stdin, &kpr, sizeof(int)))) {
     // ignore errors
   }
-
-  // debug_write("[STOP ] Keypress");
 }
-
-// int getchar0(bool blocking) {
-
-//   int result = -1;
-
-//   disable_interrupts();
-
-//   if (blocking) {
-//     // debug_write("Blocking for some reason");
-//     while (circular_buffer_lo == circular_buffer_hi) {
-//       condvar_mutexless_wait(circular_buffer_cv);
-//     }
-//   } else if (circular_buffer_lo == circular_buffer_hi) {
-//     // debug_write("Not blocking, goto!");
-//     goto getchar0_done;
-//   } else {
-//     // debug_write("Else condition...");
-//   }
-
-//   // debug_write("Fetching result from the buffer");
-
-//   result = circular_buffer[circular_buffer_lo];
-//   circular_buffer_lo = (circular_buffer_lo + 1) % BUFFER_SIZE;
-//   condvar_mutexless_signal(circular_buffer_cv);
-
-// getchar0_done:
-//   enable_interrupts();
-
-//   return result;
-// }
-
-// unicode_char getchar() {
-//   ASSERT_INTERRUPTS_ENABLED();
-//   unicode_char result;
-
-//   disable_interrupts();
-
-//   while (circular_buffer_lo == circular_buffer_hi) {
-//     condvar_mutexless_wait(circular_buffer_cv);
-//   }
-
-//   result = circular_buffer[circular_buffer_lo];
-
-//   circular_buffer_lo = (circular_buffer_lo + 1) % BUFFER_SIZE;
-
-//   condvar_mutexless_signal(circular_buffer_cv);
-//   enable_interrupts();
-
-//   return result;
-// }
 
 volatile bool buffer_flush = false;
 volatile uint16 buffer_flush_pos = 0;
@@ -236,7 +182,7 @@ native_char readline() {
   error_code err;
   term* io = cout;  // maybe get it from the running thread...
 
-  int data;
+  unicode_char data;
   while (1) {
     if (buffer_flush) {
       if (buffer_flush_pos < buffer_write_pos) {
@@ -248,14 +194,11 @@ native_char readline() {
       }
     }
 
-    ASSERT_INTERRUPTS_ENABLED();
-    if(ERROR(err = file_read(stdin, &data, sizeof(data)))) {
+    if(ERROR(err = file_read(stdin, &data, sizeof(unicode_char)))) {
       NOP();
     }
 
     native_char c = data & 0xFF;
-
-    ASSERT_INTERRUPTS_ENABLED();
 
     if (IS_VISIBLE_CHAR(c)) {
       term_write(io, c);
@@ -420,7 +363,13 @@ error_code setup_ps2() {
   error_code err = NO_ERROR;
   term_write(cout, "Enabling PS2\n\r");
 
-  if(ERROR(err = file_open(STDIN_PATH, "w", &stdin))) {
+#ifdef MIMOSA_REPL
+  native_string open_mode = "rw";
+#else
+  native_string open_mode = "w";
+#endif
+
+  if (ERROR(err = file_open(STDIN_PATH, open_mode, &stdin))) {
     return err;
   }
 
