@@ -648,49 +648,77 @@ x86-lzcnt
 
 ;;;----------------------------------------------------------------------------
 
-(define add
-  (asm
-   (lambda (cgc)
-
-     ;; x86-32 C parameter passing convention:
-     ;;
-     ;;  0(esp) is return address
-     ;;  4(esp) is arg1
-     ;;  8(esp) is arg2
-     ;; 12(esp) is arg3
-     ;;     eax is used to return the result
-
-     ;; x86-64 C parameter passing convention:
-     ;;
-     ;;  0(rsp) is return address
-     ;;     rdi is arg1
-     ;;     rsi is arg2
-     ;;     rdx is arg3
-     ;;     rax is used to return the result
-
-     (case arch
-
-       ((x86-32)
-        (x86-mov cgc (x86-eax) (x86-mem 4 (x86-esp))) ;; move arg1 to eax
-        (x86-add cgc (x86-eax) (x86-mem 8 (x86-esp))) ;; add arg2 to eax
-       )
-
-       ((x86-64)
-        (x86-mov cgc (x86-rax) (x86-rdi)) ;; move arg1 to rax
-        (x86-add cgc (x86-rax) (x86-rsi)) ;; add arg2 to rax
-       ))
-
-     (x86-ret cgc))
-
-   'nasm))
-
 (define (test)
+
+  (define add
+    (asm
+     (lambda (cgc)
+
+       ;; x86-32 C parameter passing convention:
+       ;;
+       ;;  0(esp) is return address
+       ;;  4(esp) is arg1
+       ;;  8(esp) is arg2
+       ;; 12(esp) is arg3
+       ;;     eax is used to return the result
+
+       ;; x86-64 C parameter passing convention:
+       ;;
+       ;;  0(rsp) is return address
+       ;;     rdi is arg1
+       ;;     rsi is arg2
+       ;;     rdx is arg3
+       ;;     rax is used to return the result
+
+       (case arch
+
+         ((x86-32)
+          (x86-mov cgc (x86-eax) (x86-mem 4 (x86-esp))) ;; move arg1 to eax
+          (x86-add cgc (x86-eax) (x86-mem 8 (x86-esp))) ;; add arg2 to eax
+          )
+
+         ((x86-64)
+          (x86-mov cgc (x86-rax) (x86-rdi)) ;; move arg1 to rax
+          (x86-add cgc (x86-rax) (x86-rsi)) ;; add arg2 to rax
+          ))
+
+       (x86-ret cgc))
+
+     'nasm))
 
   (println "CPU architecture is " arch)
   (println)
 
   (println "(add 1 2) = " (add 1 2)))
 
-(test)
+;;;----------------------------------------------------------------------------
+
+;; Redefine compile-file-to-target so that it immediately executes the
+;; compiled code instead of generating a .oN file.
+
+(define (compile-file-to-target
+         filename
+         #!key
+         (options '())
+         (output "")
+         (expression #f))
+
+  ;; The CPU backend will call compile-file-to-target with an
+  ;; expression parameter of the form:
+  ;;
+  ;;   ((##machine-code-fixup <code>         ;; u8vector
+  ;;                          <fixup-locs>   ;; u8vector
+  ;;                          <fixup-objs>)) ;; vector
+
+  (if (pair? expression)
+      (eval expression)
+      (##compile-file-to-target filename options output)))
+
+(define (compile-and-load path)
+  (compile-file-to-target path
+                          options: '((target x86-32)
+                                     ;;(expansion)
+                                     ;;(verbose)
+                                     )))
 
 ;;;----------------------------------------------------------------------------
