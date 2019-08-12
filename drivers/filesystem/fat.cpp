@@ -345,6 +345,7 @@ static error_code fat_open_directory_entry(fat_file* f,
   parent_dir->first_cluster = f->parent.first_cluster;
   parent_dir->header.type = TYPE_FOLDER;
 
+  fat_reset_cursor(CAST(file*, parent_dir)); // might seem useless but it actually initialize the cursor correctly
   fat_set_to_absolute_position(CAST(file*, parent_dir), f->entry.position);
 
   if (ERROR(err = fat_read_file(CAST(file*, parent_dir), de,
@@ -852,14 +853,15 @@ static error_code fat_fetch_entry(fat_file_system* fs, fat_file* parent,
 
   uint32 i;
 
-  uint32 cluster = parent->first_cluster;
-  uint32 position = parent->current_pos;
 
   for(i = 0; i < FAT_NAME_LENGTH; ++i) {
     if(name[i] != ' ') {
       break;
     }
   }
+  
+  uint32 cluster = parent->first_cluster;
+  uint32 position = parent->current_pos;
 
   if(i == FAT_NAME_LENGTH) {
     // We want to open the parent
@@ -915,8 +917,8 @@ static error_code fat_fetch_entry(fat_file_system* fs, fat_file* parent,
         goto found;
       }
     }
-    // Copy over the position informations
-    position = f->current_pos;
+    // Copy over the position information
+    position = parent->current_pos;
   }
 
   // We did not find the file
@@ -995,7 +997,6 @@ static error_code fat_open_root_dir(fat_file_system* fs, file** result) {
   switch (fs->kind) {
     case FAT12_FS:
     case FAT16_FS: {
-      debug_write("Opening a FAT12 root dir");
 #ifdef SHOW_DISK_INFO
       term_write(cout, "Opening FAT12/FAT16\n\r");
 #endif
@@ -1193,12 +1194,6 @@ static error_code fat_32_create_empty_file(fat_file_system* fs,
   if(NULL == f) {
     return MEM_ERROR;
   }
-
-  // We recalculate the position to write the entry
-  if(ERROR(err = fat_set_to_absolute_position(CAST(file*, parent_folder), position))) {
-    return err;
-  }
-
   // We got a position for the root entry, we need to find an available FAT
   uint32 cluster = FAT32_FIRST_CLUSTER;
 
@@ -1208,6 +1203,11 @@ static error_code fat_32_create_empty_file(fat_file_system* fs,
 
   // Copy the short name
   memcpy(de->DIR_Name, name, FAT_NAME_LENGTH);
+
+  // debug_write("File name written:");
+  // for (int i = 0; i < 11; ++i) {
+  //   _debug_write(de->DIR_Name[i]);
+  // }
 
   {  // Set the cluster in the descriptor
     uint16 cluster_hi = (cluster & 0xFFFF0000) >> 16;
@@ -1228,6 +1228,11 @@ static error_code fat_32_create_empty_file(fat_file_system* fs,
   // -------------------------------------------------------------------------------
   // Write the directory entry to the disk, modifications must be done by this point
   // -------------------------------------------------------------------------------
+  
+  // We recalculate the position to write the entry
+  if(ERROR(err = fat_set_to_absolute_position(CAST(file*, parent_folder), position))) {
+    return err;
+  }
 
   if (ERROR(err = fat_write_file(CAST(file*, parent_folder), de, sizeof(FAT_directory_entry)))) {
     return err;
@@ -1252,6 +1257,7 @@ static error_code fat_32_create_empty_file(fat_file_system* fs,
   // It is also the position of the directory entry so we set that at
   // the same time
   f->parent.first_cluster = parent_folder->first_cluster;
+
   f->entry.position = position;
   
   if(attributes & FAT_ATTR_DIRECTORY) {
@@ -1267,6 +1273,7 @@ static error_code fat_32_create_empty_file(fat_file_system* fs,
 
 static error_code fat_create_file(native_char* name, fat_file* parent_folder, fat_file** result) {
   error_code err;
+  FAT_directory_entry de;
   fat_file_system* fs = parent_folder->fs;
 
   switch (fs->kind) {
@@ -1276,7 +1283,6 @@ static error_code fat_create_file(native_char* name, fat_file* parent_folder, fa
       break;
     case FAT32_FS: {
       // TODO: add correct attributes
-      FAT_directory_entry de;
       err = fat_32_create_empty_file(fs, parent_folder, &de, name, 0, result);
     } break;
   }
@@ -1308,7 +1314,6 @@ static error_code fat_mkdir(fs_header* ffs, short_file_name* parts, uint8 depth,
   }
 
   for(uint8 i = 0; i < depth - 1; ++i) {
-    debug_write("A");
     // Go get the actual parent folder
     if(ERROR(err = fat_fetch_entry(fs, parent, parts[i].name, &folder))) {
       break;
@@ -1329,22 +1334,18 @@ static error_code fat_mkdir(fs_header* ffs, short_file_name* parts, uint8 depth,
     // We expected a FNF
     if (NULL != parent) fat_close_file(CAST(file*, parent));
     return UNKNOWN_ERROR; // TODO get a real error here!
-  } else {
-    debug_write("B");
   }
 
   FAT_directory_entry file_de;
   err = fat_32_create_empty_file(fs, parent, &file_de, folder_name, FAT_ATTR_DIRECTORY,
                                  &folder);
-  debug_write("g");
   // Create the '.' entry and the '..' entry:
 
   if(HAS_NO_ERROR(err)) {
     FAT_directory_entry dot_dot_entry;
 
     if(fat_is_root_dir(parent)) {
-      debug_write("a");
-      // FIll out dotdot manually
+      // Fill out dotdot manually
       dot_dot_entry.DIR_Attr = FAT_ATTR_DIRECTORY;
 
       dot_dot_entry.DIR_FstClusLO[0] = dot_dot_entry.DIR_FstClusLO[1] =
@@ -1358,10 +1359,9 @@ static error_code fat_mkdir(fs_header* ffs, short_file_name* parts, uint8 depth,
         dot_dot_entry.DIR_WrtDate[i] = file_de.DIR_WrtDate[i];
         dot_dot_entry.DIR_WrtTime[i] = file_de.DIR_WrtTime[i];
       }
-      dot_dot_entry.DIR_CrtTimeTenth = file_de.DIR_CrtTimeTenth;
 
+      dot_dot_entry.DIR_CrtTimeTenth = file_de.DIR_CrtTimeTenth;
     } else if(ERROR(err = fat_open_directory_entry(parent, &dot_dot_entry))) {
-      debug_write("b");
       //error
     }
 
@@ -1373,13 +1373,10 @@ static error_code fat_mkdir(fs_header* ffs, short_file_name* parts, uint8 depth,
 
     if(ERROR(err = file_write(folder, &file_de, sizeof(FAT_directory_entry)))) {
       // error
-      debug_write("c");
     } else if(ERROR(err = file_write(folder, &dot_dot_entry, sizeof(FAT_directory_entry)))) {
       // error
-      debug_write("d");
     }
   } else {
-    debug_write("f");
   }
 
 
@@ -1402,7 +1399,8 @@ static error_code fat_update_file_length(fat_file* f) {
     return err;
   }
 
- if (ERROR(err = new_fat_file(&parent_dir))) return err;
+  // Allocate a dummy fat file to write the length to the disk
+  if (ERROR(err = new_fat_file(&parent_dir))) return err;
 
   parent_dir->fs = f->fs;
   parent_dir->first_cluster = f->parent.first_cluster;
@@ -1491,6 +1489,7 @@ error_code fat_file_open(fs_header* ffs, short_file_name* parts, uint8 depth, fi
     return FNF_ERROR;
   }
 
+  // term_write(cout, "DEPTHS OF FILEOPEN");
   // term_writeline(cout);
   // for(uint8 i = 0 ; i < depth; ++i) {
   //   for(uint8 j = 0; j < 11; ++j) {
@@ -1527,14 +1526,15 @@ error_code fat_file_open(fs_header* ffs, short_file_name* parts, uint8 depth, fi
     return err;
   }
 
+  if (ERROR(err) && FNF_ERROR != err) {
+  } else if (FNF_ERROR == err || !IS_FOLDER(child->header.type)) {
+    // If it is a directory, there is not mode. If the file is not found,
+    // the mode must be ignored (we are creating a file)
 
-  // If it is a directory, there is not mode
-  if (FNF_ERROR == err || !IS_FOLDER(child->header.type)) {
-  // Set the file mode
     switch (mode) {
       case MODE_READ:
       case MODE_READ_WRITE: {
-        if (ERROR(err)) return err;
+        if (ERROR(err)) break;
         // otherwise everything is ok, there is nothing to
         // do in this mode beside having the cursor at the start.
       } break;
@@ -1545,14 +1545,14 @@ error_code fat_file_open(fs_header* ffs, short_file_name* parts, uint8 depth, fi
           if (FNF_ERROR == err) {
             // Create the file
             if (ERROR(err = fat_create_file(child_name, parent, &child))) {
-              return err;
+              break;
             }
           } else {
-            return err;
+            break;
           }
         } else {
           if (ERROR(err = fat_truncate_file(child))) {
-            return err;
+            break;
           }
         }
       } break;
@@ -1562,30 +1562,29 @@ error_code fat_file_open(fs_header* ffs, short_file_name* parts, uint8 depth, fi
         if (ERROR(err)) {
           if (FNF_ERROR == err) {
             if (ERROR(err = fat_create_file(child_name, parent, &child))) {
-              return err;
+              break;
             }
           } else {
-            return err;
+            break;
           }
-        } else {
-          if (ERROR(err = fat_set_to_absolute_position(CAST(file*, child),
-                                                        child->length - 1))) {
-            return err;
-          }
+        } else if (ERROR(err = fat_set_to_absolute_position(
+                             CAST(file*, child), child->length - 1))) {
+          break;
         }
+
       } break;
       default:
         panic(L"Unhandled file mode");
         break;
     }
   }
-  
-  if(HAS_NO_ERROR(err)) {
+
+  if (HAS_NO_ERROR(err)) {
     child->header.mode = mode;
   }
 
-  if(NULL != parent) fat_close_file(CAST(file*, parent));
-  
+  if (NULL != parent) fat_close_file(CAST(file*, parent));
+
   *result = CAST(file*, child);
 
   return NO_ERROR;

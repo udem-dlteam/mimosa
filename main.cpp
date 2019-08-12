@@ -12,6 +12,7 @@
 #include "disk.h"
 #include "drivers/filesystem/include/stdstream.h"
 #include "drivers/filesystem/include/vfs.h"
+#include "drivers/filesystem/include/fat.h"
 #include "general.h"
 #include "ps2.h"
 #include "rtlib.h"
@@ -19,20 +20,7 @@
 #include "thread.h"
 
 int main() {
-#ifdef MIMOSA_REPL  
-  file* folder;
-  error_code err = mkdir("dsk1/testa", &folder);
-  if(ERROR(err)) panic(L"OUPS");
-  // err = mkdir("dsk1/testa/testb", &folder);
-  // if(ERROR(err)) panic(L"OUPS");
-  // mkdir("dsk1/testa/testb", &folder);
-  err = file_open("dsk1/sysfld/nfile.txt", "a+", &folder);
-  if(ERROR(err)) panic(L"OUPS2");
-
-  uint64 bignum = (uint64)-1;
-  err=file_write(folder, &bignum, sizeof(uint64));
-  if(ERROR(err)) panic(L"OUPS3");
-
+#ifdef MIMOSA_REPL
   term_run(cout);
 #endif
 
