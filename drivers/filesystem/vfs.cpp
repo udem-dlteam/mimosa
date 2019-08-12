@@ -260,6 +260,35 @@ static vfnode* explore(short_file_name* parts, uint8 *depth) {
   return last_candidate;
 }
 
+error_code mkdir(native_string path, file** result) {
+  uint8 depth;
+  error_code err = NO_ERROR;
+  file* hit;
+  native_char normalized_path[NAME_MAX + 1];
+
+  if (ERROR(err = normalize_path(path, normalized_path))) {
+#ifdef SHOW_DISK_INFO
+    term_write(cout, "Failed to normalize the path\n\r");
+#endif
+    return err;
+  }
+
+  short_file_name* parts = decompose_path(normalized_path, &depth);
+  uint8 bottom = depth;
+  vfnode* deepest = explore(parts, &depth);
+
+  if(NULL == deepest) {
+    err = FNF_ERROR;
+  } else if(deepest->header.type & TYPE_MOUNTPOINT) {
+    fs_header* fs = deepest->_value.mountpoint.mounted_fs;
+    err = fs_mkdir(fs, parts + (bottom - depth), depth, &hit);
+  } else {
+    err = FNF_ERROR;
+  }
+
+  return err;
+}
+
 error_code file_open(native_string path, native_string mode, file** result) {
   uint8 depth;
   error_code err = NO_ERROR;
@@ -329,7 +358,7 @@ DIR* opendir(const char* path) {
   error_code err;
 
   if (ERROR(err = file_open(CAST(native_string, path), "r", &f))) {
-    debug_write("Error while opening the file :/");
+    // debug_write("Error while opening the file :/");
     return NULL;
   }
 

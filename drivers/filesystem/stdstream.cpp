@@ -46,6 +46,10 @@ static error_code stream_set_to_absolute_position(file* f, uint32 position) {
 
 static size_t stream_len(file* f) { return 0; }
 
+error_code stream_mkdir(fs_header* header, short_file_name* parts, uint8 depth, file**result) {
+  return UNIMPL_ERROR;
+}
+
 // -------------------------------------------------------------
 // Stream management
 // -------------------------------------------------------------
@@ -292,6 +296,7 @@ error_code mount_streams(vfnode* parent) {
   error_code err = NO_ERROR;
 
   __std_stream_vtable._file_open = stream_open_file;
+  __std_stream_vtable._mkdir = stream_mkdir;
 
   fs_std_stream.kind = STREAM;
   fs_std_stream._vtable = &__std_stream_vtable;

@@ -12,6 +12,7 @@
 #include "disk.h"
 #include "drivers/filesystem/include/stdstream.h"
 #include "drivers/filesystem/include/vfs.h"
+#include "drivers/filesystem/include/fat.h"
 #include "general.h"
 #include "ps2.h"
 #include "rtlib.h"

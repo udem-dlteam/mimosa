@@ -68,6 +68,7 @@ typedef struct file_vtable_struct {
 
 struct fs_vtable_struct {
   error_code (*_file_open)(fs_header* header, short_file_name* parts, uint8 depth, file_mode mode, file** result);
+  error_code (*_mkdir)(fs_header* header, short_file_name* parts, uint8 depth, file**result);
 };
 
 // A file descriptor header
@@ -161,10 +162,14 @@ vfnode* new_vfnode(vfnode* vf, native_string name, file_type type);
 
 #define file_is_reg(f) IS_REGULAR_FILE(((f)->type))
 
-
 #define fs_file_open(fs, parts, depth, mode, result) CAST(fs_header*, fs)->_vtable->_file_open(CAST(fs_header*, fs), parts, depth, mode, result)
 
+#define fs_mkdir(fs, parts, depth, result) CAST(fs_header*, fs)->_vtable->_mkdir(CAST(fs_header*, fs), parts, depth, result)
+
 error_code file_open(native_string path, native_string mode, file** result);
+
+error_code mkdir(native_string path, file** result);
+
 error_code normalize_path(native_string path, native_string new_path);
 short_file_name* decompose_path(native_string normalize_path, uint8* __count);
 bool parse_mode(native_string mode, file_mode* result);
