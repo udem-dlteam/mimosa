@@ -21,8 +21,17 @@
 int main() {
 #ifdef MIMOSA_REPL  
   file* folder;
-  mkdir("dsk1/testa", &folder);
-  mkdir("dsk1/testa/testb", &folder);
+  error_code err = mkdir("dsk1/testa", &folder);
+  if(ERROR(err)) panic(L"OUPS");
+  // err = mkdir("dsk1/testa/testb", &folder);
+  // if(ERROR(err)) panic(L"OUPS");
+  // mkdir("dsk1/testa/testb", &folder);
+  err = file_open("dsk1/sysfld/nfile.txt", "a+", &folder);
+  if(ERROR(err)) panic(L"OUPS2");
+
+  uint64 bignum = (uint64)-1;
+  err=file_write(folder, &bignum, sizeof(uint64));
+  if(ERROR(err)) panic(L"OUPS3");
 
   term_run(cout);
 #endif

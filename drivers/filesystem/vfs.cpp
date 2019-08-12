@@ -281,6 +281,7 @@ error_code mkdir(native_string path, file** result) {
     err = FNF_ERROR;
   } else if(deepest->header.type & TYPE_MOUNTPOINT) {
     fs_header* fs = deepest->_value.mountpoint.mounted_fs;
+    debug_write((parts + (bottom - depth))[0].name);
     err = fs_mkdir(fs, parts + (bottom - depth), depth, &hit);
   } else {
     err = FNF_ERROR;

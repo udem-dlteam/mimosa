@@ -13,6 +13,9 @@
 
 #define MAX_NB_MOUNTED_FAT_FS 8
 
+static native_string DOT_NAME = ".          ";
+static native_string DOT_DOT_NAME = "..         ";
+
 typedef struct fs_module_struct {
   fat_file_system* mounted_fs[MAX_NB_MOUNTED_FAT_FS];
   uint32 nb_mounted_fs;
@@ -326,6 +329,33 @@ static void mount_all_partitions(vfnode* parent) {
 // ------------------------------------------------------
 // FAT manipulation routines
 // ------------------------------------------------------
+
+static bool fat_is_root_dir(fat_file* f) {
+  return f->first_cluster <= 0x02;  // this might not always be the case...
+}
+
+static error_code fat_open_directory_entry(fat_file* f,
+                                           FAT_directory_entry* de) {
+  error_code err = NO_ERROR;
+  fat_file* parent_dir;
+
+  if (ERROR(err = new_fat_file(&parent_dir))) return err;
+
+  parent_dir->fs = f->fs;
+  parent_dir->first_cluster = f->parent.first_cluster;
+  parent_dir->header.type = TYPE_FOLDER;
+
+  fat_set_to_absolute_position(CAST(file*, parent_dir), f->entry.position);
+
+  if (ERROR(err = fat_read_file(CAST(file*, parent_dir), de,
+                                sizeof(FAT_directory_entry)))) {
+    // nothing
+  }
+
+  fat_close_file(CAST(file*, parent_dir));
+
+  return err;
+}
 
 error_code fat_close_file(file* ff) {
   fat_file* f = CAST(fat_file*, ff);
@@ -1133,13 +1163,11 @@ static error_code fat_32_set_fat_link_value(fat_file_system* fs, uint32 cluster,
 
 static error_code fat_32_create_empty_file(fat_file_system* fs,
                                            fat_file* parent_folder,
+                                           FAT_directory_entry* de,
                                            native_char* name,
                                            uint8 attributes,
                                            fat_file** result) {
-  FAT_directory_entry de;
   error_code err;
-  native_char normalized_path[NAME_MAX + 1];
-  native_string p = normalized_path;
   fat_file* f;
 
   // Section start is the LBA
@@ -1147,9 +1175,9 @@ static error_code fat_32_create_empty_file(fat_file_system* fs,
   fat_set_to_absolute_position(CAST(file*, parent_folder), 0);
 
   uint32 position = parent_folder->current_pos;
-  while ((err = fat_read_file(CAST(file*, parent_folder), &de, sizeof(de))) == sizeof(de)) {
+  while ((err = fat_read_file(CAST(file*, parent_folder), de, sizeof(FAT_directory_entry))) == sizeof(FAT_directory_entry)) {
     // This means the entry is available
-    if (de.DIR_Name[0] == 0) break;
+    if (de->DIR_Name[0] == 0) break;
     // Update the position with the information before
     position = parent_folder->current_pos;
   }
@@ -1167,7 +1195,9 @@ static error_code fat_32_create_empty_file(fat_file_system* fs,
   }
 
   // We recalculate the position to write the entry
-  fat_set_to_absolute_position(CAST(file*, parent_folder), position);
+  if(ERROR(err = fat_set_to_absolute_position(CAST(file*, parent_folder), position))) {
+    return err;
+  }
 
   // We got a position for the root entry, we need to find an available FAT
   uint32 cluster = FAT32_FIRST_CLUSTER;
@@ -1177,25 +1207,29 @@ static error_code fat_32_create_empty_file(fat_file_system* fs,
   }
 
   // Copy the short name
-  memcpy(de.DIR_Name, name, FAT_NAME_LENGTH);
+  memcpy(de->DIR_Name, name, FAT_NAME_LENGTH);
 
   {  // Set the cluster in the descriptor
     uint16 cluster_hi = (cluster & 0xFFFF0000) >> 16;
     uint16 cluster_lo = (cluster & 0x0000FFFF);
 
     for (int i = 0; i < 2; ++i) {
-      de.DIR_FstClusHI[i] = as_uint8(cluster_hi, i);
-      de.DIR_FstClusLO[i] = as_uint8(cluster_lo, i);
+      de->DIR_FstClusHI[i] = as_uint8(cluster_hi, i);
+      de->DIR_FstClusLO[i] = as_uint8(cluster_lo, i);
     }
   }
 
-  de.DIR_Attr = attributes;
+  for (uint8 i = 0; i < 4; ++i) {
+    de->DIR_FileSize[i] = 0;
+  }
+
+  de->DIR_Attr = attributes;
 
   // -------------------------------------------------------------------------------
   // Write the directory entry to the disk, modifications must be done by this point
   // -------------------------------------------------------------------------------
 
-  if (ERROR(err = fat_write_file(CAST(file*, parent_folder), &de, sizeof(de)))) {
+  if (ERROR(err = fat_write_file(CAST(file*, parent_folder), de, sizeof(FAT_directory_entry)))) {
     return err;
   }
 
@@ -1219,7 +1253,12 @@ static error_code fat_32_create_empty_file(fat_file_system* fs,
   // the same time
   f->parent.first_cluster = parent_folder->first_cluster;
   f->entry.position = position;
-  f->header.type = TYPE_REGULAR;
+  
+  if(attributes & FAT_ATTR_DIRECTORY) {
+    f->header.type = TYPE_FOLDER;
+  } else {
+    f->header.type = TYPE_REGULAR;
+  }
 
   *result = f;
 
@@ -1237,7 +1276,8 @@ static error_code fat_create_file(native_char* name, fat_file* parent_folder, fa
       break;
     case FAT32_FS: {
       // TODO: add correct attributes
-      err = fat_32_create_empty_file(fs, parent_folder, name, 0, result);
+      FAT_directory_entry de;
+      err = fat_32_create_empty_file(fs, parent_folder, &de, name, 0, result);
     } break;
   }
 
@@ -1268,6 +1308,7 @@ static error_code fat_mkdir(fs_header* ffs, short_file_name* parts, uint8 depth,
   }
 
   for(uint8 i = 0; i < depth - 1; ++i) {
+    debug_write("A");
     // Go get the actual parent folder
     if(ERROR(err = fat_fetch_entry(fs, parent, parts[i].name, &folder))) {
       break;
@@ -1288,9 +1329,59 @@ static error_code fat_mkdir(fs_header* ffs, short_file_name* parts, uint8 depth,
     // We expected a FNF
     if (NULL != parent) fat_close_file(CAST(file*, parent));
     return UNKNOWN_ERROR; // TODO get a real error here!
+  } else {
+    debug_write("B");
   }
-  
-  err = fat_32_create_empty_file(fs, parent, folder_name, FAT_ATTR_DIRECTORY, &folder);
+
+  FAT_directory_entry file_de;
+  err = fat_32_create_empty_file(fs, parent, &file_de, folder_name, FAT_ATTR_DIRECTORY,
+                                 &folder);
+  debug_write("g");
+  // Create the '.' entry and the '..' entry:
+
+  if(HAS_NO_ERROR(err)) {
+    FAT_directory_entry dot_dot_entry;
+
+    if(fat_is_root_dir(parent)) {
+      debug_write("a");
+      // FIll out dotdot manually
+      dot_dot_entry.DIR_Attr = FAT_ATTR_DIRECTORY;
+
+      dot_dot_entry.DIR_FstClusLO[0] = dot_dot_entry.DIR_FstClusLO[1] =
+          dot_dot_entry.DIR_FstClusHI[0] = dot_dot_entry.DIR_FstClusHI[1] = 0;
+      
+      for(uint8 i = 0; i < 2; ++i) {
+        // Copy the containing folder time properties
+        dot_dot_entry.DIR_CrtDate[i] = file_de.DIR_CrtDate[i];
+        dot_dot_entry.DIR_CrtTime[i] = file_de.DIR_CrtTime[i];
+        dot_dot_entry.DIR_LstAccDate[i] = file_de.DIR_LstAccDate[i];
+        dot_dot_entry.DIR_WrtDate[i] = file_de.DIR_WrtDate[i];
+        dot_dot_entry.DIR_WrtTime[i] = file_de.DIR_WrtTime[i];
+      }
+      dot_dot_entry.DIR_CrtTimeTenth = file_de.DIR_CrtTimeTenth;
+
+    } else if(ERROR(err = fat_open_directory_entry(parent, &dot_dot_entry))) {
+      debug_write("b");
+      //error
+    }
+
+    // Overwrite the names of the entries
+    for(uint8 i = 0; i < 11; ++i) {
+      file_de.DIR_Name[i] = DOT_NAME[i];
+      dot_dot_entry.DIR_Name[i] = DOT_DOT_NAME[i];
+    }
+
+    if(ERROR(err = file_write(folder, &file_de, sizeof(FAT_directory_entry)))) {
+      // error
+      debug_write("c");
+    } else if(ERROR(err = file_write(folder, &dot_dot_entry, sizeof(FAT_directory_entry)))) {
+      // error
+      debug_write("d");
+    }
+  } else {
+    debug_write("f");
+  }
+
 
   if(NULL != parent) fat_close_file(CAST(file*, parent));
 
@@ -1305,29 +1396,21 @@ static error_code fat_update_file_length(fat_file* f) {
   error_code err = NO_ERROR;
   FAT_directory_entry de;
   uint32 filesize;
-
   fat_file* parent_dir;
-  if(ERROR(err = new_fat_file(&parent_dir))) return err;
+
+  if(ERROR(err = fat_open_directory_entry(f, &de))) {
+    return err;
+  }
+
+ if (ERROR(err = new_fat_file(&parent_dir))) return err;
 
   parent_dir->fs = f->fs;
   parent_dir->first_cluster = f->parent.first_cluster;
   parent_dir->header.type = TYPE_FOLDER;
 
+  // Correctly locate the DE to overwrite 
   fat_reset_cursor(CAST(file*, parent_dir));
   fat_set_to_absolute_position(CAST(file*, parent_dir), f->entry.position);
-
-  if (ERROR(err = fat_read_file(CAST(file*, parent_dir), &de, sizeof(de)))) {
-    goto flush_file_update_dir_err_occured;
-  }
-
-  term_writeline(cout);
-  for(int i =0; i< 11; ++i) {
-    term_write(cout, CAST(native_char, de.DIR_Name[i]));
-  }
-  term_writeline(cout);
-
-  // Go backwards to overwrite the directory entry
-  fat_move_cursor(CAST(file*, parent_dir), -sizeof(de));
 
   filesize = f->length;
   
