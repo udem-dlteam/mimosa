@@ -21,6 +21,7 @@
 
 int main() {
 #ifdef MIMOSA_REPL
+  file_rename("dsk1/fact.scm", "dsk1/sprfact.scm");
   term_run(cout);
 #endif
 

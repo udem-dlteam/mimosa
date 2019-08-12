@@ -260,11 +260,11 @@ static vfnode* explore(short_file_name* parts, uint8 *depth) {
   return last_candidate;
 }
 
-error_code remove(native_string path) {
+error_code file_remove(native_string path) {
   //stub
 }
 
-error_code rename(native_string old_name, native_string new_name) {
+error_code file_rename(native_string old_name, native_string new_name) {
   disable_interrupts(); // interrupts are disabled to ensure atomicity
   error_code err = NO_ERROR;
   native_char normalized_path[NAME_MAX + 1];

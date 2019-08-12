@@ -181,7 +181,7 @@ vfnode* new_vfnode(vfnode* vf, native_string name, file_type type);
       ->_vtable->_rename(CAST(fs_header*, fs), CAST(file*, f), parts, depth)
 
 error_code file_open(native_string path, native_string mode, file** result);
-error_code rename(native_string old_name, native_string new_name);
+error_code file_rename(native_string old_name, native_string new_name);
 error_code mkdir(native_string path, file** result);
 
 error_code normalize_path(native_string path, native_string new_path);

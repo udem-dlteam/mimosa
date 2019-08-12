@@ -156,7 +156,7 @@ static error_code stream_write(file* ff, void* buff, uint32 count) {
         // No one is caught up: there's a new char
         rs->late = rs->readers;
         condvar_mutexless_signal(streamcv);
-      } else if (rs->late == 0) {
+      } else if (rs->late == 0) { // this allows a not reader stream to never overflow
         stream_reset(rs);
       } else if (rs->autoresize) {
         // Resize

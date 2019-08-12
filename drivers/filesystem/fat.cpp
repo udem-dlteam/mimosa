@@ -413,8 +413,6 @@ static error_code fat_rename(fs_header* ffs, file* ff, short_file_name* parts, u
     return UNKNOWN_ERROR; // TODO
   }
 
-
-  //TODO: write the directory entry to the right place
   uint32 new_pos;
   if(ERROR(err = fat_fetch_first_empty_directory_position(target_parent, &de, &new_pos))) {
     return err;
@@ -438,6 +436,9 @@ static error_code fat_rename(fs_header* ffs, file* ff, short_file_name* parts, u
 
   // Clean the old entry
   de.DIR_Name[0] = FAT_UNUSED_ENTRY; // Set the entry available
+  // The eager eye might have noticed that we don't copy over the same
+  // entry bac where we originally read it. It doesn't matter, since
+  // the entry is garbage anyways.
   if(ERROR(err = fat_write_directory_entry(f, &de))) {
     goto fat_rename_end;
   }
