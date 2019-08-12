@@ -37,7 +37,7 @@ error_code new_fat_file(fat_file** result) {
   return err;
 }
 
-
+static error_code fat_mkdir(fs_header* header, short_file_name* parts, uint8 depth, file** result);
 static error_code fat_file_open(fs_header* header, short_file_name* parts, uint8 depth, file_mode mode, file** result);
 static void fat_reset_cursor(file* f);
 static error_code fat_move_cursor(file* f, int32 n);
@@ -1131,8 +1131,11 @@ static error_code fat_32_set_fat_link_value(fat_file_system* fs, uint32 cluster,
   return err;
 }
 
-error_code fat_32_create_empty_file(fat_file_system* fs, fat_file* parent_folder,
-                                    native_char* name, fat_file** result) {
+static error_code fat_32_create_empty_file(fat_file_system* fs,
+                                           fat_file* parent_folder,
+                                           native_char* name,
+                                           uint8 attributes,
+                                           fat_file** result) {
   FAT_directory_entry de;
   error_code err;
   native_char normalized_path[NAME_MAX + 1];
@@ -1186,6 +1189,12 @@ error_code fat_32_create_empty_file(fat_file_system* fs, fat_file* parent_folder
     }
   }
 
+  de.DIR_Attr = attributes;
+
+  // -------------------------------------------------------------------------------
+  // Write the directory entry to the disk, modifications must be done by this point
+  // -------------------------------------------------------------------------------
+
   if (ERROR(err = fat_write_file(CAST(file*, parent_folder), &de, sizeof(de)))) {
     return err;
   }
@@ -1227,9 +1236,65 @@ static error_code fat_create_file(native_char* name, fat_file* parent_folder, fa
       panic(L"Not supported");
       break;
     case FAT32_FS: {
-      err = fat_32_create_empty_file(fs, parent_folder, name, result);
+      // TODO: add correct attributes
+      err = fat_32_create_empty_file(fs, parent_folder, name, 0, result);
     } break;
   }
+
+  return err;
+}
+
+static error_code fat_mkdir(fs_header* ffs, short_file_name* parts, uint8 depth, file** result) {
+  error_code err = NO_ERROR;
+  fat_file_system* fs = CAST(fat_file_system*, ffs);
+  native_string folder_name;
+  fat_file *parent,*folder;
+
+  switch (fs->kind) {
+    case FAT12_FS:
+    case FAT16_FS:
+    case FAT32_FS:
+      break;
+
+    default:
+      return UNIMPL_ERROR;
+      break;
+  }
+
+  if (ERROR(err = fat_open_root_dir(fs, CAST(file**, &parent)))) {
+    return err;
+  } else if (0 == depth) {
+    return FNF_ERROR; // Need at least a folder name
+  }
+
+  for(uint8 i = 0; i < depth - 1; ++i) {
+    // Go get the actual parent folder
+    if(ERROR(err = fat_fetch_entry(fs, parent, parts[i].name, &folder))) {
+      break;
+    } else {
+      fat_close_file(CAST(file*, parent));
+      parent = folder;
+      folder = NULL;
+    }
+  }
+
+  if(ERROR(err)) {
+    if(NULL != parent) fat_close_file(CAST(file*, parent));
+    return err;
+  }
+  
+  folder_name = parts[depth - 1].name;
+  if (HAS_NO_ERROR(err = fat_fetch_entry(fs, parent, folder_name, &folder))) {
+    // We expected a FNF
+    if (NULL != parent) fat_close_file(CAST(file*, parent));
+    return UNKNOWN_ERROR; // TODO get a real error here!
+  }
+  
+  err = fat_32_create_empty_file(fs, parent, folder_name, FAT_ATTR_DIRECTORY, &folder);
+
+  if(NULL != parent) fat_close_file(CAST(file*, parent));
+
+  *result = CAST(file*, folder);
 
   return err;
 }
@@ -1311,7 +1376,6 @@ static error_code fat_truncate_file(fat_file* f) {
 error_code fat_file_open(fs_header* ffs, short_file_name* parts, uint8 depth, file_mode mode, file** result) {
   error_code err = NO_ERROR;
   fat_file_system* fs = CAST(fat_file_system*, ffs);
-  native_char normalized_path[NAME_MAX + 1];
   native_string child_name;
   fat_file *parent,*child;
 
@@ -1382,7 +1446,7 @@ error_code fat_file_open(fs_header* ffs, short_file_name* parts, uint8 depth, fi
 
 
   // If it is a directory, there is not mode
-  if (!IS_FOLDER(child->header.type)) {
+  if (FNF_ERROR == err || !IS_FOLDER(child->header.type)) {
   // Set the file mode
     switch (mode) {
       case MODE_READ:
@@ -1492,6 +1556,7 @@ error_code mount_fat(vfnode* parent) {
 
   // Init the FS vtable
   _fat_vtable._file_open = fat_file_open;
+  _fat_vtable._mkdir = fat_mkdir;
 
   // Init the file vtable
   _fat_file_vtable._file_close = fat_close_file;

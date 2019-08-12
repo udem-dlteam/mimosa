@@ -19,7 +19,11 @@
 #include "thread.h"
 
 int main() {
-#ifdef MIMOSA_REPL
+#ifdef MIMOSA_REPL  
+  file* folder;
+  mkdir("dsk1/testa", &folder);
+  mkdir("dsk1/testa/testb", &folder);
+
   term_run(cout);
 #endif
 
