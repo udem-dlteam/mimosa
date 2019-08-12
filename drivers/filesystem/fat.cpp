@@ -57,6 +57,8 @@ static error_code fat_32_set_fat_link_value(fat_file_system* fs, uint32 cluster,
 static error_code fat_update_file_length(fat_file* f);
 static error_code fat_fetch_first_empty_directory_position(
     fat_file* directory, FAT_directory_entry* de, uint32* position);
+static error_code fat_fetch_entry(fat_file_system* fs, fat_file* parent,
+                                  native_char* name, fat_file** result);
 static size_t fat_file_len(file* f);
 
 // -------------------------------------------------------------
@@ -396,7 +398,7 @@ static error_code fat_rename(fs_header* ffs, file* ff, short_file_name* parts, u
     return FNF_ERROR;
   }
 
-  //TODO: verifications of target 
+  //TODO: verifications of target
   
   for(uint8 i = 0; i < depth - 1; ++i) {
     // Go get the actual parent folder
@@ -410,7 +412,7 @@ static error_code fat_rename(fs_header* ffs, file* ff, short_file_name* parts, u
   }
 
   if(!IS_FOLDER(target_parent->header.type)) {
-    return UNKNOWN_ERROR; // TODO
+    return ARG_ERROR; // the file paths are incorrect
   }
 
   uint32 new_pos;

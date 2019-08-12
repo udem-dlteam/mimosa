@@ -265,7 +265,6 @@ error_code file_remove(native_string path) {
 }
 
 error_code file_rename(native_string old_name, native_string new_name) {
-  disable_interrupts(); // interrupts are disabled to ensure atomicity
   error_code err = NO_ERROR;
   native_char normalized_path[NAME_MAX + 1];
   uint8 depth_new;
@@ -276,6 +275,8 @@ error_code file_rename(native_string old_name, native_string new_name) {
 #endif
     return err;
   }
+  
+  disable_interrupts(); // interrupts are disabled to ensure atomicity
 
   short_file_name* parts_new = decompose_path(normalized_path, &depth_new);
 
