@@ -13,8 +13,9 @@
 #ifndef USE_HOST_LIBC
 
 typedef struct {
-  file* f;
-  error_code err;
+  int state;
+  //  file* f;
+  //  error_code err;
 } FILE;
 
 #endif

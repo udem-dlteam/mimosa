@@ -37,7 +37,12 @@ echo "#define HAVE_GETTIMEOFDAY 1" >> conf.h
 echo "#define HAVE_SETITIMER 1"    >> conf.h
 echo "#define HAVE_SIGNAL 1"       >> conf.h
 echo "#define HAVE_OPENDIR 1"      >> conf.h
-#echo "#define HAVE_STAT 1"         >> conf.h
+echo "#define HAVE_GETCWD 1"       >> conf.h
+echo "#define HAVE_CHDIR 1"        >> conf.h
+echo "#define HAVE_MKDIR 1"        >> conf.h
+echo "#define HAVE_STAT 1"         >> conf.h
+echo "#define HAVE_REMOVE 1"       >> conf.h
+echo "#define HAVE_RENAME 1"       >> conf.h
 
 echo "#include \"include/libc_link.h\"" >> conf.h
 

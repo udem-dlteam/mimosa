@@ -1,6 +1,29 @@
 #include "include/libc_common.h"
 #include "include/unistd.h"
 
+int REDIRECT_NAME(chdir)(const char *__path) {
+
+#ifdef USE_LIBC_LINK
+
+  return LIBC_LINK._chdir(__path);
+
+#else
+
+  libc_trace("chdir");
+
+#ifdef USE_HOST_LIBC
+
+  return chdir(__path);
+
+#else
+
+  // TODO: implement
+  return 0;
+
+#endif
+#endif
+}
+
 char *REDIRECT_NAME(getcwd)(char *__buf, size_t __size) {
 
 #ifdef USE_LIBC_LINK
@@ -19,7 +42,11 @@ char *REDIRECT_NAME(getcwd)(char *__buf, size_t __size) {
 
   // TODO: implement
   __buf[0] = '/';
-  __buf[1] = '\0';
+  __buf[1] = 'd';
+  __buf[2] = 's';
+  __buf[3] = 'k';
+  __buf[4] = '1';
+  __buf[5] = '\0';
   return __buf;
 
 #endif
@@ -72,7 +99,7 @@ int REDIRECT_NAME(remove)(const char *__pathname) {
 #endif
 }
 
-int REDIRECT_NAME(lstat)(const char *__pathname, struct_stat *__buf) {
+int REDIRECT_NAME(lstat)(const char *__pathname, struct stat *__buf) {
 
 #ifdef USE_LIBC_LINK
 
@@ -95,7 +122,7 @@ int REDIRECT_NAME(lstat)(const char *__pathname, struct_stat *__buf) {
 #endif
 }
 
-int REDIRECT_NAME(stat)(const char *__pathname, struct_stat *__buf) {
+int REDIRECT_NAME(stat)(const char *__pathname, struct stat *__buf) {
 
 #ifdef USE_LIBC_LINK
 
