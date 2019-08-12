@@ -260,6 +260,59 @@ static vfnode* explore(short_file_name* parts, uint8 *depth) {
   return last_candidate;
 }
 
+error_code remove(native_string path) {
+  //stub
+}
+
+error_code rename(native_string old_name, native_string new_name) {
+  disable_interrupts(); // interrupts are disabled to ensure atomicity
+  error_code err = NO_ERROR;
+  native_char normalized_path[NAME_MAX + 1];
+  uint8 depth_new;
+
+  if (ERROR(err = normalize_path(new_name, normalized_path))) {
+#ifdef SHOW_DISK_INFO
+    term_write(cout, "Failed to normalize the path\n\r");
+#endif
+    return err;
+  }
+
+  short_file_name* parts_new = decompose_path(normalized_path, &depth_new);
+
+  // Rename acts like a copy. It is more efficient to simply copy the directory entry
+  // For that, we will deactivate the old entry (to allow the old folder to still work)
+  // and copy the directory entry
+
+  file* old_file;
+  
+  vfnode* deepest = explore(parts_new, &depth_new);
+
+  if(ERROR(err = file_open(old_name, "r", &old_file))) {
+    goto rename_end;
+  }
+
+  if(NULL == deepest) {
+    err = FNF_ERROR;
+  } else if(deepest->header.type & TYPE_MOUNTPOINT) {
+    // Make sure the FS of the mountpoint and the FS of the file 
+    // is the same:
+    fs_header* target_fs = deepest->header._fs_header;
+    
+    if(old_file->_fs_header != target_fs) {
+      panic(L"WATATATATA"); // TODO don't leave that there...
+    } else {
+      err = fs_rename(target_fs, old_file, parts_new, depth_new);
+    }
+  } else {
+    err = FNF_ERROR;
+  }
+
+rename_end:
+  kfree(parts_new);
+  enable_interrupts(); // interrupts are disabled to ensure atomicity
+  return err;
+}
+
 error_code mkdir(native_string path, file** result) {
   uint8 depth;
   error_code err = NO_ERROR;

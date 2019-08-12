@@ -34,11 +34,11 @@ const uint32 GAMBIT_START = 0x100000;
 
 #ifdef CHECK_ASSERTIONS
 
-#define ARE_INTERRUPTS_ENABLED() (eflags_reg() & (1 << 9) )
+#define ARE_INTERRUPTS_ENABLED() (eflags_reg() & (1 << 9))
 
 #define ASSERT_INTERRUPTS_DISABLED()                 \
   do {                                               \
-    if (ARE_INTERRUPTS_ENABLED() != 0) {            \
+    if (ARE_INTERRUPTS_ENABLED() != 0) {             \
       debug_write(__FILE__);                         \
       debug_write(":");                              \
       debug_write(__LINE__);                         \
@@ -48,7 +48,7 @@ const uint32 GAMBIT_START = 0x100000;
 
 #define ASSERT_INTERRUPTS_ENABLED()                 \
   do {                                              \
-    if (!ARE_INTERRUPTS_ENABLED()) {               \
+    if (!ARE_INTERRUPTS_ENABLED()) {                \
       debug_write(__FILE__);                        \
       debug_write(":");                             \
       debug_write(__LINE__);                        \
@@ -196,6 +196,9 @@ typedef int priority;
 #define low_priority 0
 #define normal_priority 100
 #define high_priority 200
+
+#define THREAD_TYPE_KERNEL 1
+#define THREAD_TYPE_USER 2
 
 //-----------------------------------------------------------------------------
 
@@ -426,7 +429,7 @@ void condvar_wait(
     mutex* m);  // suspends current thread on the condition variable
 
 bool condvar_wait_or_timeout(condvar* self, mutex* m,
-                              time timeout);  // returns FALSE on timeout
+                             time timeout);  // returns FALSE on timeout
 
 void condvar_signal(condvar* self);     // resumes one of the waiting threads
 void condvar_broadcast(condvar* self);  // resumes all of the waiting threads
@@ -436,16 +439,17 @@ void condvar_mutexless_wait(
 void condvar_mutexless_signal(
     condvar* self);  // like "signal" but assumes disabled interrupts
 
+typedef uint8 thread_type;
 
 typedef struct thread;
 
 typedef struct thread_vtable_struct {
-  void (* thread_run)(thread* self);
+  void (*thread_run)(thread* self);
 } thread_vtable;
-
 
 typedef struct thread {
   wait_mutex_sleep_node super;
+  thread_type type;
   thread_vtable_struct* vtable;
 #ifdef USE_DOUBLY_LINKED_LIST_FOR_WAIT_QUEUE
 #endif
@@ -482,13 +486,18 @@ typedef struct thread {
 typedef struct program_thread_struct {
   thread super;
   libc_startup_fn _code;
+  native_string _cwd;
 } program_thread;
 
 thread* new_thread(thread* self, void_fn run, native_string name);
 
 thread* thread_start(thread* self);
 
-program_thread* new_program_thread(program_thread* self, libc_startup_fn run, native_string name);
+program_thread* new_program_thread(program_thread* self, native_string cwd,
+                                   libc_startup_fn run, native_string name);
+
+native_string program_thread_cwd(program_thread* self);
+native_string program_thread_chdir(program_thread* self, native_string new_cwd);
 
 void thread_join(thread* self);
 

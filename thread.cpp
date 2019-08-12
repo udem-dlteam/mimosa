@@ -325,11 +325,31 @@ void condvar_mutexless_signal(condvar* self) {
 
 // "thread" class implementation.
 
-program_thread* new_program_thread(program_thread* self, libc_startup_fn run, native_string name) {
+program_thread* new_program_thread(program_thread* self, native_string cwd,
+                                   libc_startup_fn run, native_string name) {
   new_thread(&self->super, NULL, name);
+  self->super.type = THREAD_TYPE_USER;
   self->_code = run;
   self->super.vtable = &_program_thread_vtable;
+
+  uint32 len = kstrlen(cwd);
+  self->_cwd = CAST(native_string, kmalloc(sizeof(native_char) * len));
+  memcpy(self->_cwd, cwd, len);
+
   return self;
+}
+
+native_string program_thread_cwd(program_thread* self) { return self->_cwd; }
+
+native_string program_thread_chdir(program_thread* self,
+                                   native_string new_cwd) {
+  native_string old = self->_cwd;
+  uint32 len = kstrlen(new_cwd);
+
+  self->_cwd = CAST(native_string, kmalloc(sizeof(native_char) * len));
+  memcpy(self->_cwd, new_cwd, len);
+  self->_cwd = new_cwd;
+  kfree(old);
 }
 
 thread* new_thread (thread* self, void_fn run, native_string name)
@@ -390,6 +410,7 @@ thread* new_thread (thread* self, void_fn run, native_string name)
   self->_terminated = FALSE;
   self->_run = run;
   self->_name = name;
+  self->type = THREAD_TYPE_KERNEL;
 
   self->vtable = &_thread_vtable;
 

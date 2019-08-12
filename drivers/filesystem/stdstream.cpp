@@ -50,6 +50,10 @@ error_code stream_mkdir(fs_header* header, short_file_name* parts, uint8 depth, 
   return UNIMPL_ERROR;
 }
 
+error_code stream_rename(fs_header* header, file* source, short_file_name* parts, uint8 depth) {
+  return UNIMPL_ERROR;
+}
+
 // -------------------------------------------------------------
 // Stream management
 // -------------------------------------------------------------
@@ -297,6 +301,7 @@ error_code mount_streams(vfnode* parent) {
 
   __std_stream_vtable._file_open = stream_open_file;
   __std_stream_vtable._mkdir = stream_mkdir;
+  __std_stream_vtable._rename = stream_rename;
 
   fs_std_stream.kind = STREAM;
   fs_std_stream._vtable = &__std_stream_vtable;

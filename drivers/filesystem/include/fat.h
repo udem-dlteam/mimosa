@@ -10,6 +10,8 @@
 #define FAT16_FS 1
 #define FAT32_FS 2
 
+#define FAT_UNUSED_ENTRY 0xE5
+
 #define FAT_NAME_MAX 1024
 #define DT_UNKNOWN 0
 #define DT_DIR 1
