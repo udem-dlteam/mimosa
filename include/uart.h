@@ -108,11 +108,10 @@
 #define UART_IIR_FIFO_RESERVED 1
 #define UART_IIR_FIFO_ENABLED_ERROR 2
 #define UART_IIR_FIFO_ENABLED 3
-
 //-----------------------------------------------------------------------------
 
 void init_serial(int port, file* input, file* output);
-void send_serial(int com, char *);
+void send_serial(int com, native_char x);
 int serial_received(int com_port);
 
 #endif

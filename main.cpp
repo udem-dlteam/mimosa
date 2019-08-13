@@ -24,14 +24,24 @@ int main() {
   term_run(cout);
 #endif
 
+#ifdef REMOTE_COM
+  
   error_code err;
   file* stdin, *stdout;
+
   if (ERROR(err = file_open(STDIN_PATH, "w", &stdin))) {
     return err;
   }
-  init_serial(COM1_PORT_BASE, stdout, stdin); // the input is the output that we read,vice-versa
- 
- 
+
+  if (ERROR(err = file_open(STDOUT_PATH, "r", &stdout))) {
+    return err;
+  }
+  
+  init_serial(COM1_PORT_BASE, stdout, stdin); // the input is the output that we read,vice-vers
+  unicode_char i;
+  
+#endif
+  
 #ifdef GAMBIT_REPL
   {
     native_string file_name = "/dsk1/GSC.EXE";
@@ -47,9 +57,18 @@ int main() {
       }
 
       program_thread* task =
-          CAST(program_thread*, kmalloc(sizeof(program_thread)));
+        CAST(program_thread*, kmalloc(sizeof(program_thread)));
       new_program_thread(task, CAST(libc_startup_fn, code), "Gambit");
       thread_start(CAST(thread*, task));
+
+#ifdef REMOTE_COM
+        for(;;){
+          file_read(stdout, &i, sizeof(unicode_char));
+          native_char c = i & 0xFF;
+          // send_serial(COM1_PORT_BASE, c);
+          outb(c, COM1_PORT_BASE);
+        }
+#endif
     } else {
       term_write(cout, "\r\n Failed to open Gambit.\r\n");
     }
