@@ -346,7 +346,7 @@ static error_code fat_open_directory_entry(fat_file* f,
 
   if (ERROR(err = new_fat_file(&parent_dir))) return err;
 
-  parent_dir->fs = f->fs;
+  parent_dir->header._fs_header = f->header._fs_header;
   parent_dir->first_cluster = f->parent.first_cluster;
   parent_dir->header.type = TYPE_FOLDER;
 
@@ -370,7 +370,7 @@ static error_code fat_write_directory_entry(fat_file* f,
 
   if (ERROR(err = new_fat_file(&parent_dir))) return err;
 
-  parent_dir->fs = f->fs;
+  parent_dir->header._fs_header = f->header._fs_header;
   parent_dir->first_cluster = f->parent.first_cluster;
   parent_dir->header.type = TYPE_FOLDER;
 
@@ -438,7 +438,7 @@ static error_code fat_rename(fs_header* ffs, file* ff, short_file_name* parts, u
                                                new_pos))) {
     return err;
   }
-  
+
   memcpy(de.DIR_Name, parts[depth - 1].name,
          FAT_NAME_LENGTH);  // copy the entry name
 
@@ -472,7 +472,7 @@ error_code fat_close_file(file* ff) {
 
 static void fat_reset_cursor(file* ff) {
   fat_file* f = CAST(fat_file*, ff);
-  fat_file_system* fs = f->fs;
+  fat_file_system* fs = CAST(fat_file_system*, f->header._fs_header);
   f->current_cluster = f->first_cluster;
   f->current_section_length =
       1 << (fs->_.FAT121632.log2_bps + fs->_.FAT121632.log2_spc);
@@ -484,7 +484,7 @@ static void fat_reset_cursor(file* ff) {
 }
 
 static error_code next_FAT_section(fat_file* f) {
-  fat_file_system* fs = f->fs;
+  fat_file_system* fs = CAST(fat_file_system*, f->header._fs_header);
   uint32 n = f->current_cluster;
   uint32 offset;
   uint32 sector_pos;
@@ -592,7 +592,7 @@ static error_code next_FAT_section(fat_file* f) {
 
 static error_code fat_file_set_pos_from_start(fat_file* f, uint32 position) {
   error_code err, release_error = NO_ERROR;
-  fat_file_system* fs = f->fs;
+  fat_file_system* fs = CAST(fat_file_system*,f->header._fs_header);
   BIOS_Parameter_Block* p;
   cache_block* cb;
   disk* d = fs->_.FAT121632.d;
@@ -644,7 +644,7 @@ static error_code fat_move_cursor(file* ff, int32 n) {
   BIOS_Parameter_Block* p;
   cache_block* cb;
   error_code err = NO_ERROR;
-  fat_file_system* fs = f->fs;
+  fat_file_system* fs = CAST(fat_file_system*, f->header._fs_header);
   disk* d = fs->_.FAT121632.d;
 
   if(n == 0) {
@@ -741,7 +741,7 @@ static error_code fat_set_to_absolute_position(file* ff, uint32 position) {
 error_code fat_write_file(file* ff, void* buff, uint32 count) {
   fat_file* f = CAST(fat_file*, ff);
   error_code err = NO_ERROR;
-  fat_file_system* fs = f->fs;
+  fat_file_system* fs = CAST(fat_file_system*, f->header._fs_header);
   
   if (NULL == buff) return ARG_ERROR;
   if (count < 1) return err;
@@ -858,7 +858,7 @@ error_code fat_write_file(file* ff, void* buff, uint32 count) {
 error_code fat_read_file(file* ff, void* buf, uint32 count) {
   fat_file* f = CAST(fat_file*, ff);
   if (count > 0) {
-    fat_file_system* fs = f->fs;
+    fat_file_system* fs = CAST(fat_file_system*, f->header._fs_header);
     error_code err;
 
     switch (fs->kind) {
@@ -996,7 +996,7 @@ static error_code fat_fetch_entry(fat_file_system* fs, fat_file* parent,
         // All the characters have been compared successfuly
         if(ERROR(err = new_fat_file(&f))) return err;
 
-        f->fs = fs;
+        f->header._fs_header = CAST(fs_header*, fs);
         f->first_cluster = f->current_cluster =
             (CAST(uint32, as_uint16(de.DIR_FstClusHI)) << 16) +
             as_uint16(de.DIR_FstClusLO);
@@ -1063,7 +1063,7 @@ error_code fat_32_open_root_dir(fat_file_system* fs, fat_file* f) {
   // debug_write("In open root dir, the FS kind is: ");
   // debug_write(fs->kind);
 
-  f->fs = fs;
+  f->header._fs_header = CAST(fs_header*, fs);
   f->first_cluster = f->current_cluster = root_cluster;
 
 #ifdef SHOW_DISK_INFO
@@ -1106,7 +1106,7 @@ static error_code fat_open_root_dir(fat_file_system* fs, file** result) {
 #ifdef SHOW_DISK_INFO
       term_write(cout, "Opening FAT12/FAT16\n\r");
 #endif
-      f->fs = fs;
+      f->header._fs_header = CAST(fs_header*, fs);
       f->current_cluster = 1;  // so that EOC is detected at end of dir
       f->current_section_start = fs->_.FAT121632.first_data_sector -
                                  fs->_.FAT121632.root_directory_sectors;
@@ -1367,7 +1367,7 @@ static error_code fat_32_create_empty_file(fat_file_system* fs,
 
   // Correctly set to the right coordinates in the FAT
   // so we are at the beginning of the file
-  f->fs = parent_folder->fs;
+  f->header._fs_header = parent_folder->header._fs_header;
   f->first_cluster = f->current_cluster = cluster;
   f->current_section_length =
       1 << (fs->_.FAT121632.log2_bps + fs->_.FAT121632.log2_spc);
@@ -1397,7 +1397,7 @@ static error_code fat_32_create_empty_file(fat_file_system* fs,
 static error_code fat_create_file(native_char* name, fat_file* parent_folder, fat_file** result) {
   error_code err;
   FAT_directory_entry de;
-  fat_file_system* fs = parent_folder->fs;
+  fat_file_system* fs = CAST(fat_file_system*, parent_folder->header._fs_header);
 
   switch (fs->kind) {
     case FAT12_FS:
@@ -1535,8 +1535,8 @@ static error_code fat_unlink_file(fat_file* f) {
   uint32 cluster = f->first_cluster;
   uint32 next_clus;
   do {
-    if(ERROR(err = fat_32_get_fat_link_value(f->fs, cluster, &next_clus))) break;
-    if(ERROR(err = fat_32_set_fat_link_value(f->fs, cluster, NULL))) break;
+    if(ERROR(err = fat_32_get_fat_link_value(CAST(fat_file_system*, f->header._fs_header), cluster, &next_clus))) break;
+    if(ERROR(err = fat_32_set_fat_link_value(CAST(fat_file_system*, f->header._fs_header), cluster, NULL))) break;
   } while(next_clus != FAT_32_EOF && next_clus > 0);
 
   return err;
@@ -1548,7 +1548,7 @@ static error_code fat_truncate_file(fat_file* f) {
   if(ERROR(err = fat_unlink_file(f))) return err;
   uint32 clus = f->first_cluster;
   
-  if(ERROR(err = fat_32_set_fat_link_value(f->fs, clus, FAT_32_EOF))) return err;
+  if(ERROR(err = fat_32_set_fat_link_value(CAST(fat_file_system*, f->header._fs_header), clus, FAT_32_EOF))) return err;
 
   f->length = 0;
   
@@ -1700,9 +1700,10 @@ static size_t fat_file_len(file* ff) {
 
 static dirent* fat_readdir(DIR* dir) {
   fat_file* f = CAST(fat_file*, dir->f);
+  fat_file_system* fs = CAST(fat_file_system*, f->header._fs_header);
   error_code err;
 
-  switch (f->fs->kind) {
+  switch (fs->kind) {
     case FAT12_FS:
     case FAT16_FS:
     case FAT32_FS: {

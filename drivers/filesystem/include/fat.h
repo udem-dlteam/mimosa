@@ -95,7 +95,6 @@ typedef struct fat_file_system_struct {
 
 typedef struct fat_file {
   file header;
-  fat_file_system* fs;
   uint32 first_cluster;
   uint32 current_cluster;          // the "logical cluster"
   uint32 current_section_start;    // the current LBA of the section
