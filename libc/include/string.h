@@ -5,8 +5,11 @@
 #include "include/libc_header.h"
 #include "include/stddef.h"
 
-extern "C" void *REDIRECT_NAME(memcpy)(void *__restrict __dest, const void *__restrict __src,
-                                       size_t __n);
+#ifdef __cplusplus
+extern "C"
+#endif
+void *REDIRECT_NAME(memcpy)(void *__restrict __dest, const void *__restrict __src,
+                            size_t __n);
 
 extern void *REDIRECT_NAME(memmove)(void *__dest, const void *__src, size_t __n);
 

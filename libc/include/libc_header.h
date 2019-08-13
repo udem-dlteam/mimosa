@@ -21,8 +21,6 @@
 
 #endif
 
-typedef struct stat struct_stat; // avoid issue when "stat" is redirected
-
 #include "include/libc_redirect.h"
 
 #endif // libc_header.h

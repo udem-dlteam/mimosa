@@ -60,7 +60,7 @@ struct libc_link {
   void (*_longjmp)(jmp_buf __env, int __val);
 
   // signal.h
-//  __sighandler_t (*_signal)(int __sig, __sighandler_t __handler);
+  __sighandler_t (*_signal)(int __sig, __sighandler_t __handler);
 
   // stdio.h
   FILE *(*_fopen)(const char *__restrict __filename,
@@ -77,7 +77,7 @@ struct libc_link {
   int (*_ferror)(FILE *__restrict __stream);
   int (*_feof)(FILE *__restrict __stream);
   void (*_clearerr)(FILE *__restrict __stream);
-//  int (*_fileno)(FILE *__restrict __stream);
+  int (*_fileno)(FILE *__restrict __stream);
   void (*_setbuf)(FILE *__restrict __stream, char *__restrict __buf);
   int (*_rename)(const char *__oldpath, const char *__newpath);
   int (*_fprintf_aux)(FILE *__restrict __stream, const char **__format);
@@ -109,29 +109,6 @@ struct libc_link {
   // time.h
   clock_t (*_clock)(void);
   void (*_time)(void *__timer); // TODO remove 
-//  int (*_nanosleep)(const struct timespec *__requested_time,
-//                    struct timespec *__remaining);
-//  int (*_clock_getres)(clockid_t __clock_id, struct timespec *__res);
-//  int (*_clock_gettime)(clockid_t __clock_id, struct timespec *__tp);
-//  int (*_clock_settime)(clockid_t __clock_id, const struct timespec *__tp);
-
-  // unistd.h
-  char *(*_getcwd)(char *__buf, size_t __size);
-  int (*_mkdir)(const char *__pathname, mode_t __mode);
-  int (*_remove)(const char *__pathname);
-  int (*_stat)(const char *__pathname, struct_stat *__buf);
-  int (*_lstat)(const char *__pathname, struct_stat *__buf);
-//  int (*_isatty)(int __fd);
-
-  // *** add new things below here for backward compatibility ***
-
-  // signal.h
-  __sighandler_t (*_signal)(int __sig, __sighandler_t __handler);
-
-  // stdio.h
-  int (*_fileno)(FILE *__restrict __stream);
-
-  // time.h
   int (*_nanosleep)(const struct timespec *__requested_time,
                     struct timespec *__remaining);
   int (*_clock_getres)(clockid_t __clock_id, struct timespec *__res);
@@ -139,6 +116,12 @@ struct libc_link {
   int (*_clock_settime)(clockid_t __clock_id, const struct timespec *__tp);
 
   // unistd.h
+  int (*_chdir)(const char *__path);
+  char *(*_getcwd)(char *__buf, size_t __size);
+  int (*_mkdir)(const char *__pathname, mode_t __mode);
+  int (*_remove)(const char *__pathname);
+  int (*_stat)(const char *__pathname, struct stat *__buf);
+  int (*_lstat)(const char *__pathname, struct stat *__buf);
   int (*_isatty)(int __fd);
 
   // sys/resource.h
@@ -154,6 +137,8 @@ struct libc_link {
   int (*_setitimer)(int __which,
                     const struct itimerval *__restrict __new,
                     struct itimerval *__restrict __old);
+
+  // *** add new things below here for backward compatibility ***
 
 };
 

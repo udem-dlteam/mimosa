@@ -111,6 +111,7 @@ void libc_init(void) {
   LIBC_LINK._clock_settime = REDIRECT_NAME(clock_settime);
 
   // unistd.h
+  LIBC_LINK._chdir = REDIRECT_NAME(chdir);
   LIBC_LINK._getcwd = REDIRECT_NAME(getcwd);
   LIBC_LINK._mkdir = REDIRECT_NAME(mkdir);
   LIBC_LINK._remove = REDIRECT_NAME(remove);

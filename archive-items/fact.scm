@@ -1,4 +1,6 @@
-(define fact (lambda (n)
-               (if (= n 1)
-                   1
-                   (* n (fact (- n 1))))))
+(define (fact n)
+  (if (= n 0)
+      1
+      (* n (fact (- n 1)))))
+
+(pretty-print (time (fact 1000)))
