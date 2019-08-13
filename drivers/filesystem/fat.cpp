@@ -21,6 +21,9 @@ typedef struct fs_module_struct {
   uint32 nb_mounted_fs;
 } fs_module;
 
+static fat_open_chain start_sentinel;
+static fat_open_chain end_sentinel;
+
 static fs_module fs_mod;
 static file_vtable _fat_file_vtable;
 static fs_vtable _fat_vtable;
@@ -62,8 +65,12 @@ static error_code fat_fetch_entry(fat_file_system* fs, fat_file* parent,
                                   native_char* name, fat_file** result);
 static size_t fat_file_len(file* f);
 
-static error_code fat_actual_remove(fat_file_system* fs, fat_file* f);
+static fat_open_chain* fat_chain_fetch(fat_file_system* fs, uint32 cluster);
+static error_code fat_chain_add(fat_open_chain* link);
+static error_code fat_chain_del(fat_open_chain* link);
 
+static error_code fat_actual_remove(fat_file_system* fs, fat_file* f);
+static fat_open_chain* new_chain_link(fat_file_system* fs, fat_file* file);
 // -------------------------------------------------------------
 // Mounting routines
 // -------------------------------------------------------------
@@ -468,7 +475,23 @@ fat_rename_end:
 }
 
 error_code fat_close_file(file* ff) {
+  fat_file_system* fs = CAST(fat_file_system*, ff->_fs_header);
   fat_file* f = CAST(fat_file*, ff);
+
+  fat_open_chain* link = f->link;
+  link->ref_count--;
+
+  if(0 == link->ref_count) {
+
+    if(link->remove_on_close) {
+      fat_actual_remove(fs, f);
+    }
+
+    fat_chain_del(link);
+    kfree(link);
+  }
+
+
   kfree(f);
   return NO_ERROR;
 }
@@ -1687,6 +1710,17 @@ error_code fat_file_open(fs_header* ffs, short_file_name* parts, uint8 depth, fi
 
   if (HAS_NO_ERROR(err)) {
     child->header.mode = mode;
+
+    fat_open_chain* link = fat_chain_fetch(fs, child->first_cluster);
+
+    if(NULL == link) {
+      link = new_chain_link(fs, child);
+      if(NULL == link) return MEM_ERROR;
+      fat_chain_add(link);
+    }
+
+    link->ref_count++;
+    child->link = link;
   }
 
   if (NULL != parent) fat_close_file(CAST(file*, parent));
@@ -1696,8 +1730,26 @@ error_code fat_file_open(fs_header* ffs, short_file_name* parts, uint8 depth, fi
   return NO_ERROR;
 }
 
+
+static error_code fat_actual_remove(fat_file_system* fs, fat_file* f) {
+  error_code err = fat_unlink_file(f);
+  
+  if(ERROR(err)) return err;
+
+  FAT_directory_entry de;
+  de.DIR_Name[0] = FAT_UNUSED_ENTRY;
+
+  if(ERROR(err = fat_write_directory_entry(f, &de))) {
+    return err;
+  }
+
+  return err;
+}
+
 static error_code fat_remove(fs_header* header, file* file) {
-  // TODO
+  fat_file* f = CAST(fat_file*, file);
+  fat_open_chain* link = f->link;
+  link->remove_on_close = 1;
 }
 
 static size_t fat_file_len(file* ff) {
@@ -1745,7 +1797,64 @@ static dirent* fat_readdir(DIR* dir) {
   return NULL;
 }
 
+
+static fat_open_chain* fat_chain_fetch(fat_file_system* fs, uint32 cluster) {
+  fat_open_chain* scout = &start_sentinel;
+
+  while(NULL != scout) {
+    if(scout->fat_file_first_clus == cluster && scout->fs == fs) {
+      break;
+    }
+    scout = scout->next;
+  }
+
+  return scout;
+}
+
+static error_code fat_chain_add(fat_open_chain* link) {
+  error_code err = NO_ERROR;
+
+  fat_open_chain* old_first = start_sentinel.next;
+  start_sentinel.next = link;
+  link->prev = &start_sentinel;
+  link->next = old_first;
+  old_first->prev = link;
+
+  return err;
+}
+
+static error_code fat_chain_del(fat_open_chain* link) {
+  fat_open_chain* prev = link->prev;
+  fat_open_chain* next = link->next;
+
+  prev->next = next;
+  next->prev = prev;
+
+  link->next = link->prev = NULL;
+
+  return NO_ERROR;
+}
+
+static fat_open_chain* new_chain_link(fat_file_system* fs, fat_file* file) {
+  fat_open_chain* nlink;
+
+  if(NULL == (nlink = CAST(fat_open_chain*, kmalloc(sizeof(fat_open_chain))))) return NULL;
+
+  nlink->fs = fs;
+  nlink->ref_count = nlink->remove_on_close = 0;
+  nlink->fat_file_first_clus = file->first_cluster;
+  nlink->next = nlink->prev = NULL;
+
+  return nlink;
+}
+
 error_code mount_fat(vfnode* parent) {
+
+  start_sentinel.next = &end_sentinel;
+  start_sentinel.prev = NULL;
+
+  end_sentinel.prev = &start_sentinel;
+  end_sentinel.next = NULL;
 
   // Init the FS vtable
   _fat_vtable._file_open = fat_file_open;

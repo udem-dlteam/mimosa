@@ -261,7 +261,22 @@ static vfnode* explore(short_file_name* parts, uint8 *depth) {
 }
 
 error_code file_remove(native_string path) {
-  //stub
+  error_code err = NO_ERROR;
+  file* f;
+  
+  if(ERROR(err = file_open(path, "r", &f))) {
+    return err;
+  }
+
+  fs_header* fs = f->_fs_header;
+
+  error_code rmv_err = fs_remove(fs, f);
+
+  if(ERROR(err = file_close(f))) {
+    return err;
+  }
+
+  return ERROR(rmv_err)? rmv_err : err;
 }
 
 error_code file_rename(native_string old_name, native_string new_name) {

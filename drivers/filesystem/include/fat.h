@@ -93,6 +93,17 @@ typedef struct fat_file_system_struct {
   } _;
 } fat_file_system;
 
+typedef struct fat_open_chain_link_struct fat_open_chain;
+
+struct fat_open_chain_link_struct {
+  fat_file_system* fs;
+  uint32 fat_file_first_clus;
+  uint32 ref_count;
+  fat_open_chain* next;
+  fat_open_chain* prev;
+  uint8 remove_on_close:1;
+};
+
 typedef struct fat_file {
   file header;
   uint32 first_cluster;
@@ -102,7 +113,7 @@ typedef struct fat_file {
   uint32 current_section_pos;      // the offset in bytes from the section
   uint32 current_pos;              // the absolute position
   uint32 length;                   // in bytes
-  uint8 remove_on_close : 1;
+  fat_open_chain* link;
   struct {
     uint32 first_cluster;
   } parent;

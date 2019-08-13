@@ -181,8 +181,12 @@ vfnode* new_vfnode(vfnode* vf, native_string name, file_type type);
   CAST(fs_header*, fs)                 \
       ->_vtable->_rename(CAST(fs_header*, fs), CAST(file*, f), parts, depth)
 
+#define fs_remove(fs, f) \
+  CAST(fs_header*, fs)->_vtable->_remove(CAST(fs_header*, fs), CAST(file*, f))
+
 error_code file_open(native_string path, native_string mode, file** result);
 error_code file_rename(native_string old_name, native_string new_name);
+error_code file_remove(native_string path);
 error_code mkdir(native_string path, file** result);
 
 error_code normalize_path(native_string path, native_string new_path);
