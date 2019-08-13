@@ -17,12 +17,21 @@
 #include "rtlib.h"
 #include "term.h"
 #include "thread.h"
+#include "uart.h"
 
 int main() {
 #ifdef MIMOSA_REPL
   term_run(cout);
 #endif
 
+  error_code err;
+  file* stdin, *stdout;
+  if (ERROR(err = file_open(STDIN_PATH, "w", &stdin))) {
+    return err;
+  }
+  init_serial(COM1_PORT_BASE, stdout, stdin); // the input is the output that we read,vice-versa
+ 
+ 
 #ifdef GAMBIT_REPL
   {
     native_string file_name = "/dsk1/GSC.EXE";

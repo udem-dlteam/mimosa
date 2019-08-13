@@ -12,6 +12,7 @@
 //-----------------------------------------------------------------------------
 
 #include "general.h"
+#include "../drivers/filesystem/include/stdstream.h"
 
 //-----------------------------------------------------------------------------
 
@@ -110,7 +111,7 @@
 
 //-----------------------------------------------------------------------------
 
-void init_serial(int port);
+void init_serial(int port, file* input, file* output);
 void send_serial(int com, char *);
 int serial_received(int com_port);
 

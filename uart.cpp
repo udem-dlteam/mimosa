@@ -10,8 +10,36 @@
  * https://en.wikibooks.org/wiki/Serial_Programming/8250_UART_Programming
  */
 int port_in_use = 0;
+// TODO : handle when nothing in use ; not sure what to assign to void . maybe = 0 ?
 
-void init_serial(int com_port) {
+struct com_table{
+  file* input;
+  file* output;
+};
+
+int com_num(int hex){
+  switch (hex) {
+  case COM1_PORT_BASE:
+    return 1;
+  case COM2_PORT_BASE:
+    return 2;
+  case COM3_PORT_BASE:
+    return 3;
+  case COM4_PORT_BASE:
+    return 4;
+  default:
+    return 0;
+  }
+}
+  
+struct com_table com_tab[4];
+
+static bool verbose = false;
+
+/* TODO:
+ * Add two args: arg1=stream de lecture arg2=stream d'ecriture
+ */
+void init_serial(int com_port, file* input, file* output) {
   /*
   Quoi faire!
 
@@ -56,9 +84,9 @@ void init_serial(int com_port) {
   Je pense que tu devrais etre pas pire avec ca!
   
    */
-
-
   port_in_use = com_port;
+  com_tab[com_num(com_port)].input = input;
+  com_tab[com_num(com_port)].output = output;
 
   if (!(com_port == COM1_PORT_BASE || com_port == COM2_PORT_BASE ||
         com_port == COM3_PORT_BASE || com_port == COM4_PORT_BASE)) {
@@ -100,23 +128,27 @@ static void read_msr(uint16 port){
   uint8 c = inb(port + UART_8250_MSR);
   term_write(cout, "\r\nRead MSR\r\n");
   if( UART_MSR_CARRIER_DETECT(c) ){
-    term_write(cout,"\r\nModem connected to another modem\r\n");
+    if(verbose)
+      term_write(cout,"\r\nModem connected to another modem\r\n");
   } else {
-    term_write(cout,"\r\nModem not connected to another modem\r\n");
+    if(verbose)
+      term_write(cout,"\r\nModem not connected to another modem\r\n");
   }
   //if( UART_MSR_RING_INDICATOR(c) ){
   //  term_write(cout,"\r\nRing Voltage\r\n");
   //}
   if( UART_MSR_DATA_SET_READY(c) ){
     // TODO
-    term_write(cout,"\r\nData Set Ready\r\n");
+    if(verbose)
+      term_write(cout,"\r\nData Set Ready\r\n");
   }
   if( UART_MSR_CLEAR_TO_SEND(c) ){
     // handshaking signal. This is normally connected
     // to the RTS (Request To Send) signal on the remove
     // device. When that remote device asserts its RTS line,
     // data transmission can take place
-    term_write(cout,"\r\nClear to Send\r\n");
+    if(verbose)
+      term_write(cout,"\r\nClear to Send\r\n");
   }
   // ignored bits for the moment
   //if( UART_MSR_DELTA_DATA_CARRIER_DETECT(c) ){}
@@ -132,7 +164,7 @@ static void handle_thr(uint16 port){
     //if(UART_IIR_GET_FIFO_STATE( inb( port + UART_IIR_FIFO_NO_FIFO ))){}
 
     //TODO : write buffer in THR ?
-    term_write(cout, "\r\ndata wrote in THR\r\n");
+    //term_write(cout, "\r\ndata wrote in THR\r\n");
   }
 }
 
@@ -141,9 +173,9 @@ static void read_RHR(int com_port) {
   while (!(inb(com_port + UART_8250_LSR) & UART_8250_LSR_DR));
   //return inb(com_port);
   char c = (char)inb(com_port);
-  
-  term_write(cout, c);
-  term_write(cout, "\r\ndata has been read and put into circular buffer\r\n");
+  int i = c;
+  file_write(com_tab[com_num(com_port)].output, &i , sizeof(i));
+  //term_write(cout, c);
 }
 
 static void read_lsr(uint16 port){
@@ -151,27 +183,34 @@ static void read_lsr(uint16 port){
   
   if( UART_LSR_DATA_AVAILABLE(e) ){
     //read (RHR)
-    term_write(cout, "\r\nData Available\r\n");
+    if(verbose)
+      term_write(cout, "\r\nData Available\r\n");
     read_RHR(port);
   }
   if( UART_LSR_OVERRUN_ERROR(e) ){
-    term_write(cout, "\r\nOVERRUN_ERROR\r\n");
+    if(verbose)
+      term_write(cout, "\r\nOVERRUN_ERROR\r\n");
   }
   if( UART_LSR_PARITY_ERROR(e) ){
-    term_write(cout, "\r\nPARITY_ERROR\r\n");
+    if(verbose)
+      term_write(cout, "\r\nPARITY_ERROR\r\n");
   }
   if( UART_LSR_FRAMING_ERROR(e) ){
-    term_write(cout, "\r\nFRAMING_ERROR\r\n");
+    if(verbose)
+      term_write(cout, "\r\nFRAMING_ERROR\r\n");
   }
   if( UART_LSR_BREAK_INTERRUPT(e) ){
-    term_write(cout, "\r\nBREAK_INTERRUPT\r\n");
+    if(verbose)
+      term_write(cout, "\r\nBREAK_INTERRUPT\r\n");
   }
   if( UART_LSR_CAN_RECEIVE(e) ){
-    term_write(cout, "\r\nCAN_RECEIVE\r\n");
+    if(verbose)
+      term_write(cout, "\r\nCAN_RECEIVE\r\n");
     // reading the lsr or writing to the data register clears this bit
   }
   if( UART_LSR_ALL_CAR_TRANSMITTED(e) ){
-    term_write(cout, "\r\nALL_CAR_TRANSMITTED\r\n");
+    if(verbose)
+      term_write(cout, "\r\nALL_CAR_TRANSMITTED\r\n");
   }
   //if( UART_LSR_ERROR_IN_RECEIVED_FIFO(e) ){
   //  //FIFO never used for the moment.
@@ -180,13 +219,16 @@ static void read_lsr(uint16 port){
 }
 
 void _handle_interrupt(uint16 port, uint8 com_index, uint8 iir) {
-  term_write(cout, inb(port + UART_8250_IIR));
+  if(verbose)
+    term_write(cout, inb(port + UART_8250_IIR));
 #ifdef SHOW_UART_MESSAGES
-  term_write(cout, "\n\rIRQ4 fired and COM ");
-  term_write(cout, com_index);
-  term_write(cout, " on port ");
-  term_write(cout, port);
-  term_write(cout, " got data");
+  if(verbose){
+    term_write(cout, "\n\rIRQ4 fired and COM ");
+    term_write(cout, com_index);
+    term_write(cout, " on port ");
+    term_write(cout, port);
+    term_write(cout, " got data");
+  }
 #endif
 
   uint8 cause = UART_IIR_GET_CAUSE(iir);
@@ -199,8 +241,9 @@ void _handle_interrupt(uint16 port, uint8 com_index, uint8 iir) {
     //             line signal detect signals.
     // priority :lowest
     // Reading Modem Status Register (MSR) 
-    term_write(cout, "\r\nRead_modem_status_register");
-      read_msr(port);
+    if(verbose)
+      term_write(cout, "\r\nRead_modem_status_register");
+    read_msr(port);
     break;
   case UART_IIR_TRANSMITTER_HOLDING_REG:
     // Transmitter empty
@@ -209,7 +252,8 @@ void _handle_interrupt(uint16 port, uint8 com_index, uint8 iir) {
     // priority : next to lowest
     // Reading interrupt indentification register(IIR)
     // or writing to Transmit Holding Buffer (THR)
-    term_write(cout, "\r\nTransmitter_Holding_reg");
+    if(verbose)
+      term_write(cout, "\r\nTransmitter_Holding_reg");
     handle_thr(port);
     break;
   case UART_IIR_RCV_LINE:
@@ -218,7 +262,8 @@ void _handle_interrupt(uint16 port, uint8 com_index, uint8 iir) {
     //             error, or break interrupt.
     // priority : highest
     // reading line status register
-    term_write(cout, "\r\nError or Break");
+    if(verbose)
+      term_write(cout, "\r\nError or Break");
     read_lsr(port);
     break;
   case UART_IIR_DATA_AVAIL:
@@ -230,11 +275,13 @@ void _handle_interrupt(uint16 port, uint8 com_index, uint8 iir) {
     // This means that we need to read data
     // before the connection timeouts
     // reading receive Buffer Register(RHR)
-    term_write(cout, "\r\nData Avail\r\n");
+    if(verbose)
+      term_write(cout, "\r\nData Avail\r\n");
     read_RHR(port); // ***
     break;
   case UART_IIR_TIMEOUT:
-    term_write(cout, "\r\nTimeout\r\n");
+    if(verbose)
+      term_write(cout, "\r\nTimeout\r\n");
     //simple serial read
     read_RHR(port);
     break;
