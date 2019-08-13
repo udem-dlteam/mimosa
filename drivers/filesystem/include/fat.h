@@ -11,6 +11,7 @@
 #define FAT32_FS 2
 
 #define FAT_UNUSED_ENTRY 0xE5
+#define FAT_LAST_LONG_ENTRY 0x40
 
 #define FAT_NAME_MAX 1024
 #define DT_UNKNOWN 0
@@ -140,6 +141,17 @@ typedef struct FAT_directory_entry_struct {
   uint8 DIR_FstClusLO[2];
   uint8 DIR_FileSize[4];
 } FAT_directory_entry;
+
+typedef struct long_file_name_entry_struct {
+  uint8 LDIR_ord;
+  uint8 LDIR_Name1[10];
+  uint8 LDIR_Attr;
+  uint8 LDIR_Type;
+  uint8 LDIR_Checksum;
+  uint8 LDIR_Name2[12];
+  uint8 LDIR_FstClusLO[2];
+  uint8 LDIR_Name3[4];
+} long_file_name_entry;
 
 
 error_code mount_fat(vfnode* parent);

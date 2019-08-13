@@ -19,6 +19,8 @@
 #include "term.h"
 #include "thread.h"
 
+extern error_code read_lfn(fat_file* f, native_string* result);
+
 int main() {
 #ifdef SHOW_BOOT_TIME
   {
@@ -48,9 +50,15 @@ int main() {
 
 #ifdef MIMOSA_REPL
   file* f;
-  error_code err = file_open("/dsk1/time.dat", "a+", &f);
-  if (ERROR(err)) panic(L"ADAS");
-  file_close(f);
+  error_code err = file_open("/dsk1/thisis~1.scm", "a+", &f);
+  native_string lfn;
+
+  if(ERROR(err = read_lfn(CAST(fat_file*,f), &lfn))) {
+    panic(L"Read LFN ERR");
+  }
+
+  term_write(cout, lfn);
+  term_writeline(cout);
 
   term_run(cout);
 #endif
