@@ -76,6 +76,9 @@ static fat_open_chain* new_chain_link(fat_file_system* fs, fat_file* file);
 static uint8 lfn_checksum(native_string short_fname);
 static short_file_name* name_to_short_file_name(native_string n);
 
+error_code read_lfn(fs_header* fs, uint32 cluster, uint32 entry_position,
+                    native_string* result) ;
+
 // -------------------------------------------------------------
 // Mounting routines
 // -------------------------------------------------------------
@@ -533,6 +536,8 @@ fat_rename_end:
 error_code fat_close_file(file* ff) {
   fat_file_system* fs = CAST(fat_file_system*, ff->_fs_header);
   fat_file* f = CAST(fat_file*, ff);
+
+  if (NULL != ff->name) kfree(ff->name);
 
   if (NULL != f->link) {
     fat_open_chain* link = f->link;
@@ -1798,6 +1803,19 @@ error_code fat_file_open(fs_header* ffs, short_file_name* parts, uint8 depth, fi
     }
   }
 
+  if(HAS_NO_ERROR(err)) {
+    err = read_lfn(child->header._fs_header, child->parent.first_cluster,
+                   child->entry.position, &child->header.name);
+
+    if(ERROR(err) && FNF_ERROR == err) {
+      // Put a short file name in there
+      // TODO: copy in a sane way
+      child->header.name = CAST(native_string, kmalloc((FAT_NAME_LENGTH + 1 * sizeof(native_char))));
+      memcpy(child->header.name, child_name, FAT_NAME_LENGTH);
+      child->header.name[FAT_NAME_LENGTH] = '\0';
+    }
+  }
+
   if (HAS_NO_ERROR(err)) {
     child->header.mode = mode;
 
@@ -1847,25 +1865,25 @@ static size_t fat_file_len(file* ff) {
   return CAST(size_t, f->length);
 }
 
-error_code read_lfn(fat_file* f, native_string* result) {
+error_code read_lfn(fs_header* fs, uint32 cluster, uint32 entry_position,
+                    native_string* result) {
   // We need to find the first entry.
   error_code err = NO_ERROR;
   native_string long_file_name;
   uint8 i, j, k, checksum, lfn_entry_count = 0;
-  fat_file* reader;
+  uint16 wide_char, max_name_length = 0;
   FAT_directory_entry de;
   long_file_name_entry lfn_e;
-  uint16 wide_char;
-  uint16 max_name_length = 0;
+  fat_file* reader;
 
   if (ERROR(err = new_fat_file(&reader))) return err;
 
-  reader->header._fs_header = f->header._fs_header;
-  reader->first_cluster = f->parent.first_cluster;
+  reader->header._fs_header = fs;
+  reader->first_cluster = cluster;
   reader->header.type = TYPE_FOLDER;
 
   fat_reset_cursor(CAST(file*, reader));
-  fat_set_to_absolute_position(CAST(file*, reader), f->entry.position);
+  fat_set_to_absolute_position(CAST(file*, reader), entry_position);
 
   if (ERROR(err = fat_read_file(CAST(file*, reader), &de,
                                 sizeof(FAT_directory_entry)))) {
@@ -1874,24 +1892,34 @@ error_code read_lfn(fat_file* f, native_string* result) {
 
   checksum = lfn_checksum(CAST(native_char*, de.DIR_Name));
 
-  while(1) {
-    fat_set_to_absolute_position(
-        CAST(file*, reader),
-        f->entry.position - (sizeof(long_file_name_entry) * (lfn_entry_count + 1)));
-    
-    // We read the LFN entry and scan that it is correct.
+  while (1) {
+    _debug_write('1');
 
-    if(ERROR(err = fat_read_file(CAST(file*, reader), &lfn_e, sizeof(long_file_name_entry)))) {
+    if (entry_position <
+        (sizeof(long_file_name_entry) * (lfn_entry_count + 1))) {
+      err = FNF_ERROR;
       goto fat_read_lfn_end;
     }
 
-    if(lfn_e.LDIR_Checksum != checksum) {
+    uint32 position = entry_position - (sizeof(long_file_name_entry) *
+                                                  (lfn_entry_count + 1));
+                                                  
+    fat_set_to_absolute_position(CAST(file*, reader), position);
+
+    // We read the LFN entry and scan that it is correct.
+
+    if (ERROR(err = fat_read_file(CAST(file*, reader), &lfn_e,
+                                  sizeof(long_file_name_entry)))) {
+      goto fat_read_lfn_end;
+    }
+
+    if (lfn_e.LDIR_Checksum != checksum) {
       err = FNF_ERROR;
       goto fat_read_lfn_end;
     }
 
     lfn_entry_count++;
-    if(lfn_e.LDIR_ord & FAT_LAST_LONG_ENTRY) break;
+    if (lfn_e.LDIR_ord & FAT_LAST_LONG_ENTRY) break;
   }
 
   // Now we need to actually read into the lfn
@@ -1901,35 +1929,37 @@ error_code read_lfn(fat_file* f, native_string* result) {
   // We allocate according to that maximum
   max_name_length = (26 >> 1) * lfn_entry_count;
 
-  long_file_name = CAST(native_char*, kmalloc(sizeof(native_char) * (max_name_length + 1)));
+  long_file_name =
+      CAST(native_char*, kmalloc(sizeof(native_char) * (max_name_length + 1)));
   for (j = 0; j < max_name_length + 1; ++j) long_file_name[j] = '\0';
 
   j = 0;
-  for(i = 0; i < lfn_entry_count; ++i) {
+  for (i = 0; i < lfn_entry_count; ++i) {
     if (ERROR(err = fat_set_to_absolute_position(
                   CAST(file*, reader),
-                  f->entry.position - (sizeof(long_file_name_entry) *
-                                       (i + 1))))) {
+                  entry_position -
+                      (sizeof(long_file_name_entry) * (i + 1))))) {
       goto fat_read_lfn_end;
     }
 
     // We read the LFN entry and scan that it is correct.
-    if(ERROR(err = fat_read_file(CAST(file*, reader), &lfn_e, sizeof(long_file_name_entry)))) {
+    if (ERROR(err = fat_read_file(CAST(file*, reader), &lfn_e,
+                                  sizeof(long_file_name_entry)))) {
       goto fat_read_lfn_end;
     }
 
     // The LFN chars are 16 bit UNICODE characters.
     // Since we don't support that (native_string) we
     // discard the top
-    for(k = 0; k < 10; k += 2) {
+    for (k = 0; k < 10; k += 2) {
       long_file_name[j++] = 0xFF & lfn_e.LDIR_Name1[k];
     }
 
-    for(k = 0; k < 12; k += 2) {
+    for (k = 0; k < 12; k += 2) {
       long_file_name[j++] = 0xFF & lfn_e.LDIR_Name2[k];
     }
 
-    for(k = 0; k < 4; k += 2) {
+    for (k = 0; k < 4; k += 2) {
       long_file_name[j++] = 0xFF & lfn_e.LDIR_Name3[k];
     }
   }
@@ -1937,12 +1967,18 @@ error_code read_lfn(fat_file* f, native_string* result) {
   long_file_name[max_name_length] = '\0';
 
 fat_read_lfn_end:
-
-  if(ERROR(err)) kfree(long_file_name);
-  else *result = long_file_name;
+  if (ERROR(err))
+    kfree(long_file_name);
+  else
+    *result = long_file_name;
 
   fat_close_file(CAST(file*, reader));
   return err;
+}
+
+error_code read_lfn(fat_file* f, native_string* result) {
+  return read_lfn(f->header._fs_header, f->parent.first_cluster,
+                  f->entry.position, result);
 }
 
 static dirent* fat_readdir(DIR* dir) {
@@ -1955,6 +1991,7 @@ static dirent* fat_readdir(DIR* dir) {
     case FAT16_FS:
     case FAT32_FS: {
       FAT_directory_entry de;
+      // TODO set the file position
 
       while ((err = fat_read_file(CAST(file*, f), &de, sizeof(de))) == sizeof(de)) {
         if (de.DIR_Attr == FAT_ATTR_LONG_NAME) continue;
@@ -1962,15 +1999,28 @@ static dirent* fat_readdir(DIR* dir) {
         if (de.DIR_Name[0] != FAT_UNUSED_ENTRY) {
           if ((de.DIR_Attr & FAT_ATTR_HIDDEN) == 0 &&
               (de.DIR_Attr & FAT_ATTR_VOLUME_ID) == 0) {
-            native_string p1 = dir->ent.d_name;
-            native_string p2;
+            native_string lfn;
 
-            p1 = copy_without_trailing_spaces(&de.DIR_Name[0], p1, 8);
-            *p1++ = '.';
-            p2 = p1;
-            p1 = copy_without_trailing_spaces(&de.DIR_Name[8], p1, 3);
-            if (p1 == p2) p1--;
-            *p1++ = '\0';
+            debug_write("A");
+            error_code lfn_err =
+                read_lfn(f->header._fs_header, f->first_cluster,
+                         f->current_pos - sizeof(de), &lfn);
+
+            native_string p1 = dir->ent.d_name;
+            if (ERROR(lfn_err)) {
+              debug_write("D");
+              native_string p2;
+              // TODO remove the empty spaces in there
+              p1 = copy_without_trailing_spaces(&de.DIR_Name[0], p1, 8);
+              *p1++ = '.';
+              p2 = p1;
+              p1 = copy_without_trailing_spaces(&de.DIR_Name[8], p1, 3);
+              if (p1 == p2) p1--;
+              *p1++ = '\0';
+            } else {
+              debug_write("E");
+              memcpy(p1, lfn, kstrlen(lfn));
+            }
 
             dir->ent.d_type = (de.DIR_Attr & FAT_ATTR_DIRECTORY) ? TYPE_FOLDER : TYPE_REGULAR;
 

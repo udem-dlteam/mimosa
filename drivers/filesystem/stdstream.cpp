@@ -6,8 +6,8 @@
 
 #define STREAM_DEFAULT_LEN 512
 
-native_string STDIN_PATH = "/dev/stdin";
-native_string STDOUT_PATH = "/dev/stdout";
+native_string STDIN_PATH = "/sys/stdin";
+native_string STDOUT_PATH = "/sys/stdout";
 
 static native_string STDIN_PART = "STDIN      ";
 static native_string STDOUT_PART = "STDOUT     ";
@@ -325,7 +325,7 @@ error_code mount_streams(vfnode* parent) {
 
   // Init mount point
   vfnode* dev_node = CAST(vfnode*, kmalloc(sizeof(vfnode)));
-  new_vfnode(dev_node, "DEV        ", TYPE_MOUNTPOINT);
+  new_vfnode(dev_node, "SYS        ", TYPE_MOUNTPOINT);
   dev_node->_value.mountpoint.mounted_fs = &fs_std_stream;
   vfnode_add_child(parent, dev_node);
 

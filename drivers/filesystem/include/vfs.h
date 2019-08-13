@@ -77,7 +77,7 @@ struct fs_vtable_struct {
 struct file_struct {
   fs_header* _fs_header;
   file_vtable* _vtable;
-  native_string path;
+  native_string name;
   file_type type;
   file_mode mode;
 };

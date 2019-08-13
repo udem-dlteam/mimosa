@@ -461,7 +461,7 @@ void __rtlib_setup ()
   }
   
   term_write(cout, "Loading up LIBC\n");
-  libc_init();
+  // libc_init();
 
   // FS is loaded, now load the cache maid
 #ifdef USE_CACHE_BLOCK_MAID
