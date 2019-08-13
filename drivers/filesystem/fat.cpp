@@ -438,14 +438,9 @@ static error_code fat_rename(fs_header* ffs, file* ff, short_file_name* parts, u
                                                new_pos))) {
     return err;
   }
-  debug_write(parts[0].name);
+  
   memcpy(de.DIR_Name, parts[depth - 1].name,
          FAT_NAME_LENGTH);  // copy the entry name
-
-  debug_write("New name");
-  for(int i = 0; i < 8; ++i) {
-    _debug_write(de.DIR_Name[i]);
-  }
 
   if(ERROR(err = fat_write_file(CAST(file*, target_parent), &de, sizeof(FAT_directory_entry)))) {
     goto fat_rename_end;
@@ -454,8 +449,8 @@ static error_code fat_rename(fs_header* ffs, file* ff, short_file_name* parts, u
   // Clean the old entry
   de.DIR_Name[0] = FAT_UNUSED_ENTRY; // Set the entry available
   // The eager eye might have noticed that we don't copy over the same
-  // entry bac where we originally read it. It doesn't matter, since
-  // the entry is garbage anyways.
+  // entry back where we originally read it. It doesn't matter, since
+  // the old entry is now garbage anyways.
   if(ERROR(err = fat_write_directory_entry(f, &de))) {
     goto fat_rename_end;
   }
