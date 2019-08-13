@@ -1,5 +1,6 @@
 #include "include/libc_common.h"
 #include "include/unistd.h"
+#include "include/errno.h"
 
 int REDIRECT_NAME(chdir)(const char *__path) {
 
@@ -70,7 +71,8 @@ int REDIRECT_NAME(mkdir)(const char *__pathname, mode_t __mode) {
 #else
 
   // TODO: implement
-  return 0;
+  errno = ENOENT;
+  return -1;
 
 #endif
 #endif
@@ -93,7 +95,8 @@ int REDIRECT_NAME(remove)(const char *__pathname) {
 #else
 
   // TODO: implement
-  return 0;
+  errno = ENOENT;
+  return -1;
 
 #endif
 #endif
@@ -116,7 +119,8 @@ int REDIRECT_NAME(lstat)(const char *__pathname, struct stat *__buf) {
 #else
 
   // TODO: implement
-  return 0;
+  errno = ENOENT;
+  return -1;
 
 #endif
 #endif
@@ -139,7 +143,8 @@ int REDIRECT_NAME(stat)(const char *__pathname, struct stat *__buf) {
 #else
 
   // TODO: implement
-  return 0;
+  errno = ENOENT;
+  return -1;
 
 #endif
 #endif
