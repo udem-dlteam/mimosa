@@ -79,8 +79,6 @@ void mutex_lock(mutex* self) {
   enable_interrupts();
 }
 
-volatile bool cccc = FALSE;
-
 void rwmutex_readlock(rwmutex* self) {
   disable_interrupts();
 
@@ -104,7 +102,6 @@ void rwmutex_writelock(rwmutex* self) {
   if(was_waiting = (mself->_locked || self->_readers > 0)) self->_writerq++;
 
   while (mself->_locked || self->_readers > 0) {
-    cccc = TRUE;
     save_context(_sched_suspend_on_wait_queue, &mself->super);
   }
 
@@ -741,38 +738,15 @@ void _sched_suspend_on_wait_queue(uint32 cs, uint32 eflags, uint32* sp,
                                   void* q) {
   ASSERT_INTERRUPTS_DISABLED();  // Interrupts should be disabled at this point
 
-  if (cccc) {
-    debug_write("A");
-  }
-
   thread* current = sched_current_thread;
-
-  if (cccc) {
-    debug_write(thread_name(current));
-  }
-
   current->_sp = sp;
 
   wait_queue_remove(current);
-
-  if(cccc) {
-    debug_write("B");
-  }
-
   wait_queue_detach(current);
-
-  if(cccc) {
-    debug_write("C");
-  }
 
   wait_queue* wq = CAST(wait_queue*, q);
 
   wait_queue_insert(current, wq);
-
-  if (cccc) {
-    debug_write("Putting to sleep:");
-    debug_write(thread_name(current));
-  }
 
   _sched_resume_next_thread();
 
