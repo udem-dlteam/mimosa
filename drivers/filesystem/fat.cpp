@@ -1893,8 +1893,6 @@ error_code read_lfn(fs_header* fs, uint32 cluster, uint32 entry_position,
   checksum = lfn_checksum(CAST(native_char*, de.DIR_Name));
 
   while (1) {
-    _debug_write('1');
-
     if (entry_position <
         (sizeof(long_file_name_entry) * (lfn_entry_count + 1))) {
       err = FNF_ERROR;
@@ -1903,7 +1901,7 @@ error_code read_lfn(fs_header* fs, uint32 cluster, uint32 entry_position,
 
     uint32 position = entry_position - (sizeof(long_file_name_entry) *
                                                   (lfn_entry_count + 1));
-                                                  
+
     fat_set_to_absolute_position(CAST(file*, reader), position);
 
     // We read the LFN entry and scan that it is correct.
@@ -2001,14 +1999,12 @@ static dirent* fat_readdir(DIR* dir) {
               (de.DIR_Attr & FAT_ATTR_VOLUME_ID) == 0) {
             native_string lfn;
 
-            debug_write("A");
             error_code lfn_err =
                 read_lfn(f->header._fs_header, f->first_cluster,
                          f->current_pos - sizeof(de), &lfn);
 
             native_string p1 = dir->ent.d_name;
             if (ERROR(lfn_err)) {
-              debug_write("D");
               native_string p2;
               // TODO remove the empty spaces in there
               p1 = copy_without_trailing_spaces(&de.DIR_Name[0], p1, 8);
@@ -2018,7 +2014,6 @@ static dirent* fat_readdir(DIR* dir) {
               if (p1 == p2) p1--;
               *p1++ = '\0';
             } else {
-              debug_write("E");
               memcpy(p1, lfn, kstrlen(lfn));
             }
 
@@ -2069,6 +2064,8 @@ static uint8 lfn_checksum(native_string short_fname) {
 static short_file_name* name_to_short_file_name(native_string n) {
   short_file_name* sfn = CAST(short_file_name*, kmalloc(sizeof(short_file_name)));
   native_char* scout = n;
+  uint32 len = kstrlen(n);
+
   sfn->name[11] = '\0';
   
   for(uint8 i = 0; i < 8; ++i) {
@@ -2086,11 +2083,14 @@ static short_file_name* name_to_short_file_name(native_string n) {
     sfn->name[8 + i] = *scout;
   }
 
+  // TODO
   // Now the complicated part:
   // For now, only add ~1
 
-  sfn->name[6] = '~';
-  sfn->name[7] = '1';
+  if (len <= FAT_NAME_LENGTH) {
+    sfn->name[6] = '~';
+    sfn->name[7] = '1';
+  }
 
   return sfn;
 }
