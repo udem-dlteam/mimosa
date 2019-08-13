@@ -38,16 +38,24 @@ static error_code stream_read(file* f, void* buf, uint32 count);
 // -------------------------------------------------------------
 void stream_reset_cursor(file* f) { return; }
 
-static error_code stream_move_cursor(file* f, int32 n) { return UNIMPL_ERROR; }
+static error_code stream_move_cursor(file* f, int32 n) { return ARG_ERROR; }
 
 static error_code stream_set_to_absolute_position(file* f, uint32 position) {
-  return UNIMPL_ERROR;
+  return ARG_ERROR;
 }
 
 static size_t stream_len(file* f) { return 0; }
 
 error_code stream_mkdir(fs_header* header, short_file_name* parts, uint8 depth, file**result) {
-  return UNIMPL_ERROR;
+  return ARG_ERROR;
+}
+
+error_code stream_rename(fs_header* header, file* source, short_file_name* parts, uint8 depth) {
+  return ARG_ERROR;
+}
+
+error_code stream_remove(fs_header* header, file* source) {
+  return ARG_ERROR;
 }
 
 // -------------------------------------------------------------
@@ -152,7 +160,7 @@ static error_code stream_write(file* ff, void* buff, uint32 count) {
         // No one is caught up: there's a new char
         rs->late = rs->readers;
         condvar_mutexless_signal(streamcv);
-      } else if (rs->late == 0) {
+      } else if (rs->late == 0) { // this allows a not reader stream to never overflow
         stream_reset(rs);
       } else if (rs->autoresize) {
         // Resize
@@ -297,6 +305,8 @@ error_code mount_streams(vfnode* parent) {
 
   __std_stream_vtable._file_open = stream_open_file;
   __std_stream_vtable._mkdir = stream_mkdir;
+  __std_stream_vtable._rename = stream_rename;
+  __std_stream_vtable._remove = stream_remove;
 
   fs_std_stream.kind = STREAM;
   fs_std_stream._vtable = &__std_stream_vtable;

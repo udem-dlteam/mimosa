@@ -10,6 +10,8 @@
 #define FAT16_FS 1
 #define FAT32_FS 2
 
+#define FAT_UNUSED_ENTRY 0xE5
+
 #define FAT_NAME_MAX 1024
 #define DT_UNKNOWN 0
 #define DT_DIR 1
@@ -91,9 +93,19 @@ typedef struct fat_file_system_struct {
   } _;
 } fat_file_system;
 
+typedef struct fat_open_chain_link_struct fat_open_chain;
+
+struct fat_open_chain_link_struct {
+  fat_file_system* fs;
+  uint32 fat_file_first_clus;
+  uint32 ref_count;
+  fat_open_chain* next;
+  fat_open_chain* prev;
+  uint8 remove_on_close:1;
+};
+
 typedef struct fat_file {
   file header;
-  fat_file_system* fs;
   uint32 first_cluster;
   uint32 current_cluster;          // the "logical cluster"
   uint32 current_section_start;    // the current LBA of the section
@@ -101,6 +113,7 @@ typedef struct fat_file {
   uint32 current_section_pos;      // the offset in bytes from the section
   uint32 current_pos;              // the absolute position
   uint32 length;                   // in bytes
+  fat_open_chain* link;
   struct {
     uint32 first_cluster;
   } parent;

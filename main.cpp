@@ -40,7 +40,7 @@ int main() {
 
       program_thread* task =
           CAST(program_thread*, kmalloc(sizeof(program_thread)));
-      new_program_thread(task, CAST(libc_startup_fn, code), "Gambit");
+      new_program_thread(task, "/dsk1", CAST(libc_startup_fn, code), "Gambit");
       thread_start(CAST(thread*, task));
     } else {
       term_write(cout, "\r\n Failed to open Gambit.\r\n");

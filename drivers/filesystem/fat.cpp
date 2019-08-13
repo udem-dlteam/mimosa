@@ -21,6 +21,9 @@ typedef struct fs_module_struct {
   uint32 nb_mounted_fs;
 } fs_module;
 
+static fat_open_chain start_sentinel;
+static fat_open_chain end_sentinel;
+
 static fs_module fs_mod;
 static file_vtable _fat_file_vtable;
 static fs_vtable _fat_vtable;
@@ -40,6 +43,8 @@ error_code new_fat_file(fat_file** result) {
   return err;
 }
 
+static error_code fat_remove(fs_header* header, file* file);
+static error_code fat_rename(fs_header* header, file* source, short_file_name* parts, uint8 depth);
 static error_code fat_mkdir(fs_header* header, short_file_name* parts, uint8 depth, file** result);
 static error_code fat_file_open(fs_header* header, short_file_name* parts, uint8 depth, file_mode mode, file** result);
 static void fat_reset_cursor(file* f);
@@ -54,8 +59,18 @@ static error_code fat_32_find_first_empty_cluster(fat_file_system* fs,
 static error_code fat_32_set_fat_link_value(fat_file_system* fs, uint32 cluster,
                                             uint32 value);
 static error_code fat_update_file_length(fat_file* f);
+static error_code fat_fetch_first_empty_directory_position(
+    fat_file* directory, FAT_directory_entry* de, uint32* position);
+static error_code fat_fetch_entry(fat_file_system* fs, fat_file* parent,
+                                  native_char* name, fat_file** result);
 static size_t fat_file_len(file* f);
 
+static fat_open_chain* fat_chain_fetch(fat_file_system* fs, uint32 cluster);
+static error_code fat_chain_add(fat_open_chain* link);
+static error_code fat_chain_del(fat_open_chain* link);
+
+static error_code fat_actual_remove(fat_file_system* fs, fat_file* f);
+static fat_open_chain* new_chain_link(fat_file_system* fs, fat_file* file);
 // -------------------------------------------------------------
 // Mounting routines
 // -------------------------------------------------------------
@@ -341,7 +356,7 @@ static error_code fat_open_directory_entry(fat_file* f,
 
   if (ERROR(err = new_fat_file(&parent_dir))) return err;
 
-  parent_dir->fs = f->fs;
+  parent_dir->header._fs_header = f->header._fs_header;
   parent_dir->first_cluster = f->parent.first_cluster;
   parent_dir->header.type = TYPE_FOLDER;
 
@@ -358,15 +373,132 @@ static error_code fat_open_directory_entry(fat_file* f,
   return err;
 }
 
-error_code fat_close_file(file* ff) {
+static error_code fat_write_directory_entry(fat_file* f,
+                                           FAT_directory_entry* de) {
+  error_code err = NO_ERROR;
+  fat_file* parent_dir;                    
+
+  if (ERROR(err = new_fat_file(&parent_dir))) return err;
+
+  parent_dir->header._fs_header = f->header._fs_header;
+  parent_dir->first_cluster = f->parent.first_cluster;
+  parent_dir->header.type = TYPE_FOLDER;
+
+  // Correctly locate the DE to overwrite 
+  fat_reset_cursor(CAST(file*, parent_dir)); // might seem useless but it actually initialize the cursor correctly
+  fat_set_to_absolute_position(CAST(file*, parent_dir), f->entry.position);
+
+  if (ERROR(err = fat_write_file(CAST(file*, parent_dir), de, sizeof(FAT_directory_entry)))) {
+    return err;
+  }
+
+  fat_close_file(CAST(file*, parent_dir));
+
+  return err;
+}
+
+static error_code fat_rename(fs_header* ffs, file* ff, short_file_name* parts, uint8 depth) {
+  error_code err = NO_ERROR;
+  fat_file_system* fs = CAST(fat_file_system*, ffs);
   fat_file* f = CAST(fat_file*, ff);
+  fat_file *target_parent, *scout;
+  FAT_directory_entry de;
+  
+  if(0 == depth) {
+    return FNF_ERROR;
+  }
+
+  //TODO: verifications of target
+  if (ERROR(err = fat_open_root_dir(fs, CAST(file**, &target_parent)))) {
+#ifdef SHOW_DISK_INFO
+    term_write(cout, "Error loading the root dir: ");
+    term_write(cout, err);
+    term_writeline(cout);
+#endif
+    return err;
+  }
+
+  for(uint8 i = 0; i < depth - 1; ++i) {
+    // Go get the actual parent folder
+    if(ERROR(err = fat_fetch_entry(fs, target_parent, parts[i].name, &scout))) {
+      break;
+    } else {
+      fat_close_file(CAST(file*, target_parent));
+      target_parent = scout;
+      scout = NULL;
+    }
+  }
+
+  if(!IS_FOLDER(target_parent->header.type)) {
+    return ARG_ERROR; // the file paths are incorrect
+  }
+
+  uint32 new_pos;
+  if (ERROR(err = fat_fetch_first_empty_directory_position(target_parent, &de,
+                                                           &new_pos))) {
+    return err;
+  }
+
+  if (ERROR(err = fat_open_directory_entry(f, &de))) {
+    return err;
+  }
+
+  // Go back to be ready to overwrite the entry
+  if (ERROR(err = fat_set_to_absolute_position(CAST(file*, target_parent),
+                                               new_pos))) {
+    return err;
+  }
+
+  memcpy(de.DIR_Name, parts[depth - 1].name,
+         FAT_NAME_LENGTH);  // copy the entry name
+
+  if(ERROR(err = fat_write_file(CAST(file*, target_parent), &de, sizeof(FAT_directory_entry)))) {
+    goto fat_rename_end;
+  }
+
+  // Clean the old entry
+  de.DIR_Name[0] = FAT_UNUSED_ENTRY; // Set the entry available
+  // The eager eye might have noticed that we don't copy over the same
+  // entry back where we originally read it. It doesn't matter, since
+  // the old entry is now garbage anyways.
+  if(ERROR(err = fat_write_directory_entry(f, &de))) {
+    goto fat_rename_end;
+  }
+
+fat_rename_end:
+  // Update the information to be able to quickly find the root dir
+    f->parent.first_cluster = target_parent->first_cluster;
+    f->entry.position = new_pos;
+  fat_close_file(CAST(file*, target_parent));
+
+  return err;
+}
+
+error_code fat_close_file(file* ff) {
+  fat_file_system* fs = CAST(fat_file_system*, ff->_fs_header);
+  fat_file* f = CAST(fat_file*, ff);
+
+  fat_open_chain* link = f->link;
+  link->ref_count--;
+
+  if(0 == link->ref_count) {
+
+    if(link->remove_on_close) {
+      fat_actual_remove(fs, f);
+    }
+
+    fat_chain_del(link);
+    kfree(link);
+  }
+
+
   kfree(f);
   return NO_ERROR;
 }
 
 static void fat_reset_cursor(file* ff) {
   fat_file* f = CAST(fat_file*, ff);
-  fat_file_system* fs = f->fs;
+  fat_file_system* fs = CAST(fat_file_system*, f->header._fs_header);
   f->current_cluster = f->first_cluster;
   f->current_section_length =
       1 << (fs->_.FAT121632.log2_bps + fs->_.FAT121632.log2_spc);
@@ -378,7 +510,7 @@ static void fat_reset_cursor(file* ff) {
 }
 
 static error_code next_FAT_section(fat_file* f) {
-  fat_file_system* fs = f->fs;
+  fat_file_system* fs = CAST(fat_file_system*, f->header._fs_header);
   uint32 n = f->current_cluster;
   uint32 offset;
   uint32 sector_pos;
@@ -486,7 +618,7 @@ static error_code next_FAT_section(fat_file* f) {
 
 static error_code fat_file_set_pos_from_start(fat_file* f, uint32 position) {
   error_code err, release_error = NO_ERROR;
-  fat_file_system* fs = f->fs;
+  fat_file_system* fs = CAST(fat_file_system*,f->header._fs_header);
   BIOS_Parameter_Block* p;
   cache_block* cb;
   disk* d = fs->_.FAT121632.d;
@@ -538,7 +670,7 @@ static error_code fat_move_cursor(file* ff, int32 n) {
   BIOS_Parameter_Block* p;
   cache_block* cb;
   error_code err = NO_ERROR;
-  fat_file_system* fs = f->fs;
+  fat_file_system* fs = CAST(fat_file_system*, f->header._fs_header);
   disk* d = fs->_.FAT121632.d;
 
   if(n == 0) {
@@ -635,7 +767,7 @@ static error_code fat_set_to_absolute_position(file* ff, uint32 position) {
 error_code fat_write_file(file* ff, void* buff, uint32 count) {
   fat_file* f = CAST(fat_file*, ff);
   error_code err = NO_ERROR;
-  fat_file_system* fs = f->fs;
+  fat_file_system* fs = CAST(fat_file_system*, f->header._fs_header);
   
   if (NULL == buff) return ARG_ERROR;
   if (count < 1) return err;
@@ -752,7 +884,7 @@ error_code fat_write_file(file* ff, void* buff, uint32 count) {
 error_code fat_read_file(file* ff, void* buf, uint32 count) {
   fat_file* f = CAST(fat_file*, ff);
   if (count > 0) {
-    fat_file_system* fs = f->fs;
+    fat_file_system* fs = CAST(fat_file_system*, f->header._fs_header);
     error_code err;
 
     switch (fs->kind) {
@@ -878,7 +1010,7 @@ static error_code fat_fetch_entry(fat_file_system* fs, fat_file* parent,
          sizeof(de)) {
     if (de.DIR_Name[0] == 0) break;  // No more entries
     // Only verify the file if it's readable
-    if (de.DIR_Name[0] != 0xe5 && (de.DIR_Attr & FAT_ATTR_HIDDEN) == 0 &&
+    if (de.DIR_Name[0] != FAT_UNUSED_ENTRY && (de.DIR_Attr & FAT_ATTR_HIDDEN) == 0 &&
         (de.DIR_Attr & FAT_ATTR_VOLUME_ID) == 0) {
       // Compare the names
 
@@ -890,7 +1022,7 @@ static error_code fat_fetch_entry(fat_file_system* fs, fat_file* parent,
         // All the characters have been compared successfuly
         if(ERROR(err = new_fat_file(&f))) return err;
 
-        f->fs = fs;
+        f->header._fs_header = CAST(fs_header*, fs);
         f->first_cluster = f->current_cluster =
             (CAST(uint32, as_uint16(de.DIR_FstClusHI)) << 16) +
             as_uint16(de.DIR_FstClusLO);
@@ -957,7 +1089,7 @@ error_code fat_32_open_root_dir(fat_file_system* fs, fat_file* f) {
   // debug_write("In open root dir, the FS kind is: ");
   // debug_write(fs->kind);
 
-  f->fs = fs;
+  f->header._fs_header = CAST(fs_header*, fs);
   f->first_cluster = f->current_cluster = root_cluster;
 
 #ifdef SHOW_DISK_INFO
@@ -1000,7 +1132,7 @@ static error_code fat_open_root_dir(fat_file_system* fs, file** result) {
 #ifdef SHOW_DISK_INFO
       term_write(cout, "Opening FAT12/FAT16\n\r");
 #endif
-      f->fs = fs;
+      f->header._fs_header = CAST(fs_header*, fs);
       f->current_cluster = 1;  // so that EOC is detected at end of dir
       f->current_section_start = fs->_.FAT121632.first_data_sector -
                                  fs->_.FAT121632.root_directory_sectors;
@@ -1162,6 +1294,25 @@ static error_code fat_32_set_fat_link_value(fat_file_system* fs, uint32 cluster,
   return err;
 }
 
+static error_code fat_fetch_first_empty_directory_position(
+    fat_file* directory, FAT_directory_entry* de, uint32* position) {
+  error_code err;
+
+  *position = directory->current_pos;
+  while ((err = fat_read_file(CAST(file*, directory), de,
+                              sizeof(FAT_directory_entry))) ==
+         sizeof(FAT_directory_entry)) {
+    // This means the entry is available
+    if (de->DIR_Name[0] == FAT_UNUSED_ENTRY) break;
+    // This means all the following entries are available
+    if (de->DIR_Name[0] == 0) break;
+    // Update the position with the information before
+    *position = directory->current_pos;
+  }
+
+  return err;
+}
+
 static error_code fat_32_create_empty_file(fat_file_system* fs,
                                            fat_file* parent_folder,
                                            FAT_directory_entry* de,
@@ -1175,12 +1326,10 @@ static error_code fat_32_create_empty_file(fat_file_system* fs,
   // We reset the file to make sure to find the first position
   fat_set_to_absolute_position(CAST(file*, parent_folder), 0);
 
-  uint32 position = parent_folder->current_pos;
-  while ((err = fat_read_file(CAST(file*, parent_folder), de, sizeof(FAT_directory_entry))) == sizeof(FAT_directory_entry)) {
-    // This means the entry is available
-    if (de->DIR_Name[0] == 0) break;
-    // Update the position with the information before
-    position = parent_folder->current_pos;
+  uint32 position;
+  if (ERROR(err = fat_fetch_first_empty_directory_position(parent_folder, de,
+                                                           &position))) {
+    return err;
   }
 
   if(ERROR(err)) {
@@ -1244,7 +1393,7 @@ static error_code fat_32_create_empty_file(fat_file_system* fs,
 
   // Correctly set to the right coordinates in the FAT
   // so we are at the beginning of the file
-  f->fs = parent_folder->fs;
+  f->header._fs_header = parent_folder->header._fs_header;
   f->first_cluster = f->current_cluster = cluster;
   f->current_section_length =
       1 << (fs->_.FAT121632.log2_bps + fs->_.FAT121632.log2_spc);
@@ -1274,7 +1423,7 @@ static error_code fat_32_create_empty_file(fat_file_system* fs,
 static error_code fat_create_file(native_char* name, fat_file* parent_folder, fat_file** result) {
   error_code err;
   FAT_directory_entry de;
-  fat_file_system* fs = parent_folder->fs;
+  fat_file_system* fs = CAST(fat_file_system*, parent_folder->header._fs_header);
 
   switch (fs->kind) {
     case FAT12_FS:
@@ -1392,38 +1541,18 @@ static error_code fat_update_file_length(fat_file* f) {
   // to set the correct length of the file
   error_code err = NO_ERROR;
   FAT_directory_entry de;
-  uint32 filesize;
-  fat_file* parent_dir;
 
   if(ERROR(err = fat_open_directory_entry(f, &de))) {
     return err;
   }
 
-  // Allocate a dummy fat file to write the length to the disk
-  if (ERROR(err = new_fat_file(&parent_dir))) return err;
-
-  parent_dir->fs = f->fs;
-  parent_dir->first_cluster = f->parent.first_cluster;
-  parent_dir->header.type = TYPE_FOLDER;
-
-  // Correctly locate the DE to overwrite 
-  fat_reset_cursor(CAST(file*, parent_dir));
-  fat_set_to_absolute_position(CAST(file*, parent_dir), f->entry.position);
-
-  filesize = f->length;
-  
   for (int i = 0; i < 4; ++i) {
-    de.DIR_FileSize[i] = as_uint8(filesize, i);
+    de.DIR_FileSize[i] = as_uint8(f->length, i);
   }
 
-  if (ERROR(err = fat_write_file(CAST(file*, parent_dir), &de, sizeof(de)))) {
-    goto flush_file_update_dir_err_occured;
-  }
+  err = fat_write_directory_entry(f, &de);
 
-flush_file_update_dir_err_occured:
-  // Always close the file, even if there is an error
-  error_code closing_err = fat_close_file(CAST(file*, parent_dir));
-  return ERROR(err) ? err : closing_err;
+  return err;
 }
 
 static error_code fat_unlink_file(fat_file* f) {
@@ -1432,8 +1561,8 @@ static error_code fat_unlink_file(fat_file* f) {
   uint32 cluster = f->first_cluster;
   uint32 next_clus;
   do {
-    if(ERROR(err = fat_32_get_fat_link_value(f->fs, cluster, &next_clus))) break;
-    if(ERROR(err = fat_32_set_fat_link_value(f->fs, cluster, NULL))) break;
+    if(ERROR(err = fat_32_get_fat_link_value(CAST(fat_file_system*, f->header._fs_header), cluster, &next_clus))) break;
+    if(ERROR(err = fat_32_set_fat_link_value(CAST(fat_file_system*, f->header._fs_header), cluster, NULL))) break;
   } while(next_clus != FAT_32_EOF && next_clus > 0);
 
   return err;
@@ -1445,7 +1574,7 @@ static error_code fat_truncate_file(fat_file* f) {
   if(ERROR(err = fat_unlink_file(f))) return err;
   uint32 clus = f->first_cluster;
   
-  if(ERROR(err = fat_32_set_fat_link_value(f->fs, clus, FAT_32_EOF))) return err;
+  if(ERROR(err = fat_32_set_fat_link_value(CAST(fat_file_system*, f->header._fs_header), clus, FAT_32_EOF))) return err;
 
   f->length = 0;
   
@@ -1581,6 +1710,17 @@ error_code fat_file_open(fs_header* ffs, short_file_name* parts, uint8 depth, fi
 
   if (HAS_NO_ERROR(err)) {
     child->header.mode = mode;
+
+    fat_open_chain* link = fat_chain_fetch(fs, child->first_cluster);
+
+    if(NULL == link) {
+      link = new_chain_link(fs, child);
+      if(NULL == link) return MEM_ERROR;
+      fat_chain_add(link);
+    }
+
+    link->ref_count++;
+    child->link = link;
   }
 
   if (NULL != parent) fat_close_file(CAST(file*, parent));
@@ -1590,6 +1730,28 @@ error_code fat_file_open(fs_header* ffs, short_file_name* parts, uint8 depth, fi
   return NO_ERROR;
 }
 
+
+static error_code fat_actual_remove(fat_file_system* fs, fat_file* f) {
+  error_code err = fat_unlink_file(f);
+  
+  if(ERROR(err)) return err;
+
+  FAT_directory_entry de;
+  de.DIR_Name[0] = FAT_UNUSED_ENTRY;
+
+  if(ERROR(err = fat_write_directory_entry(f, &de))) {
+    return err;
+  }
+
+  return err;
+}
+
+static error_code fat_remove(fs_header* header, file* file) {
+  fat_file* f = CAST(fat_file*, file);
+  fat_open_chain* link = f->link;
+  link->remove_on_close = 1;
+}
+
 static size_t fat_file_len(file* ff) {
   fat_file* f = CAST(fat_file*, ff);
   return CAST(size_t, f->length);
@@ -1597,9 +1759,10 @@ static size_t fat_file_len(file* ff) {
 
 static dirent* fat_readdir(DIR* dir) {
   fat_file* f = CAST(fat_file*, dir->f);
+  fat_file_system* fs = CAST(fat_file_system*, f->header._fs_header);
   error_code err;
 
-  switch (f->fs->kind) {
+  switch (fs->kind) {
     case FAT12_FS:
     case FAT16_FS:
     case FAT32_FS: {
@@ -1607,7 +1770,7 @@ static dirent* fat_readdir(DIR* dir) {
 
       while ((err = fat_read_file(CAST(file*, f), &de, sizeof(de))) == sizeof(de)) {
         if (de.DIR_Name[0] == 0) break;
-        if (de.DIR_Name[0] != 0xe5) {
+        if (de.DIR_Name[0] != FAT_UNUSED_ENTRY) {
           if ((de.DIR_Attr & FAT_ATTR_HIDDEN) == 0 &&
               (de.DIR_Attr & FAT_ATTR_VOLUME_ID) == 0) {
             native_string p1 = dir->ent.d_name;
@@ -1634,11 +1797,70 @@ static dirent* fat_readdir(DIR* dir) {
   return NULL;
 }
 
+
+static fat_open_chain* fat_chain_fetch(fat_file_system* fs, uint32 cluster) {
+  fat_open_chain* scout = &start_sentinel;
+
+  while(NULL != scout) {
+    if(scout->fat_file_first_clus == cluster && scout->fs == fs) {
+      break;
+    }
+    scout = scout->next;
+  }
+
+  return scout;
+}
+
+static error_code fat_chain_add(fat_open_chain* link) {
+  error_code err = NO_ERROR;
+
+  fat_open_chain* old_first = start_sentinel.next;
+  start_sentinel.next = link;
+  link->prev = &start_sentinel;
+  link->next = old_first;
+  old_first->prev = link;
+
+  return err;
+}
+
+static error_code fat_chain_del(fat_open_chain* link) {
+  fat_open_chain* prev = link->prev;
+  fat_open_chain* next = link->next;
+
+  prev->next = next;
+  next->prev = prev;
+
+  link->next = link->prev = NULL;
+
+  return NO_ERROR;
+}
+
+static fat_open_chain* new_chain_link(fat_file_system* fs, fat_file* file) {
+  fat_open_chain* nlink;
+
+  if(NULL == (nlink = CAST(fat_open_chain*, kmalloc(sizeof(fat_open_chain))))) return NULL;
+
+  nlink->fs = fs;
+  nlink->ref_count = nlink->remove_on_close = 0;
+  nlink->fat_file_first_clus = file->first_cluster;
+  nlink->next = nlink->prev = NULL;
+
+  return nlink;
+}
+
 error_code mount_fat(vfnode* parent) {
+
+  start_sentinel.next = &end_sentinel;
+  start_sentinel.prev = NULL;
+
+  end_sentinel.prev = &start_sentinel;
+  end_sentinel.next = NULL;
 
   // Init the FS vtable
   _fat_vtable._file_open = fat_file_open;
   _fat_vtable._mkdir = fat_mkdir;
+  _fat_vtable._rename = fat_rename;
+  _fat_vtable._remove = fat_remove;
 
   // Init the file vtable
   _fat_file_vtable._file_close = fat_close_file;

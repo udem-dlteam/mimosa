@@ -79,8 +79,6 @@ void mutex_lock(mutex* self) {
   enable_interrupts();
 }
 
-volatile bool cccc = FALSE;
-
 void rwmutex_readlock(rwmutex* self) {
   disable_interrupts();
 
@@ -104,7 +102,6 @@ void rwmutex_writelock(rwmutex* self) {
   if(was_waiting = (mself->_locked || self->_readers > 0)) self->_writerq++;
 
   while (mself->_locked || self->_readers > 0) {
-    cccc = TRUE;
     save_context(_sched_suspend_on_wait_queue, &mself->super);
   }
 
@@ -325,11 +322,31 @@ void condvar_mutexless_signal(condvar* self) {
 
 // "thread" class implementation.
 
-program_thread* new_program_thread(program_thread* self, libc_startup_fn run, native_string name) {
+program_thread* new_program_thread(program_thread* self, native_string cwd,
+                                   libc_startup_fn run, native_string name) {
   new_thread(&self->super, NULL, name);
+  self->super.type = THREAD_TYPE_USER;
   self->_code = run;
   self->super.vtable = &_program_thread_vtable;
+
+  uint32 len = kstrlen(cwd);
+  self->_cwd = CAST(native_string, kmalloc(sizeof(native_char) * len));
+  memcpy(self->_cwd, cwd, len);
+
   return self;
+}
+
+native_string program_thread_cwd(program_thread* self) { return self->_cwd; }
+
+native_string program_thread_chdir(program_thread* self,
+                                   native_string new_cwd) {
+  native_string old = self->_cwd;
+  uint32 len = kstrlen(new_cwd);
+
+  self->_cwd = CAST(native_string, kmalloc(sizeof(native_char) * len));
+  memcpy(self->_cwd, new_cwd, len);
+  self->_cwd = new_cwd;
+  kfree(old);
 }
 
 thread* new_thread (thread* self, void_fn run, native_string name)
@@ -390,6 +407,7 @@ thread* new_thread (thread* self, void_fn run, native_string name)
   self->_terminated = FALSE;
   self->_run = run;
   self->_name = name;
+  self->type = THREAD_TYPE_KERNEL;
 
   self->vtable = &_thread_vtable;
 
@@ -720,38 +738,15 @@ void _sched_suspend_on_wait_queue(uint32 cs, uint32 eflags, uint32* sp,
                                   void* q) {
   ASSERT_INTERRUPTS_DISABLED();  // Interrupts should be disabled at this point
 
-  if (cccc) {
-    debug_write("A");
-  }
-
   thread* current = sched_current_thread;
-
-  if (cccc) {
-    debug_write(thread_name(current));
-  }
-
   current->_sp = sp;
 
   wait_queue_remove(current);
-
-  if(cccc) {
-    debug_write("B");
-  }
-
   wait_queue_detach(current);
-
-  if(cccc) {
-    debug_write("C");
-  }
 
   wait_queue* wq = CAST(wait_queue*, q);
 
   wait_queue_insert(current, wq);
-
-  if (cccc) {
-    debug_write("Putting to sleep:");
-    debug_write(thread_name(current));
-  }
 
   _sched_resume_next_thread();
 
