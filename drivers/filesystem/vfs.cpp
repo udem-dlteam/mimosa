@@ -275,7 +275,7 @@ error_code file_rename(native_string old_name, native_string new_name) {
 #endif
     return err;
   }
-  
+
   // disable_interrupts(); // interrupts are disabled to ensure atomicity
 
   short_file_name* parts_new = decompose_path(normalized_path, &depth_new);
@@ -285,7 +285,7 @@ error_code file_rename(native_string old_name, native_string new_name) {
   // and copy the directory entry
 
   file* old_file;
-  
+  uint8 bottom_new = depth_new;
   vfnode* deepest = explore(parts_new, &depth_new);
 
   if(ERROR(err = file_open(old_name, "r", &old_file))) {
@@ -304,7 +304,7 @@ error_code file_rename(native_string old_name, native_string new_name) {
     // if(old_file->_fs_header != target_fs) {
     //   panic(L"WATATATATA"); // TODO don't leave that there...
     // } else {
-      err = fs_rename(target_fs, old_file, parts_new, depth_new);
+      err = fs_rename(target_fs, old_file, parts_new + (bottom_new - depth_new), depth_new);
     // }
   } else {
     err = FNF_ERROR;
