@@ -70,6 +70,7 @@ struct fs_vtable_struct {
                        file** result);
   error_code (*_rename)(fs_header* header, file* source, short_file_name* parts,
                         uint8 depth);
+  error_code (*_remove)(fs_header* header, file* source);
 };
 
 // A file descriptor header

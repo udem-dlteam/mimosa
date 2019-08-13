@@ -40,6 +40,7 @@ error_code new_fat_file(fat_file** result) {
   return err;
 }
 
+static error_code fat_remove(fs_header* header, file* file);
 static error_code fat_rename(fs_header* header, file* source, short_file_name* parts, uint8 depth);
 static error_code fat_mkdir(fs_header* header, short_file_name* parts, uint8 depth, file** result);
 static error_code fat_file_open(fs_header* header, short_file_name* parts, uint8 depth, file_mode mode, file** result);
@@ -60,6 +61,8 @@ static error_code fat_fetch_first_empty_directory_position(
 static error_code fat_fetch_entry(fat_file_system* fs, fat_file* parent,
                                   native_char* name, fat_file** result);
 static size_t fat_file_len(file* f);
+
+static error_code fat_actual_remove(fat_file_system* fs, fat_file* f);
 
 // -------------------------------------------------------------
 // Mounting routines
@@ -1693,6 +1696,10 @@ error_code fat_file_open(fs_header* ffs, short_file_name* parts, uint8 depth, fi
   return NO_ERROR;
 }
 
+static error_code fat_remove(fs_header* header, file* file) {
+  // TODO
+}
+
 static size_t fat_file_len(file* ff) {
   fat_file* f = CAST(fat_file*, ff);
   return CAST(size_t, f->length);
@@ -1744,6 +1751,7 @@ error_code mount_fat(vfnode* parent) {
   _fat_vtable._file_open = fat_file_open;
   _fat_vtable._mkdir = fat_mkdir;
   _fat_vtable._rename = fat_rename;
+  _fat_vtable._remove = fat_remove;
 
   // Init the file vtable
   _fat_file_vtable._file_close = fat_close_file;

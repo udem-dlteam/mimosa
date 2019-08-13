@@ -102,6 +102,7 @@ typedef struct fat_file {
   uint32 current_section_pos;      // the offset in bytes from the section
   uint32 current_pos;              // the absolute position
   uint32 length;                   // in bytes
+  uint8 remove_on_close : 1;
   struct {
     uint32 first_cluster;
   } parent;
