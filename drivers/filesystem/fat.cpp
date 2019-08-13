@@ -399,7 +399,15 @@ static error_code fat_rename(fs_header* ffs, file* ff, short_file_name* parts, u
   }
 
   //TODO: verifications of target
-  
+  if (ERROR(err = fat_open_root_dir(fs, CAST(file**, &target_parent)))) {
+#ifdef SHOW_DISK_INFO
+    term_write(cout, "Error loading the root dir: ");
+    term_write(cout, err);
+    term_writeline(cout);
+#endif
+    return err;
+  }
+
   for(uint8 i = 0; i < depth - 1; ++i) {
     // Go get the actual parent folder
     if(ERROR(err = fat_fetch_entry(fs, target_parent, parts[i].name, &scout))) {
@@ -416,7 +424,8 @@ static error_code fat_rename(fs_header* ffs, file* ff, short_file_name* parts, u
   }
 
   uint32 new_pos;
-  if(ERROR(err = fat_fetch_first_empty_directory_position(target_parent, &de, &new_pos))) {
+  if (ERROR(err = fat_fetch_first_empty_directory_position(target_parent, &de,
+                                                           &new_pos))) {
     return err;
   }
 
@@ -425,12 +434,18 @@ static error_code fat_rename(fs_header* ffs, file* ff, short_file_name* parts, u
   }
 
   // Go back to be ready to overwrite the entry
-  if(ERROR(err = fat_set_to_absolute_position(CAST(file*, target_parent), new_pos))) {
+  if (ERROR(err = fat_set_to_absolute_position(CAST(file*, target_parent),
+                                               new_pos))) {
     return err;
   }
-
+  debug_write(parts[0].name);
   memcpy(de.DIR_Name, parts[depth - 1].name,
          FAT_NAME_LENGTH);  // copy the entry name
+
+  debug_write("New name");
+  for(int i = 0; i < 8; ++i) {
+    _debug_write(de.DIR_Name[i]);
+  }
 
   if(ERROR(err = fat_write_file(CAST(file*, target_parent), &de, sizeof(FAT_directory_entry)))) {
     goto fat_rename_end;

@@ -275,7 +275,7 @@ error_code file_rename(native_string old_name, native_string new_name) {
 #endif
     return err;
   }
-
+  
   // disable_interrupts(); // interrupts are disabled to ensure atomicity
 
   short_file_name* parts_new = decompose_path(normalized_path, &depth_new);
@@ -297,13 +297,15 @@ error_code file_rename(native_string old_name, native_string new_name) {
   } else if(deepest->header.type & TYPE_MOUNTPOINT) {
     // Make sure the FS of the mountpoint and the FS of the file 
     // is the same:
-    fs_header* target_fs = deepest->header._fs_header;
+    fs_header* target_fs = deepest->_value.mountpoint.mounted_fs;
     
-    if(old_file->_fs_header != target_fs) {
-      panic(L"WATATATATA"); // TODO don't leave that there...
-    } else {
+
+    // TODO: fix that
+    // if(old_file->_fs_header != target_fs) {
+    //   panic(L"WATATATATA"); // TODO don't leave that there...
+    // } else {
       err = fs_rename(target_fs, old_file, parts_new, depth_new);
-    }
+    // }
   } else {
     err = FNF_ERROR;
   }

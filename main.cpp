@@ -21,7 +21,10 @@
 
 int main() {
 #ifdef MIMOSA_REPL
-  file_rename("dsk1/fact.scm", "dsk1/sprfact.scm");
+  error_code err = file_rename("/dsk1/fact.scm", "/dsk1/sprfact.scm");
+  
+  if(ERROR(err)) debug_write("ERR!");
+
   term_run(cout);
 #endif
 
