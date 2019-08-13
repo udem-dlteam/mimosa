@@ -378,7 +378,32 @@ int gettimeofday (struct timeval *tv, struct timezone *tz)
   return 0;
 }
 
-//-----------------------------------------------------------------------------
+void get_current_time(uint8* hour, uint8* min, uint8* sec) {
+  outb (RTC_SEC, RTC_PORT_ADDR);
+  *sec = bcd_to_int (inb (RTC_PORT_DATA));
+
+  outb (RTC_MIN, RTC_PORT_ADDR);
+  *min = bcd_to_int (inb (RTC_PORT_DATA));
+
+  outb (RTC_HOUR, RTC_PORT_ADDR);
+  *hour = bcd_to_int (inb (RTC_PORT_DATA));
+}
+
+void get_current_date(int16* year, uint8* month, uint8* day) {
+  uint8 year_in_century;
+
+  outb (RTC_DAY_IN_MONTH, RTC_PORT_ADDR);
+  *day = bcd_to_int (inb (RTC_PORT_DATA));
+
+  outb (RTC_MONTH, RTC_PORT_ADDR);
+  *month = bcd_to_int (inb (RTC_PORT_DATA));
+
+  outb (RTC_YEAR, RTC_PORT_ADDR);
+  year_in_century = bcd_to_int (inb (RTC_PORT_DATA));
+
+  *year = ((year_in_century <= 50) ? 2000 : 1900) + year_in_century;
+}
+
 
 // Local Variables: //
 // mode: C++ //

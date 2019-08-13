@@ -1,5 +1,6 @@
 #include "general.h"
 #include "rtlib.h"
+#include "chrono.h"
 #include "ide.h"
 #include "disk.h"
 #include "fat32.h"
@@ -248,6 +249,57 @@ static error_code mount_FAT121632(disk* d, fat_file_system** result) {
   }
 
   return err;
+}
+
+static uint16 pack_into_fat_time(uint8 hours, uint8 minutes, uint8 seconds) {
+  uint16 packed_time = 0;
+  // According to the FAT specification, the FAT time is set that way:
+  // Bits 15-11: the hour
+  // Bits 10-5 : the minutes
+  // Bits 4-0  : the half seconds
+
+  packed_time |= (hours & 0x1F) << 11;
+  packed_time |= (minutes & 0x3F) << 5;
+  packed_time |= ((seconds >> 1) & 0x1F);
+
+  return packed_time;
+}
+
+static void unpack_fat_time(uint16 fat_time, uint8* hours, uint8* minutes, uint8* seconds) {
+  // According to the FAT specification, the FAT time is set that way:
+  // Bits 15-11: the hour
+  // Bits 10-5 : the minutes
+  // Bits 4-0  : the half seconds
+  *hours = (fat_time >> 11) & 0x1F;
+  *minutes = ((fat_time) >> 5) & 0x3F;
+  *seconds = ((fat_time)) & 0x1F;
+}
+
+static uint16 pack_into_fat_date(int16 year, uint8 month, int8 day) {
+  uint16 packed_date = 0;
+  // According to the FAT specification, the FAT date is set that way:
+  // Bits 15-9: Year relative to 1980
+  // Bits 8-5: Month
+  // Bits 4-0: Day of month
+
+  if (year < 1980)
+    year = 1980;  // This is a dirty hack but this is an error value
+
+  packed_date |= ((year - 1980) & 0x7F) << 9;
+  packed_date |= (month & 0xF) << 5;
+  packed_date |= (day & 0x1F);
+
+  return packed_date;
+}
+
+static void unpack_fat_date(uint16 fat_date, int16* year, uint8* month, int8* day) {
+  // According to the FAT specification, the FAT date is set that way:
+  // Bits 15-9: Year relative to 1980
+  // Bits 8-5: Month
+  // Bits 4-0: Day of month
+  *year = ((fat_date >> 9) & 0x7F) + 1980;
+  *month = (fat_date >> 5) & 0xF;
+  *day = (fat_date) & 0x1F;
 }
 
 static int i = 1;
@@ -1372,6 +1424,23 @@ static error_code fat_32_create_empty_file(fat_file_system* fs,
     de->DIR_FileSize[i] = 0;
   }
 
+  uint8 hours, minutes, seconds;
+  int16 year;
+  uint8 month, day;
+
+  uint16 time, date;
+
+  get_current_time(&hours, &minutes, &seconds);
+  get_current_date(&year, &month, &day);
+
+  time = pack_into_fat_time(hours, minutes, seconds);
+  date = pack_into_fat_date(year, month, day);
+
+  for(uint8 i = 0; i < 2; ++i) {
+    de->DIR_CrtTime[i] = de->DIR_WrtTime[i] = as_uint8(time, i);
+    de->DIR_CrtDate[i] = de->DIR_WrtDate[i] = as_uint8(date,i);
+  }
+
   de->DIR_Attr = attributes;
 
   // -------------------------------------------------------------------------------
@@ -1544,6 +1613,23 @@ static error_code fat_update_file_length(fat_file* f) {
 
   if(ERROR(err = fat_open_directory_entry(f, &de))) {
     return err;
+  }
+
+  uint8 hours, minutes, seconds;
+  int16 year;
+  uint8 month, day;
+
+  uint16 time, date;
+
+  get_current_time(&hours, &minutes, &seconds);
+  get_current_date(&year, &month, &day);
+
+  time = pack_into_fat_time(hours, minutes, seconds);
+  date = pack_into_fat_date(year, month, day);
+
+  for(uint8 i = 0; i < 2; ++i) {
+    de.DIR_WrtTime[i] = as_uint8(time, i);
+    de.DIR_WrtDate[i] = as_uint8(date,i);
   }
 
   for (int i = 0; i < 4; ++i) {
@@ -1849,7 +1935,6 @@ static fat_open_chain* new_chain_link(fat_file_system* fs, fat_file* file) {
 }
 
 error_code mount_fat(vfnode* parent) {
-
   start_sentinel.next = &end_sentinel;
   start_sentinel.prev = NULL;
 
