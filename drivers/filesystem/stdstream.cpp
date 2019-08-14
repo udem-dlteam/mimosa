@@ -270,21 +270,21 @@ static error_code stream_read(file* ff, void* buff, uint32 count) {
   return err;
 }
 
-error_code stream_open_file(fs_header* header, short_file_name* parts,
+error_code stream_open_file(fs_header* header, native_string parts,
                             uint8 depth, file_mode mode, file** result) {
   error_code err = NO_ERROR;
   stream_file* strm;
 
   if (depth == 0) return FNF_ERROR;
 
-  if (0 == kstrcmp(STDIN_PART, parts[0].name)) {
+  if (0 == kstrcmp(STDIN_PART, parts)) {
     strm = CAST(stream_file*, kmalloc(sizeof(stream_file)));
     if (NULL == strm) {
       err = MEM_ERROR;
     } else {
       err = new_stream_file(strm, mode, &stdin);
     }
-  } else if (0 == kstrcmp(STDOUT_PART, parts[0].name)) {
+  } else if (0 == kstrcmp(STDOUT_PART, parts)) {
     strm = CAST(stream_file*, kmalloc(sizeof(stream_file)));
     if (NULL == strm) {
       err = MEM_ERROR;

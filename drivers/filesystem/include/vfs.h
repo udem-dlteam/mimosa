@@ -64,7 +64,7 @@ typedef struct file_vtable_struct {
 } file_vtable;
 
 struct fs_vtable_struct {
-  error_code (*_file_open)(fs_header* header, short_file_name* parts,
+  error_code (*_file_open)(fs_header* header, native_string parts,
                            uint8 depth, file_mode mode, file** result);
   error_code (*_mkdir)(fs_header* header, short_file_name* parts, uint8 depth,
                        file** result);
@@ -189,7 +189,7 @@ error_code file_rename(native_string old_name, native_string new_name);
 error_code file_remove(native_string path);
 error_code mkdir(native_string path, file** result);
 
-error_code normalize_path(native_string path, native_string new_path);
+error_code normalize_path(native_string old_path, native_string new_path, uint8* _depth);
 short_file_name* decompose_path(native_string normalize_path, uint8* __count);
 bool parse_mode(native_string mode, file_mode* result);
 

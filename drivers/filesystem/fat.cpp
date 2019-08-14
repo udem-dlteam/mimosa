@@ -47,7 +47,7 @@ error_code new_fat_file(fat_file** result) {
 static error_code fat_remove(fs_header* header, file* file);
 static error_code fat_rename(fs_header* header, file* source, short_file_name* parts, uint8 depth);
 static error_code fat_mkdir(fs_header* header, short_file_name* parts, uint8 depth, file** result);
-static error_code fat_file_open(fs_header* header, short_file_name* parts, uint8 depth, file_mode mode, file** result);
+static error_code fat_file_open(fs_header* header, native_string parts, uint8 depth, file_mode mode, file** result);
 static void fat_reset_cursor(file* f);
 static error_code fat_move_cursor(file* f, int32 n);
 static error_code fat_set_to_absolute_position(file* f, uint32 position);
@@ -1678,7 +1678,7 @@ static error_code fat_truncate_file(fat_file* f) {
   return err;
 }
 
-error_code fat_file_open(fs_header* ffs, short_file_name* parts, uint8 depth, file_mode mode, file** result) {
+error_code fat_file_open(fs_header* ffs, native_string parts, uint8 depth, file_mode mode, file** result) {
   error_code err = NO_ERROR;
   fat_file_system* fs = CAST(fat_file_system*, ffs);
   native_string child_name;
@@ -1725,12 +1725,15 @@ error_code fat_file_open(fs_header* ffs, short_file_name* parts, uint8 depth, fi
 
   for(uint8 i = 0; i < depth - 1; ++i) {
     // Go get the actual parent folder
-    if(ERROR(err = fat_fetch_entry(fs, parent, parts[i].name, &child))) {
+    if(ERROR(err = fat_fetch_entry(fs, parent, parts, &child))) {
       break;
     } else {
       fat_close_file(CAST(file*, parent));
       parent = child;
       child = NULL;
+
+      while (*parts++ != '\0')
+        ;
     }
   }
 
@@ -1739,7 +1742,7 @@ error_code fat_file_open(fs_header* ffs, short_file_name* parts, uint8 depth, fi
     return err;
   }
   
-  child_name = parts[depth - 1].name;
+  child_name = parts;
   if (HAS_NO_ERROR(err = fat_fetch_entry(fs, parent, child_name, &child))) {
     fat_set_to_absolute_position(CAST(file*, parent), 0);
     fat_set_to_absolute_position(CAST(file*, child), 0);
@@ -2087,7 +2090,7 @@ static short_file_name* name_to_short_file_name(native_string n) {
   // Now the complicated part:
   // For now, only add ~1
 
-  if (len <= FAT_NAME_LENGTH) {
+  if (len > FAT_NAME_LENGTH) {
     sfn->name[6] = '~';
     sfn->name[7] = '1';
   }
