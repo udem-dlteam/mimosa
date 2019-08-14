@@ -120,9 +120,7 @@ static error_code new_stream_file(stream_file* rs, file_mode mode,
 static error_code stream_close(file* ff) {
   error_code err = NO_ERROR;
   stream_file* f = CAST(stream_file*, ff);
-
-  // TODO free all of it
-
+  kfree(f);
   return err;
 }
 

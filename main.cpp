@@ -49,6 +49,15 @@ int main() {
 #endif
 
 #ifdef MIMOSA_REPL
+  error_code err;
+  file* f;
+  if(ERROR(err = file_open("/dsk1/thisisafilewithalongname.scm", "r", &f))) {
+    panic(L"Failed to open the file");
+  }
+
+  term_write(cout, "The file name is: ");
+  term_write(cout, f->name);
+
   term_run(cout);
 #endif
 

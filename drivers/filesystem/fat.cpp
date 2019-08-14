@@ -74,7 +74,7 @@ static error_code fat_actual_remove(fat_file_system* fs, fat_file* f);
 static fat_open_chain* new_chain_link(fat_file_system* fs, fat_file* file);
 
 static uint8 lfn_checksum(native_string short_fname);
-static short_file_name* name_to_short_file_name(native_string n);
+static void name_to_short_file_name(native_string n, short_file_name* result);
 
 error_code read_lfn(fs_header* fs, uint32 cluster, uint32 entry_position,
                     native_string* result) ;
@@ -1028,9 +1028,24 @@ error_code fat_read_file(file* ff, void* buf, uint32 count) {
   return 0;
 }
 
+static inline void read_lfe_chars(uint8* buff, uint8 len, native_string lfn_buff, uint8* _lfn_index) {
+  native_char c;
+  uint8 index = *_lfn_index;
+  for (int8 k = len - 2; k >= 0; k -= 2) {
+    if (0xFF != buff[k] || 0xFF != buff[k + 1]) {
+      c = 0xFF & buff[k];
+      lfn_buff[index--] = (c >= 'a' && c <= 'z') ? (c - 32) : c;
+    }
+  }
+  *_lfn_index = index;
+}
+
 static error_code fat_fetch_entry(fat_file_system* fs, fat_file* parent,
                                   native_char* name, fat_file** result) {
-  native_string lfn;
+  native_char lfn_buff[256];
+  uint8 len_name;
+  uint8 lfn_index = 254;
+  short_file_name sfn_buff;
   uint8 name_match = 0;
   uint32 i = 0;
   uint32 count = 0;
@@ -1042,53 +1057,67 @@ static error_code fat_fetch_entry(fat_file_system* fs, fat_file* parent,
   if(name == '\0') {
     return ARG_ERROR;
   }
+  
+  if (!IS_FOLDER(parent->header.type)) {
+    return ARG_ERROR;
+  }
 
-  short_file_name* sfn =
-      name_to_short_file_name(name);  // TODO pass the buffer by ref
+  lfn_buff[255] = '\0';
+  len_name = kstrlen(name);
+
+  if (len_name <= FAT_NAME_LENGTH) {
+    name_to_short_file_name(name, &sfn_buff);
+  }
+
   uint32 cluster = parent->first_cluster;
   uint32 position = parent->current_pos;
+  
+  int16 checksum = -1;
 
-  if (!IS_FOLDER(parent->header.type)) {
-    return UNKNOWN_ERROR;
-  }
-  debug_write(name);
+#define invalidate_checksum() \
+  do {                        \
+    checksum = -1;            \
+    lfn_index = 254;          \
+  } while (0)
+
   while ((err = fat_read_file(CAST(file*, parent), &de, sizeof(de))) ==
          sizeof(de)) {
-    if (de.DIR_Attr == FAT_ATTR_LONG_NAME) continue;
+    if (de.DIR_Attr == FAT_ATTR_LONG_NAME && len_name > FAT_NAME_LENGTH) {
+      // We want to write in the buffer since we are already over the entry
+      long_file_name_entry* lfe = CAST(long_file_name_entry*, &de);
+
+      if (checksum == -1 && !(lfe->LDIR_ord & FAT_LAST_LONG_ENTRY)) {
+        invalidate_checksum();
+      } else if (lfe->LDIR_ord & FAT_LAST_LONG_ENTRY && checksum != -1) {
+        invalidate_checksum();
+      } else if (checksum != lfe->LDIR_Checksum &&
+                 !(lfe->LDIR_ord & FAT_LAST_LONG_ENTRY)) {
+        invalidate_checksum();
+      } else {
+        checksum = lfe->LDIR_Checksum;
+        uint8 k = 0;
+        native_char c;
+        // We read in reverse, because we start from the n'th entry to the
+        // first one.
+        read_lfe_chars(lfe->LDIR_Name3, 4, lfn_buff, &lfn_index);
+        read_lfe_chars(lfe->LDIR_Name2, 12, lfn_buff, &lfn_index);
+        read_lfe_chars(lfe->LDIR_Name1, 10, lfn_buff, &lfn_index);
+      }
+    }
+
     if (de.DIR_Name[0] == 0) break;  // No more entries
     // Only verify the file if it's readable
     if (de.DIR_Name[0] != FAT_UNUSED_ENTRY && (de.DIR_Attr & FAT_ATTR_HIDDEN) == 0 &&
         (de.DIR_Attr & FAT_ATTR_VOLUME_ID) == 0) {
-      // Compare the names
-      uint32 position = parent->current_pos;
-
-      for (i = 0; i < FAT_NAME_LENGTH; i++) {
-        if (de.DIR_Name[i] != sfn->name[i]) break;
-      }
-      name_match = (i == FAT_NAME_LENGTH);
-
-      if (!name_match) {
-        if (ERROR(err =
-                      read_lfn(parent->header._fs_header, parent->first_cluster,
-                               parent->current_pos - sizeof(de), &lfn))) {
-          if (FNF_ERROR == err) {
-            err = NO_ERROR;
-          } else {
-            break;
-          }
+          
+      if(len_name <= FAT_NAME_LENGTH) {
+        for (i = 0; i < FAT_NAME_LENGTH; i++) {
+          if (de.DIR_Name[i] != sfn_buff.name[i]) break;
         }
-
-        debug_write("LFN:");
-        debug_write(lfn);
-
-        if (ERROR(err = file_set_to_absolute_position(CAST(file*, parent),
-                                                      position))) {
-          break;
-        }
-
-        if (0 == kstrcmp(lfn, name)) {
-          name_match = 2;
-        }
+        name_match = (i == FAT_NAME_LENGTH);
+      } else {
+        native_string read_lfn = lfn_buff + lfn_index + 1;
+        name_match = (0 == kstrcmp(read_lfn, name));
       }
 
       if (name_match) {
@@ -1119,29 +1148,26 @@ static error_code fat_fetch_entry(fat_file_system* fs, fat_file* parent,
         f->parent.first_cluster = cluster;
         f->entry.position = position;
 
-        if(name_match == 1) {
-          uint8 len = kstrlen(name); // Less or eq than 11 since we matched a SFN
-          f->header.name = CAST(native_string, kmalloc(sizeof(unicode_char) * (len + 1)));
-          memcpy(f->header.name, name, len + 1);
-        } else if(name_match == 2) {
-          f->header.name = lfn;
-        }
+        f->header.name =
+            CAST(native_string, kmalloc(sizeof(unicode_char) * (len_name + 1)));
+        memcpy(f->header.name, name, len_name + 1);
 
         goto found;
+      } else {
+        invalidate_checksum();
       }
     }
     // Copy over the position information
     position = parent->current_pos;
   }
 
+#undef invalidate_checksum()
   // We did not find the file
-  kfree(sfn);
 
   if (ERROR(err)) return err;
   return FNF_ERROR;
 
 found:
-  kfree(sfn);
   *result = f;
   return NO_ERROR;
 }
@@ -2061,9 +2087,7 @@ static uint8 lfn_checksum(native_string short_fname) {
   return sum;
 }
 
-static short_file_name* name_to_short_file_name(native_string n) {
-  short_file_name* result =
-      CAST(short_file_name*, kmalloc(sizeof(short_file_name)));
+static void name_to_short_file_name(native_string n, short_file_name* result) {
   native_char* p = n;
   uint8 i = 0;
 
@@ -2091,7 +2115,6 @@ static short_file_name* name_to_short_file_name(native_string n) {
   while (i < 3) result->name[8 + i++] = ' ';
 
   result->name[11] = '\0';
-  return result;
 }
 
 static error_code fat_chain_add(fat_open_chain* link) {
