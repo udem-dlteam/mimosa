@@ -190,7 +190,6 @@ error_code file_remove(native_string path);
 error_code mkdir(native_string path, file** result);
 
 error_code normalize_path(native_string old_path, native_string new_path, uint8* _depth);
-short_file_name* decompose_path(native_string normalize_path, uint8* __count);
 bool parse_mode(native_string mode, file_mode* result);
 
 DIR* opendir(const char* path);

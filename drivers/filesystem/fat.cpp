@@ -1039,17 +1039,8 @@ static error_code fat_fetch_entry(fat_file_system* fs, fat_file* parent,
   FAT_directory_entry de;
   fat_file* f;
 
-#ifdef SHOW_DISK_INFO
-  term_write(cout, "\n\rOpened the root dir...");
-  term_writeline(cout);
-  term_write(cout, "Normalized name: '");
-  term_write(cout, normalized_path);
-  term_write(cout, "'\n\r");
-#endif
-
   if(name == '\0') {
-    // Clone the file since parent will be reset
-    panic(L"Invalid!");
+    return ARG_ERROR;
   }
 
   short_file_name* sfn =
@@ -1060,7 +1051,7 @@ static error_code fat_fetch_entry(fat_file_system* fs, fat_file* parent,
   if (!IS_FOLDER(parent->header.type)) {
     return UNKNOWN_ERROR;
   }
-
+  debug_write(name);
   while ((err = fat_read_file(CAST(file*, parent), &de, sizeof(de))) ==
          sizeof(de)) {
     if (de.DIR_Attr == FAT_ATTR_LONG_NAME) continue;
@@ -1086,6 +1077,9 @@ static error_code fat_fetch_entry(fat_file_system* fs, fat_file* parent,
             break;
           }
         }
+
+        debug_write("LFN:");
+        debug_write(lfn);
 
         if (ERROR(err = file_set_to_absolute_position(CAST(file*, parent),
                                                       position))) {
@@ -1950,15 +1944,18 @@ error_code read_lfn(fs_header* fs, uint32 cluster, uint32 entry_position,
     // discard the top
 
     for (k = 0; k < 10; k += 2) {
-      long_file_name[j++] = 0xFF & lfn_e.LDIR_Name1[k];
+      native_char c = 0xFF & lfn_e.LDIR_Name1[k];
+      long_file_name[j++] = (c >= 'a' && c <= 'z') ? (c - 32) : c;
     }
 
     for (k = 0; k < 12; k += 2) {
-      long_file_name[j++] = 0xFF & lfn_e.LDIR_Name2[k];
+      native_char c = 0xFF & lfn_e.LDIR_Name2[k];
+      long_file_name[j++] = (c >= 'a' && c <= 'z') ? (c - 32) : c;
     }
 
     for (k = 0; k < 4; k += 2) {
-      long_file_name[j++] = 0xFF & lfn_e.LDIR_Name3[k];
+      native_char c = 0xFF & lfn_e.LDIR_Name3[k];
+      long_file_name[j++] = (c >= 'a' && c <= 'z') ? (c - 32) : c;
     }
 
     lfn_entry_count++;
