@@ -698,7 +698,7 @@ static error_code fat_file_set_pos_from_start(fat_file* f, uint32 position) {
   disk* d = fs->_.FAT121632.d;
 
   if (IS_REGULAR_FILE(f->header.type) && (position > f->length)) {
-    return UNKNOWN_ERROR;  // TODO: better than this
+    return ARG_ERROR;
   }
 
   // FAT32 only
@@ -1430,6 +1430,7 @@ static error_code fat_32_create_empty_file(fat_file_system* fs,
                                            native_char* name,
                                            uint8 attributes,
                                            fat_file** result) {
+  
   error_code err;
   fat_file* f;
 
@@ -1610,7 +1611,7 @@ static error_code fat_mkdir(fs_header* ffs, short_file_name* parts, uint8 depth,
   if (HAS_NO_ERROR(err = fat_fetch_entry(fs, parent, folder_name, &folder))) {
     // We expected a FNF
     if (NULL != parent) fat_close_file(CAST(file*, parent));
-    return UNKNOWN_ERROR; // TODO get a real error here!
+    return ARG_ERROR; // incorrect file since it exists already
   }
 
   FAT_directory_entry file_de;
@@ -1922,9 +1923,12 @@ error_code read_lfn(fs_header* fs, uint32 cluster, uint32 entry_position,
   reader->first_cluster = cluster;
   reader->header.type = TYPE_FOLDER;
 
-  // TODO check for an error...
   fat_reset_cursor(CAST(file*, reader));
-  fat_set_to_absolute_position(CAST(file*, reader), entry_position);
+
+  if (ERROR(err = fat_set_to_absolute_position(CAST(file*, reader),
+                                               entry_position))) {
+    return err;
+  }
 
   if (ERROR(err = fat_read_file(CAST(file*, reader), &de,
                                 sizeof(FAT_directory_entry)))) {
@@ -2016,7 +2020,6 @@ static dirent* fat_readdir(DIR* dir) {
     case FAT16_FS:
     case FAT32_FS: {
       FAT_directory_entry de;
-      // TODO set the file position
 
       while ((err = fat_read_file(CAST(file*, f), &de, sizeof(de))) == sizeof(de)) {
         if (de.DIR_Attr == FAT_ATTR_LONG_NAME) continue;
@@ -2050,6 +2053,8 @@ static dirent* fat_readdir(DIR* dir) {
           }
         }
       }
+
+      fat_reset_cursor(dir->f);
 
       return NULL;
     }
