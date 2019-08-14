@@ -404,6 +404,19 @@ static void mount_all_partitions(vfnode* parent) {
 // FAT manipulation routines
 // ------------------------------------------------------
 
+static inline void read_lfe_chars(uint8* buff, uint8 len,
+                                  native_string lfn_buff, uint8* _lfn_index) {
+  native_char c;
+  uint8 index = *_lfn_index;
+  for (int8 k = len - 2; k >= 0; k -= 2) {
+    if (0xFF != buff[k] || 0xFF != buff[k + 1]) {
+      c = 0xFF & buff[k];
+      lfn_buff[index--] = (c >= 'a' && c <= 'z') ? (c - 32) : c;
+    }
+  }
+  *_lfn_index = index;
+}
+
 static bool fat_is_root_dir(fat_file* f) {
   return f->first_cluster <= 0x02;  // this might not always be the case...
 }
@@ -1028,18 +1041,6 @@ error_code fat_read_file(file* ff, void* buf, uint32 count) {
   return 0;
 }
 
-static inline void read_lfe_chars(uint8* buff, uint8 len, native_string lfn_buff, uint8* _lfn_index) {
-  native_char c;
-  uint8 index = *_lfn_index;
-  for (int8 k = len - 2; k >= 0; k -= 2) {
-    if (0xFF != buff[k] || 0xFF != buff[k + 1]) {
-      c = 0xFF & buff[k];
-      lfn_buff[index--] = (c >= 'a' && c <= 'z') ? (c - 32) : c;
-    }
-  }
-  *_lfn_index = index;
-}
-
 static error_code fat_fetch_entry(fat_file_system* fs, fat_file* parent,
                                   native_char* name, fat_file** result) {
   native_char lfn_buff[256];
@@ -1074,7 +1075,7 @@ static error_code fat_fetch_entry(fat_file_system* fs, fat_file* parent,
   
   int16 checksum = -1;
 
-#define invalidate_checksum() \
+#define invalidate_lfn() \
   do {                        \
     checksum = -1;            \
     lfn_index = 254;          \
@@ -1087,12 +1088,12 @@ static error_code fat_fetch_entry(fat_file_system* fs, fat_file* parent,
       long_file_name_entry* lfe = CAST(long_file_name_entry*, &de);
 
       if (checksum == -1 && !(lfe->LDIR_ord & FAT_LAST_LONG_ENTRY)) {
-        invalidate_checksum();
+        invalidate_lfn();
       } else if (lfe->LDIR_ord & FAT_LAST_LONG_ENTRY && checksum != -1) {
-        invalidate_checksum();
+        invalidate_lfn();
       } else if (checksum != lfe->LDIR_Checksum &&
                  !(lfe->LDIR_ord & FAT_LAST_LONG_ENTRY)) {
-        invalidate_checksum();
+        invalidate_lfn();
       } else {
         checksum = lfe->LDIR_Checksum;
         uint8 k = 0;
@@ -1109,7 +1110,7 @@ static error_code fat_fetch_entry(fat_file_system* fs, fat_file* parent,
     // Only verify the file if it's readable
     if (de.DIR_Name[0] != FAT_UNUSED_ENTRY && (de.DIR_Attr & FAT_ATTR_HIDDEN) == 0 &&
         (de.DIR_Attr & FAT_ATTR_VOLUME_ID) == 0) {
-          
+
       if(len_name <= FAT_NAME_LENGTH) {
         for (i = 0; i < FAT_NAME_LENGTH; i++) {
           if (de.DIR_Name[i] != sfn_buff.name[i]) break;
@@ -1154,14 +1155,14 @@ static error_code fat_fetch_entry(fat_file_system* fs, fat_file* parent,
 
         goto found;
       } else {
-        invalidate_checksum();
+        invalidate_lfn();
       }
     }
     // Copy over the position information
     position = parent->current_pos;
   }
 
-#undef invalidate_checksum()
+#undef invalidate_lfn()
   // We did not find the file
 
   if (ERROR(err)) return err;
