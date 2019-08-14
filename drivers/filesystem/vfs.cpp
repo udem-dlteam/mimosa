@@ -329,6 +329,8 @@ error_code file_open(native_string path, native_string mode, file** result) {
   if(NULL == deepest) {
     err = FNF_ERROR;
   } else if(deepest->header.type & TYPE_MOUNTPOINT) {
+    debug_write("Opening the file:");
+    debug_write(p);
     fs_header* fs = deepest->_value.mountpoint.mounted_fs;
     err = fs_file_open(fs, p, bottom, md, &hit);
   } else if(depth == 0) {

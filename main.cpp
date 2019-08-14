@@ -51,7 +51,7 @@ int main() {
 #ifdef MIMOSA_REPL
   error_code err;
   file* f;
-  if(ERROR(err = file_open("/dsk1/thisisafilewithalongname.scm", "r", &f))) {
+  if(ERROR(err = file_open("/dsk1/longfilenametest.scm", "a+", &f))) {
     panic(L"Failed to open the file");
   }
 
