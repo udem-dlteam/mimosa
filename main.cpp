@@ -49,16 +49,19 @@ int main() {
 #endif
 
 #ifdef MIMOSA_REPL
-  file* f;
-  error_code err = file_open("/dsk1/fact.scm", "r", &f);
-  native_string lfn;
+  // file* f;
+  // error_code err = file_open("/dsk1/thisisafilewithalongname.scm", "r", &f);
 
-  if(ERROR(err = read_lfn(CAST(fat_file*,f), &lfn))) {
-    panic(L"Read LFN ERR");
-  }
+  // if(ERROR(err)) panic(L"Failed to open the file");
 
-  term_write(cout, lfn);
-  term_writeline(cout);
+  // // native_string lfn;
+
+  // // if(ERROR(err = read_lfn(CAST(fat_file*,f), &lfn))) {
+  // //   panic(L"Read LFN ERR");
+  // // }
+  // term_writeline(cout);
+  // term_write(cout, f->name);
+  // term_writeline(cout);
 
   term_run(cout);
 #endif

@@ -115,9 +115,16 @@ error_code normalize_path(native_string old_path, native_string new_path, uint8*
     }
   }
 
+  // If the last is not a forward slash
+  // add it.
+  if(new_path[i - 1] != '/') {
+    new_path[i++] = '/';
+  }
+
   new_path[i] = '\0';
-  depth = 1;
+
   j = 1;
+  depth = 0;
   while(new_path[j] != '\0') {
     if (new_path[j] == '/') {
       new_path[j] = '\0';
@@ -268,14 +275,11 @@ static vfnode* explore(native_string parts, uint8* _depth) {
 
   do {
     if (0 == kstrcmp(scout->name, parts)) {
-      debug_write("Match");
-      debug_write(scout->name);
       last_candidate = scout;
       scout = scout->_first_child;
       depth--;
       while (*parts++ != '\0')
         ;
-      debug_write(parts);
     } else if (NULL != scout->_next_sibling) {
       scout = scout->_next_sibling;
     } else {
@@ -397,22 +401,10 @@ error_code file_open(native_string path, native_string mode, file** result) {
 #endif
     return err;
   }
-  // Those lines are left as comments since they help debugging
-
-  // term_write(cout, "Parts in FOPEN:");
-  // for(int i = 0; i < depth; ++i) {
-  //   term_write(cout, "|");
-  //   for(int j = 0; j < 11; ++j) {
-  //     term_write(cout, parts[i].name[j]);
-  //   }
-  //   term_write(cout, "|");
-  // }
-  // term_writeline(cout);
-
-  debug_write(normalized_path);
 
   uint8 bottom = depth;
   vfnode* deepest = explore(normalized_path, &depth);
+
   native_string p = normalized_path;
 
   while (bottom != depth) {
@@ -438,8 +430,6 @@ error_code file_open(native_string path, native_string mode, file** result) {
   if (HAS_NO_ERROR(err)) {
     *result = hit;
   }
-
-  // kfree(parts);
 
   return err;
 }

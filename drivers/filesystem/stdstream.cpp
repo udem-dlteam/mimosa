@@ -273,13 +273,10 @@ static error_code stream_read(file* ff, void* buff, uint32 count) {
 error_code stream_open_file(fs_header* header, native_string parts,
                             uint8 depth, file_mode mode, file** result) {
   
-  debug_write("Open stream");
-  debug_write(parts);
   error_code err = NO_ERROR;
   stream_file* strm;
 
   if (depth == 0) return FNF_ERROR;
-  debug_write("Comparing...");
 
   if (0 == kstrcmp(STDIN_PART, parts)) {
     strm = CAST(stream_file*, kmalloc(sizeof(stream_file)));
