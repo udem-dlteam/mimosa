@@ -77,7 +77,7 @@ error_code normalize_path(native_string old_path, native_string new_path, uint8*
   // The resulting path is all the folder and file names that are explored
   // in the path as a string. The length of all the strings is passed in the
   // error code.
-  uint32 i, j = 0;
+  uint32 i = 0, j = 0;
   uint8 depth;
   native_string path = old_path;
   new_path[i++] = '/';
@@ -85,7 +85,7 @@ error_code normalize_path(native_string old_path, native_string new_path, uint8*
 
   while (path[0] != '\0') {
     if (path[0] == '/') {
-      i = 1;
+      i = 2;
       path++;
     } else if (path[0] == '.' && (path[1] == '\0' || path[1] == '/')) {
       if (path[1] == '\0')
@@ -117,6 +117,7 @@ error_code normalize_path(native_string old_path, native_string new_path, uint8*
 
   new_path[i] = '\0';
   depth = 1;
+  j = 1;
   while(new_path[j] != '\0') {
     if (new_path[j] == '/') {
       new_path[j] = '\0';
@@ -267,11 +268,14 @@ static vfnode* explore(native_string parts, uint8* _depth) {
 
   do {
     if (0 == kstrcmp(scout->name, parts)) {
+      debug_write("Match");
+      debug_write(scout->name);
       last_candidate = scout;
       scout = scout->_first_child;
       depth--;
       while (*parts++ != '\0')
         ;
+      debug_write(parts);
     } else if (NULL != scout->_next_sibling) {
       scout = scout->_next_sibling;
     } else {
@@ -409,6 +413,12 @@ error_code file_open(native_string path, native_string mode, file** result) {
 
   uint8 bottom = depth;
   vfnode* deepest = explore(normalized_path, &depth);
+  native_string p = normalized_path;
+
+  while (bottom != depth) {
+    if ('\0' == *p) --bottom;
+    p++;
+  }
 
   if (!parse_mode(mode, &md)) {
     return ARG_ERROR;
@@ -418,7 +428,7 @@ error_code file_open(native_string path, native_string mode, file** result) {
     err = FNF_ERROR;
   } else if(deepest->header.type & TYPE_MOUNTPOINT) {
     fs_header* fs = deepest->_value.mountpoint.mounted_fs;
-    err = fs_file_open(fs, normalized_path, depth, md, &hit);
+    err = fs_file_open(fs, p, bottom, md, &hit);
   } else if(depth == 0) {
     hit = CAST(file*, deepest);
   } else { 

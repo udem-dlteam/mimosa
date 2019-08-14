@@ -333,9 +333,9 @@ static error_code mount_partition(disk* d, vfnode* parent) {
       // TODO make mount names
       
       if(i++ == 1) {
-        new_vfnode(partition_mount_point, "DSK1       ", TYPE_MOUNTPOINT);
+        new_vfnode(partition_mount_point, "DSK1", TYPE_MOUNTPOINT);
       } else {
-        new_vfnode(partition_mount_point, "DSK2       ", TYPE_MOUNTPOINT);
+        new_vfnode(partition_mount_point, "DSK2", TYPE_MOUNTPOINT);
       }
 
       partition_mount_point->_value.mountpoint.mounted_fs = CAST(fs_header*, fs);
@@ -1742,8 +1742,10 @@ error_code fat_file_open(fs_header* ffs, native_string parts, uint8 depth, file_
     return err;
   }
   
-  child_name = parts;
-  if (HAS_NO_ERROR(err = fat_fetch_entry(fs, parent, child_name, &child))) {
+  // fat_fetch_entry should be responsible for this part
+  short_file_name* sfn = name_to_short_file_name(parts);
+  debug_write(sfn->name);
+  if (HAS_NO_ERROR(err = fat_fetch_entry(fs, parent, sfn->name, &child))) {
     fat_set_to_absolute_position(CAST(file*, parent), 0);
     fat_set_to_absolute_position(CAST(file*, child), 0);
   }
@@ -2069,9 +2071,14 @@ static short_file_name* name_to_short_file_name(native_string n) {
   native_char* scout = n;
   uint32 len = kstrlen(n);
 
+  for(uint8 i = 0; i < 8; ++i) {
+    sfn->name[i] = ' ';
+  }
+
   sfn->name[11] = '\0';
   
   for(uint8 i = 0; i < 8; ++i) {
+    if('.' == *scout) break;
     sfn->name[i] = *scout;
     ++scout;
   }
@@ -2083,7 +2090,7 @@ static short_file_name* name_to_short_file_name(native_string n) {
   ++scout;
 
   for(uint8 i = 0; i < 3; ++i) {
-    sfn->name[8 + i] = *scout;
+    sfn->name[8 + i] = *scout++;
   }
 
   // TODO

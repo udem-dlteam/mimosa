@@ -9,8 +9,8 @@
 native_string STDIN_PATH = "/sys/stdin";
 native_string STDOUT_PATH = "/sys/stdout";
 
-static native_string STDIN_PART = "STDIN      ";
-static native_string STDOUT_PART = "STDOUT     ";
+static native_string STDIN_PART = "STDIN";
+static native_string STDOUT_PART = "STDOUT";
 
 static fs_header fs_std_stream;
 
@@ -272,10 +272,14 @@ static error_code stream_read(file* ff, void* buff, uint32 count) {
 
 error_code stream_open_file(fs_header* header, native_string parts,
                             uint8 depth, file_mode mode, file** result) {
+  
+  debug_write("Open stream");
+  debug_write(parts);
   error_code err = NO_ERROR;
   stream_file* strm;
 
   if (depth == 0) return FNF_ERROR;
+  debug_write("Comparing...");
 
   if (0 == kstrcmp(STDIN_PART, parts)) {
     strm = CAST(stream_file*, kmalloc(sizeof(stream_file)));
@@ -325,7 +329,7 @@ error_code mount_streams(vfnode* parent) {
 
   // Init mount point
   vfnode* dev_node = CAST(vfnode*, kmalloc(sizeof(vfnode)));
-  new_vfnode(dev_node, "SYS        ", TYPE_MOUNTPOINT);
+  new_vfnode(dev_node, "SYS", TYPE_MOUNTPOINT);
   dev_node->_value.mountpoint.mounted_fs = &fs_std_stream;
   vfnode_add_child(parent, dev_node);
 

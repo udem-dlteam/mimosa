@@ -50,7 +50,7 @@ int main() {
 
 #ifdef MIMOSA_REPL
   file* f;
-  error_code err = file_open("/dsk1/thisis~1.scm", "a+", &f);
+  error_code err = file_open("/dsk1/fact.scm", "r", &f);
   native_string lfn;
 
   if(ERROR(err = read_lfn(CAST(fat_file*,f), &lfn))) {
