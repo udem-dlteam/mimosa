@@ -79,7 +79,7 @@ int main() {
 
 #ifdef GAMBIT_REPL
   {
-    native_string file_name = "/dsk1/GSC.EXE";
+    native_string file_name = "/dsk1/GSI.EXE";
 
     file* prog;
     if (NO_ERROR == file_open(file_name, "r", &prog)) {
@@ -89,6 +89,16 @@ int main() {
       error_code err;
       if (ERROR(err = file_read(prog, code, len))) {
         panic(L"ERR");
+      }
+
+      debug_write("Len is");
+      debug_write(len);
+
+      if(err != len) {
+        debug_write("Read ");
+        debug_write(CAST(uint32, err));
+        debug_write("Instead of");
+        debug_write(len);
       }
 
       program_thread* task =
