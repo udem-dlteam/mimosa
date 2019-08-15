@@ -58,15 +58,15 @@ int main() {
   term_write(cout, "The file name is: ");
   term_write(cout, f->name);
   
-  // term_write(cout, "Creating a folder....");
+  term_write(cout, "Creating a folder....");
 
-  // if(ERROR(err = mkdir("/dsk1/abigfolder", &f))) {
-  //   panic(L"This is an error");
-  // }
+  if(ERROR(err = mkdir("/dsk1/abigfolder", &f))) {
+    panic(L"This is an error");
+  }
 
-  // if(ERROR(err = file_open("/dsk1/abigfolder/abigsubfileintoafolder", "a+", &f))) {
-  //   panic(L"Another error");
-  // }
+  if(ERROR(err = file_open("/dsk1/abigfolder/abigsubfileintoafolder", "a+", &f))) {
+    panic(L"Another error");
+  }
 
   term_run(cout);
 #endif

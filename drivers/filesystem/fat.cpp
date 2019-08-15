@@ -1402,13 +1402,13 @@ static error_code fat_fetch_first_empty_directory_position(
   position = directory->current_pos;
   while (((err = fat_read_file(CAST(file*, directory), &de, sizeof(de))) == sizeof(de))) {
     // This means the entry is available
-    if (de->DIR_Name[0] == FAT_UNUSED_ENTRY) {
+    if (de.DIR_Name[0] == FAT_UNUSED_ENTRY) {
       // Check if we have enough space
       if (0 == --spots_left) break;
       continue;
     }
     // This means all the following entries are available
-    if (de->DIR_Name[0] == 0) break;
+    if (de.DIR_Name[0] == 0) break;
     // Update the position with the information before
     position = directory->current_pos;
     spots_left = required_spots;
