@@ -321,6 +321,8 @@ static error_code mount_partition(disk* d, vfnode* parent) {
 
       return NO_ERROR;
     }
+  } else {
+    term_write(cout, "No partition found. Not adding any FS");
   }
 
   return UNKNOWN_ERROR;
@@ -334,10 +336,21 @@ static void mount_all_partitions(vfnode* parent) {
 
   index = 0;
 
+  term_write(cout, "Exploring disks...");  
+  term_writeline(cout);
+
   while ((d = disk_find(index)) != NULL) {
-    mount_partition(d, parent);
+    error_code err = mount_partition(d, parent);
+    if(ERROR(err)) {
+      term_write(cout, "Failed to mount the partition with error code: ");
+      term_write(cout, err);
+      term_writeline(cout);
+    }
     index++;
   }
+
+  term_write(cout, "No more disk found.");
+  term_writeline(cout);
 }
 
 
