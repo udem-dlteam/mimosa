@@ -182,6 +182,11 @@ int REDIRECT_NAME(stat)(const char *__pathname, struct stat *__buf) {
 
   __buf->st_size = sbuffer.bytes;
   __buf->st_dev = CAST(uint32, sbuffer.fs);
+  __buf->st_atim.ts_sec = sbuffer.last_modifs_epochs_secs;
+  __buf->st_mtim.ts_sec = sbuffer.last_modifs_epochs_secs;
+  __buf->st_ctim.ts_sec = sbuffer.creation_time_epochs_secs;
+
+  __buf->st_atim.ts_nsec = __buf->st_ctim.ts_nsec = __buf->st_mtim.ts_nsec = 0;
   
   return 0;
 #endif

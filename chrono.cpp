@@ -404,6 +404,16 @@ void get_current_date(int16* year, uint8* month, uint8* day) {
   *year = ((year_in_century <= 50) ? 2000 : 1900) + year_in_century;
 }
 
+uint32 days_from_civil(uint16 y, unsigned m, unsigned d) 
+{
+    y -= m <= 2;
+    uint32 era = (y >= 0 ? y : y-399) / 400;
+    uint16 yoe = static_cast<unsigned>(y - era * 400);      // [0, 399]
+    uint16 doy = (153*(m + (m > 2 ? -3 : 9)) + 2)/5 + d-1;  // [0, 365]
+    uint32 doe = yoe * 365 + yoe/4 - yoe/100 + doy;         // [0, 146096]
+    return era * 146097 + doe - 719468;
+}
+
 
 // Local Variables: //
 // mode: C++ //

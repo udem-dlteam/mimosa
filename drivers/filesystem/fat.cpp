@@ -306,7 +306,7 @@ static uint16 pack_into_fat_date(int16 year, uint8 month, int8 day) {
   return packed_date;
 }
 
-static void unpack_fat_date(uint16 fat_date, int16* year, uint8* month, int8* day) {
+static void unpack_fat_date(uint16 fat_date, int16* year, uint8* month, uint8* day) {
   // According to the FAT specification, the FAT date is set that way:
   // Bits 15-9: Year relative to 1980
   // Bits 8-5: Month
@@ -2297,7 +2297,7 @@ static error_code fat_stat(fs_header* header, file* ff, stat_buff* buf) {
   uint16 fat_creation_time = as_uint16(de.DIR_CrtTime);
   uint16 fat_modification_time = as_uint16(de.DIR_WrtTime);
   uint16 fat_creation_date = as_uint16(de.DIR_CrtDate);
-  uint16 fat_modification_time = as_uint16(de.DIR_WrtDate);
+  uint16 fat_modification_date = as_uint16(de.DIR_WrtDate);
   
   buf->bytes = f->length;
   buf->fs = header;
@@ -2311,14 +2311,23 @@ static error_code fat_stat(fs_header* header, file* ff, stat_buff* buf) {
   unpack_fat_time(fat_creation_time, &creation_hours, &creation_minutes, &creation_seconds);
   unpack_fat_time(fat_modification_time, &modif_hours, &modif_minutes, &modif_seconds);
   
-  // uint16 creation_years; uint8 creation_month, creation_day;
-  // uint16 modif_year; uint8 modif_month, modif_year;
+  int16 creation_years; uint8 creation_month, creation_day;
+  int16 modif_year; uint8 modif_month, modif_day;
 
+  unpack_fat_date(fat_creation_date, &creation_years, &creation_month, &creation_day);
+  unpack_fat_date(fat_modification_date, &modif_year, &modif_month, &modif_day);
+  
+  uint32 creation_secs_from_date = days_from_civil(creation_years, creation_month, creation_day) * day_in_sec;
+  uint32 modif_secs_from_date = days_from_civil(modif_year, modif_month, modif_day) * day_in_sec;
 
   // TODO : Get the number of seconds from the Year, month, day
-  buf->creation_time_epochs_secs = (creation_hours * hour_in_sec) + (creation_minutes * min_in_sec) + creation_seconds;
-  buf->last_modifs_epochs_secs = (modif_hours * hour_in_sec) + (modif_minutes * min_in_sec) + modif_seconds;
+  buf->creation_time_epochs_secs = (creation_hours * hour_in_sec) +
+                                   (creation_minutes * min_in_sec) +
+                                   creation_seconds + creation_secs_from_date;
 
+  buf->last_modifs_epochs_secs = (modif_hours * hour_in_sec) +
+                                 (modif_minutes * min_in_sec) + modif_seconds +
+                                 modif_secs_from_date;
 
   return err;
 }
