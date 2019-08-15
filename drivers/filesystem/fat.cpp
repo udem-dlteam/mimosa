@@ -323,6 +323,7 @@ static error_code mount_partition(disk* d, vfnode* parent) {
     }
   } else {
     term_write(cout, "No partition found. Not adding any FS");
+    term_writeline(cout);
   }
 
   return UNKNOWN_ERROR;
