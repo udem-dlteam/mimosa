@@ -84,6 +84,10 @@ int main() {
     panic(L"Failed to remove");
   }
 
+  if(ERROR(err = file_remove("dsk1/fact.scm"))) {
+    panic(L"Failed to remove fact.scm");
+  }
+
   term_run(cout);
 #endif
 
