@@ -89,7 +89,7 @@ typedef struct time { uint64 n; } time;
 ((x).n * PIT_COUNTS_PER_SEC / IRQ8_COUNTS_PER_SEC)
 
 #define time_to_apic_timer_counts(x) \
-((x).n * _tsc_counts_per_sec / (IRQ8_COUNTS_PER_SEC*_cpu_bus_multiplier.num))
+((x).n * _tsc_counts_per_sec * _cpu_bus_multiplier.den / (APIC_TIMER_DIVIDER*IRQ8_COUNTS_PER_SEC*_cpu_bus_multiplier.num))
 
 #define add_time(x,y) \
 ({ \
@@ -156,7 +156,7 @@ typedef struct time { uint64 n; } time;
 #define time_to_pit_counts(x) \
 ((x).n * PIT_COUNTS_PER_SEC / _tsc_counts_per_sec)
 
-#define time_to_apic_timer_counts(x) ((x).n/_cpu_bus_multiplier.num)
+#define time_to_apic_timer_counts(x) ((x).n*_cpu_bus_multiplier.den/(APIC_TIMER_DIVIDER*_cpu_bus_multiplier.num))
 
 #define add_time(x,y) \
 ({ \

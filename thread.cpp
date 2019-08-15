@@ -530,7 +530,6 @@ void irq0 ()
 
 #ifdef SHOW_TIMER_INTERRUPTS
   term_write(cout, "\033[41m irq0 \033[0m");
-  term_write(cout, "\n\r");
 #endif
 
   ACKNOWLEDGE_IRQ(0);

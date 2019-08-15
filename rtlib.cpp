@@ -403,15 +403,14 @@ static void identify_cpu ()
 
   term_write(cout, "CPU/bus clock multiplier = ");
   term_write(cout, _cpu_bus_multiplier.num);
-
-  if (_cpu_bus_multiplier.den == 1) {
-    term_write(cout, "\n\r");
-  } else {
+  if (_cpu_bus_multiplier.den != 1) {
     term_write(cout, "/");
     term_write(cout, _cpu_bus_multiplier.den);
-    term_write(cout, " is not an integer!\n");
-    panic(L"CPU/bus clock multiplier is not an integer\n");
+    if (_cpu_bus_multiplier.num < _cpu_bus_multiplier.den) {
+      term_write(cout, "(strange that it is less than 1)");
+    }
   }
+  term_write(cout, "\n");
 
 #endif
 #endif

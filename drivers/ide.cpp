@@ -385,14 +385,26 @@ static void setup_ide_device(ide_controller* ctrl, ide_device* dev, uint8 id) {
 
   if (dev->kind == IDE_DEVICE_ATA)
     {
-      term_write(cout, "  Number of logical cylinders = ") << ident[1] << "\n";
-      term_write(cout, "  Number of logical heads = ") << ident[3] << "\n";
-      term_write(cout, "  Number of logical sectors per logical track = ") << ident[6] << "\n";
+      term_write(cout, "  Number of logical cylinders = ");
+      term_write(cout, ident[1]);
+      term_write(cout, "\n");
+      term_write(cout, "  Number of logical heads = ");
+      term_write(cout, ident[3]);
+      term_write(cout, "\n");
+      term_write(cout, "  Number of logical sectors per logical track = ");
+      term_write(cout, ident[6]);
+      term_write(cout, "\n");
     }
 
-  term_write(cout, "  Serial number = ") << dev->serial_num << "\n";
-  term_write(cout, "  Firmware revision = ") << dev->firmware_rev << "\n";
-  term_write(cout, "  Model number = ") << dev->model_num << "\n";
+  term_write(cout, "  Serial number = ");
+  term_write(cout, dev->serial_num);
+  term_write(cout, "\n");
+  term_write(cout, "  Firmware revision = ");
+  term_write(cout, dev->firmware_rev);
+  term_write(cout, "\n");
+  term_write(cout, "  Model number = ");
+  term_write(cout, dev->model_num);
+  term_write(cout, "\n");
 
 #if 0
 
@@ -405,13 +417,23 @@ static void setup_ide_device(ide_controller* ctrl, ide_device* dev, uint8 id) {
     {
       if (ident[53] & (1<<0))
         {
-          term_write(cout, "  Number of current logical cylinders = ") << ident[54] << "\n";
-          term_write(cout, "  Number of current logical heads = ") << ident[55] << "\n";
-          term_write(cout, "  Number of current logical sectors per track = ") << ident[56] << "\n";
-          term_write(cout, "  Current capacity in sectors = ") << (CAST(uint32,ident[58])<<16)+ident[57] << "\n";
+          term_write(cout, "  Number of current logical cylinders = ");
+          term_write(cout, ident[54]);
+          term_write(cout, "\n");
+          term_write(cout, "  Number of current logical heads = ");
+          term_write(cout, ident[55]);
+          term_write(cout, "\n");
+          term_write(cout, "  Number of current logical sectors per track = ");
+          term_write(cout, ident[56]);
+          term_write(cout, "\n");
+          term_write(cout, "  Current capacity in sectors = ");
+          term_write(cout, (CAST(uint32,ident[58])<<16)+ident[57]);
+          term_write(cout, "\n");
         }
 
-      term_write(cout, "  Total number of user addressable sectors (LBA mode only) = ") << (CAST(uint32,ident[61])<<16)+ident[60] << "\n";
+      term_write(cout, "  Total number of user addressable sectors (LBA mode only) = ");
+      term_write(cout, (CAST(uint32,ident[61])<<16)+ident[60]);
+      term_write(cout, "\n");
     }
 
   if (ident[63] & (1<<10))
@@ -432,7 +454,9 @@ static void setup_ide_device(ide_controller* ctrl, ide_device* dev, uint8 id) {
   if (ident[63] & (1<<0))
     term_write(cout, "  Multiword DMA mode 0 is supported\n");
 
-  term_write(cout, "  Maximum queue depth � 1 = ") << (ident[75]&31) << "\n";
+  term_write(cout, "  Maximum queue depth � 1 = ");
+  term_write(cout, (ident[75]&31));
+  term_write(cout, "\n");
 
   if (ident[80] & (1<<5))
     term_write(cout, "  supports ATA/ATAPI-5\n");
@@ -446,7 +470,9 @@ static void setup_ide_device(ide_controller* ctrl, ide_device* dev, uint8 id) {
   if (ident[80] & (1<<2))
     term_write(cout, "  supports ATA-2\n");
 
-  term_write(cout, "  Minor version number = ") << ident[81] << "\n";
+  term_write(cout, "  Minor version number = ");
+  term_write(cout, ident[81]);
+  term_write(cout, "\n");
 
   term_write(cout, "  supports:");
 
@@ -584,8 +610,8 @@ static void setup_ide_device(ide_controller* ctrl, ide_device* dev, uint8 id) {
 
   if (ident[53] & (1<<2))
     {
-    if (ident[88] & (1<<12))
-      term_write(cout, "  Ultra DMA mode 4 is selected\n");
+      if (ident[88] & (1<<12))
+        term_write(cout, "  Ultra DMA mode 4 is selected\n");
 
       if (ident[88] & (1<<11))
         term_write(cout, "  Ultra DMA mode 3 is selected\n");
@@ -615,9 +641,8 @@ static void setup_ide_device(ide_controller* ctrl, ide_device* dev, uint8 id) {
         term_write(cout, "  Ultra DMA mode 0 is supported\n");
     }
 
-    if (ident[88] & (1 << 0))
-      term_write(cout, "  Ultra DMA mode 0 is supported\n");
-  }
+  if (ident[88] & (1 << 0))
+    term_write(cout, "  Ultra DMA mode 0 is supported\n");
 
 #endif
 }

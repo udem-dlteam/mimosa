@@ -63,7 +63,32 @@ void setup_intr ()
 
 #ifdef USE_APIC_FOR_TIMER
 
-  APIC_TIMER_DIVIDE_CONFIG = 0x0b; // divide by 1
+#if APIC_TIMER_DIVIDER == 1
+#define APIC_TIMER_DIV_CONF 0xb
+#endif
+#if APIC_TIMER_DIVIDER == 2
+#define APIC_TIMER_DIV_CONF 0x0
+#endif
+#if APIC_TIMER_DIVIDER == 4
+#define APIC_TIMER_DIV_CONF 0x1
+#endif
+#if APIC_TIMER_DIVIDER == 8
+#define APIC_TIMER_DIV_CONF 0x2
+#endif
+#if APIC_TIMER_DIVIDER == 16
+#define APIC_TIMER_DIV_CONF 0x3
+#endif
+#if APIC_TIMER_DIVIDER == 32
+#define APIC_TIMER_DIV_CONF 0x8
+#endif
+#if APIC_TIMER_DIVIDER == 64
+#define APIC_TIMER_DIV_CONF 0x9
+#endif
+#if APIC_TIMER_DIVIDER == 128
+#define APIC_TIMER_DIV_CONF 0xa
+#endif
+
+  APIC_TIMER_DIVIDE_CONFIG = APIC_TIMER_DIV_CONF; // configure divider
 
   x = APIC_LVTT;
   x |= APIC_LVT_MASKED; // Mask timer interrupt

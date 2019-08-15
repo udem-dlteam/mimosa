@@ -85,17 +85,21 @@ typedef int32 error_code;
 // #define USE_PIT_1_BYTE_COUNT
 #endif
 
+#ifdef USE_APIC_FOR_TIMER
+#define APIC_TIMER_DIVIDER 16  // power of 2, from 1 to 128
+#endif
+
 // For keeping track of elapsed time we can use the real-time clock
 // (RTC) IRQ8 interrupt or the time stamp counter (TSC) which exists
 // on CPUs above the 486.  Note that "bochs" has a bug which prevents
 // the RTC IRQ8 interrupt and PIT IRQ0 interrupt to be used
 // simultaneously.
 
-// #define USE_IRQ8_FOR_TIME
-#define USE_TSC_FOR_TIME
+#define USE_IRQ8_FOR_TIME
+// #define USE_TSC_FOR_TIME
 
 #ifdef USE_IRQ8_FOR_TIME
-#define IRQ8_COUNTS_PER_SEC 128
+#define IRQ8_COUNTS_PER_SEC 128  // power of 2, from 2 to 8192
 #endif
 
 // For the keyboard and mouse, IRQ1 and IRQ12 are used respectively.
