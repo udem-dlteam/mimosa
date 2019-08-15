@@ -477,24 +477,27 @@ static error_code fat_write_directory_entry(fat_file* f,
   return err;
 }
 
-static error_code fat_rename(fs_header* ffs, file* ff, native_string name, uint8 depth) {
+static error_code fat_rename(fs_header* ffs, file* ff, native_string name,
+                             uint8 depth) {
   error_code err = NO_ERROR;
   fat_file_system* fs = CAST(fat_file_system*, ffs);
   fat_file* f = CAST(fat_file*, ff);
-  fat_file *target_parent, *scout;
+  fat_file *target_parent = NULL, *parent_dir = NULL;
   FAT_directory_entry de;
   uint8 name_len = kstrlen(name);
-  
-  if(0 == depth) 
-    return FNF_ERROR;
-  // }
 
-  if(ERROR(err = fat_fetch_parent(fs, &name, depth, &target_parent))) {
+  debug_write("FAT rename");
+  debug_write("Depth:");
+  debug_write(depth);
+
+  if (0 == depth) return FNF_ERROR;
+
+  if (ERROR(err = fat_fetch_parent(fs, &name, depth, &target_parent))) {
     return err;
   }
 
-  if(!IS_FOLDER(target_parent->header.type)) {
-    return ARG_ERROR; // the file paths are incorrect
+  if (!IS_FOLDER(target_parent->header.type)) {
+    return ARG_ERROR;  // the file paths are incorrect
   }
 
   if (ERROR(err = fat_open_directory_entry(f, &de))) {
@@ -507,26 +510,61 @@ static error_code fat_rename(fs_header* ffs, file* ff, native_string name, uint8
   // Copy the short name
   memcpy(de.DIR_Name, sfe.name, FAT_NAME_LENGTH);
 
+  debug_write("After name copy");
+
   uint32 new_pos;
-  if(ERROR(err = fat_allocate_directory_entry(fs, target_parent, &de, name, &new_pos))) {
+  if (ERROR(err = fat_allocate_directory_entry(fs, target_parent, &de, name,
+                                               &new_pos))) {
     return err;
   }
+  
 
+  de.DIR_Name[0] = FAT_UNUSED_ENTRY;  // Set the entry available
   // Clean the old entry
-  de.DIR_Name[0] = FAT_UNUSED_ENTRY; // Set the entry available
+  uint32 old_name_len = kstrlen(f->header.name);
+
+  if (old_name_len > FAT_NAME_LENGTH) {
+    // We need to overwrite the old entries
+    uint8 no_of_entries = (old_name_len / FAT_CHARS_PER_LONG_NAME_ENTRY) +
+                          (old_name_len % FAT_CHARS_PER_LONG_NAME_ENTRY != 0);
+
+    if (ERROR(err = new_fat_file(&parent_dir))) return err;
+
+    parent_dir->header._fs_header = f->header._fs_header;
+    parent_dir->first_cluster = f->parent.first_cluster;
+    parent_dir->header.type = TYPE_FOLDER;
+
+    // Correctly locate the DE to overwrite
+    fat_reset_cursor(
+        CAST(file*, parent_dir));  // might seem useless but it actually
+                                   // initialize the cursor correctly
+    fat_set_to_absolute_position(
+        CAST(file*, parent_dir),
+        f->entry.position - (sizeof(long_file_name_entry) * no_of_entries));
+
+    while (no_of_entries-- > 0) {
+      if (ERROR(err =
+                    fat_write_file(CAST(file*, parent_dir), &de, sizeof(de)))) {
+        goto fat_rename_end;
+      }
+    }
+  }
   // The eager eye might have noticed that we don't copy over the same
   // entry back where we originally read it. It doesn't matter, since
   // the old entry is now garbage anyways.
-  if(ERROR(err = fat_write_directory_entry(f, &de))) {
+  if (ERROR(err = fat_write_directory_entry(f, &de))) {
     goto fat_rename_end;
   }
 
 fat_rename_end:
   // Update the information to be able to quickly find the root dir
-    f->parent.first_cluster = target_parent->first_cluster;
-    f->entry.position = new_pos;
+  f->parent.first_cluster = target_parent->first_cluster;
+  f->entry.position = new_pos;
   fat_close_file(CAST(file*, target_parent));
 
+  if(NULL != parent_dir) {
+    fat_close_file(CAST(file*, parent_dir));
+  }
   return err;
 }
 

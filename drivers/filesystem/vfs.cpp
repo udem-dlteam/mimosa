@@ -228,9 +228,7 @@ error_code file_rename(native_string old_name, native_string new_name) {
   uint8 depth_new;
 
   if (ERROR(err = normalize_path(new_name, normalized_path, &depth_new))) {
-#ifdef SHOW_DISK_INFO
-    term_write(cout, "Failed to normalize the path\n\r");
-#endif
+    debug_write("Error in normalizing path");
     return err;
   }
 
@@ -241,13 +239,12 @@ error_code file_rename(native_string old_name, native_string new_name) {
   // and copy the directory entry
 
   file* old_file;
-  uint8 bottom_new = depth_new;
-  // vfnode* deepest = explore(normalized_path, &depth_new);
-  vfnode* deepest = NULL;
-
-  panic(L"Todo rename!");
+  native_string p = normalized_path;
+  vfnode* deepest = explore(&p, &depth_new);
 
   if(ERROR(err = file_open(old_name, "r", &old_file))) {
+    debug_write("Failed to open the file with the name");
+    debug_write(old_name);
     goto rename_end;
   }
 
@@ -262,8 +259,7 @@ error_code file_rename(native_string old_name, native_string new_name) {
       // This is an error because file_rename does not work across file systems.
       err = ARG_ERROR;
     } else {
-      panic(L"TODO_RENAME");
-      // err = fs_rename(target_fs, old_file, parts_new + (bottom_new - depth_new), depth_new);
+      err = fs_rename(target_fs, old_file, p, depth_new);
     }
   } else {
     err = FNF_ERROR;

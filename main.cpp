@@ -68,6 +68,12 @@ int main() {
     panic(L"Another error");
   }
 
+  if(ERROR(err = file_rename("/dsk1/abigfolder/abigsubfileintoafolder", "/dsk1/abigfilerenamedacrossafolder"))) {
+    term_write(cout, "Error is: ");
+    term_write(cout, err);
+    panic(L"Failed to rename");
+  }
+
   term_run(cout);
 #endif
 
