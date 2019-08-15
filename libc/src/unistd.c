@@ -90,11 +90,11 @@ int REDIRECT_NAME(mkdir)(const char *__pathname, mode_t __mode) {
   return mkdir(__pathname, __mode);
 
 #else
+  file* new_folder;
+  error_code err = mkdir(CAST(native_string, __pathname), &new_folder);
+  if (HAS_NO_ERROR(err)) file_close(new_folder);
 
-  // TODO: implement
-  errno = ENOENT;
-  return -1;
-
+  return ERROR(err) ? -1 : 0;
 #endif
 #endif
 }
