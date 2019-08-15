@@ -91,16 +91,6 @@ int main() {
         panic(L"ERR");
       }
 
-      debug_write("Len is");
-      debug_write(len);
-
-      if(err != len) {
-        debug_write("Read ");
-        debug_write(CAST(uint32, err));
-        debug_write("Instead of");
-        debug_write(len);
-      }
-
       program_thread* task =
           CAST(program_thread*, kmalloc(sizeof(program_thread)));
       new_program_thread(task, "/dsk1", CAST(libc_startup_fn, code), "Gambit");
