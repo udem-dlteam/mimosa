@@ -96,9 +96,12 @@ static error_code mount_FAT121632(disk* d, fat_file_system** result) {
   cache_block* cb;
   error_code err, release_err;
 
+  __debug_marker();
   {
+    term_write(cout, "Acquiring readlock on a cache block\n");
     if (ERROR(err = disk_cache_block_acquire(d, 0, &cb))) return err;
     rwmutex_readlock(cb->mut);
+    term_write(cout, "Cache block lock acquired\n");
 
     p = CAST(BIOS_Parameter_Block*, cb->buf);
 
@@ -220,7 +223,9 @@ static error_code mount_FAT121632(disk* d, fat_file_system** result) {
       }
     }
 
+    term_write(cout,"Unlocking the readlock\n");
     rwmutex_readunlock(cb->mut);
+    term_write(cout, "Readlock unlocked!\n"); 
     release_err = disk_cache_block_release(cb);
   }
 
@@ -265,6 +270,8 @@ static error_code mount_partition(disk* d, vfnode* parent) {
     case 4:     // Primary DOS 16-bit FAT
     case 6:     // Primary big DOS >32Mb
     case 0x0C:  // FAT32 LBA
+      term_write(cout, "Found a known partition");
+
       if (ERROR(err = mount_FAT121632(d, &fs))) {
         term_write(cout, "Failed to mount\n\r");
         return err;
