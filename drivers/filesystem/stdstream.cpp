@@ -46,15 +46,19 @@ static error_code stream_set_to_absolute_position(file* f, uint32 position) {
 
 static size_t stream_len(file* f) { return 0; }
 
-error_code stream_mkdir(fs_header* header, short_file_name* parts, uint8 depth, file**result) {
+error_code stream_mkdir(fs_header* header, native_string name, uint8 depth, file**result) {
   return ARG_ERROR;
 }
 
-error_code stream_rename(fs_header* header, file* source, short_file_name* parts, uint8 depth) {
+error_code stream_rename(fs_header* header, file* source, native_string name, uint8 depth) {
   return ARG_ERROR;
 }
 
 error_code stream_remove(fs_header* header, file* source) {
+  return ARG_ERROR;
+}
+
+error_code stream_stat(fs_header* fs, file* f, stat_buff* buf) {
   return ARG_ERROR;
 }
 
@@ -303,9 +307,10 @@ error_code mount_streams(vfnode* parent) {
   error_code err = NO_ERROR;
 
   __std_stream_vtable._file_open = stream_open_file;
-  // __std_stream_vtable._mkdir = stream_mkdir;
-  // __std_stream_vtable._rename = stream_rename;
+  __std_stream_vtable._mkdir = stream_mkdir;
+  __std_stream_vtable._rename = stream_rename;
   __std_stream_vtable._remove = stream_remove;
+  __std_stream_vtable._stat = stream_stat;
 
   fs_std_stream.kind = STREAM;
   fs_std_stream._vtable = &__std_stream_vtable;

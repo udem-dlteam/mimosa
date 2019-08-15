@@ -151,12 +151,7 @@ int REDIRECT_NAME(lstat)(const char *__pathname, struct stat *__buf) {
   return lstat(__pathname, __buf);
 
 #else
-  debug_write("LSTAT");
-
-  // TODO: implement
-  errno = ENOENT;
-  return -1;
-
+  return REDIRECT_NAME(stat)(__pathname, __buf);
 #endif
 #endif
 }
@@ -178,10 +173,17 @@ int REDIRECT_NAME(stat)(const char *__pathname, struct stat *__buf) {
 #else
   debug_write("Stat");
 
-  // TODO: implement
-  errno = ENOENT;
-  return -1;
+  error_code err;
+  stat_buff sbuffer;
+  if(ERROR(err = file_stat(CAST(native_string, __pathname), &sbuffer))) {
+    // TODO: set ERRNO
+    return -1;
+  }
 
+  __buf->st_size = sbuffer.bytes;
+  __buf->st_dev = CAST(uint32, sbuffer.fs);
+  
+  return 0;
 #endif
 #endif
 }

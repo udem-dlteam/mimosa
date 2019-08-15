@@ -271,6 +271,23 @@ rename_end:
   return err;
 }
 
+error_code file_stat(native_string path, stat_buff* buf) {
+  error_code err = NO_ERROR;
+  file* f = NULL;
+
+  if (ERROR(err = file_open(path, "r", &f))) {
+    return err;
+  }
+
+  fs_stat(f->_fs_header, f, buf);
+
+  if (NULL != f) {
+    file_close(f);
+  }
+
+  return err;
+}
+
 error_code mkdir(native_string path, file** result) {
   uint8 depth;
   error_code err = NO_ERROR;

@@ -50,6 +50,7 @@ static error_code fat_remove(fs_header* header, file* file);
 static error_code fat_rename(fs_header* header, file* source, native_string name, uint8 depth);
 static error_code fat_mkdir(fs_header* header,native_string name, uint8 depth, file** result);
 static error_code fat_file_open(fs_header* header, native_string parts, uint8 depth, file_mode mode, file** result);
+static error_code fat_stat(fs_header* header, file* f, stat_buff* buf);
 static void fat_reset_cursor(file* f);
 static error_code fat_move_cursor(file* f, int32 n);
 static error_code fat_set_to_absolute_position(file* f, uint32 position);
@@ -2282,6 +2283,46 @@ static fat_open_chain* new_chain_link(fat_file_system* fs, fat_file* file) {
   return nlink;
 }
 
+static error_code fat_stat(fs_header* header, file* ff, stat_buff* buf) {
+  error_code err = NO_ERROR;
+  fat_file_system* fs = CAST(fat_file_system*, header);
+  fat_file* f = CAST(fat_file*, ff); 
+
+  FAT_directory_entry de;
+  
+  if(ERROR(err = fat_open_directory_entry(f, &de))) {
+    return err;
+  }
+
+  uint16 fat_creation_time = as_uint16(de.DIR_CrtTime);
+  uint16 fat_modification_time = as_uint16(de.DIR_WrtTime);
+  uint16 fat_creation_date = as_uint16(de.DIR_CrtDate);
+  uint16 fat_modification_time = as_uint16(de.DIR_WrtDate);
+  
+  buf->bytes = f->length;
+  buf->fs = header;
+  buf->fs_block_size = (1 << (fs->_.FAT121632.log2_bps + fs->_.FAT121632.log2_spc));
+  buf->mode = ff->mode;
+  buf->type = ff->type;
+
+  uint8 creation_hours, creation_minutes, creation_seconds;
+  uint8 modif_hours, modif_minutes, modif_seconds;
+
+  unpack_fat_time(fat_creation_time, &creation_hours, &creation_minutes, &creation_seconds);
+  unpack_fat_time(fat_modification_time, &modif_hours, &modif_minutes, &modif_seconds);
+  
+  // uint16 creation_years; uint8 creation_month, creation_day;
+  // uint16 modif_year; uint8 modif_month, modif_year;
+
+
+  // TODO : Get the number of seconds from the Year, month, day
+  buf->creation_time_epochs_secs = (creation_hours * hour_in_sec) + (creation_minutes * min_in_sec) + creation_seconds;
+  buf->last_modifs_epochs_secs = (modif_hours * hour_in_sec) + (modif_minutes * min_in_sec) + modif_seconds;
+
+
+  return err;
+}
+
 error_code mount_fat(vfnode* parent) {
   start_sentinel.next = &end_sentinel;
   start_sentinel.prev = NULL;
@@ -2294,6 +2335,7 @@ error_code mount_fat(vfnode* parent) {
   _fat_vtable._mkdir = fat_mkdir;
   _fat_vtable._rename = fat_rename;
   _fat_vtable._remove = fat_remove;
+  _fat_vtable._stat = fat_stat;
 
   // Init the file vtable
   _fat_file_vtable._file_close = fat_close_file;

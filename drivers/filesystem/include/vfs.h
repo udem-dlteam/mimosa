@@ -43,11 +43,22 @@ typedef struct DIR_struct DIR;
 typedef struct VDIR_struct VDIR;
 typedef struct dirent_struct dirent;
 typedef struct fs_vtable_struct fs_vtable;
+typedef struct stat_buff_struct stat_buff;
 
 typedef struct fs_header_struct {
   fs_kind kind;
   fs_vtable* _vtable;
 } fs_header;
+
+struct stat_buff_struct {
+  fs_header* fs;
+  file_mode mode;
+  file_type type;
+  uint32 bytes;
+  uint32 fs_block_size;
+  uint32 last_modifs_epochs_secs;
+  uint32 creation_time_epochs_secs;
+};
 
 typedef struct short_file_name_struct {
   native_char name[12];
@@ -71,6 +82,7 @@ struct fs_vtable_struct {
   error_code (*_rename)(fs_header* header, file* source, native_string name,
                         uint8 depth);
   error_code (*_remove)(fs_header* header, file* source);
+  error_code (*_stat)(fs_header* header, file* source, stat_buff* buf);
 };
 
 // A file descriptor header
@@ -112,11 +124,6 @@ struct DIR_struct {
 struct VDIR_struct {
   DIR header;
   vfnode* child_cursor;
-};
-
-struct stat {
-  file_mode st_mode;
-  uint32 st_size;
 };
 
 error_code init_vfs();
@@ -184,9 +191,14 @@ vfnode* new_vfnode(vfnode* vf, native_string name, file_type type);
 #define fs_remove(fs, f) \
   CAST(fs_header*, fs)->_vtable->_remove(CAST(fs_header*, fs), CAST(file*, f))
 
+#define fs_stat(fs, f, buf) \
+  CAST(fs_header*, fs)      \
+      ->_vtable->_stat(CAST(fs_header*, fs), CAST(file*, f), buf)
+
 error_code file_open(native_string path, native_string mode, file** result);
 error_code file_rename(native_string old_name, native_string new_name);
 error_code file_remove(native_string path);
+error_code file_stat(native_string path, stat_buff* buff);
 error_code mkdir(native_string path, file** result);
 
 error_code normalize_path(native_string old_path, native_string new_path, uint8* _depth);
