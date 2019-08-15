@@ -228,7 +228,6 @@ error_code file_rename(native_string old_name, native_string new_name) {
   uint8 depth_new;
 
   if (ERROR(err = normalize_path(new_name, normalized_path, &depth_new))) {
-    debug_write("Error in normalizing path");
     return err;
   }
 
@@ -243,8 +242,6 @@ error_code file_rename(native_string old_name, native_string new_name) {
   vfnode* deepest = explore(&p, &depth_new);
 
   if(ERROR(err = file_open(old_name, "r", &old_file))) {
-    debug_write("Failed to open the file with the name");
-    debug_write(old_name);
     goto rename_end;
   }
 

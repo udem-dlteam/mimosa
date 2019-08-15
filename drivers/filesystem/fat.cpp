@@ -486,10 +486,6 @@ static error_code fat_rename(fs_header* ffs, file* ff, native_string name,
   FAT_directory_entry de;
   uint8 name_len = kstrlen(name);
 
-  debug_write("FAT rename");
-  debug_write("Depth:");
-  debug_write(depth);
-
   if (0 == depth) return FNF_ERROR;
 
   if (ERROR(err = fat_fetch_parent(fs, &name, depth, &target_parent))) {
@@ -510,14 +506,11 @@ static error_code fat_rename(fs_header* ffs, file* ff, native_string name,
   // Copy the short name
   memcpy(de.DIR_Name, sfe.name, FAT_NAME_LENGTH);
 
-  debug_write("After name copy");
-
   uint32 new_pos;
   if (ERROR(err = fat_allocate_directory_entry(fs, target_parent, &de, name,
                                                &new_pos))) {
     return err;
   }
-  
 
   de.DIR_Name[0] = FAT_UNUSED_ENTRY;  // Set the entry available
   // Clean the old entry
@@ -615,7 +608,6 @@ static error_code next_FAT_section(fat_file* f) {
   error_code err;
 
   if (fs->kind == FAT12_FS) {
-    //debug_write("Reading the next FAT12 section");
     offset = n + (n >> 1);
 
     sector_pos =
@@ -1460,8 +1452,6 @@ static error_code fat_fetch_first_empty_directory_position(
 static error_code fat_allocate_directory_entry(
     fat_file_system * fs, fat_file * parent_folder, FAT_directory_entry * de,
     native_char * name, uint32* _position) {
-  debug_write("Alloating a directory entry for:");
-  debug_write(name);
   long_file_name_entry lfe;
   error_code err = NO_ERROR;
 
@@ -1473,9 +1463,6 @@ static error_code fat_allocate_directory_entry(
                          (name_len % FAT_CHARS_PER_LONG_NAME_ENTRY != 0);
   ++required_spots;
 
-  debug_write("Allocation data");
-  debug_write(required_spots);
-
   if(ERROR(err = fat_set_to_absolute_position(CAST(file*, parent_folder), 0))) {
     return err;
   } 
@@ -1485,8 +1472,6 @@ static error_code fat_allocate_directory_entry(
                 parent_folder, &position, required_spots))) {
     return err;
   }
-
-  debug_write(position);
 
   if (ERROR(err = fat_set_to_absolute_position(CAST(file*, parent_folder),
                                                position))) {
@@ -1549,7 +1534,6 @@ static error_code fat_allocate_directory_entry(
 
     if (ERROR(err = fat_write_file(CAST(file*, parent_folder), &lfe,
                                    sizeof(lfe)))) {
-      debug_write("A");
       return err;  // TODO check that this is not causing issues
     }
   }
@@ -1558,7 +1542,6 @@ static error_code fat_allocate_directory_entry(
 
   if (ERROR(err = fat_write_file(CAST(file*, parent_folder), de,
                                  sizeof(FAT_directory_entry)))) {
-    debug_write("B");
     return err;
   }
 
@@ -1731,8 +1714,6 @@ static error_code fat_fetch_parent(fat_file_system* fs, native_string* _parts,
 }
 
 static error_code fat_mkdir(fs_header* ffs, native_string name, uint8 depth, file** result) {
-  debug_write("MKDIR");
-  debug_write(depth);
   error_code err = NO_ERROR;
   fat_file_system* fs = CAST(fat_file_system*, ffs);
   fat_file *parent,*folder;
@@ -1891,15 +1872,9 @@ error_code fat_file_open(fs_header* ffs, native_string parts, uint8 depth, file_
       break;
   }
 
-  debug_write("Before fetching the parent:");
-  debug_write(parts);
-
   if(ERROR(err = fat_fetch_parent(fs, &parts, depth, &parent)))  {
     return err;
   }
-
-  debug_write("After fetching the parent");
-  debug_write(parts);
 
   if(0 == depth) {
     *result = CAST(file*, parent);
