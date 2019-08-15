@@ -359,7 +359,7 @@ static error_code mount_partition(disk* d, vfnode* parent) {
     if (fs_mod.nb_mounted_fs < MAX_NB_MOUNTED_FAT_FS) {
       fs_mod.mounted_fs[fs_mod.nb_mounted_fs++] = fs;
 
-      term_write(cout, "Mouting partition ");
+      term_write(cout, "Mounting partition ");
 
       disk_print_id(d);
 
