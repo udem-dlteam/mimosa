@@ -61,7 +61,7 @@ static error_code fat_32_set_fat_link_value(fat_file_system* fs, uint32 cluster,
                                             uint32 value);
 static error_code fat_update_file_length(fat_file* f);
 static error_code fat_fetch_first_empty_directory_position(
-    fat_file* directory, FAT_directory_entry* de, uint32* position, uint8 required_spots);
+    fat_file* directory, uint32* position, uint8 required_spots);
 static error_code fat_fetch_entry(fat_file_system* fs, fat_file* parent,
                                   native_char* name, fat_file** result);
 static size_t fat_file_len(file* f);
@@ -1390,8 +1390,9 @@ static error_code fat_32_set_fat_link_value(fat_file_system* fs, uint32 cluster,
 }
 
 static error_code fat_fetch_first_empty_directory_position(
-    fat_file* directory, FAT_directory_entry* de, uint32* _position,
+    fat_file* directory, uint32* _position,
     uint8 required_spots) {
+  FAT_directory_entry de;
   uint32 position = *_position;
   uint8 spots_left = required_spots;
   error_code err;
@@ -1399,7 +1400,7 @@ static error_code fat_fetch_first_empty_directory_position(
   fat_reset_cursor(CAST(file*, directory));
 
   position = directory->current_pos;
-  while (((err = fat_read_file(CAST(file*, directory), de, sizeof(*de))) == sizeof(*de))) {
+  while (((err = fat_read_file(CAST(file*, directory), &de, sizeof(de))) == sizeof(de))) {
     // This means the entry is available
     if (de->DIR_Name[0] == FAT_UNUSED_ENTRY) {
       // Check if we have enough space
@@ -1443,7 +1444,7 @@ static error_code fat_allocate_directory_entry(
 
   uint32 position;
   if (ERROR(err = fat_fetch_first_empty_directory_position(
-                parent_folder, de, &position, required_spots))) {
+                parent_folder, &position, required_spots))) {
     return err;
   }
 
