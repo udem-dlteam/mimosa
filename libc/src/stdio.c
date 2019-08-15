@@ -406,7 +406,8 @@ int REDIRECT_NAME(rename)(const char *__oldpath, const char *__newpath) {
 #else
 
   // TODO: implement
-  return 0;
+  return file_rename(CAST(native_string, __oldpath),
+                     CAST(native_string, __newpath));
 
 #endif
 #endif

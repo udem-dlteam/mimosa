@@ -2,6 +2,14 @@
 #include "include/unistd.h"
 #include "include/errno.h"
 
+#define USE_MIMOSA
+#ifdef USE_MIMOSA
+
+#include "thread.h"
+#include "../drivers/filesystem/include/vfs.h"
+
+#endif
+
 int REDIRECT_NAME(chdir)(const char *__path) {
 
 #ifdef USE_LIBC_LINK
@@ -17,6 +25,16 @@ int REDIRECT_NAME(chdir)(const char *__path) {
   return chdir(__path);
 
 #else
+  debug_write("CHDIR called");
+
+  thread* gamb_thread = thread_self();
+
+  if(gamb_thread->type == THREAD_TYPE_USER) {
+    program_thread* t = CAST(program_thread*, gamb_thread);
+    program_thread_chdir(t, CAST(native_string, __path));
+  } else {
+    panic(L"Gambit thread is a kernel thread");
+  }
 
   // TODO: implement
   return 0;
@@ -40,15 +58,18 @@ char *REDIRECT_NAME(getcwd)(char *__buf, size_t __size) {
   return getcwd(__buf, __size);
 
 #else
+  debug_write("getcwd called");
 
-  // TODO: implement
-  __buf[0] = '/';
-  __buf[1] = 'd';
-  __buf[2] = 's';
-  __buf[3] = 'k';
-  __buf[4] = '1';
-  __buf[5] = '\0';
-  return __buf;
+  thread* gamb_thread = thread_self();
+
+  if(gamb_thread->type == THREAD_TYPE_USER) {
+    program_thread* t = CAST(program_thread*, gamb_thread);
+    return t->_cwd;
+  } else {
+    panic(L"Gambit thread is a kernel thread");
+  }
+
+  return NULL;
 
 #endif
 #endif
@@ -93,10 +114,23 @@ int REDIRECT_NAME(remove)(const char *__pathname) {
   return remove(__pathname);
 
 #else
+  error_code err = NO_ERROR; 
+  
+  err = file_remove(CAST(native_string, __pathname));
 
-  // TODO: implement
-  errno = ENOENT;
-  return -1;
+  if(ERROR(err)) {
+    switch (err)
+    {
+    case FNF_ERROR:
+      errno = ENOENT;
+      break;
+    default:
+      errno = ENOENT;
+      break;
+    }
+  }
+
+  return ERROR(err) ? -1 : 0;
 
 #endif
 #endif
