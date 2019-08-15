@@ -148,7 +148,7 @@ static error_code stream_write(file* ff, void* buff, uint32 count) {
 
     // Loop like this and do not use mem copy because
     // we want to signal every new character)
-    int i;
+    uint32 i;
     for (i = 0; i < count; /*++i is in the write branch*/) {
       int next_hi = (rs->high + 1);
       if (next_hi < rs->len) {
@@ -199,10 +199,10 @@ static error_code stream_read(file* ff, void* buff, uint32 count) {
 
     if (f->_lo < rs->high) {
       // Read as much as possible
-      int len = (rs->high - f->_lo);
+      uint32 len = (rs->high - f->_lo);
       if (count < len) len = count;
 
-      for (int i = 0; i < len; ++i) {
+      for (uint32 i = 0; i < len; ++i) {
         if (NULL != read_buff) read_buff[i] = stream_buff[f->_lo];
         f->_lo++;
       }
@@ -272,7 +272,7 @@ error_code stream_open_file(fs_header* header, native_string parts,
                             uint8 depth, file_mode mode, file** result) {
   
   error_code err = NO_ERROR;
-  stream_file* strm;
+  stream_file* strm = NULL;
 
   if (depth == 0) return FNF_ERROR;
 
