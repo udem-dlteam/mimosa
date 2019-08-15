@@ -572,11 +572,6 @@ error_code fat_close_file(file* ff) {
     fat_open_chain* link = f->link;
     link->ref_count--;
 
-    debug_write("The reference count on the close of file");
-    debug_write(f->header.name);
-    debug_write("is:");
-    debug_write(link->ref_count);
-
     if (0 == link->ref_count) {
       if (link->remove_on_close) {
         fat_actual_remove(fs, f);
@@ -585,8 +580,6 @@ error_code fat_close_file(file* ff) {
       fat_chain_del(link);
       kfree(link);
     }
-  } else {
-    debug_write("No link...");
   }
 
   kfree(f);
@@ -1933,7 +1926,7 @@ error_code fat_file_open(fs_header* ffs, native_string parts, uint8 depth, file_
             break;
           }
         } else if (ERROR(err = fat_set_to_absolute_position(
-                             CAST(file*, child), child->length - 1))) {
+                             CAST(file*, child), (child->length > 0) ? (child->length - 1) : 0))) {
           break;
         }
 
@@ -1968,7 +1961,6 @@ error_code fat_file_open(fs_header* ffs, native_string parts, uint8 depth, file_
 
 
 static error_code fat_actual_remove(fat_file_system* fs, fat_file* f) {
-  debug_write("Actual remove");
   error_code err = fat_unlink_file(f);
   if(ERROR(err)) return err;
 
@@ -2014,13 +2006,8 @@ static error_code fat_actual_remove(fat_file_system* fs, fat_file* f) {
 }
 
 static error_code fat_remove(fs_header* header, file* file) {
-  debug_write("FAT REMOVE");
   fat_file* f = CAST(fat_file*, file);
   fat_open_chain* link = f->link;
-  if(NULL == link) {
-    return ARG_ERROR;
-  }
-
   link->remove_on_close = 1;
   return NO_ERROR;
 }
