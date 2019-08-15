@@ -39,6 +39,8 @@ error_code new_fat_file(fat_file** result) {
     allocated->header._vtable = &_fat_file_vtable;
   }
 
+  allocated->link = NULL;
+  allocated->header.name = NULL;
   *result = allocated;
 
   return err;
@@ -1960,13 +1962,43 @@ error_code fat_file_open(fs_header* ffs, native_string parts, uint8 depth, file_
 
 static error_code fat_actual_remove(fat_file_system* fs, fat_file* f) {
   error_code err = fat_unlink_file(f);
-  
   if(ERROR(err)) return err;
 
   FAT_directory_entry de;
+  // This allows overwriting all the entries correctly
   de.DIR_Name[0] = FAT_UNUSED_ENTRY;
 
-  if(ERROR(err = fat_write_directory_entry(f, &de))) {
+  uint32 old_name_len = kstrlen(f->header.name);
+
+  // Since we delete the file, we allow ourselves this kind of
+  // behavior
+  f->first_cluster = f->parent.first_cluster;
+  f->header.type = TYPE_FOLDER;
+
+  // Correctly locate the DE to overwrite
+  fat_reset_cursor(CAST(file*, f));  // might seem useless but it actually
+                                     // initialize the cursor correctly
+
+  if (old_name_len > FAT_NAME_LENGTH) {
+    // We need to overwrite the old entries
+    uint8 no_of_entries = (old_name_len / FAT_CHARS_PER_LONG_NAME_ENTRY) +
+                          (old_name_len % FAT_CHARS_PER_LONG_NAME_ENTRY != 0);
+
+    fat_set_to_absolute_position(
+        CAST(file*, f),
+        f->entry.position - (sizeof(long_file_name_entry) * no_of_entries));
+
+    while (no_of_entries-- > 0) {
+      if (ERROR(err =
+                    fat_write_file(CAST(file*, f), &de, sizeof(de)))) {
+        return err;
+      }
+    }
+  } else {
+    fat_set_to_absolute_position(CAST(file*, f), f->entry.position);
+  }
+
+  if (ERROR(err = fat_write_file(CAST(file*, f), &de, sizeof(de)))) {
     return err;
   }
 

@@ -296,8 +296,6 @@ error_code mkdir(native_string path, file** result) {
 }
 
 error_code file_open(native_string path, native_string mode, file** result) {
-  debug_write("File open");
-  debug_write(path);
   uint8 depth;
   error_code err = NO_ERROR;
   file* hit = NULL;

@@ -73,6 +73,12 @@ int main() {
     term_write(cout, err);
     panic(L"Failed to rename");
   }
+  
+  if(ERROR(err = file_remove("dsk1/abigfilerenamedacrossafolder"))) {
+    term_write(cout, "Error is");
+    term_write(cout, err);
+    panic(L"Failed to remove");
+  }
 
   term_run(cout);
 #endif
