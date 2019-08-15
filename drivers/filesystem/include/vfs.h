@@ -66,9 +66,9 @@ typedef struct file_vtable_struct {
 struct fs_vtable_struct {
   error_code (*_file_open)(fs_header* header, native_string parts,
                            uint8 depth, file_mode mode, file** result);
-  error_code (*_mkdir)(fs_header* header, short_file_name* parts, uint8 depth,
+  error_code (*_mkdir)(fs_header* header, native_string name, uint8 depth,
                        file** result);
-  error_code (*_rename)(fs_header* header, file* source, short_file_name* parts,
+  error_code (*_rename)(fs_header* header, file* source, native_string name,
                         uint8 depth);
   error_code (*_remove)(fs_header* header, file* source);
 };

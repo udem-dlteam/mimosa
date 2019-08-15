@@ -303,8 +303,8 @@ error_code mount_streams(vfnode* parent) {
   error_code err = NO_ERROR;
 
   __std_stream_vtable._file_open = stream_open_file;
-  __std_stream_vtable._mkdir = stream_mkdir;
-  __std_stream_vtable._rename = stream_rename;
+  // __std_stream_vtable._mkdir = stream_mkdir;
+  // __std_stream_vtable._rename = stream_rename;
   __std_stream_vtable._remove = stream_remove;
 
   fs_std_stream.kind = STREAM;

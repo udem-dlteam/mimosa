@@ -178,9 +178,10 @@ vfs_parse_mode_loop_end:
   return '\0' == *c; // if we stopped at the null terminator, we did not fail anywhere
 }
 
-static vfnode* explore(native_string parts, uint8* _depth) {
+static vfnode* explore(native_string* _parts, uint8* _depth) {
   vfnode* last_candidate = NULL;
   vfnode* scout = &sys_root;
+  native_string parts = *_parts;
   uint8 depth = *_depth;
 
   do {
@@ -198,6 +199,7 @@ static vfnode* explore(native_string parts, uint8* _depth) {
   } while (NULL != scout && depth > 0);
 
   *_depth = depth;
+  *_parts = parts;
   return last_candidate;
 }
 
@@ -240,7 +242,10 @@ error_code file_rename(native_string old_name, native_string new_name) {
 
   file* old_file;
   uint8 bottom_new = depth_new;
-  vfnode* deepest = explore(normalized_path, &depth_new);
+  // vfnode* deepest = explore(normalized_path, &depth_new);
+  vfnode* deepest = NULL;
+
+  panic(L"Todo rename!");
 
   if(ERROR(err = file_open(old_name, "r", &old_file))) {
     goto rename_end;
@@ -281,16 +286,15 @@ error_code mkdir(native_string path, file** result) {
 #endif
     return err;
   }
-
-  uint8 bottom = depth;
-  vfnode* deepest = explore(normalized_path, &depth);
+  
+  native_string p = normalized_path; 
+  vfnode* deepest = explore(&p, &depth);
 
   if(NULL == deepest) {
     err = FNF_ERROR;
   } else if(deepest->header.type & TYPE_MOUNTPOINT) {
     fs_header* fs = deepest->_value.mountpoint.mounted_fs;
-    panic(L"TODO_FS_MKDIR");
-    // err = fs_mkdir(fs, normalized_path, depth, &hit);
+    err = fs_mkdir(fs, p, depth, &hit);
   } else {
     err = FNF_ERROR;
   }
@@ -306,21 +310,11 @@ error_code file_open(native_string path, native_string mode, file** result) {
   native_char normalized_path[NAME_MAX + 1];
 
   if (ERROR(err = normalize_path(path, normalized_path, &depth))) {
-#ifdef SHOW_DISK_INFO
-    term_write(cout, "Failed to normalize the path\n\r");
-#endif
     return err;
   }
 
-  uint8 bottom = depth;
-  vfnode* deepest = explore(normalized_path, &depth);
-
   native_string p = normalized_path;
-
-  while (bottom != depth) {
-    if ('\0' == *p) --bottom;
-    p++;
-  }
+  vfnode* deepest = explore(&p, &depth);
 
   if (!parse_mode(mode, &md)) {
     return ARG_ERROR;
@@ -329,10 +323,8 @@ error_code file_open(native_string path, native_string mode, file** result) {
   if(NULL == deepest) {
     err = FNF_ERROR;
   } else if(deepest->header.type & TYPE_MOUNTPOINT) {
-    debug_write("Opening the file:");
-    debug_write(p);
     fs_header* fs = deepest->_value.mountpoint.mounted_fs;
-    err = fs_file_open(fs, p, bottom, md, &hit);
+    err = fs_file_open(fs, p, depth, md, &hit);
   } else if(depth == 0) {
     hit = CAST(file*, deepest);
   } else { 
