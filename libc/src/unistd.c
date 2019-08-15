@@ -151,6 +151,7 @@ int REDIRECT_NAME(lstat)(const char *__pathname, struct stat *__buf) {
   return lstat(__pathname, __buf);
 
 #else
+  debug_write("LSTAT");
 
   // TODO: implement
   errno = ENOENT;
@@ -175,6 +176,7 @@ int REDIRECT_NAME(stat)(const char *__pathname, struct stat *__buf) {
   return stat(__pathname, __buf);
 
 #else
+  debug_write("Stat");
 
   // TODO: implement
   errno = ENOENT;
