@@ -484,7 +484,6 @@ static error_code fat_rename(fs_header* ffs, file* ff, native_string name,
   fat_file* f = CAST(fat_file*, ff);
   fat_file *target_parent = NULL, *parent_dir = NULL;
   FAT_directory_entry de;
-  uint8 name_len = kstrlen(name);
 
   if (0 == depth) return FNF_ERROR;
 
@@ -733,7 +732,7 @@ static error_code fat_file_set_pos_from_start(fat_file* f, uint32 position) {
     // We want to go to the position wanted, so
     // we walk through the FAT chain until we read
     // as many clusters as required to get a correct position.
-    for (int i = 0; i < no_of_clusters; ++i) {
+    for (uint32 i = 0; i < no_of_clusters; ++i) {
       if (ERROR(err = next_FAT_section(f))) {
         break;
       }
@@ -813,7 +812,7 @@ static error_code fat_move_cursor(file* ff, int32 n) {
         // term_write(cout, "This requires moving "); term_write(cout, no_of_clusters); term_write(cout, " cluster(s) forward");
         // term_writeline(cout);
 
-        for (int i = 0; i < no_of_clusters; ++i) {
+        for (uint32 i = 0; i < no_of_clusters; ++i) {
           if(ERROR(err = next_FAT_section(f))) {
             break;
           }
@@ -1063,8 +1062,6 @@ static error_code fat_fetch_entry(fat_file_system* fs, fat_file* parent,
   short_file_name sfn_buff;
   uint8 name_match = 0;
   uint32 i = 0;
-  uint32 count = 0;
-  uint32 found_count = 0;
   error_code err = NO_ERROR;
   FAT_directory_entry de;
   fat_file* f;
@@ -1110,8 +1107,6 @@ static error_code fat_fetch_entry(fat_file_system* fs, fat_file* parent,
         invalidate_lfn();
       } else {
         checksum = lfe->LDIR_Checksum;
-        uint8 k = 0;
-        native_char c;
         // We read in reverse, because we start from the n'th entry to the
         // first one.
         read_lfe_chars(lfe->LDIR_Name3, 4, lfn_buff, &lfn_index);
@@ -1176,7 +1171,7 @@ static error_code fat_fetch_entry(fat_file_system* fs, fat_file* parent,
     position = parent->current_pos;
   }
 
-#undef invalidate_lfn()
+#undef invalidate_lfn
   // We did not find the file
 
   if (ERROR(err)) return err;
@@ -1330,8 +1325,6 @@ error_code fat_32_get_fat_link_value(fat_file_system* fs, uint32 cluster,
 
 static error_code fat_32_find_first_empty_cluster(fat_file_system* fs, uint32* result) {
   error_code err = NO_ERROR;
-  uint32 offset = 0;
-  disk* d = fs->_.FAT121632.d;
   cache_block* cb;
   uint32 max_lba = fs->_.FAT121632.total_sectors;
   uint16 entries_per_sector = (1 << fs->_.FAT121632.log2_bps) >> 2;
@@ -1379,10 +1372,8 @@ static error_code fat_32_set_fat_link_value(fat_file_system* fs, uint32 cluster,
   uint32 lba;
   cache_block* cb;
   disk* d = fs->_.FAT121632.d;
-  ide_device* dev = d->_.ide.dev;
   uint16 entries_per_sector = (1 << fs->_.FAT121632.log2_bps) >> 2;
   error_code err;
-  uint8 wrt_buff[4];
 
   if (cluster < 2) {
     panic(L"Cannot inspect lower than the second cluster entry");
@@ -1656,7 +1647,7 @@ static error_code fat_32_create_empty_file(fat_file_system* fs,
 }
 
 static error_code fat_create_file(native_char* name, fat_file* parent_folder, fat_file** result) {
-  error_code err;
+  error_code err = NO_ERROR;
   FAT_directory_entry de;
   fat_file_system* fs = CAST(fat_file_system*, parent_folder->header._fs_header);
 
@@ -1676,7 +1667,7 @@ static error_code fat_create_file(native_char* name, fat_file* parent_folder, fa
 
 static error_code fat_fetch_parent(fat_file_system* fs, native_string* _parts,
                                    uint8 depth, fat_file** result) {
-  error_code err;
+  error_code err = NO_ERROR;
   native_string parts = *_parts;
   fat_file *parent, *child;
 
@@ -1711,6 +1702,7 @@ static error_code fat_fetch_parent(fat_file_system* fs, native_string* _parts,
     *_parts = parts;
     *result = parent;
   }
+  return err;
 }
 
 static error_code fat_mkdir(fs_header* ffs, native_string name, uint8 depth, file** result) {
@@ -1985,6 +1977,7 @@ static error_code fat_remove(fs_header* header, file* file) {
   fat_file* f = CAST(fat_file*, file);
   fat_open_chain* link = f->link;
   link->remove_on_close = 1;
+  return NO_ERROR;
 }
 
 static size_t fat_file_len(file* ff) {
@@ -1996,8 +1989,8 @@ error_code read_lfn(fs_header* fs, uint32 cluster, uint32 entry_position,
                     native_string* result) {
   // We need to find the first entry.
   error_code err = NO_ERROR;
-  native_string long_file_name;
-  uint8 i, j, k, checksum, lfn_entry_count = 0;
+  native_string long_file_name = NULL;
+  uint8 j, k, checksum, lfn_entry_count = 0;
   FAT_directory_entry de;
   long_file_name_entry lfn_e;
   fat_file* reader;
