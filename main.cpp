@@ -52,6 +52,8 @@ int main() {
   error_code err;
   file* f;
   if(ERROR(err = file_open("/dsk1/longfilenametest.scm", "a+", &f))) {
+    term_write(cout, "The error is...");
+    term_write(cout, err);
     panic(L"Failed to open the file");
   }
 
@@ -67,6 +69,8 @@ int main() {
   if(ERROR(err = file_open("/dsk1/abigfolder/abigsubfileintoafolder", "a+", &f))) {
     panic(L"Another error");
   }
+  
+  file_close(f);
 
   if(ERROR(err = file_rename("/dsk1/abigfolder/abigsubfileintoafolder", "/dsk1/abigfilerenamedacrossafolder"))) {
     term_write(cout, "Error is: ");

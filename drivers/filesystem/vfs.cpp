@@ -237,7 +237,7 @@ error_code file_rename(native_string old_name, native_string new_name) {
   // For that, we will deactivate the old entry (to allow the old folder to still work)
   // and copy the directory entry
 
-  file* old_file;
+  file* old_file = NULL;
   native_string p = normalized_path;
   vfnode* deepest = explore(&p, &depth_new);
 
@@ -263,6 +263,10 @@ error_code file_rename(native_string old_name, native_string new_name) {
   }
 
 rename_end:
+
+  if (NULL != old_file) {
+    file_close(old_file);
+  }
   // enable_interrupts(); // interrupts are disabled to ensure atomicity
   return err;
 }

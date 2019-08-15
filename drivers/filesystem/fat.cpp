@@ -2008,6 +2008,11 @@ static error_code fat_actual_remove(fat_file_system* fs, fat_file* f) {
 static error_code fat_remove(fs_header* header, file* file) {
   fat_file* f = CAST(fat_file*, file);
   fat_open_chain* link = f->link;
+
+  if(NULL == link) {
+    return ARG_ERROR;
+  }
+
   link->remove_on_close = 1;
   return NO_ERROR;
 }
