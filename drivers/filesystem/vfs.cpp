@@ -296,6 +296,10 @@ error_code mkdir(native_string path, file** result) {
     err = FNF_ERROR;
   }
 
+  if(HAS_NO_ERROR(err)) {
+    *result = hit;
+  }
+
   return err;
 }
 
