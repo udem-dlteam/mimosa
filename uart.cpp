@@ -201,7 +201,16 @@ static void handle_thr(uint16 port){
   // bit 5 in LSR used to check if info must be written to THR or read from IIR
   if( UART_THR_GET_ACTION( inb( port + UART_8250_LSR ))){
     //TODO : if fifo is enabled , then more than one character can be written to THR
-    //if(UART_IIR_GET_FIFO_STATE( inb( port + UART_IIR_FIFO_NO_FIFO ))){}  
+    //if(UART_IIR_GET_FIFO_STATE( inb( port + UART_IIR_FIFO_NO_FIFO ))){}
+
+    // TODO normally its here that we will write
+    //really not sure
+    if( ports[com_num(port)].wlo == ports[com_num(port)].whi ){
+      ports.[com_num(port)].status |= COM_PORT_STATUS_WRITE_READY;
+    } else {
+      // TODO 
+    }
+    
     if(errmess)
       debug_write( "data wrote in THR");
   }
@@ -213,8 +222,19 @@ static void read_RHR(int com_port) {
   //return inb(com_port);
   native_char c = (native_char)inb(com_port);
   unicode_char i = c;
-  // file_write(com_tab[com_num(com_port)].output, &i , sizeof(unicode_char));
-  //debug_write( c);
+
+  // verify if readBuffer is empty
+  if( ports[com_num(com_port)].rlo == ports[com_num(com_port)].rhi ){
+    // if yes we put the flag
+    ports[com_num(port)].status |= COM_PORT_STATUS_READ_READY;
+  } else {
+    // else we put it in the buffer of the port ?
+
+    // TODO
+    
+    //file_write(com_tab[com_num(com_port)].output, &i , sizeof(unicode_char));
+    //debug_write( c);
+  }
 }
 
 static void read_lsr(uint16 port){
@@ -246,6 +266,7 @@ static void read_lsr(uint16 port){
     if(errmess)
       debug_write( "CAN_RECEIVE");
     // reading the lsr or writing to the data register clears this bit
+    
   }
   if( UART_LSR_ALL_CAR_TRANSMITTED(e) ){
     if(errmess)
@@ -436,7 +457,7 @@ error_code uart_open(uint32 id, file_mode mode, file** result) {
   com_port* port = &ports[com_num(port_id)];
 
   if(!(port->status & COM_PORT_STATUS_EXISTS)) return FNF_ERROR;
-  if(port->status & COM_PORT_STATUS_OPEN) return RESSOURCE_BUSY_ERR;
+  if(port->sgsitatus & COM_PORT_STATUS_OPEN) return RESSOURCE_BUSY_ERR;
 
   // TODO: check if the port is UP, if the port has not been opened, it's time to open it
   // TODO: check the file mode, maybe it is incorrect?
