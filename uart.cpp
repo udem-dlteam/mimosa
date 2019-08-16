@@ -414,19 +414,19 @@ error_code setup_uarts(vfnode* parent_node) {
   // il ne faut pas le monter.
 
   new_vfnode(&COM1_NODE, COM1_NAME, TYPE_VFILE);
-  COM1_NODE.header._vtable = &__uart_vtable;
+  // COM1_NODE.header._vtable = &__uart_vtable;
   vfnode_add_child(parent_node, &COM1_NODE);
 
   new_vfnode(&COM2_NODE, COM2_NAME, TYPE_VFILE);
-  COM2_NODE.header._vtable = &__uart_vtable;
+  // COM2_NODE.header._vtable = &__uart_vtable;
   vfnode_add_child(parent_node, &COM2_NODE);
 
   new_vfnode(&COM3_NODE, COM3_NAME, TYPE_VFILE);
-  COM3_NODE.header._vtable = &__uart_vtable;
+  // COM3_NODE.header._vtable = &__uart_vtable;
   vfnode_add_child(parent_node, &COM3_NODE);
 
   new_vfnode(&COM4_NODE, COM4_NAME, TYPE_VFILE);
-  COM4_NODE.header._vtable = &__uart_vtable;
+  // COM4_NODE.header._vtable = &__uart_vtable;
   vfnode_add_child(parent_node, &COM4_NODE);
 
 }
