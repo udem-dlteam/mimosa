@@ -37,7 +37,7 @@ static com_port ports[4];
 
 int port_in_use = 0;
 
-uint8 com_num(int hex){
+static inline uint8 com_num(uint16 hex){
   switch (hex) {
     case COM1_PORT_BASE:
       return 0;
@@ -51,8 +51,27 @@ uint8 com_num(int hex){
       return 0;
   }
 }
-  
-struct com_table com_tab[4];
+
+static inline uint8 com_num_to_port(uint8 num) {
+  switch (num) {
+    case 0:
+      return COM1_PORT_BASE;
+      break;
+    case 1:
+      return COM2_PORT_BASE;
+      break;
+    case 2:
+      return COM3_PORT_BASE;
+      break;
+    case 3:
+      return COM4_PORT_BASE;
+      break;
+    default:
+      panic(L"Invalid port usage");
+      break;
+  }
+}
+
 //static bool errmess = TRUE;
 #define errmess TRUE
 
@@ -60,6 +79,7 @@ struct com_table com_tab[4];
  * Add two args: arg1=stream de lecture arg2=stream d'ecriture
  */
 void init_serial(int com_port, file* input, file* output) {
+  // La fonction init serial ne sera plus appelee de l'exterieur...
   /*
   Quoi faire!
 
@@ -105,8 +125,8 @@ void init_serial(int com_port, file* input, file* output) {
   
    */
   port_in_use = com_port;
-  com_tab[com_num(com_port)].input = input;
-  com_tab[com_num(com_port)].output = output;
+  // com_tab[com_num(com_port)].input = input;
+  // com_tab[com_num(com_port)].output = output;
 
   if (!(com_port == COM1_PORT_BASE || com_port == COM2_PORT_BASE ||
         com_port == COM3_PORT_BASE || com_port == COM4_PORT_BASE)) {
@@ -193,7 +213,7 @@ static void read_RHR(int com_port) {
   //return inb(com_port);
   native_char c = (native_char)inb(com_port);
   unicode_char i = c;
-  file_write(com_tab[com_num(com_port)].output, &i , sizeof(unicode_char));
+  // file_write(com_tab[com_num(com_port)].output, &i , sizeof(unicode_char));
   //debug_write( c);
 }
 
@@ -390,8 +410,9 @@ error_code uart_set_abs_pos(file* f, uint32 pos) {
 
 error_code uart_open(uint32 id, file_mode mode, file** result) {
   error_code err = NO_ERROR;
+  uint16 port_id = id & 0xFFFF;
   native_string port_name;
-  switch (id & 0xFFFF) {
+  switch (port_id) {
     case COM1_PORT_BASE:
       port_name = COM1_NAME;
       break;
@@ -409,6 +430,12 @@ error_code uart_open(uint32 id, file_mode mode, file** result) {
       break;
   }
 
+  // Only one can work on a port at a time
+  com_port* port = &ports[com_num(port_id)];
+
+  if(!(port->status & COM_PORT_STATUS_EXISTS)) return FNF_ERROR;
+  if(port->status & COM_PORT_STATUS_OPEN) return RESSOURCE_BUSY_ERR;
+
   // TODO: check if the port is UP, if the port has not been opened, it's time to open it
   // TODO: check the file mode, maybe it is incorrect?
   uart_file* uart_handle = CAST(uart_file*, kmalloc(sizeof(uart_file)));
@@ -418,16 +445,39 @@ error_code uart_open(uint32 id, file_mode mode, file** result) {
   uart_handle->header.name = port_name;
   uart_handle->header.type = TYPE_VFILE;
 
-  uart_handle->port = 0xFFFF & id;
+  uart_handle->port = port_id;
+  // Init the port data
+  port->rbuffer = kmalloc(sizeof(uint8) * COM_BUFFER_SIZE);
+  port->wbuffer = kmalloc(sizeof(uint8) * COM_BUFFER_SIZE);
+  port->wrt_cv = CAST(condvar*, kmalloc(sizeof(condvar)));
+  port->rd_cv = CAST(condvar*, kmalloc(sizeof(condvar)));
+  new_condvar(port->wrt_cv);
+  new_condvar(port->rd_cv);
 
-  if(HAS_NO_ERROR(err)) {
+  if (HAS_NO_ERROR(err)) {
     *result = CAST(file*, uart_handle);
   }
 
   return err;
 }
 
-error_code uart_close_handle(file* f) { return ARG_ERROR; }
+error_code uart_close_handle(file* ff) { 
+  error_code err = NO_ERROR;
+  uart_file* f = CAST(uart_file*, ff);
+  com_port* port = &ports[com_num(f->port)];
+
+  port->status &= ~COM_PORT_STATUS_OPEN;
+
+  // Free the ressources
+  port->rlo = port->rhi = port->whi = port->wlo = 0;
+  port->wbuffer_len = port->rbuffer_len = 0;
+  kfree(port->rbuffer);
+  kfree(port->wbuffer);
+  kfree(port->rd_cv);
+  kfree(port->wrt_cv);
+
+  return err;
+ }
 
 error_code uart_write(file* f, void* buff, uint32 count) {return ARG_ERROR;}
 
@@ -440,7 +490,21 @@ dirent* uart_readdir(DIR* dir) { return NULL; } // Makes no sense on a COM port
 static error_code detect_hardware() {
   error_code err = NO_ERROR;
 
+  // Init the values to a known status
 
+  for(uint8 i = 0; i < 4; ++i) { 
+    ports[i].rbuffer = NULL;
+    ports[i].wbuffer = NULL;
+    ports[i].rbuffer_len = ports[i].wbuffer_len = 0;
+    ports[i].rlo = ports[i].rhi = ports[i].wlo = ports[i].whi = 0;
+    // Si le port est la, il faut mettre le status correct. 
+    // il faut aussi allouer un buffer pour 
+    ports[i].status = 0;
+    ports[i].port = com_num_to_port(i);
+  }    
+
+  //TODO: remove this when the code is there, we need to debug a bit...
+  ports[0].status |= COM_PORT_STATUS_EXISTS;
 
 
   return err;
@@ -462,20 +526,25 @@ error_code setup_uarts(vfnode* parent_node) {
   __uart_vtable._file_write = uart_write;
   __uart_vtable._readdir = uart_readdir;
 
-  // TODO: Il faut regarder si il y a vraiment 
-  // les 4 disponibles. Si un port n'est pas la,
-  // il ne faut pas le monter.
-  new_vfnode(&COM1_NODE, COM1_NAME, TYPE_VFILE);
-  vfnode_add_child(parent_node, &COM1_NODE);
+  if (ports[0].status & COM_PORT_STATUS_EXISTS) {
+    new_vfnode(&COM1_NODE, COM1_NAME, TYPE_VFILE);
+    vfnode_add_child(parent_node, &COM1_NODE);
+  }
 
-  new_vfnode(&COM2_NODE, COM2_NAME, TYPE_VFILE);
-  vfnode_add_child(parent_node, &COM2_NODE);
+  if (ports[1].status & COM_PORT_STATUS_EXISTS) {
+    new_vfnode(&COM2_NODE, COM2_NAME, TYPE_VFILE);
+    vfnode_add_child(parent_node, &COM2_NODE);
+  }
 
-  new_vfnode(&COM3_NODE, COM3_NAME, TYPE_VFILE);
-  vfnode_add_child(parent_node, &COM3_NODE);
+  if (ports[2].status & COM_PORT_STATUS_EXISTS) {
+    new_vfnode(&COM3_NODE, COM3_NAME, TYPE_VFILE);
+    vfnode_add_child(parent_node, &COM3_NODE);
+  }
 
-  new_vfnode(&COM4_NODE, COM4_NAME, TYPE_VFILE);
-  vfnode_add_child(parent_node, &COM4_NODE);
+  if (ports[3].status & COM_PORT_STATUS_EXISTS) {
+    new_vfnode(&COM4_NODE, COM4_NAME, TYPE_VFILE);
+    vfnode_add_child(parent_node, &COM4_NODE);
+  }
 
   return err;
 }

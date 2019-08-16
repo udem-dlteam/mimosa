@@ -65,6 +65,7 @@ typedef int32 error_code;
 #define PERMISSION_ERROR (-8)
 #define NOT_A_FOLDER_ERR (-9)
 #define EXISTS_ERR (-10)
+#define RESSOURCE_BUSY_ERR (-11)
 
 #define NOP() do { __asm__ __volatile__ ("NOP" : : : "memory");} while(0)
 

@@ -128,20 +128,26 @@ struct uart_file_struct {
     uint16 port;
 };
 
+#define COM_BUFFER_SIZE 256
+
+#define COM_PORT_STATUS_EXISTS (1 << 0)
+#define COM_PORT_STATUS_OPEN (1 << 1)
+#define COM_PORT_STATUS_FULL (1 << 2)
+#define COM_PORT_STATUS_WAITING (1 << 3)
+#define COM_PORT_STATUS_FORCIBLY_CLOSED (1 << 4)
+#define COM_PORT_STATUS_READ_READY (1 << 5)
+#define COM_PORT_STATUS_WRITE_READY (1 << 6)
+#define COM_PORT_STATUS_RESERVED1 (1 << 7)
+
 struct com_port_struct {
   uint16 port;
-  union {
-    struct {
-      uint8 exists : 1;
-      uint8 is_open : 1;
-      uint8 waiting : 1;
-      uint8 full : 1;
-      uint8 forcibly_closed : 1;
-      uint8 reserved : 3;
-    } stat_bitset;
-    uint8 stats_reg;
-  } status;
-  void* buffer;
+  uint8 status; 
+  uint32 rbuffer_len;
+  uint32 wbuffer_len;
+  uint32 rlo, rhi, wlo, whi;
+  void *rbuffer, *wbuffer;
+  condvar *wrt_cv;
+  condvar *rd_cv;
 };
 
 #endif
