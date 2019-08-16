@@ -206,7 +206,7 @@ static void handle_thr(uint16 port){
     // TODO normally its here that we will write
     //really not sure
     if( ports[com_num(port)].wlo == ports[com_num(port)].whi ){
-      ports.[com_num(port)].status |= COM_PORT_STATUS_WRITE_READY;
+      ports[com_num(port)].status |= COM_PORT_STATUS_WRITE_READY;
     } else {
       // TODO 
     }
@@ -222,18 +222,21 @@ static void read_RHR(int com_port) {
   //return inb(com_port);
   native_char c = (native_char)inb(com_port);
   unicode_char i = c;
+  struct com_port_struct* port = &ports[com_num(com_port)];
 
-  // verify if readBuffer is empty
-  if( ports[com_num(com_port)].rlo == ports[com_num(com_port)].rhi ){
-    // if yes we put the flag
-    ports[com_num(port)].status |= COM_PORT_STATUS_READ_READY;
-  } else {
-    // else we put it in the buffer of the port ?
+ for (uint8 j = 0; j < sizeof(unicode_char); ++j) {
+    uint32 next_hi = (port->rhi + 1) % port->rbuffer_len;
 
-    // TODO
-    
-    //file_write(com_tab[com_num(com_port)].output, &i , sizeof(unicode_char));
-    //debug_write( c);
+    while (next_hi == port->rlo) {
+      condvar_mutexless_wait(port->rd_cv);
+    }
+
+    if (next_hi != port->wlo) {
+      port->rbuffer[port->wlo] = CAST(uint8*, &i)[j];
+    } else {
+      panic(L"[INT] Multiple writer?");
+    }
+    port->whi = next_hi;
   }
 }
 
@@ -568,6 +571,7 @@ error_code uart_read(file* ff, void* buff, uint32 count) {
       uint8 bt = port->rbuffer[port->rlo];
       CAST(uint8*, buff)[i] = bt;
       port->rlo = (port->rlo + 1) % port->rbuffer_len;
+      condvar_mutexless_signal(port->rd_cv);
     } else {
       break;
     }
