@@ -474,6 +474,7 @@ error_code uart_close_handle(file* ff) {
   // Free the ressources
   port->rlo = port->rhi = port->whi = port->wlo = 0;
   port->wbuffer_len = port->rbuffer_len = 0;
+
   kfree(port->rbuffer);
   kfree(port->wbuffer);
   kfree(port->rd_cv);
