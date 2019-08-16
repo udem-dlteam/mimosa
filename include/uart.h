@@ -118,6 +118,15 @@ void init_serial(int port, file* input, file* output);
 void send_serial(int com, native_char x);
 int serial_received(int com_port);
 
+error_code uart_open(uint32 id, file_mode mode, file** result);
+
+typedef struct uart_file_struct uart_file;
+
+struct uart_file_struct {
+    file header;
+    uint16 port;
+};
+
 #endif
 
 // Local Variables: //

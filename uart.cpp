@@ -41,16 +41,16 @@ struct com_table{
 
 uint8 com_num(int hex){
   switch (hex) {
-  case COM1_PORT_BASE:
-    return 0;
-  case COM2_PORT_BASE:
-    return 1;
-  case COM3_PORT_BASE:
-    return 2;
-  case COM4_PORT_BASE:
-    return 3;
-  default:
-    return 0;
+    case COM1_PORT_BASE:
+      return 0;
+    case COM2_PORT_BASE:
+      return 1;
+    case COM3_PORT_BASE:
+      return 2;
+    case COM4_PORT_BASE:
+      return 3;
+    default:
+      return 0;
   }
 }
   
@@ -390,6 +390,45 @@ error_code uart_set_abs_pos(file* f, uint32 pos) {
   return ARG_ERROR; // Makes no sense on a COM port
 }
 
+error_code uart_open(uint32 id, file_mode mode, file** result) {
+  error_code err = NO_ERROR;
+  native_string port_name;
+  switch (id & 0xFFFF) {
+    case COM1_PORT_BASE:
+      port_name = COM1_NAME;
+      break;
+    case COM2_PORT_BASE:
+      port_name = COM2_NAME;
+      break;
+    case COM3_PORT_BASE:
+      port_name = COM3_NAME;
+      break;
+    case COM4_PORT_BASE:
+      port_name = COM4_NAME;
+      break;
+    default:
+      return FNF_ERROR;
+      break;
+  }
+
+  // TODO: check if the port is UP, if the port has not been opened, it's time to open it
+  // TODO: check the file mode, maybe it is incorrect?
+  uart_file* uart_handle = CAST(uart_file*, kmalloc(sizeof(uart_file)));
+  uart_handle->header.mode = mode;
+  uart_handle->header._fs_header = NULL; // TODO?
+  uart_handle->header._vtable = &__uart_vtable;
+  uart_handle->header.name = port_name;
+  uart_handle->header.type = TYPE_VFILE;
+
+  uart_handle->port = 0xFFFF & id;
+
+  if(HAS_NO_ERROR(err)) {
+    *result = CAST(file*, uart_handle);
+  }
+
+  return err;
+}
+
 error_code uart_close_handle(file* f) { return ARG_ERROR; }
 
 error_code uart_write(file* f, void* buff, uint32 count) {return ARG_ERROR;}
@@ -412,21 +451,15 @@ error_code setup_uarts(vfnode* parent_node) {
   // TODO: Il faut regarder si il y a vraiment 
   // les 4 disponibles. Si un port n'est pas la,
   // il ne faut pas le monter.
-
   new_vfnode(&COM1_NODE, COM1_NAME, TYPE_VFILE);
-  // COM1_NODE.header._vtable = &__uart_vtable;
   vfnode_add_child(parent_node, &COM1_NODE);
 
   new_vfnode(&COM2_NODE, COM2_NAME, TYPE_VFILE);
-  // COM2_NODE.header._vtable = &__uart_vtable;
   vfnode_add_child(parent_node, &COM2_NODE);
 
   new_vfnode(&COM3_NODE, COM3_NAME, TYPE_VFILE);
-  // COM3_NODE.header._vtable = &__uart_vtable;
   vfnode_add_child(parent_node, &COM3_NODE);
 
   new_vfnode(&COM4_NODE, COM4_NAME, TYPE_VFILE);
-  // COM4_NODE.header._vtable = &__uart_vtable;
   vfnode_add_child(parent_node, &COM4_NODE);
-
 }
