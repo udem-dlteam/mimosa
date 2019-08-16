@@ -125,6 +125,7 @@ typedef struct uart_file_struct uart_file;
 
 struct uart_file_struct {
     file header;
+    file_mode mode;
     uint16 port;
 };
 
@@ -141,11 +142,11 @@ struct uart_file_struct {
 
 struct com_port_struct {
   uint16 port;
-  uint8 status; 
   uint32 rbuffer_len;
   uint32 wbuffer_len;
-  uint32 rlo, rhi, wlo, whi;
-  void *rbuffer, *wbuffer;
+  volatile uint8 status; 
+  volatile uint32 rlo, rhi, wlo, whi;
+  uint8 *rbuffer, *wbuffer;
   condvar *wrt_cv;
   condvar *rd_cv;
 };

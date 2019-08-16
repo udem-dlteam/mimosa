@@ -444,11 +444,12 @@ error_code uart_open(uint32 id, file_mode mode, file** result) {
   uart_handle->header._vtable = &__uart_vtable;
   uart_handle->header.name = port_name;
   uart_handle->header.type = TYPE_VFILE;
+  uart_handle->mode = mode;
 
   uart_handle->port = port_id;
   // Init the port data
-  port->rbuffer = kmalloc(sizeof(uint8) * COM_BUFFER_SIZE);
-  port->wbuffer = kmalloc(sizeof(uint8) * COM_BUFFER_SIZE);
+  port->rbuffer = CAST(uint8*, kmalloc(sizeof(uint8) * COM_BUFFER_SIZE));
+  port->wbuffer = CAST(uint8*, kmalloc(sizeof(uint8) * COM_BUFFER_SIZE));
   port->wrt_cv = CAST(condvar*, kmalloc(sizeof(condvar)));
   port->rd_cv = CAST(condvar*, kmalloc(sizeof(condvar)));
   new_condvar(port->wrt_cv);
@@ -479,9 +480,86 @@ error_code uart_close_handle(file* ff) {
   return err;
  }
 
-error_code uart_write(file* f, void* buff, uint32 count) {return ARG_ERROR;}
+error_code uart_write(file* ff, void* buff, uint32 count) {
+  error_code err = NO_ERROR;
+  uart_file* f = CAST(uart_file*, ff);
+  com_port* port = &ports[com_num(f->port)];
 
-error_code uart_read(file* f, void* buff, uint32 count) {return ARG_ERROR;}
+  if(port->status & COM_PORT_STATUS_FORCIBLY_CLOSED) {
+    return FNF_ERROR;
+  }
+
+  disable_interrupts();
+
+  uint32 i = 0;
+  // If the port is waiting, we need to feed it something
+  // so coms can continue
+  if(port->status & COM_PORT_STATUS_READ_READY) {
+    send_serial(f->port, CAST(uint8*, buff)[i++]);
+  }
+  
+  for (; i < count; ++i) {
+    uint32 next_hi = (port->whi + 1) % port->wbuffer_len;
+
+    while (next_hi == port->wlo) {
+      condvar_mutexless_wait(port->wrt_cv);
+    }
+
+    if (next_hi != port->wlo) {
+      port->wbuffer[port->wlo] = CAST(uint8*, buff)[i];
+    } else {
+      panic(L"Multiple writer?");
+    }
+    port->whi = next_hi;
+  }
+
+uart_write_end:
+  enable_interrupts();
+  if(HAS_NO_ERROR(err)) err = i;
+  
+  return err;
+} 
+
+error_code uart_read(file* ff, void* buff, uint32 count) {
+  error_code err = NO_ERROR;
+  uart_file* f = CAST(uart_file* ,f);
+  com_port* port = &ports[com_num(f->port)];
+
+  if(port->status & COM_PORT_STATUS_FORCIBLY_CLOSED) {
+    return FNF_ERROR;
+  }
+  
+  bool nonblock = f->mode & MODE_NONBLOCK_ACCESS;
+  
+  disable_interrupts();
+
+  uint32 i = 0;
+
+  if(port->status & COM_PORT_STATUS_READ_READY) {
+    // TODO read from serial port and increment i
+  }
+
+  for (; i < count; ++i) {
+    while (!nonblock && port->rlo == port->rhi) {
+      condvar_mutexless_wait(port->rd_cv);
+    }
+
+    if (port->rlo != port->rhi) {
+      uint8 bt = port->rbuffer[port->rlo];
+      CAST(uint8*, buff)[i] = bt;
+      port->rlo = (port->rlo + 1) % port->rbuffer_len;
+    } else {
+      break;
+    }
+  }
+
+uart_read_end:
+  enable_interrupts();
+
+  if(HAS_NO_ERROR(err)) err = i;
+
+  return err;
+}
 
 size_t uart_len(file* f) {return 0;} // Makes no sense on a COM port
 
