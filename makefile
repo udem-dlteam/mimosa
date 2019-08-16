@@ -42,7 +42,7 @@ createimg:
 	rm flop.tar.gz
 
 run:
-	qemu-system-i386 -s -m 1G -hda mimosa-build/floppy.img -debugcon stdio
+	qemu-system-i386 -s -m 1G -hda mimosa-build/floppy.img -serial tcp:localhost:4444,server,nowait -debugcon stdio
 
 run-with-telnet:
 	qemu-system-i386 -s -m 1G -hda mimosa-build/floppy.img \

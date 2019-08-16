@@ -1,4 +1,5 @@
 #include "include/vfs.h"
+#include "uart.h"
 #include "include/stdstream.h"
 #include "general.h"
 #include "rtlib.h"
@@ -7,6 +8,7 @@
 
 static file_vtable __vfnode_vtable;
 static vfnode sys_root;
+static vfnode dev_mnt_pt;
 
 static error_code vfnode_close(file* f);
 static size_t vfnode_len(file* f);
@@ -365,32 +367,31 @@ DIR* opendir(const char* path) {
   DIR* dir;
   error_code err;
 
-  if (ERROR(err = file_open(CAST(native_string, path), "r", &f))) {
-    // debug_write("Error while opening the file :/");
+if (ERROR(err = file_open(CAST(native_string, path), "r", &f))) {
+  return NULL;
+}
+
+if (!IS_FOLDER(f->type)) {
+  file_close(f);  // ignore error
+  return NULL;
+}
+
+if (IS_VIRTUAL(f->type)) {
+  if ((dir = CAST(DIR*, kmalloc(sizeof(VDIR)))) == NULL) {
     return NULL;
   }
-
-  if (!IS_FOLDER(f->type)) {
-    file_close(f);  // ignore error
+  vfnode* vf = CAST(vfnode*, f);
+  VDIR* vdir = CAST(VDIR*, dir);
+  vdir->child_cursor = vf->_first_child;
+} else {
+  if ((dir = CAST(DIR*, kmalloc(sizeof(DIR)))) == NULL) {
     return NULL;
   }
+}
 
-  if(IS_VIRTUAL(f->type)) {
-    if((dir = CAST(DIR*, kmalloc(sizeof(VDIR)))) == NULL) {
-      return NULL;
-    }
-    vfnode* vf = CAST(vfnode*, f);
-    VDIR* vdir = CAST(VDIR*, dir);
-    vdir->child_cursor = vf->_first_child;
-  } else {
-    if((dir = CAST(DIR*, kmalloc(sizeof(DIR)))) == NULL) {
-      return NULL;
-    }
-  }
+dir->f = f;
 
-  dir->f = f;
-
-  return dir;
+return dir;
 }
 
 error_code closedir(DIR* dir) {
@@ -407,7 +408,7 @@ void inline set_dir_entry_size(FAT_directory_entry* de, uint32 sz) {
 }
 
 void vfnode_add_child(vfnode* parent, vfnode* child) {
-  if(NULL == parent->_first_child) {
+  if (NULL == parent->_first_child) {
     parent->_first_child = child;
   } else {
     vfnode *prev, *scout;
@@ -416,7 +417,7 @@ void vfnode_add_child(vfnode* parent, vfnode* child) {
     do {
       prev = scout;
       scout = scout->_next_sibling;
-    } while(NULL != scout);
+    } while (NULL != scout);
 
     prev->_next_sibling = child;
     // child->prev_sibling = prev;
@@ -448,12 +449,19 @@ error_code init_vfs() {
   __vfnode_vtable._readdir = vfnode_readdir;
 
   new_vfnode(&sys_root, "/", TYPE_VFOLDER);
+  new_vfnode(&dev_mnt_pt, "DEV", TYPE_VFOLDER);
 
-  if(ERROR(err = mount_streams(&sys_root))) {
+  vfnode_add_child(&sys_root, &dev_mnt_pt);
+
+  if (ERROR(err = setup_uarts(&dev_mnt_pt))) {
     return err;
   }
 
-  if(ERROR(err = mount_fat(&sys_root))) {
+  if (ERROR(err = mount_streams(&sys_root))) {
+    return err;
+  }
+
+  if (ERROR(err = mount_fat(&sys_root))) {
     return err;
   }
 

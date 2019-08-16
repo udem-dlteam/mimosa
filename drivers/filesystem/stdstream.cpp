@@ -168,6 +168,7 @@ static error_code stream_write(file* ff, void* buff, uint32 count) {
         // Resize
         panic(L"STD stream resize not implemented yet");
       } else {
+        panic(L"OOM");
         err = MEM_ERROR;
         break;
       }
