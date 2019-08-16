@@ -334,6 +334,7 @@ void _handle_interrupt(uint16 port, uint8 com_index, uint8 iir) {
 #ifdef USE_IRQ4_FOR_UART
 
 void irq3() {
+  ASSERT_INTERRUPTS_DISABLED();
   ACKNOWLEDGE_IRQ(3);
 
   // Interrupt 4 handles COM 2 and COM 4
@@ -360,6 +361,7 @@ void irq3() {
 }
 
 void irq4() {
+  ASSERT_INTERRUPTS_DISABLED();
   ACKNOWLEDGE_IRQ(4);
 
   // Interrupt 4 handles COM 1 and COM 3
@@ -494,7 +496,7 @@ error_code uart_write(file* ff, void* buff, uint32 count) {
   uint32 i = 0;
   // If the port is waiting, we need to feed it something
   // so coms can continue
-  if(port->status & COM_PORT_STATUS_READ_READY) {
+  if(port->status & COM_PORT_STATUS_WRITE_READY) {
     send_serial(f->port, CAST(uint8*, buff)[i++]);
   }
   
@@ -534,10 +536,6 @@ error_code uart_read(file* ff, void* buff, uint32 count) {
   disable_interrupts();
 
   uint32 i = 0;
-
-  if(port->status & COM_PORT_STATUS_READ_READY) {
-    // TODO read from serial port and increment i
-  }
 
   for (; i < count; ++i) {
     while (!nonblock && port->rlo == port->rhi) {
