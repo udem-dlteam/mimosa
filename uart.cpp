@@ -383,18 +383,22 @@ void send_serial(int port, native_char x) {
 }
 
 error_code uart_move_cursor(file* f, int32 mvmt) {
-  return ARG_ERROR;
+  return ARG_ERROR; // Makes not sense on a COM port
 }
 
 error_code uart_set_abs_pos(file* f, uint32 pos) { 
-  return ARG_ERROR;
+  return ARG_ERROR; // Makes no sense on a COM port
 }
 
 error_code uart_close_handle(file* f) { return ARG_ERROR; }
+
 error_code uart_write(file* f, void* buff, uint32 count) {return ARG_ERROR;}
+
 error_code uart_read(file* f, void* buff, uint32 count) {return ARG_ERROR;}
-size_t uart_len(file* f) {return ARG_ERROR;}
-dirent* uart_readdir(DIR* dir) { return NULL; }
+
+size_t uart_len(file* f) {return 0;} // Makes no sense on a COM port
+
+dirent* uart_readdir(DIR* dir) { return NULL; } // Makes no sense on a COM port
 
 error_code setup_uarts(vfnode* parent_node) {
   __uart_vtable._file_close = uart_close_handle;
