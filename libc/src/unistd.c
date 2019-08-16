@@ -176,10 +176,23 @@ int REDIRECT_NAME(stat)(const char *__pathname, struct stat *__buf) {
   error_code err;
   stat_buff sbuffer;
   if(ERROR(err = file_stat(CAST(native_string, __pathname), &sbuffer))) {
-    // TODO: set ERRNO
+
+    switch (err)
+    {
+    case FNF_ERROR:
+      errno = ENOENT; 
+      break;
+    
+    default:
+      errno = ENOENT;
+      break;
+    }
+
     return -1;
   }
 
+  __buf->st_gid = __buf->st_uid = 0;
+  __buf->st_nlink = 0;
   __buf->st_size = sbuffer.bytes;
   __buf->st_dev = CAST(uint32, sbuffer.fs);
   __buf->st_atim.ts_sec = sbuffer.last_modifs_epochs_secs;
@@ -187,6 +200,26 @@ int REDIRECT_NAME(stat)(const char *__pathname, struct stat *__buf) {
   __buf->st_ctim.ts_sec = sbuffer.creation_time_epochs_secs;
 
   __buf->st_atim.ts_nsec = __buf->st_ctim.ts_nsec = __buf->st_mtim.ts_nsec = 0;
+  
+  __buf->st_mode = 0;
+
+  if ((sbuffer.type & TYPE_FOLDER) == TYPE_FOLDER) {
+    __buf->st_mode |= S_IFDIR;
+  }
+  
+  if ((sbuffer.type & TYPE_REGULAR) == TYPE_REGULAR) {
+    __buf->st_mode |= S_IFREG;
+  }
+
+  if ((sbuffer.type & TYPE_VFILE) == TYPE_VFILE) {
+    __buf->st_mode |= S_IFSOCK;
+  }
+
+  if((sbuffer.type & TYPE_MOUNTPOINT) == TYPE_MOUNTPOINT) {
+    __buf->st_mode |= S_IFBLK;
+  }
+
+  __buf->st_mode |= 0x777; // All permissions
   
   return 0;
 #endif

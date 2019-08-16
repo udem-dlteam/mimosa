@@ -52,7 +52,6 @@ typedef struct fs_header_struct {
 
 struct stat_buff_struct {
   fs_header* fs;
-  file_mode mode;
   file_type type;
   uint32 bytes;
   uint32 fs_block_size;

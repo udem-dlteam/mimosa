@@ -2302,7 +2302,6 @@ static error_code fat_stat(fs_header* header, file* ff, stat_buff* buf) {
   buf->bytes = f->length;
   buf->fs = header;
   buf->fs_block_size = (1 << (fs->_.FAT121632.log2_bps + fs->_.FAT121632.log2_spc));
-  buf->mode = ff->mode;
   buf->type = ff->type;
 
   uint8 creation_hours, creation_minutes, creation_seconds;
