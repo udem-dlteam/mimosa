@@ -197,22 +197,30 @@ static void read_msr(uint16 port){
   //if( UART_MSR_DELTA_CLEAR_TO_SEND(c) ){}
 }
 
-static void handle_thr(uint16 port){
+static void handle_thr(uint16 portn) {
   // bit 5 in LSR used to check if info must be written to THR or read from IIR
-  if( UART_THR_GET_ACTION( inb( port + UART_8250_LSR ))){
-    //TODO : if fifo is enabled , then more than one character can be written to THR
-    //if(UART_IIR_GET_FIFO_STATE( inb( port + UART_IIR_FIFO_NO_FIFO ))){}
+  if (UART_THR_GET_ACTION(inb(portn + UART_8250_LSR))) {
+    uint8 port_num_val = com_num(portn);
+    com_port* port = &ports[port_num_val];
 
-    // TODO normally its here that we will write
-    //really not sure
-    if( ports[com_num(port)].wlo == ports[com_num(port)].whi ){
-      ports[com_num(port)].status |= COM_PORT_STATUS_WRITE_READY;
+    if (port->wlo == port->whi) {
+      port->status |= COM_PORT_STATUS_WRITE_READY;
     } else {
-      // TODO 
+      port->status &= ~COM_PORT_STATUS_WRITE_READY;
+
+      while (port->wlo == port->whi) {
+        condvar_mutexless_wait(port->wrt_cv);
+      }
+
+      if (port->wlo != port->whi) {
+        uint8 bt = port->wbuffer[port->wlo];
+        send_serial(portn, bt);
+        port->wlo = (port->wlo + 1) % port->wbuffer_len;
+        condvar_mutexless_signal(port->wrt_cv);
+      }
     }
-    
-    if(errmess)
-      debug_write( "data wrote in THR");
+
+    if (errmess) debug_write("data wrote in THR");
   }
 }
 
@@ -220,11 +228,8 @@ static void handle_thr(uint16 port){
 static void read_RHR(int com_port) {
   while (!(inb(com_port + UART_8250_LSR) & UART_8250_LSR_DR));
   //return inb(com_port);
-  native_char c = (native_char)inb(com_port);
-  unicode_char i = c;
+  uint8 c = inb(com_port);
   struct com_port_struct* port = &ports[com_num(com_port)];
-
- for (uint8 j = 0; j < sizeof(unicode_char); ++j) {
     uint32 next_hi = (port->rhi + 1) % port->rbuffer_len;
 
     while (next_hi == port->rlo) {
@@ -232,12 +237,11 @@ static void read_RHR(int com_port) {
     }
 
     if (next_hi != port->wlo) {
-      port->rbuffer[port->wlo] = CAST(uint8*, &i)[j];
+      port->rbuffer[port->wlo] = c;
     } else {
       panic(L"[INT] Multiple writer?");
     }
     port->whi = next_hi;
-  }
 }
 
 static void read_lsr(uint16 port){
@@ -460,7 +464,7 @@ error_code uart_open(uint32 id, file_mode mode, file** result) {
   com_port* port = &ports[com_num(port_id)];
 
   if(!(port->status & COM_PORT_STATUS_EXISTS)) return FNF_ERROR;
-  if(port->sgsitatus & COM_PORT_STATUS_OPEN) return RESSOURCE_BUSY_ERR;
+  if(port->status & COM_PORT_STATUS_OPEN) return RESSOURCE_BUSY_ERR;
 
   // TODO: check if the port is UP, if the port has not been opened, it's time to open it
   // TODO: check the file mode, maybe it is incorrect?
@@ -524,7 +528,9 @@ error_code uart_write(file* ff, void* buff, uint32 count) {
   if(port->status & COM_PORT_STATUS_WRITE_READY) {
     send_serial(f->port, CAST(uint8*, buff)[i++]);
   }
-  
+
+  port->status &= ~COM_PORT_STATUS_WRITE_READY;
+
   for (; i < count; ++i) {
     uint32 next_hi = (port->whi + 1) % port->wbuffer_len;
 
@@ -538,6 +544,7 @@ error_code uart_write(file* ff, void* buff, uint32 count) {
       panic(L"Multiple writer?");
     }
     port->whi = next_hi;
+    condvar_mutexless_signal(port->wrt_cv);
   }
 
 uart_write_end:

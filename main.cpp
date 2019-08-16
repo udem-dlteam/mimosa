@@ -48,68 +48,31 @@ int main() {
     term_writeline(cout);
   }
 #endif
+  error_code err;
+  native_string to_send = "this is a big string that must be sent through the COM PORT";
+  file* com_port_one;
+
+  if(ERROR(err = file_open(COM1_PATH, "r", &com_port_one))) {
+    panic(L"Failed to open an handle on COM1");
+  }
+
+  native_string p = to_send;
+
+  if(ERROR(file_write(com_port_one, to_send, kstrlen(to_send)))) {
+    panic(L"Failed to write to COM 1");
+  }
+
+  native_char c;
+  while(1) {
+    if(ERROR(err = file_read(com_port_one, &c, sizeof(native_char)))) {
+      panic(L"Failed to read COM 1");
+    }
+  }  
 
 #ifdef MIMOSA_REPL
-  // error_code err;
-  // file* f;
-  // if(ERROR(err = file_open("/dsk1/longfilenametest.scm", "a+", &f))) {
-  //   term_write(cout, "The error is...");
-  //   term_write(cout, err);
-  //   panic(L"Failed to open the file");
-  // }
-
-  // term_write(cout, "The file name is: ");
-  // term_write(cout, f->name);
-  
-  // term_write(cout, "Creating a folder....");
-
-  // if(ERROR(err = mkdir("/dsk1/abigfolder", &f))) {
-  //   panic(L"This is an error");
-  // }
-
-  // if(ERROR(err = file_open("/dsk1/abigfolder/abigsubfileintoafolder", "a+", &f))) {
-  //   panic(L"Another error");
-  // }
-  
-  // file_close(f);
-
-  // if(ERROR(err = file_rename("/dsk1/abigfolder/abigsubfileintoafolder", "/dsk1/abigfilerenamedacrossafolder"))) {
-  //   term_write(cout, "Error is: ");
-  //   term_write(cout, err);
-  //   panic(L"Failed to rename");
-  // }
-  
-  // if(ERROR(err = file_remove("dsk1/abigfilerenamedacrossafolder"))) {
-  //   term_write(cout, "Error is");
-  //   term_write(cout, err);
-  //   panic(L"Failed to remove");
-  // }
-
-  // if(ERROR(err = file_remove("dsk1/fact.scm"))) {
-  //   panic(L"Failed to remove fact.scm");
-  // }
-
   term_run(cout);
 #endif
 
-#ifdef REMOTE_COM
-  
-  error_code err;
-  file* stdin, *stdout;
-
-  if (ERROR(err = file_open(STDIN_PATH, "w", &stdin))) {
-    return err;
-  }
-
-  if (ERROR(err = file_open(STDOUT_PATH, "r", &stdout))) {
-    return err;
-  }
-  
-  init_serial(COM1_PORT_BASE, stdout, stdin); // the input is the output that we read,vice-vers
-  unicode_char i;
-  
-#endif
-  
 #ifdef GAMBIT_REPL
   {
     native_string file_name = "/dsk1/GSI.EXE";
