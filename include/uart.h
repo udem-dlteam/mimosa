@@ -120,11 +120,28 @@ int serial_received(int com_port);
 
 error_code uart_open(uint32 id, file_mode mode, file** result);
 
+typedef struct com_port_struct com_port;
 typedef struct uart_file_struct uart_file;
 
 struct uart_file_struct {
     file header;
     uint16 port;
+};
+
+struct com_port_struct {
+  uint16 port;
+  union {
+    struct {
+      uint8 exists : 1;
+      uint8 is_open : 1;
+      uint8 waiting : 1;
+      uint8 full : 1;
+      uint8 forcibly_closed : 1;
+      uint8 reserved : 3;
+    } stat_bitset;
+    uint8 stats_reg;
+  } status;
+  void* buffer;
 };
 
 #endif

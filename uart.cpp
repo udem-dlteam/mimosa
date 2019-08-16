@@ -32,12 +32,10 @@ static error_code uart_read(file* f, void* buff, uint32 count);
 static size_t uart_len(file* f);
 static dirent* uart_readdir(DIR* dir);
 
-int port_in_use = 0;
+static com_port ports[4];
 
-struct com_table{
-  file* input;
-  file* output;
-};
+
+int port_in_use = 0;
 
 uint8 com_num(int hex){
   switch (hex) {
@@ -439,7 +437,23 @@ size_t uart_len(file* f) {return 0;} // Makes no sense on a COM port
 
 dirent* uart_readdir(DIR* dir) { return NULL; } // Makes no sense on a COM port
 
+static error_code detect_hardware() {
+  error_code err = NO_ERROR;
+
+
+
+
+  return err;
+}
+
+
 error_code setup_uarts(vfnode* parent_node) {
+  error_code err = NO_ERROR;
+
+  if(ERROR(err = detect_hardware())) {
+    return err;
+  } 
+
   __uart_vtable._file_close = uart_close_handle;
   __uart_vtable._file_len = uart_len;
   __uart_vtable._file_move_cursor = uart_move_cursor;
@@ -462,4 +476,6 @@ error_code setup_uarts(vfnode* parent_node) {
 
   new_vfnode(&COM4_NODE, COM4_NAME, TYPE_VFILE);
   vfnode_add_child(parent_node, &COM4_NODE);
+
+  return err;
 }
