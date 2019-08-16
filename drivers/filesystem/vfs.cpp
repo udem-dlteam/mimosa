@@ -54,7 +54,7 @@ static dirent* vfnode_readdir(DIR* dir) {
 
   vfnode* child = vdir->child_cursor;
   dirent* result = &dir->ent;
-  result->d_type = child->header.type;
+  result->d_type = child->type;
 
   native_string p1 = dir->ent.d_name;
   native_string p2;
@@ -249,7 +249,7 @@ error_code file_rename(native_string old_name, native_string new_name) {
 
   if(NULL == deepest) {
     err = FNF_ERROR;
-  } else if(deepest->header.type & TYPE_MOUNTPOINT) {
+  } else if(deepest->type & TYPE_MOUNTPOINT) {
     // Make sure the FS of the mountpoint and the FS of the file 
     // is the same:
     fs_header* target_fs = deepest->_value.mountpoint.mounted_fs;
@@ -308,10 +308,11 @@ error_code mkdir(native_string path, file** result) {
 
   if(NULL == deepest) {
     err = FNF_ERROR;
-  } else if(deepest->header.type & TYPE_MOUNTPOINT) {
+  } else if(deepest->type & TYPE_MOUNTPOINT) {
     fs_header* fs = deepest->_value.mountpoint.mounted_fs;
     err = fs_mkdir(fs, p, depth, &hit);
   } else {
+    // TODO if it is a VFOLDER is might be possible to add a folder
     err = FNF_ERROR;
   }
 
@@ -342,14 +343,57 @@ error_code file_open(native_string path, native_string mode, file** result) {
 
   if(NULL == deepest) {
     err = FNF_ERROR;
-  } else if(deepest->header.type & TYPE_MOUNTPOINT) {
-    fs_header* fs = deepest->_value.mountpoint.mounted_fs;
-    err = fs_file_open(fs, p, depth, md, &hit);
   } else if(depth == 0) {
-    hit = CAST(file*, deepest);
-  } else { 
-    err = FNF_ERROR;
+    if ((deepest->type & TYPE_VFOLDER) == TYPE_VFOLDER) {
+      hit = CAST(file*, kmalloc(sizeof(vfolder)));
+      hit->mode = md;
+      hit->type = deepest->type;
+      hit->_vtable = &__vfnode_vtable;
+      uint32 len = kstrlen(p) + 1;
+      hit->name = CAST(native_string, kmalloc(sizeof(native_char) * len));
+      CAST(vfolder*, hit)->node = deepest;
+    } else if ((deepest->type & TYPE_VFILE) == TYPE_VFILE) {
+      uint32 id = deepest->_value.file_gate.identifier;
+      err = deepest->_value.file_gate._vf_node_open(id, md, &hit);
+    } else if ((deepest->type & TYPE_MOUNTPOINT) == TYPE_MOUNTPOINT) {
+      fs_header* fs = deepest->_value.mountpoint.mounted_fs;
+      err = fs_file_open(fs, p , depth, md, &hit);
+    } else {
+      err = FNF_ERROR;
+    }
+  } else {
+    // depth > 0
+    if(deepest->type & TYPE_MOUNTPOINT) {
+      fs_header* fs = deepest->_value.mountpoint.mounted_fs;
+      err = fs_file_open(fs, p , depth, md, &hit);
+    } else {
+      err = FNF_ERROR;
+    }
   }
+
+  // if (NULL == deepest) {
+  //   err = FNF_ERROR;
+  // } else if(depth > 0 && deepest->type & TYPE_MOUNTPOINT) {
+  //   fs_header* fs = deepest->_value.mountpoint.mounted_fs;
+  //   err = fs_file_open(fs, p, depth, md, &hit);
+  // } else if(depth == 0) {
+  //   if(deepest->type & TYPE_VFOLDER) {
+  //     hit = CAST(file*, kmalloc(sizeof(vfolder)));
+  //     hit->mode = md;
+  //     hit->type = deepest->type;
+  //     hit->_vtable = &__vfnode_vtable;
+  //     uint32 len = kstrlen(p) + 1;
+  //     hit->name = CAST(native_string, kmalloc(sizeof(native_char) * len));
+  //     CAST(vfolder*, hit)->node = deepest;
+  //   } else if(deepest->type & TYPE_VFILE) {
+  //     uint32 id = deepest->_value.file_gate.identifier;
+  //     hit = deepest->_value.file_gate._vf_node_open(id);
+  //   } else {
+  //     err = ARG_ERROR;
+  //   }
+  // } else { 
+  //   err = FNF_ERROR;
+  // }
 
   if (HAS_NO_ERROR(err)) {
     *result = hit;
@@ -367,31 +411,31 @@ DIR* opendir(const char* path) {
   DIR* dir;
   error_code err;
 
-if (ERROR(err = file_open(CAST(native_string, path), "r", &f))) {
-  return NULL;
-}
-
-if (!IS_FOLDER(f->type)) {
-  file_close(f);  // ignore error
-  return NULL;
-}
-
-if (IS_VIRTUAL(f->type)) {
-  if ((dir = CAST(DIR*, kmalloc(sizeof(VDIR)))) == NULL) {
+  if (ERROR(err = file_open(CAST(native_string, path), "r", &f))) {
     return NULL;
   }
-  vfnode* vf = CAST(vfnode*, f);
-  VDIR* vdir = CAST(VDIR*, dir);
-  vdir->child_cursor = vf->_first_child;
-} else {
-  if ((dir = CAST(DIR*, kmalloc(sizeof(DIR)))) == NULL) {
+
+  if (!IS_FOLDER(f->type)) {
+    file_close(f);  // ignore error
     return NULL;
   }
-}
 
-dir->f = f;
+  if (IS_VIRTUAL(f->type)) {
+    if ((dir = CAST(DIR*, kmalloc(sizeof(VDIR)))) == NULL) {
+      return NULL;
+    }
+    vfnode* vf = CAST(vfolder*, f)->node;
+    VDIR* vdir = CAST(VDIR*, dir);
+    vdir->child_cursor = vf->_first_child;
+  } else {
+    if ((dir = CAST(DIR*, kmalloc(sizeof(DIR)))) == NULL) {
+      return NULL;
+    }
+  }
 
-return dir;
+  dir->f = f;
+
+  return dir;
 }
 
 error_code closedir(DIR* dir) {
@@ -427,10 +471,7 @@ void vfnode_add_child(vfnode* parent, vfnode* child) {
 }
 
 vfnode* new_vfnode(vfnode* vf, native_string name, file_type type) {
-  vf->header.mode = MODE_READ;
-  vf->header.type = type;
-  vf->header._fs_header = NULL;
-  vf->header._vtable = &__vfnode_vtable;
+  vf->type = type;
   vf->name = name;
   vf->_first_child = vf->_next_sibling = vf->_parent = NULL;
 

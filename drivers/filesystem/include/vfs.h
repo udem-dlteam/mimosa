@@ -26,7 +26,6 @@ typedef uint8 file_mode;
 typedef uint8 file_type;
 
 #define IS_MODE_NONBLOCK(md) ((md)&MODE_NONBLOCK_ACCESS)
-
 #define IS_REGULAR_FILE(tpe) ((tpe)&TYPE_REGULAR)
 #define IS_FOLDER(tpe) ((tpe)&TYPE_FOLDER)
 #define IS_VIRTUAL(tpe) ((tpe)&TYPE_VIRTUAL)
@@ -44,6 +43,7 @@ typedef struct VDIR_struct VDIR;
 typedef struct dirent_struct dirent;
 typedef struct fs_vtable_struct fs_vtable;
 typedef struct stat_buff_struct stat_buff;
+typedef struct vfolder_struct vfolder;
 
 typedef struct fs_header_struct {
   fs_kind kind;
@@ -94,7 +94,7 @@ struct file_struct {
 };
 
 struct vfnode_struct {
-  file header;
+  file_type type;
   vfnode* _first_child;
   vfnode* _next_sibling;
   vfnode* _parent;
@@ -105,9 +105,15 @@ struct vfnode_struct {
       fs_header* mounted_fs;
     } mountpoint;
     struct {
-      file* linked_file;
-    } file;
+      uint32 identifier;
+      error_code (*_vf_node_open)(uint32 id, file_mode mode, file** result);
+    } file_gate;
   } _value;
+};
+
+struct vfolder_struct {
+  file header;
+  vfnode* node;
 };
 
 struct dirent_struct {
