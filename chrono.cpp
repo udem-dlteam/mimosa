@@ -378,7 +378,42 @@ int gettimeofday (struct timeval *tv, struct timezone *tz)
   return 0;
 }
 
-//-----------------------------------------------------------------------------
+void get_current_time(uint8* hour, uint8* min, uint8* sec) {
+  outb (RTC_SEC, RTC_PORT_ADDR);
+  *sec = bcd_to_int (inb (RTC_PORT_DATA));
+
+  outb (RTC_MIN, RTC_PORT_ADDR);
+  *min = bcd_to_int (inb (RTC_PORT_DATA));
+
+  outb (RTC_HOUR, RTC_PORT_ADDR);
+  *hour = bcd_to_int (inb (RTC_PORT_DATA));
+}
+
+void get_current_date(int16* year, uint8* month, uint8* day) {
+  uint8 year_in_century;
+
+  outb (RTC_DAY_IN_MONTH, RTC_PORT_ADDR);
+  *day = bcd_to_int (inb (RTC_PORT_DATA));
+
+  outb (RTC_MONTH, RTC_PORT_ADDR);
+  *month = bcd_to_int (inb (RTC_PORT_DATA));
+
+  outb (RTC_YEAR, RTC_PORT_ADDR);
+  year_in_century = bcd_to_int (inb (RTC_PORT_DATA));
+
+  *year = ((year_in_century <= 50) ? 2000 : 1900) + year_in_century;
+}
+
+uint32 days_from_civil(uint16 y, unsigned m, unsigned d) 
+{
+    y -= m <= 2;
+    uint32 era = (y >= 0 ? y : y-399) / 400;
+    uint16 yoe = static_cast<unsigned>(y - era * 400);      // [0, 399]
+    uint16 doy = (153*(m + (m > 2 ? -3 : 9)) + 2)/5 + d-1;  // [0, 365]
+    uint32 doe = yoe * 365 + yoe/4 - yoe/100 + doy;         // [0, 146096]
+    return era * 146097 + doe - 719468;
+}
+
 
 // Local Variables: //
 // mode: C++ //

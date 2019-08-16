@@ -176,6 +176,14 @@ native_string copy_without_trailing_spaces(uint8* src, native_string dst,
   return dst + end;
 }
 
+uint32 kstrlen(native_string a) {
+  native_char* p = a;
+  while(*p != '\0') {
+    p++;
+  }
+  return CAST(uint32, p - a + 1);
+}
+
 // Based off glibc's strcmp
 // I roughly modified it to fit in the general code style of mimosa
 int16 kstrcmp(native_string a, native_string b) {

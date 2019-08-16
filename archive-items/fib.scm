@@ -10,4 +10,4 @@
       (fx+ (fib (fx- n 1))
            (fib (fx- n 2)))))
 
-;;(pretty-print (time (fib 40)))
+(pretty-print (time (fib 40)))

@@ -122,7 +122,10 @@ typedef int32 error_code;
 
 #define REMOTE_COM
 #define GAMBIT_REPL
-//#define MIMOSA_REPL
+// #define MIMOSA_REPL
+
+#define SHOW_BOOT_TIME
+
 #ifdef GAMBIT_REPL
 #ifdef MIMOSA_REPL
 #error "Only one REPL should be used"

@@ -2,7 +2,10 @@
 #include "include/string.h"
 
 #ifndef USE_MIMOSA
-extern "C" void *REDIRECT_NAME(memcpy)(void *__restrict __dest, const void *__restrict __src,
+#ifdef __cplusplus
+extern "C"
+#endif
+void *REDIRECT_NAME(memcpy)(void *__restrict __dest, const void *__restrict __src,
                                        size_t __n) {
   return REDIRECT_NAME(memmove)(__dest, __src, __n);
 }

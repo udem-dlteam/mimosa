@@ -15,7 +15,7 @@ mount -t vfat ~/mimosa-build/floppy.img /mnt/tmp -o loop
 
 cp ~/mimosa-build/kernel.bin   /mnt/tmp/BOOT.SYS
 cp -r ~/mimosa-build/archive-items/. /mnt/tmp/
-
+cp -r ~/mimosa-build/archive-items/gambini /mnt/tmp/.gambini.scm
 
 # mkdir /mnt/tmp/folder
 # touch /mnt/tmp/folder/fif.tst
@@ -23,7 +23,7 @@ cp -r ~/mimosa-build/archive-items/. /mnt/tmp/
 # mkdir /mnt/tmp/folder/dfolder
 # touch /mnt/tmp/folder/dfolder/dfif.tst
 # echo "[1] This is a file pretty deep into the directory structure" >> /mnt/tmp/folder/dfolder/dfif.tst
-dd if=/dev/zero of=/mnt/tmp/dummy bs=512 count=2048
+# dd if=/dev/zero of=/mnt/tmp/dummy bs=512 count=2048
 
 # cp ~/mimosa-build/copypa.txt /mnt/tmp/copypa.txt
 

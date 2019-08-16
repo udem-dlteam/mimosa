@@ -8,6 +8,7 @@
 #define EINTR  4  // Interrupted system call
 #define EAGAIN 11 // Try again
 #define EEXIST 17 // File exists
+#define	ERANGE 34 // Math result not representable
 
 extern int errno;
 

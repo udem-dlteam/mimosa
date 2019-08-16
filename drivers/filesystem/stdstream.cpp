@@ -6,11 +6,11 @@
 
 #define STREAM_DEFAULT_LEN 512
 
-native_string STDIN_PATH = "/dev/stdin";
-native_string STDOUT_PATH = "/dev/stdout";
+native_string STDIN_PATH = "/sys/stdin";
+native_string STDOUT_PATH = "/sys/stdout";
 
-static native_string STDIN_PART = "STDIN      ";
-static native_string STDOUT_PART = "STDOUT     ";
+static native_string STDIN_PART = "STDIN";
+static native_string STDOUT_PART = "STDOUT";
 
 static fs_header fs_std_stream;
 
@@ -38,13 +38,29 @@ static error_code stream_read(file* f, void* buf, uint32 count);
 // -------------------------------------------------------------
 void stream_reset_cursor(file* f) { return; }
 
-static error_code stream_move_cursor(file* f, int32 n) { return UNIMPL_ERROR; }
+static error_code stream_move_cursor(file* f, int32 n) { return ARG_ERROR; }
 
 static error_code stream_set_to_absolute_position(file* f, uint32 position) {
-  return UNIMPL_ERROR;
+  return ARG_ERROR;
 }
 
 static size_t stream_len(file* f) { return 0; }
+
+error_code stream_mkdir(fs_header* header, native_string name, uint8 depth, file**result) {
+  return ARG_ERROR;
+}
+
+error_code stream_rename(fs_header* header, file* source, native_string name, uint8 depth) {
+  return ARG_ERROR;
+}
+
+error_code stream_remove(fs_header* header, file* source) {
+  return ARG_ERROR;
+}
+
+error_code stream_stat(fs_header* fs, file* f, stat_buff* buf) {
+  return ARG_ERROR;
+}
 
 // -------------------------------------------------------------
 // Stream management
@@ -108,9 +124,7 @@ static error_code new_stream_file(stream_file* rs, file_mode mode,
 static error_code stream_close(file* ff) {
   error_code err = NO_ERROR;
   stream_file* f = CAST(stream_file*, ff);
-
-  // TODO free all of it
-
+  kfree(f);
   return err;
 }
 
@@ -138,7 +152,7 @@ static error_code stream_write(file* ff, void* buff, uint32 count) {
 
     // Loop like this and do not use mem copy because
     // we want to signal every new character)
-    int i;
+    uint32 i;
     for (i = 0; i < count; /*++i is in the write branch*/) {
       int next_hi = (rs->high + 1);
       if (next_hi < rs->len) {
@@ -148,7 +162,7 @@ static error_code stream_write(file* ff, void* buff, uint32 count) {
         // No one is caught up: there's a new char
         rs->late = rs->readers;
         condvar_mutexless_signal(streamcv);
-      } else if (rs->late == 0) {
+      } else if (rs->late == 0) { // this allows a not reader stream to never overflow
         stream_reset(rs);
       } else if (rs->autoresize) {
         // Resize
@@ -190,10 +204,10 @@ static error_code stream_read(file* ff, void* buff, uint32 count) {
 
     if (f->_lo < rs->high) {
       // Read as much as possible
-      int len = (rs->high - f->_lo);
+      uint32 len = (rs->high - f->_lo);
       if (count < len) len = count;
 
-      for (int i = 0; i < len; ++i) {
+      for (uint32 i = 0; i < len; ++i) {
         if (NULL != read_buff) read_buff[i] = stream_buff[f->_lo];
         f->_lo++;
       }
@@ -259,21 +273,22 @@ static error_code stream_read(file* ff, void* buff, uint32 count) {
   return err;
 }
 
-error_code stream_open_file(fs_header* header, short_file_name* parts,
+error_code stream_open_file(fs_header* header, native_string parts,
                             uint8 depth, file_mode mode, file** result) {
+  
   error_code err = NO_ERROR;
-  stream_file* strm;
+  stream_file* strm = NULL;
 
   if (depth == 0) return FNF_ERROR;
 
-  if (0 == kstrcmp(STDIN_PART, parts[0].name)) {
+  if (0 == kstrcmp(STDIN_PART, parts)) {
     strm = CAST(stream_file*, kmalloc(sizeof(stream_file)));
     if (NULL == strm) {
       err = MEM_ERROR;
     } else {
       err = new_stream_file(strm, mode, &stdin);
     }
-  } else if (0 == kstrcmp(STDOUT_PART, parts[0].name)) {
+  } else if (0 == kstrcmp(STDOUT_PART, parts)) {
     strm = CAST(stream_file*, kmalloc(sizeof(stream_file)));
     if (NULL == strm) {
       err = MEM_ERROR;
@@ -293,6 +308,10 @@ error_code mount_streams(vfnode* parent) {
   error_code err = NO_ERROR;
 
   __std_stream_vtable._file_open = stream_open_file;
+  __std_stream_vtable._mkdir = stream_mkdir;
+  __std_stream_vtable._rename = stream_rename;
+  __std_stream_vtable._remove = stream_remove;
+  __std_stream_vtable._stat = stream_stat;
 
   fs_std_stream.kind = STREAM;
   fs_std_stream._vtable = &__std_stream_vtable;
@@ -311,7 +330,7 @@ error_code mount_streams(vfnode* parent) {
 
   // Init mount point
   vfnode* dev_node = CAST(vfnode*, kmalloc(sizeof(vfnode)));
-  new_vfnode(dev_node, "DEV        ", TYPE_MOUNTPOINT);
+  new_vfnode(dev_node, "SYS", TYPE_MOUNTPOINT);
   dev_node->_value.mountpoint.mounted_fs = &fs_std_stream;
   vfnode_add_child(parent, dev_node);
 

@@ -716,7 +716,7 @@ x86-lzcnt
 
 (define (compile-and-load path)
   (compile-file-to-target path
-                          options: '((target x86-32)
+                          options: '((target x86)
                                      ;;(expansion)
                                      ;;(verbose)
                                      )))
