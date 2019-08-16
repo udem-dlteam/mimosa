@@ -10,9 +10,7 @@
 
 #include "../drivers/filesystem/include/vfs.h"
 
-#else
-
-#ifndef USE_HOST_LIBC
+#endif
 
 typedef uint32 __dev_t;
 typedef uint32 __ino_t;
@@ -79,8 +77,6 @@ struct stat {
 #define S_ISFIFO(m) (((m) & S_IFMT) == S_IFIFO)
 #define S_ISSOCK(m) (((m) & S_IFMT) == S_IFSOCK)
 
-#endif
-#endif
 
 extern int REDIRECT_NAME(chdir)(const char *__path);
 extern char *REDIRECT_NAME(getcwd)(char *__buf, size_t __size);
