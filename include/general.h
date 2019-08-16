@@ -120,9 +120,9 @@ typedef int32 error_code;
 // #define USE_IRET_FOR_RESTORE_CONTEXT
 #define USE_RET_FOR_RESTORE_CONTEXT
 
-#define REMOTE_COM
-#define GAMBIT_REPL
-// #define MIMOSA_REPL
+// #define REMOTE_COM
+// #define GAMBIT_REPL
+#define MIMOSA_REPL
 
 #define SHOW_BOOT_TIME
 

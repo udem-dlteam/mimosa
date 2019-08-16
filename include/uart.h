@@ -15,6 +15,10 @@
 #include "../drivers/filesystem/include/stdstream.h"
 
 //-----------------------------------------------------------------------------
+extern native_string COM1_PATH;
+extern native_string COM2_PATH;
+extern native_string COM3_PATH;
+extern native_string COM4_PATH;
 
 //
 // Definitions for 8250/16550 universal asynchronous receiver transmitter.
@@ -109,7 +113,7 @@
 #define UART_IIR_FIFO_ENABLED_ERROR 2
 #define UART_IIR_FIFO_ENABLED 3
 //-----------------------------------------------------------------------------
-
+error_code setup_uarts(vfnode* parent_node);
 void init_serial(int port, file* input, file* output);
 void send_serial(int com, native_char x);
 int serial_received(int com_port);

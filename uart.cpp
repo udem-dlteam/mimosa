@@ -1,14 +1,37 @@
+#include "uart.h"
 #include "asm.h"
 #include "general.h"
-#include "uart.h"
 #include "intr.h"
-#include "term.h"
 #include "rtlib.h"
+#include "term.h"
 #include "thread.h"
 /**
  * Source for writing 8250 UART drivers can be found at
  * https://en.wikibooks.org/wiki/Serial_Programming/8250_UART_Programming
  */
+
+native_string COM1_PATH = "/dev/ttys0";
+native_string COM2_PATH = "/dev/ttys1";
+native_string COM3_PATH = "/dev/ttys2";
+native_string COM4_PATH = "/dev/ttys3";
+
+static native_string COM1_NAME = "ttys0";
+static native_string COM2_NAME = "ttys1";
+static native_string COM3_NAME = "ttys2";
+static native_string COM4_NAME = "ttys3";
+
+static vfnode COM1_NODE, COM2_NODE, COM3_NODE, COM4_NODE;
+
+static file_vtable __uart_vtable;
+
+static error_code uart_move_cursor(file* f, int32 mvmt);
+static error_code uart_set_abs_pos(file* f, uint32 pos);
+static error_code uart_close_handle(file* f);
+static error_code uart_write(file* f, void* buff, uint32 count);
+static error_code uart_read(file* f, void* buff, uint32 count);
+static size_t uart_len(file* f);
+static dirent* uart_readdir(DIR* dir);
+
 int port_in_use = 0;
 
 struct com_table{
@@ -357,4 +380,49 @@ void irq4() {
 void send_serial(int port, native_char x) {
    while ((inb(port + UART_8250_LSR) & UART_8250_LSR_THRE) == 0);
    outb(x, port);
+}
+
+error_code uart_move_cursor(file* f, int32 mvmt) {
+  return ARG_ERROR;
+}
+
+error_code uart_set_abs_pos(file* f, uint32 pos) { 
+  return ARG_ERROR;
+}
+
+error_code uart_close_handle(file* f) { return ARG_ERROR; }
+error_code uart_write(file* f, void* buff, uint32 count) {return ARG_ERROR;}
+error_code uart_read(file* f, void* buff, uint32 count) {return ARG_ERROR;}
+size_t uart_len(file* f) {return ARG_ERROR;}
+dirent* uart_readdir(DIR* dir) { return NULL; }
+
+error_code setup_uarts(vfnode* parent_node) {
+  __uart_vtable._file_close = uart_close_handle;
+  __uart_vtable._file_len = uart_len;
+  __uart_vtable._file_move_cursor = uart_move_cursor;
+  __uart_vtable._file_read = uart_read;
+  __uart_vtable._file_set_to_absolute_position = uart_set_abs_pos;
+  __uart_vtable._file_write = uart_write;
+  __uart_vtable._readdir = uart_readdir;
+
+  // TODO: Il faut regarder si il y a vraiment 
+  // les 4 disponibles. Si un port n'est pas la,
+  // il ne faut pas le monter.
+
+  new_vfnode(&COM1_NODE, COM1_NAME, TYPE_VFILE);
+  COM1_NODE.header._vtable = &__uart_vtable;
+  vfnode_add_child(parent_node, &COM1_NODE);
+
+  new_vfnode(&COM2_NODE, COM2_NAME, TYPE_VFILE);
+  COM2_NODE.header._vtable = &__uart_vtable;
+  vfnode_add_child(parent_node, &COM2_NODE);
+
+  new_vfnode(&COM3_NODE, COM3_NAME, TYPE_VFILE);
+  COM3_NODE.header._vtable = &__uart_vtable;
+  vfnode_add_child(parent_node, &COM3_NODE);
+
+  new_vfnode(&COM4_NODE, COM4_NAME, TYPE_VFILE);
+  COM4_NODE.header._vtable = &__uart_vtable;
+  vfnode_add_child(parent_node, &COM4_NODE);
+
 }
