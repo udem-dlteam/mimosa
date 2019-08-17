@@ -78,7 +78,8 @@ static inline uint8 com_num_to_port(uint8 num) {
 /* TODO:
  * Add two args: arg1=stream de lecture arg2=stream d'ecriture
  */
-void init_serial(int com_port, file* input, file* output) {
+error_code init_serial(int com_port) {
+  error_code err = NO_ERROR;
   // La fonction init serial ne sera plus appelee de l'exterieur...
   /*
   Quoi faire!
@@ -124,14 +125,13 @@ void init_serial(int com_port, file* input, file* output) {
   Je pense que tu devrais etre pas pire avec ca!
   
    */
-  port_in_use = com_port;
-  // com_tab[com_num(com_port)].input = input;
-  // com_tab[com_num(com_port)].output = output;
-
   if (!(com_port == COM1_PORT_BASE || com_port == COM2_PORT_BASE ||
         com_port == COM3_PORT_BASE || com_port == COM4_PORT_BASE)) {
     panic(L"Trying to init a serial port with an invalid COM port...");
   }
+
+
+  // TODO: verifier si le port est la...
 
   outb(0x00, com_port + UART_8250_IER);  // Disable all interrupts
   outb(0x80, com_port + UART_8250_LCR);  // Enable DLAB (set baud rate divisor)
@@ -160,6 +160,8 @@ void init_serial(int com_port, file* input, file* output) {
       ENABLE_IRQ(COM4_IRQ);
       break;
    }
+
+   return err;
 }
 
 
@@ -442,6 +444,7 @@ error_code uart_open(uint32 id, file_mode mode, file** result) {
   error_code err = NO_ERROR;
   uint16 port_id = id & 0xFFFF;
   native_string port_name;
+
   switch (port_id) {
     case COM1_PORT_BASE:
       port_name = COM1_NAME;
@@ -456,6 +459,7 @@ error_code uart_open(uint32 id, file_mode mode, file** result) {
       port_name = COM4_NAME;
       break;
     default:
+      debug_write("FNF, Incorrect COM PORT arg");
       return FNF_ERROR;
       break;
   }
@@ -463,8 +467,10 @@ error_code uart_open(uint32 id, file_mode mode, file** result) {
   // Only one can work on a port at a time
   com_port* port = &ports[com_num(port_id)];
 
+  debug_write("Checking the status register");
   if(!(port->status & COM_PORT_STATUS_EXISTS)) return FNF_ERROR;
   if(port->status & COM_PORT_STATUS_OPEN) return RESSOURCE_BUSY_ERR;
+  debug_write("Done checking the status register");
 
   // TODO: check if the port is UP, if the port has not been opened, it's time to open it
   // TODO: check the file mode, maybe it is incorrect?
@@ -476,6 +482,7 @@ error_code uart_open(uint32 id, file_mode mode, file** result) {
   uart_handle->header.type = TYPE_VFILE;
   uart_handle->mode = mode;
 
+//TODO: PERFORM NULL CHECKS
   uart_handle->port = port_id;
   // Init the port data
   port->rbuffer = CAST(uint8*, kmalloc(sizeof(uint8) * COM_BUFFER_SIZE));
@@ -602,19 +609,15 @@ static error_code detect_hardware() {
   // Init the values to a known status
 
   for(uint8 i = 0; i < 4; ++i) { 
+    init_serial(com_num_to_port(i));
     ports[i].rbuffer = NULL;
     ports[i].wbuffer = NULL;
     ports[i].rbuffer_len = ports[i].wbuffer_len = 0;
     ports[i].rlo = ports[i].rhi = ports[i].wlo = ports[i].whi = 0;
     // Si le port est la, il faut mettre le status correct. 
-    // il faut aussi allouer un buffer pour 
-    ports[i].status = 0;
+    ports[i].status |= COM_PORT_STATUS_EXISTS;
     ports[i].port = com_num_to_port(i);
   }    
-
-  //TODO: remove this when the code is there, we need to debug a bit...
-  ports[0].status |= COM_PORT_STATUS_EXISTS;
-
 
   return err;
 }
@@ -654,6 +657,9 @@ error_code setup_uarts(vfnode* parent_node) {
     new_vfnode(&COM4_NODE, COM4_NAME, TYPE_VFILE);
     vfnode_add_child(parent_node, &COM4_NODE);
   }
+
+  debug_write("UART SETUP");
+  if(ERROR(err)) debug_write("With failure...");
 
   return err;
 }

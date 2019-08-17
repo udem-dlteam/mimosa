@@ -53,18 +53,21 @@ int main() {
   file* com_port_one;
 
   if(ERROR(err = file_open(COM1_PATH, "r", &com_port_one))) {
+    term_write(cout, err);
     panic(L"Failed to open an handle on COM1");
   }
 
   native_string p = to_send;
 
   if(ERROR(file_write(com_port_one, to_send, kstrlen(to_send)))) {
+    term_write(cout, err);
     panic(L"Failed to write to COM 1");
   }
 
   native_char c;
   while(1) {
     if(ERROR(err = file_read(com_port_one, &c, sizeof(native_char)))) {
+      term_write(cout, err);
       panic(L"Failed to read COM 1");
     }
   }  
