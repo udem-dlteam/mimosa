@@ -63,6 +63,9 @@ typedef int32 error_code;
 #define ARG_ERROR (-6)
 #define UNKNOWN_ERROR (-7)
 #define PERMISSION_ERROR (-8)
+#define NOT_A_FOLDER_ERR (-9)
+#define EXISTS_ERR (-10)
+#define RESSOURCE_BUSY_ERR (-11)
 
 #define NOP() do { __asm__ __volatile__ ("NOP" : : : "memory");} while(0)
 
@@ -120,8 +123,11 @@ typedef int32 error_code;
 // #define USE_IRET_FOR_RESTORE_CONTEXT
 #define USE_RET_FOR_RESTORE_CONTEXT
 
-#define GAMBIT_REPL
-// #define MIMOSA_REPL
+// #define REMOTE_COM
+// #define GAMBIT_REPL
+#define MIMOSA_REPL
+
+#define SHOW_BOOT_TIME
 
 #ifdef GAMBIT_REPL
 #ifdef MIMOSA_REPL
