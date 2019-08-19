@@ -155,7 +155,7 @@ uint32 kstrlen(native_string a) {
   while(*p != '\0') {
     p++;
   }
-  return CAST(uint32, p - a + 1);
+  return CAST(uint32, (p - a) + 1);
 }
 
 // Based off glibc's strcmp

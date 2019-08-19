@@ -54,6 +54,7 @@ int main() {
 
 #ifdef GAMBIT_REPL
   {
+    term_write(cout, "Starting GSI...");
     native_string file_name = "/dsk1/GSI.EXE";
 
     file* prog;
@@ -69,6 +70,7 @@ int main() {
       program_thread* task =
           CAST(program_thread*, kmalloc(sizeof(program_thread)));
       new_program_thread(task, "/dsk1", CAST(libc_startup_fn, code), "Gambit");
+      term_write(cout, "Starting the Gambit thread\n");
       thread_start(CAST(thread*, task));
 
 #ifdef REMOTE_COM

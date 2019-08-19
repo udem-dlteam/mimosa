@@ -333,8 +333,8 @@ program_thread* new_program_thread(program_thread* self, native_string cwd,
   self->super.vtable = &_program_thread_vtable;
 
   uint32 len = kstrlen(cwd);
-  self->_cwd = CAST(native_string, kmalloc(sizeof(native_char) * len));
-  memcpy(self->_cwd, cwd, len);
+  self->_cwd = CAST(native_string, kmalloc(sizeof(native_char) * (len + 1)));
+  memcpy(self->_cwd, cwd, len + 1);
 
   return self;
 }
@@ -346,8 +346,8 @@ native_string program_thread_chdir(program_thread* self,
   native_string old = self->_cwd;
   uint32 len = kstrlen(new_cwd);
 
-  self->_cwd = CAST(native_string, kmalloc(sizeof(native_char) * len));
-  memcpy(self->_cwd, new_cwd, len);
+  self->_cwd = CAST(native_string, kmalloc(sizeof(native_char) * (len + 1)));
+  memcpy(self->_cwd, new_cwd, len + 1);
   self->_cwd = new_cwd;
   if(NULL != old) kfree(old);
 }

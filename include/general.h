@@ -153,13 +153,13 @@ typedef int32 error_code;
 // #define SHOW_DISK_INFO
 #define CHECK_ASSERTIONS
 // #define PRINT_ASSERTIONS
-#define USE_CACHE_BLOCK_MAID
+// #define USE_CACHE_BLOCK_MAID
 #define USE_BLOCK_REF_COUNTER_FREE
 // #define SHOW_UART_MESSAGES
 #define RED_PANIC_SCREEN
 #define ENABLE_DEBUG_WRITE
 #define ENABLE_DEBUG_MARKER
-#define ENABLE_MOUSE
+// #define ENABLE_MOUSE
 
 // BUSY_WAIT_INSTEAD_OF_SLEEP uses a simple for loop
 // to perform sleep operations. This is bad, but it might
