@@ -111,7 +111,6 @@ static error_code mount_FAT121632(disk* d, fat_file_system** result) {
   cache_block* cb;
   error_code err, release_err;
 
-  __debug_marker();
   {
     term_write(cout, "Acquiring readlock on a cache block\n");
     if (ERROR(err = disk_cache_block_acquire(d, 0, &cb))) return err;
@@ -336,7 +335,6 @@ static error_code mount_partition(disk* d, vfnode* parent) {
     case 4:     // Primary DOS 16-bit FAT
     case 6:     // Primary big DOS >32Mb
     case 0x0C:  // FAT32 LBA
-      term_write(cout, "Found a known partition");
 
       if (ERROR(err = mount_FAT121632(d, &fs))) {
         term_write(cout, "Failed to mount\n\r");
@@ -367,12 +365,6 @@ static error_code mount_partition(disk* d, vfnode* parent) {
     if (fs_mod.nb_mounted_fs < MAX_NB_MOUNTED_FAT_FS) {
       fs_mod.mounted_fs[fs_mod.nb_mounted_fs++] = fs;
 
-      term_write(cout, "Mounting partition ");
-
-      disk_print_id(d);
-
-      term_write(cout, " as ");
-
       const char* kind;
 
       switch (fs->kind) {
@@ -390,13 +382,8 @@ static error_code mount_partition(disk* d, vfnode* parent) {
           break;
       }
 
-      term_write(term_write(cout, kind), "\n");
-
       return NO_ERROR;
     }
-  } else {
-    term_write(cout, "No partition found. Not adding any FS");
-    term_writeline(cout);
   }
 
   return UNKNOWN_ERROR;

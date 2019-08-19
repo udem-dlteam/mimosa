@@ -494,9 +494,9 @@ error_code init_vfs() {
 
   vfnode_add_child(&sys_root, &dev_mnt_pt);
 
-  if (ERROR(err = setup_uarts(&dev_mnt_pt))) {
-    return err;
-  }
+  // if (ERROR(err = setup_uarts(&dev_mnt_pt))) {
+  //   return err;
+  // }
 
   if (ERROR(err = mount_streams(&sys_root))) {
     return err;

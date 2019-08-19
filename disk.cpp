@@ -36,14 +36,7 @@ disk* disk_alloc() {
 }
 
 disk* disk_find(uint32 index) {
-  __debug_marker();
-  term_write(cout, "Disk index is: ");
-  term_write(cout, index); term_writeline(cout);
-  term_write(cout, "The number of disk in the cache is: ");
-  term_write(cout, disk_mod.nb_disks);
-  term_writeline(cout);
   if (index < disk_mod.nb_disks) return &disk_mod.disk_table[index];
-  __debug_marker();
   return NULL;
 }
 
