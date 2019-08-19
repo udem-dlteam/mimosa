@@ -449,14 +449,11 @@ thread* thread_self() { return sched_current_thread; }
 
 void thread_sleep(uint64 timeout_nsecs) {
 #ifdef BUSY_WAIT_INSTEAD_OF_SLEEP
-#pragma GCC push_options
-#pragma GCC optimize("O0")
   for (int i = 0; i < 1; ++i) {
     for (int j = 0; j < timeout_nsecs; ++j) {
       __asm__ __volatile__ ("NOP" : : : "memory");
     }
   }
-#pragma pop_options
 #else
   disable_interrupts();
 
