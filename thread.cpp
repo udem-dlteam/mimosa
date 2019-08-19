@@ -65,6 +65,7 @@ mutex* new_mutex(mutex* m) {
 rwmutex* new_rwmutex(rwmutex* rwm) {
   new_mutex(CAST(mutex*, rwm));
   rwm->_readers = 0;
+  rwm->_writerq = 0;
   return rwm;
 }
 
@@ -85,8 +86,16 @@ void rwmutex_readlock(rwmutex* self) {
   mutex* mself = &self->super;
 
   while (mself->_locked || self->_writerq > 0) {
+    term_write(cout, "IS locked? ");
+    term_write(cout, mself->_locked);
+    term_writeline(cout);
+    term_write(cout, "Writers that want the lock: ");
+    term_write(cout, self->_writerq);
+    term_writeline(cout);
+    term_write(cout, "Readlock IN\n");
     save_context(_sched_suspend_on_wait_queue, &mself->super);
   }
+  term_write(cout, "READLOCK OUT\n");
 
   self->_readers++;
 

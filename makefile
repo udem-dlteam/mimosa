@@ -35,7 +35,7 @@ build:
 	scp -P 10022 administrator@localhost:~/mimosa-build/mb.tar.gz ./
 	tar xC mimosa-build -xzf mb.tar.gz
 
-createimg:
+img:
 	ssh administrator@localhost -p 10022 "sudo mimosa-build/createimg.sh;tar czf flop.tar.gz mimosa-build/floppy.img"
 	scp -P 10022 administrator@localhost:~/flop.tar.gz ./
 	tar xzf flop.tar.gz

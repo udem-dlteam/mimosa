@@ -15,7 +15,7 @@ build and run mimosa:
     
     make clean
     make build
-    make createimg # to create the disk image
+    make img # to create the disk image
     make run       # make debug is also available, it expects a debug connection to start
 
 
