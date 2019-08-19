@@ -48,7 +48,7 @@ int main() {
     term_writeline(cout);
   }
 #endif
-  error_code err;
+  error_code err = NO_ERROR;
   native_string to_send = "this is a big string that must be sent through the COM PORT";
   file* com_port_one;
 

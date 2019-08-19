@@ -15,10 +15,10 @@ native_string COM2_PATH = "/dev/ttys1";
 native_string COM3_PATH = "/dev/ttys2";
 native_string COM4_PATH = "/dev/ttys3";
 
-static native_string COM1_NAME = "ttys0";
-static native_string COM2_NAME = "ttys1";
-static native_string COM3_NAME = "ttys2";
-static native_string COM4_NAME = "ttys3";
+static native_string COM1_NAME = "TTYS0";
+static native_string COM2_NAME = "TTYS1";
+static native_string COM3_NAME = "TTYS2";
+static native_string COM4_NAME = "TTYS3";
 
 static vfnode COM1_NODE, COM2_NODE, COM3_NODE, COM4_NODE;
 
@@ -442,6 +442,7 @@ error_code uart_set_abs_pos(file* f, uint32 pos) {
 }
 
 error_code uart_open(uint32 id, file_mode mode, file** result) {
+  debug_write("UART_OPEN");
   error_code err = NO_ERROR;
   uint16 port_id = id & 0xFFFF;
   native_string port_name;
@@ -469,8 +470,16 @@ error_code uart_open(uint32 id, file_mode mode, file** result) {
   com_port* port = &ports[com_num(port_id)];
 
   debug_write("Checking the status register");
-  if(!(port->status & COM_PORT_STATUS_EXISTS)) return FNF_ERROR;
-  if(port->status & COM_PORT_STATUS_OPEN) return RESSOURCE_BUSY_ERR;
+  if (!(port->status & COM_PORT_STATUS_EXISTS)) {
+    debug_write("The port DNE");
+    return FNF_ERROR;
+  }
+
+  if (port->status & COM_PORT_STATUS_OPEN) {
+    debug_write("Busy...");
+    return RESSOURCE_BUSY_ERR;
+  }
+
   debug_write("Done checking the status register");
 
   // TODO: check if the port is UP, if the port has not been opened, it's time to open it
@@ -482,6 +491,8 @@ error_code uart_open(uint32 id, file_mode mode, file** result) {
   uart_handle->header.name = port_name;
   uart_handle->header.type = TYPE_VFILE;
   uart_handle->mode = mode;
+
+  debug_write("Done with the UART HANDLE");
 
 //TODO: PERFORM NULL CHECKS
   uart_handle->port = port_id;
@@ -641,26 +652,31 @@ error_code setup_uarts(vfnode* parent_node) {
 
   if (ports[0].status & COM_PORT_STATUS_EXISTS) {
     new_vfnode(&COM1_NODE, COM1_NAME, TYPE_VFILE);
+    COM1_NODE._value.file_gate.identifier = COM1_PORT_BASE;
+    COM1_NODE._value.file_gate._vf_node_open = uart_open;
     vfnode_add_child(parent_node, &COM1_NODE);
   }
 
   if (ports[1].status & COM_PORT_STATUS_EXISTS) {
     new_vfnode(&COM2_NODE, COM2_NAME, TYPE_VFILE);
+    COM2_NODE._value.file_gate.identifier = COM2_PORT_BASE;
+    COM2_NODE._value.file_gate._vf_node_open = uart_open;
     vfnode_add_child(parent_node, &COM2_NODE);
   }
 
   if (ports[2].status & COM_PORT_STATUS_EXISTS) {
     new_vfnode(&COM3_NODE, COM3_NAME, TYPE_VFILE);
+    COM3_NODE._value.file_gate.identifier = COM3_PORT_BASE;
+    COM3_NODE._value.file_gate._vf_node_open = uart_open;
     vfnode_add_child(parent_node, &COM3_NODE);
   }
 
   if (ports[3].status & COM_PORT_STATUS_EXISTS) {
     new_vfnode(&COM4_NODE, COM4_NAME, TYPE_VFILE);
+    COM4_NODE._value.file_gate.identifier = COM4_PORT_BASE;
+    COM4_NODE._value.file_gate._vf_node_open = uart_open;
     vfnode_add_child(parent_node, &COM4_NODE);
   }
-
-  debug_write("UART SETUP");
-  if(ERROR(err)) debug_write("With failure...");
 
   return err;
 }
