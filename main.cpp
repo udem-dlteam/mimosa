@@ -59,11 +59,17 @@ int main() {
     if (NO_ERROR == file_open(file_name, "r", &prog)) {
       uint32 len = file_len(prog);
       uint8* code = (uint8*)GAMBIT_START;
+      term_write(cout, "The len of the gambit file is: ");
+      term_write(cout, len);
+      term_writeline(cout);
 
       error_code err;
       if (ERROR(err = file_read(prog, code, len))) {
         panic(L"ERR");
       }
+
+      term_write(cout, "Gambit file loaded...");
+      term_writeline(cout);
 
       program_thread* task =
           CAST(program_thread*, kmalloc(sizeof(program_thread)));
