@@ -27,7 +27,7 @@ void *REDIRECT_NAME(malloc)(size_t __size) {
 
 #ifdef USE_MIMOSA
 
-  return heap_malloc(&kheap, __size);
+  return heap_malloc(&appheap, __size);
 
 #else
 
@@ -35,6 +35,7 @@ void *REDIRECT_NAME(malloc)(size_t __size) {
 #define MB (1<<20)
 #define HEAP_SIZE 40*MB // needs to be at least 5*MB
 
+    debug_write("MANUAL HEAP ALLOC");
     static char heap[HEAP_SIZE];
     static int alloc = HEAP_SIZE;
 
@@ -73,10 +74,9 @@ void REDIRECT_NAME(free)(void *__ptr) {
 
 #ifdef USE_MIMOSA
 
-  return heap_free(&kheap, __ptr);
+  return heap_free(&appheap, __ptr);
 
 #else
-
   // TODO: implement
 
 #endif
