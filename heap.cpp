@@ -96,7 +96,8 @@ static mem_block* get_block(heap* h, size_t sz) {
 }
 
 void heap_free(heap* h, void* ptr) {
-  return;
+    return;
+
     mem_block* bk = get_block_ptr(ptr);
 
     if(!bk->used) {

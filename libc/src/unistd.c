@@ -64,7 +64,10 @@ char *REDIRECT_NAME(getcwd)(char *__buf, size_t __size) {
 
   if(gamb_thread->type == THREAD_TYPE_USER) {
     program_thread* t = CAST(program_thread*, gamb_thread);
-    return t->_cwd;
+    native_string cwd = t->_cwd;
+    char *p = __buf;
+    while ((*p++ = *cwd++) != '\0') ;
+    return __buf;
   } else {
     panic(L"Gambit thread is a kernel thread");
   }
