@@ -123,8 +123,8 @@ void ide_irq(ide_controller* ctrl) {
       entry->_.read_sectors.err = UNKNOWN_ERROR;
     } else if (type == cmd_write_sectors) {
       entry->_.write_sectors.err = UNKNOWN_ERROR;
-      panic(L"[IDE.CPP] Unknown command type...");
     }
+
   } else if(type == cmd_read_sectors) {
     for (i = entry->_.read_sectors.count << (IDE_LOG2_SECTOR_SIZE - 1); i > 0;
          i--)
