@@ -85,8 +85,6 @@ int main() {
   }
 #endif
 
-  thread_sleep(seconds_to_time(30).n);
-
 #ifdef STREAM_STDOUT_TO_DEBUG_CONSOLE
   file* __stdout;
   if (ERROR(file_open(STDOUT_PATH, "rx", &__stdout))) {

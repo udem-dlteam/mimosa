@@ -96,11 +96,11 @@ static mem_block* get_block(heap* h, size_t sz) {
 }
 
 void heap_free(heap* h, void* ptr) {
+  return;
     mem_block* bk = get_block_ptr(ptr);
 
     if(!bk->used) {
-      return;
-      // panic(L"Freeing a non-allocated block");
+      panic(L"Freeing a non-allocated block");
     }
 
     bk->used = 0;
@@ -115,6 +115,8 @@ void heap_free(heap* h, void* ptr) {
 }
 
 void* heap_malloc(heap* h, size_t size) {
+  return heap_sbrk(h, size);
+
   void* bk = get_data_ptr(get_block(h, size));
 
   if ((CAST(uint32, bk) % 4) != 0) {

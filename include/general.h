@@ -128,10 +128,10 @@ typedef int32 error_code;
 #define USE_RET_FOR_RESTORE_CONTEXT
 
 // #define REMOTE_COM
-// #define GAMBIT_REPL
-#define MIMOSA_REPL
+#define GAMBIT_REPL
+// #define MIMOSA_REPL
 
-#define SHOW_BOOT_TIME
+// #define SHOW_BOOT_TIME
 
 #ifdef GAMBIT_REPL
 #ifdef MIMOSA_REPL

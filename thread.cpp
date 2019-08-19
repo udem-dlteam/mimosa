@@ -481,12 +481,12 @@ void virtual_thread_run(thread* self) { self->_run(); }
 
 void virtual_program_thread_run(thread* sself) {
   program_thread* self = CAST(program_thread*, sself);
-  debug_write("Running program thread");
+  term_write(cout, "Running program thread");
+  term_writeline(cout);
   static char* argv[] = {"app", "-:t4", NULL};
   int argc = sizeof(argv) / sizeof(argv[0]) - 1;
   static char* env[] = {NULL};
   self->_code(argc, argv, env);
-  debug_write("End program thread");
 }
 
 native_string thread_name(thread* self) { return self->_name; }
