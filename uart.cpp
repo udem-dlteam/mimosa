@@ -159,6 +159,7 @@ static void read_msr(uint16 port){
 }
 
 static void handle_thr(uint16 portn) {
+  ASSERT_INTERRUPTS_DISABLED();
   // bit 5 in LSR used to check if info must be written to THR or read from IIR
   if (UART_THR_GET_ACTION(inb(portn + UART_8250_LSR))) {
     uint8 port_num_val = com_num(portn);
@@ -168,155 +169,134 @@ static void handle_thr(uint16 portn) {
       port->status |= COM_PORT_STATUS_WRITE_READY;
     } else {
       port->status &= ~COM_PORT_STATUS_WRITE_READY;
-
-      while (port->wlo == port->whi) {
-        condvar_mutexless_wait(port->wrt_cv);
-      }
-
-      if (port->wlo != port->whi) {
-        uint8 bt = port->wbuffer[port->wlo];
-        send_serial(portn, bt);
-        port->wlo = (port->wlo + 1) % port->wbuffer_len;
-        condvar_mutexless_signal(port->wrt_cv);
-      }
+      uint8 bt = port->wbuffer[port->wlo];
+      outb(bt, portn + UART_8250_THR);
+      port->wlo = (port->wlo + 1) % port->wbuffer_len;
+      condvar_mutexless_signal(port->wrt_cv);
     }
 
-    if (errmess) debug_write("data wrote in THR");
+    if (errmess) debug_write("data written in THR");
   }
 }
 
 // TODO: write characters read in buffer
 static void read_RHR(int com_port) {
-  while (!(inb(com_port + UART_8250_LSR) & UART_8250_LSR_DR));
-  //return inb(com_port);
-  uint8 c = inb(com_port);
+  while (!(inb(com_port + UART_8250_LSR) & UART_8250_LSR_DR))
+    ;
+  // return inb(com_port);
+  uint8 c = inb(com_port + UART_8250_RHR);
   struct com_port_struct* port = &ports[com_num(com_port)];
-    uint32 next_hi = (port->rhi + 1) % port->rbuffer_len;
+  uint32 next_hi = (port->rhi + 1) % port->rbuffer_len;
 
-    while (next_hi == port->rlo) {
-      condvar_mutexless_wait(port->rd_cv);
-    }
+  while (next_hi == port->rlo) {
+    condvar_mutexless_wait(port->rd_cv);
+  }
 
-    if (next_hi != port->wlo) {
-      port->rbuffer[port->wlo] = c;
-    } else {
-      panic(L"[INT] Multiple writer?");
-    }
-    port->whi = next_hi;
+  if (next_hi != port->rlo) {
+    port->rbuffer[port->rhi] = c;
+  } else {
+    panic(L"[INT] Multiple writer?");
+  }
+  port->rhi = next_hi;
 }
 
-static void read_lsr(uint16 port){
+static void read_lsr(uint16 port) {
   uint8 e = inb(port + UART_8250_LSR);
-  
-  if( UART_LSR_DATA_AVAILABLE(e) ){
-    //read (RHR)
-    if(errmess)
-      debug_write( "Data Available");
+
+  if (UART_LSR_DATA_AVAILABLE(e)) {
+    // read (RHR)
+    if (errmess) debug_write("Data Available");
     read_RHR(port);
   }
-  if( UART_LSR_OVERRUN_ERROR(e) ){
-    if(errmess)
-      debug_write( "OVERRUN_ERROR");
+  if (UART_LSR_OVERRUN_ERROR(e)) {
+    if (errmess) debug_write("OVERRUN_ERROR");
   }
-  if( UART_LSR_PARITY_ERROR(e) ){
-    if(errmess)
-      debug_write( "PARITY_ERROR");
+  if (UART_LSR_PARITY_ERROR(e)) {
+    if (errmess) debug_write("PARITY_ERROR");
   }
-  if( UART_LSR_FRAMING_ERROR(e) ){
-    if(errmess)
-      debug_write( "FRAMING_ERROR");
+  if (UART_LSR_FRAMING_ERROR(e)) {
+    if (errmess) debug_write("FRAMING_ERROR");
   }
-  if( UART_LSR_BREAK_INTERRUPT(e) ){
-    if(errmess)
-      debug_write( "BREAK_INTERRUPT");
+  if (UART_LSR_BREAK_INTERRUPT(e)) {
+    if (errmess) debug_write("BREAK_INTERRUPT");
   }
-  if( UART_LSR_CAN_RECEIVE(e) ){
-    if(errmess)
-      debug_write( "CAN_RECEIVE");
+  if (UART_LSR_CAN_RECEIVE(e)) {
+    if (errmess) debug_write("CAN_RECEIVE");
     // reading the lsr or writing to the data register clears this bit
-    
   }
-  if( UART_LSR_ALL_CAR_TRANSMITTED(e) ){
-    if(errmess)
-      debug_write( "ALL_CAR_TRANSMITTED");
+  if (UART_LSR_ALL_CAR_TRANSMITTED(e)) {
+    if (errmess) debug_write("ALL_CAR_TRANSMITTED");
   }
-  //if( UART_LSR_ERROR_IN_RECEIVED_FIFO(e) ){
+  // if( UART_LSR_ERROR_IN_RECEIVED_FIFO(e) ){
   //  //FIFO never used for the moment.
   //  debug_write( "ERROR IN RECEIVED FIFO,need to be cleared out");
   //}
 }
 
 void _handle_interrupt(uint16 port, uint8 com_index, uint8 iir) {
-  if(errmess)
-    debug_write( inb(port + UART_8250_IIR));
+  if (errmess) debug_write(inb(port + UART_8250_IIR));
 #ifdef SHOW_UART_MESSAGES
-  if(errmess){
-    debug_write( "IRQ4 fired and COM ");
-    debug_write( com_index);
-    debug_write( " on port ");
-    debug_write( port);
-    debug_write( " got data");
-    }
+  if (errmess) {
+    debug_write("IRQ4 fired and COM ");
+    debug_write(com_index);
+    debug_write(" on port ");
+    debug_write(port);
+    debug_write(" got data");
+  }
 #endif
-
   uint8 cause = UART_IIR_GET_CAUSE(iir);
 
   switch (cause) {
-  case UART_IIR_MODEM:
-    // Modem Status 
-    // Caused by : Change in clear to send, data set
-    //             ready, ring indicator, or received
-    //             line signal detect signals.
-    // priority :lowest
-    // Reading Modem Status Register (MSR) 
-    if(errmess)
-      debug_write( "Read_modem_status_register");
-    read_msr(port);
-    break;
-  case UART_IIR_TRANSMITTER_HOLDING_REG:
-    // Transmitter empty
-    // Caused by : The transmitter finishes sending
-    //             data and is ready to accept additional data.
-    // priority : next to lowest
-    // Reading interrupt indentification register(IIR)
-    // or writing to Transmit Holding Buffer (THR)
-    if(errmess)
-      debug_write( "Transmitter_Holding_reg");
-    handle_thr(port);
-    break;
-  case UART_IIR_RCV_LINE:
-    // Error or Break
-    // caused by : Overrun error, parity error, framing
-    //             error, or break interrupt.
-    // priority : highest
-    // reading line status register
-    if(errmess)
-      debug_write( "Error or Break");
-    read_lsr(port);
-    break;
-  case UART_IIR_DATA_AVAIL:
-    // Data Available
-    // caused by : Data arriving from an external
-    //             source in the Receive Register.
-    // priority : next to highest
-    // timeout is available on new model.
-    // This means that we need to read data
-    // before the connection timeouts
-    // reading receive Buffer Register(RHR)
-    if(errmess)
-      debug_write( "Data Avail");
-    read_RHR(port); // ***
-    break;
-  case UART_IIR_TIMEOUT:
-    if(errmess)
-      debug_write( "Timeout");
-    //simple serial read
-    read_RHR(port);
-    break;
+    case UART_IIR_MODEM:
+      // Modem Status
+      // Caused by : Change in clear to send, data set
+      //             ready, ring indicator, or received
+      //             line signal detect signals.
+      // priority :lowest
+      // Reading Modem Status Register (MSR)
+      if (errmess) debug_write("Read_modem_status_register");
+      read_msr(port);
+      break;
+    case UART_IIR_TRANSMITTER_HOLDING_REG:
+      // Transmitter empty
+      // Caused by : The transmitter finishes sending
+      //             data and is ready to accept additional data.
+      // priority : next to lowest
+      // Reading interrupt indentification register(IIR)
+      // or writing to Transmit Holding Buffer (THR)
+      if (errmess) debug_write("Transmitter_Holding_reg");
+      handle_thr(port);
+      break;
+    case UART_IIR_RCV_LINE:
+      // Error or Break
+      // caused by : Overrun error, parity error, framing
+      //             error, or break interrupt.
+      // priority : highest
+      // reading line status register
+      if (errmess) debug_write("Error or Break");
+      read_lsr(port);
+      break;
+    case UART_IIR_DATA_AVAIL:
+      // Data Available
+      // caused by : Data arriving from an external
+      //             source in the Receive Register.
+      // priority : next to highest
+      // timeout is available on new model.
+      // This means that we need to read data
+      // before the connection timeouts
+      // reading receive Buffer Register(RHR)
+      if (errmess) debug_write("Data Avail");
+      read_RHR(port);  // ***
+      break;
+    case UART_IIR_TIMEOUT:
+      if (errmess) debug_write("Timeout");
+      // simple serial read
+      read_RHR(port);
+      break;
 
-  default:
-    panic(L"Illegal UART interrupt cause");
-    break;
+    default:
+      panic(L"Illegal UART interrupt cause");
+      break;
   }
 }
 
@@ -328,14 +308,14 @@ void irq3() {
 
   // Interrupt 4 handles COM 2 and COM 4
 #ifdef SHOW_INTERRUPTS
-  debug_write( "\033[41m irq3 UART \033[0m");
+  debug_write("\033[41m irq3 UART \033[0m");
 #endif
 
   uint8 com2_iir = inb(COM2_PORT_BASE + UART_8250_IIR);
   uint8 com4_iir = inb(COM4_PORT_BASE + UART_8250_IIR);
 
   bool caught_something = FALSE;
-  
+
   if (UART_IIR_PENDING(com2_iir)) {
     caught_something = TRUE;
     _handle_interrupt(COM2_PORT_BASE, 2, com2_iir);
@@ -344,7 +324,7 @@ void irq3() {
     caught_something = TRUE;
     _handle_interrupt(COM4_PORT_BASE, 4, com4_iir);
   }
-  if (!(caught_something)){
+  if (!(caught_something)) {
     panic(L"Misconfiguration of IRQ3.");
   }
 }
@@ -355,14 +335,14 @@ void irq4() {
 
   // Interrupt 4 handles COM 1 and COM 3
 #ifdef SHOW_INTERRUPTS
-  debug_write( "\033[41m irq4 UART \033[0m");
+  debug_write("\033[41m irq4 UART \033[0m");
 #endif
 
   uint8 com1_iir = inb(COM1_PORT_BASE + UART_8250_IIR);
   uint8 com3_iir = inb(COM3_PORT_BASE + UART_8250_IIR);
 
   bool caught_something = FALSE;
-  
+
   if (UART_IIR_PENDING(com1_iir)) {
     caught_something = TRUE;
     _handle_interrupt(COM1_PORT_BASE, 1, com1_iir);
@@ -371,36 +351,21 @@ void irq4() {
     caught_something = TRUE;
     _handle_interrupt(COM3_PORT_BASE, 3, com3_iir);
   }
-  if (!(caught_something)){
+  if (!(caught_something)) {
     panic(L"Misconfiguration of IRQ4.");
   }
 }
 #endif
 
-// test bit 3 of LSR to determine if last character in THR was shifted
-// out of the buffer before writing a character.
- //void send_serial(int port, char* x) {
- // while (*x != '\0') {
- //   while ((inb(port + UART_8250_LSR) & UART_8250_LSR_THRE) == 0);
- //   outb(*x, port);
- //   x++;
- // }
-//}
-void send_serial(int port, native_char x) {
-   while ((inb(port + UART_8250_LSR) & UART_8250_LSR_THRE) == 0);
-   outb(x, port);
-}
-
 error_code uart_move_cursor(file* f, int32 mvmt) {
-  return ARG_ERROR; // Makes not sense on a COM port
+  return ARG_ERROR;  // Makes not sense on a COM port
 }
 
-error_code uart_set_abs_pos(file* f, uint32 pos) { 
-  return ARG_ERROR; // Makes no sense on a COM port
+error_code uart_set_abs_pos(file* f, uint32 pos) {
+  return ARG_ERROR;  // Makes no sense on a COM port
 }
 
 error_code uart_open(uint32 id, file_mode mode, file** result) {
-  debug_write("UART_OPEN");
   error_code err = NO_ERROR;
   uint16 port_id = id & 0xFFFF;
   native_string port_name;
@@ -419,7 +384,6 @@ error_code uart_open(uint32 id, file_mode mode, file** result) {
       port_name = COM4_NAME;
       break;
     default:
-      debug_write("FNF, Incorrect COM PORT arg");
       return FNF_ERROR;
       break;
   }
@@ -427,32 +391,26 @@ error_code uart_open(uint32 id, file_mode mode, file** result) {
   // Only one can work on a port at a time
   com_port* port = &ports[com_num(port_id)];
 
-  debug_write("Checking the status register");
   if (!(port->status & COM_PORT_STATUS_EXISTS)) {
-    debug_write("The port DNE");
     return FNF_ERROR;
   }
 
   if (port->status & COM_PORT_STATUS_OPEN) {
-    debug_write("Busy...");
     return RESSOURCE_BUSY_ERR;
   }
 
-  debug_write("Done checking the status register");
-
-  // TODO: check if the port is UP, if the port has not been opened, it's time to open it
+  // TODO: check if the port is UP, if the port has not been opened, it's time
+  // to open it
   // TODO: check the file mode, maybe it is incorrect?
   uart_file* uart_handle = CAST(uart_file*, kmalloc(sizeof(uart_file)));
   uart_handle->header.mode = mode;
-  uart_handle->header._fs_header = NULL; // TODO?
+  uart_handle->header._fs_header = NULL;  // TODO?
   uart_handle->header._vtable = &__uart_vtable;
   uart_handle->header.name = port_name;
   uart_handle->header.type = TYPE_VFILE;
   uart_handle->mode = mode;
 
-  debug_write("Done with the UART HANDLE");
-
-//TODO: PERFORM NULL CHECKS
+  // TODO: PERFORM NULL CHECKS
   uart_handle->port = port_id;
   // Init the port data
   port->rbuffer = CAST(uint8*, kmalloc(sizeof(uint8) * COM_BUFFER_SIZE));
@@ -470,7 +428,7 @@ error_code uart_open(uint32 id, file_mode mode, file** result) {
   return err;
 }
 
-error_code uart_close_handle(file* ff) { 
+error_code uart_close_handle(file* ff) {
   error_code err = NO_ERROR;
   uart_file* f = CAST(uart_file*, ff);
   com_port* port = &ports[com_num(f->port)];
@@ -487,19 +445,15 @@ error_code uart_close_handle(file* ff) {
   kfree(port->wrt_cv);
 
   return err;
- }
+}
 
 error_code uart_write(file* ff, void* buff, uint32 count) {
-  debug_write("UART _WRITE");
   error_code err = NO_ERROR;
   uart_file* f = CAST(uart_file*, ff);
-  term_write(cout, "UART_WRITE\n");
-  term_write(cout, CAST(void*, f->port));
-  term_writeline(cout);
-  term_write(cout, CAST(void*, com_num(f->port)));
-  com_port* port = &ports[com_num(f->port)];
+  uint16 port_base = f->port;
+  com_port* port = &ports[com_num(port_base)];
 
-  if(port->status & COM_PORT_STATUS_FORCIBLY_CLOSED) {
+  if (port->status & COM_PORT_STATUS_FORCIBLY_CLOSED) {
     return FNF_ERROR;
   }
 
@@ -508,62 +462,51 @@ error_code uart_write(file* ff, void* buff, uint32 count) {
   uint32 i = 0;
   // If the port is waiting, we need to feed it something
   // so coms can continue
-  if(port->status & COM_PORT_STATUS_WRITE_READY) {
-    send_serial(f->port, CAST(uint8*, buff)[i++]);
+  if (UART_THR_GET_ACTION(inb(port_base + UART_8250_LSR))) {
+    if (port->status & COM_PORT_STATUS_WRITE_READY) {
+      outb(CAST(uint8*, buff)[i++], port_base + UART_8250_THR);
+    }
   }
 
-debug_write("A");
   port->status &= ~COM_PORT_STATUS_WRITE_READY;
-debug_write("B");
 
   for (; i < count; ++i) {
-    debug_write("H");
     uint32 next_hi = (port->whi + 1) % port->wbuffer_len;
-    debug_write("I");
-
 
     while (next_hi == port->wlo) {
-      debug_write("B1");
       condvar_mutexless_wait(port->wrt_cv);
-      debug_write("C1");
     }
 
     if (next_hi != port->wlo) {
-      debug_write("G");
-      port->wbuffer[port->wlo] = CAST(uint8*, buff)[i];
+      port->wbuffer[port->whi] = CAST(uint8*, buff)[i];
     } else {
       panic(L"Multiple writer?");
     }
     port->whi = next_hi;
-    debug_write("D");
     condvar_mutexless_signal(port->wrt_cv);
-    debug_write("E");
   }
 
-uart_write_end:
   enable_interrupts();
-  if(HAS_NO_ERROR(err)) err = i;
-  debug_write("END OF UART_WRITE");
-  
+  if (HAS_NO_ERROR(err)) err = i;
+
   return err;
-} 
+}
 
 error_code uart_read(file* ff, void* buff, uint32 count) {
   error_code err = NO_ERROR;
-  uart_file* f = CAST(uart_file* ,f);
+  uart_file* f = CAST(uart_file*, f);
   com_port* port = &ports[com_num(f->port)];
 
-  if(port->status & COM_PORT_STATUS_FORCIBLY_CLOSED) {
+  if (port->status & COM_PORT_STATUS_FORCIBLY_CLOSED) {
     return FNF_ERROR;
   }
-  
+
   bool nonblock = f->mode & MODE_NONBLOCK_ACCESS;
-  
+
   disable_interrupts();
 
-  uint32 i = 0;
-
-  for (; i < count; ++i) {
+  uint32 i;
+  for (i = 0; i < count; ++i) {
     while (!nonblock && port->rlo == port->rhi) {
       condvar_mutexless_wait(port->rd_cv);
     }
@@ -578,44 +521,42 @@ error_code uart_read(file* ff, void* buff, uint32 count) {
     }
   }
 
-uart_read_end:
   enable_interrupts();
 
-  if(HAS_NO_ERROR(err)) err = i;
+  if (HAS_NO_ERROR(err)) err = i;
 
   return err;
 }
 
-size_t uart_len(file* f) {return 0;} // Makes no sense on a COM port
+size_t uart_len(file* f) { return 0; }  // Makes no sense on a COM port
 
-dirent* uart_readdir(DIR* dir) { return NULL; } // Makes no sense on a COM port
+dirent* uart_readdir(DIR* dir) { return NULL; }  // Makes no sense on a COM port
 
 static error_code detect_hardware() {
   error_code err = NO_ERROR;
 
   // Init the values to a known status
 
-  for(uint8 i = 0; i < 4; ++i) { 
+  for (uint8 i = 0; i < 4; ++i) {
     init_serial(com_num_to_port(i));
     ports[i].rbuffer = NULL;
     ports[i].wbuffer = NULL;
     ports[i].rbuffer_len = ports[i].wbuffer_len = 0;
     ports[i].rlo = ports[i].rhi = ports[i].wlo = ports[i].whi = 0;
-    // Si le port est la, il faut mettre le status correct. 
+    // Si le port est la, il faut mettre le status correct.
     ports[i].status |= COM_PORT_STATUS_EXISTS;
     ports[i].port = com_num_to_port(i);
-  }    
+  }
 
   return err;
 }
 
-
 error_code setup_uarts(vfnode* parent_node) {
   error_code err = NO_ERROR;
 
-  if(ERROR(err = detect_hardware())) {
+  if (ERROR(err = detect_hardware())) {
     return err;
-  } 
+  }
 
   __uart_vtable._file_close = uart_close_handle;
   __uart_vtable._file_len = uart_len;

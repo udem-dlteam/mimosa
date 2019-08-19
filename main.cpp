@@ -58,7 +58,8 @@ int main() {
   }
 
   native_string p = to_send;
-
+  uint32 len = kstrlen(to_send);
+  debug_write("Sendign..."); debug_write(to_send); debug_write("chars");
   if(ERROR(file_write(com_port_one, to_send, kstrlen(to_send)))) {
     term_write(cout, err);
     panic(L"Failed to write to COM 1");
@@ -67,8 +68,13 @@ int main() {
   native_char c;
   while(1) {
     if(ERROR(err = file_read(com_port_one, &c, sizeof(native_char)))) {
+      debug_write("--READING");
+      _debug_write(c);
       term_write(cout, err);
       panic(L"Failed to read COM 1");
+    } else if(err > 0) {
+      debug_write("--READING");
+      _debug_write(c);
     }
   }  
 

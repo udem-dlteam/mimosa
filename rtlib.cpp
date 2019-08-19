@@ -43,7 +43,7 @@ void panic(unicode_string msg) {
   __asm__ __volatile__("cli" : : : "memory");
 
 #ifdef RED_PANIC_SCREEN
-  raw_bitmap_fill_rect((raw_bitmap*)&screen, 0, 0, 640, 480, &pattern_red);
+  raw_bitmap_fill_rect((raw_bitmap*)&screen, 0, 0, 160, 120, &pattern_red);
 
   font_draw_string(&font_mono_6x13, &screen.super, 0, 0, msg, &pattern_white,
                    &pattern_black);

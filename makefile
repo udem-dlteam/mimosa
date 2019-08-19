@@ -44,10 +44,6 @@ createimg:
 run:
 	qemu-system-i386 -s -m 1G -hda mimosa-build/floppy.img -serial tcp:localhost:44555,server,nowait -debugcon stdio
 
-run-with-telnet:
-	qemu-system-i386 -s -m 1G -hda mimosa-build/floppy.img \
-	-serial tcp:localhost:4444,server,nowait
-
 debug:
 	qemu-system-i386 -s -S -m 1G -hda mimosa-build/floppy.img -debugcon stdio
 
