@@ -20,8 +20,6 @@
 #include "thread.h"
 #include "uart.h"
 
-extern error_code read_lfn(fat_file* f, native_string* result);
-
 int main() {
 #ifdef SHOW_BOOT_TIME
   {
@@ -57,7 +55,7 @@ int main() {
     term_write(cout, "Starting GSI...");
     native_string file_name = "/dsk1/GSI.EXE";
 
-    file* prog;
+    file* prog = NULL;
     if (NO_ERROR == file_open(file_name, "r", &prog)) {
       uint32 len = file_len(prog);
       uint8* code = (uint8*)GAMBIT_START;
