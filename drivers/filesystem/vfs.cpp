@@ -1,10 +1,10 @@
 #include "include/vfs.h"
-#include "uart.h"
-#include "include/stdstream.h"
 #include "general.h"
-#include "rtlib.h"
 #include "include/fat.h"
+#include "include/stdstream.h"
+#include "rtlib.h"
 #include "term.h"
+#include "uart.h"
 
 static file_vtable __vfnode_vtable;
 static vfnode sys_root;

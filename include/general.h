@@ -65,6 +65,7 @@ typedef int32 error_code;
 #define PERMISSION_ERROR (-8)
 #define NOT_A_FOLDER_ERR (-9)
 #define EXISTS_ERR (-10)
+#define RESSOURCE_BUSY_ERR (-11)
 
 #define NOP() do { __asm__ __volatile__ ("NOP" : : : "memory");} while(0)
 
@@ -150,8 +151,8 @@ typedef int32 error_code;
 // #define PRINT_ASSERTIONS
 #define USE_CACHE_BLOCK_MAID
 #define USE_BLOCK_REF_COUNTER_FREE
-#define SHOW_UART_MESSAGES
-// #define RED_PANIC_SCREEN
+// #define SHOW_UART_MESSAGES
+#define RED_PANIC_SCREEN
 #define ENABLE_DEBUG_WRITE
 #define ENABLE_DEBUG_MARKER
 #define ENABLE_MOUSE
