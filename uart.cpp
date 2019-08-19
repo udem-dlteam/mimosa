@@ -52,7 +52,7 @@ static inline uint8 com_num(uint16 hex){
   }
 }
 
-static inline uint8 com_num_to_port(uint8 num) {
+static inline uint16 com_num_to_port(uint8 num) {
   switch (num) {
     case 0:
       return COM1_PORT_BASE;
@@ -127,6 +127,7 @@ error_code init_serial(int com_port) {
    */
   if (!(com_port == COM1_PORT_BASE || com_port == COM2_PORT_BASE ||
         com_port == COM3_PORT_BASE || com_port == COM4_PORT_BASE)) {
+    term_write(cout, CAST(void*, com_port));
     panic(L"Trying to init a serial port with an invalid COM port...");
   }
 
