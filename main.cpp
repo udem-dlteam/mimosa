@@ -48,36 +48,6 @@ int main() {
     term_writeline(cout);
   }
 #endif
-  error_code err = NO_ERROR;
-  native_string to_send = "this is a big string that must be sent through the COM PORT";
-  file* com_port_one;
-
-  if(ERROR(err = file_open(COM1_PATH, "r", &com_port_one))) {
-    term_write(cout, err);
-    panic(L"Failed to open an handle on COM1");
-  }
-
-  native_string p = to_send;
-  uint32 len = kstrlen(to_send);
-  debug_write("Sendign..."); debug_write(to_send); debug_write("chars");
-  if(ERROR(file_write(com_port_one, to_send, kstrlen(to_send)))) {
-    term_write(cout, err);
-    panic(L"Failed to write to COM 1");
-  }
-
-  native_char c;
-  while(1) {
-    if(ERROR(err = file_read(com_port_one, &c, sizeof(native_char)))) {
-      debug_write("--READING");
-      _debug_write(c);
-      term_write(cout, err);
-      panic(L"Failed to read COM 1");
-    } else if(err > 0) {
-      debug_write("--READING");
-      _debug_write(c);
-    }
-  }  
-
 #ifdef MIMOSA_REPL
   term_run(cout);
 #endif
