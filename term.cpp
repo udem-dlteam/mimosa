@@ -773,13 +773,12 @@ void term_run(term* term) {
       native_string file_name = &line[4];
       file* f;
       if (HAS_NO_ERROR(err = file_open(file_name, "r+", &f))) {
-        // need free... lets use the static buff
-        native_string buff = (native_char*)kmalloc(sizeof(native_char) * file_len(f));
-        term_write(cout, "The file length is: ");
-        term_write(cout, file_len(f));
+        uint32 len = file_len(f);
+        native_string buff = (native_char*)kmalloc(sizeof(native_char) * (len + 1));
+        buff[len] = '\0';
         term_writeline(cout);
         {
-          file_read(f, buff, file_len(f));
+          file_read(f, buff, len);
           term_writeline(term);
           term_write(term, buff);
           term_writeline(term);
