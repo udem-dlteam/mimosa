@@ -118,6 +118,39 @@ void init_serial(int port, file* input, file* output);
 void send_serial(int com, native_char x);
 int serial_received(int com_port);
 
+error_code uart_open(uint32 id, file_mode mode, file** result);
+
+typedef struct com_port_struct com_port;
+typedef struct uart_file_struct uart_file;
+
+struct uart_file_struct {
+    file header;
+    file_mode mode;
+    uint16 port;
+};
+
+#define COM_BUFFER_SIZE 256
+
+#define COM_PORT_STATUS_EXISTS (1 << 0)
+#define COM_PORT_STATUS_OPEN (1 << 1)
+#define COM_PORT_STATUS_FULL (1 << 2)
+#define COM_PORT_STATUS_WAITING (1 << 3)
+#define COM_PORT_STATUS_FORCIBLY_CLOSED (1 << 4)
+#define COM_PORT_STATUS_READ_READY (1 << 5)
+#define COM_PORT_STATUS_WRITE_READY (1 << 6)
+#define COM_PORT_STATUS_RESERVED1 (1 << 7)
+
+struct com_port_struct {
+  uint16 port;
+  uint32 rbuffer_len;
+  uint32 wbuffer_len;
+  volatile uint8 status; 
+  volatile uint32 rlo, rhi, wlo, whi;
+  uint8 *rbuffer, *wbuffer;
+  condvar *wrt_cv;
+  condvar *rd_cv;
+};
+
 #endif
 
 // Local Variables: //
