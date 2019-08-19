@@ -329,6 +329,7 @@ program_thread* new_program_thread(program_thread* self, native_string cwd,
   self->super._prio = high_priority;
   self->super.type = THREAD_TYPE_USER;
   self->_code = run;
+  self->_cwd = NULL;
   self->super.vtable = &_program_thread_vtable;
 
   uint32 len = kstrlen(cwd);
@@ -348,7 +349,7 @@ native_string program_thread_chdir(program_thread* self,
   self->_cwd = CAST(native_string, kmalloc(sizeof(native_char) * len));
   memcpy(self->_cwd, new_cwd, len);
   self->_cwd = new_cwd;
-  kfree(old);
+  if(NULL != old) kfree(old);
 }
 
 thread* new_thread (thread* self, void_fn run, native_string name)

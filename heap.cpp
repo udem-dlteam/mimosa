@@ -99,7 +99,8 @@ void heap_free(heap* h, void* ptr) {
     mem_block* bk = get_block_ptr(ptr);
 
     if(!bk->used) {
-      panic(L"Freeing a non-allocated block");
+      return;
+      // panic(L"Freeing a non-allocated block");
     }
 
     bk->used = 0;
