@@ -18,15 +18,43 @@
 #include "rtlib.h"
 #include "term.h"
 #include "thread.h"
+#include "uart.h"
+
+extern error_code read_lfn(fat_file* f, native_string* result);
 
 int main() {
+#ifdef SHOW_BOOT_TIME
+  {
+    uint8 hours, minutes, seconds;
+    int16 year;
+    uint8 month, day;
+    
+    get_current_time(&hours, &minutes, &seconds);
+    get_current_date(&year, &month, &day);
+
+    term_write(cout, "It is currently:\n");
+    term_write(cout, hours);
+    term_write(cout, " : ");
+    term_write(cout, minutes);
+    term_write(cout, " : ");
+    term_write(cout, seconds);
+    term_writeline(cout);
+    term_write(cout, "On the: \n");
+    term_write(cout, day);
+    term_write(cout, " : ");
+    term_write(cout, month);
+    term_write(cout, " : ");
+    term_write(cout, year);
+    term_writeline(cout);
+  }
+#endif
 #ifdef MIMOSA_REPL
   term_run(cout);
 #endif
 
 #ifdef GAMBIT_REPL
   {
-    native_string file_name = "/dsk1/GSC.EXE";
+    native_string file_name = "/dsk1/GSI.EXE";
 
     file* prog;
     if (NO_ERROR == file_open(file_name, "r", &prog)) {
@@ -42,6 +70,15 @@ int main() {
           CAST(program_thread*, kmalloc(sizeof(program_thread)));
       new_program_thread(task, "/dsk1", CAST(libc_startup_fn, code), "Gambit");
       thread_start(CAST(thread*, task));
+
+#ifdef REMOTE_COM
+        for(;;){
+          file_read(stdout, &i, sizeof(unicode_char));
+          native_char c = i & 0xFF;
+          // send_serial(COM1_PORT_BASE, c);
+          outb(c, COM1_PORT_BASE);
+        }
+#endif
     } else {
       term_write(cout, "\r\n Failed to open Gambit.\r\n");
     }

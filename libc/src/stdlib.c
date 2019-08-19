@@ -2,8 +2,8 @@
 #include "include/stdlib.h"
 
 #ifdef USE_MIMOSA
+
 #include "heap.h"
-struct heap appheap;
 
 #endif
 
@@ -35,6 +35,7 @@ void *REDIRECT_NAME(malloc)(size_t __size) {
 #define MB (1<<20)
 #define HEAP_SIZE 40*MB // needs to be at least 5*MB
 
+    debug_write("MANUAL HEAP ALLOC");
     static char heap[HEAP_SIZE];
     static int alloc = HEAP_SIZE;
 
@@ -76,7 +77,6 @@ void REDIRECT_NAME(free)(void *__ptr) {
   return heap_free(&appheap, __ptr);
 
 #else
-
   // TODO: implement
 
 #endif
@@ -160,11 +160,6 @@ int REDIRECT_NAME(system)(const char *__command) {
 
 void libc_init_stdlib(void) {
 
-#ifdef USE_MIMOSA
-
-  heap_init(&appheap, CAST(void*,32*(1<<20)), 256*(1<<20));
-
-#endif
 }
 
 #endif

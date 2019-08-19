@@ -26,7 +26,6 @@ typedef uint8 file_mode;
 typedef uint8 file_type;
 
 #define IS_MODE_NONBLOCK(md) ((md)&MODE_NONBLOCK_ACCESS)
-
 #define IS_REGULAR_FILE(tpe) ((tpe)&TYPE_REGULAR)
 #define IS_FOLDER(tpe) ((tpe)&TYPE_FOLDER)
 #define IS_VIRTUAL(tpe) ((tpe)&TYPE_VIRTUAL)
@@ -43,11 +42,22 @@ typedef struct DIR_struct DIR;
 typedef struct VDIR_struct VDIR;
 typedef struct dirent_struct dirent;
 typedef struct fs_vtable_struct fs_vtable;
+typedef struct stat_buff_struct stat_buff;
+typedef struct vfolder_struct vfolder;
 
 typedef struct fs_header_struct {
   fs_kind kind;
   fs_vtable* _vtable;
 } fs_header;
+
+struct stat_buff_struct {
+  fs_header* fs;
+  file_type type;
+  uint32 bytes;
+  uint32 fs_block_size;
+  uint32 last_modifs_epochs_secs;
+  uint32 creation_time_epochs_secs;
+};
 
 typedef struct short_file_name_struct {
   native_char name[12];
@@ -64,26 +74,27 @@ typedef struct file_vtable_struct {
 } file_vtable;
 
 struct fs_vtable_struct {
-  error_code (*_file_open)(fs_header* header, short_file_name* parts,
+  error_code (*_file_open)(fs_header* header, native_string parts,
                            uint8 depth, file_mode mode, file** result);
-  error_code (*_mkdir)(fs_header* header, short_file_name* parts, uint8 depth,
+  error_code (*_mkdir)(fs_header* header, native_string name, uint8 depth,
                        file** result);
-  error_code (*_rename)(fs_header* header, file* source, short_file_name* parts,
+  error_code (*_rename)(fs_header* header, file* source, native_string name,
                         uint8 depth);
   error_code (*_remove)(fs_header* header, file* source);
+  error_code (*_stat)(fs_header* header, file* source, stat_buff* buf);
 };
 
 // A file descriptor header
 struct file_struct {
   fs_header* _fs_header;
   file_vtable* _vtable;
-  native_string path;
+  native_string name;
   file_type type;
   file_mode mode;
 };
 
 struct vfnode_struct {
-  file header;
+  file_type type;
   vfnode* _first_child;
   vfnode* _next_sibling;
   vfnode* _parent;
@@ -94,9 +105,15 @@ struct vfnode_struct {
       fs_header* mounted_fs;
     } mountpoint;
     struct {
-      file* linked_file;
-    } file;
+      uint32 identifier;
+      error_code (*_vf_node_open)(uint32 id, file_mode mode, file** result);
+    } file_gate;
   } _value;
+};
+
+struct vfolder_struct {
+  file header;
+  vfnode* node;
 };
 
 struct dirent_struct {
@@ -112,11 +129,6 @@ struct DIR_struct {
 struct VDIR_struct {
   DIR header;
   vfnode* child_cursor;
-};
-
-struct stat {
-  file_mode st_mode;
-  uint32 st_size;
 };
 
 error_code init_vfs();
@@ -184,13 +196,17 @@ vfnode* new_vfnode(vfnode* vf, native_string name, file_type type);
 #define fs_remove(fs, f) \
   CAST(fs_header*, fs)->_vtable->_remove(CAST(fs_header*, fs), CAST(file*, f))
 
+#define fs_stat(fs, f, buf) \
+  CAST(fs_header*, fs)      \
+      ->_vtable->_stat(CAST(fs_header*, fs), CAST(file*, f), buf)
+
 error_code file_open(native_string path, native_string mode, file** result);
 error_code file_rename(native_string old_name, native_string new_name);
 error_code file_remove(native_string path);
+error_code file_stat(native_string path, stat_buff* buff);
 error_code mkdir(native_string path, file** result);
 
-error_code normalize_path(native_string path, native_string new_path);
-short_file_name* decompose_path(native_string normalize_path, uint8* __count);
+error_code normalize_path(native_string old_path, native_string new_path, uint8* _depth);
 bool parse_mode(native_string mode, file_mode* result);
 
 DIR* opendir(const char* path);

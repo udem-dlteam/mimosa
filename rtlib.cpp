@@ -43,7 +43,7 @@ void panic(unicode_string msg) {
   __asm__ __volatile__("cli" : : : "memory");
 
 #ifdef RED_PANIC_SCREEN
-  raw_bitmap_fill_rect((raw_bitmap*)&screen, 0, 0, 640, 480, &pattern_red);
+  raw_bitmap_fill_rect((raw_bitmap*)&screen, 0, 0, 160, 120, &pattern_red);
 
   font_draw_string(&font_mono_6x13, &screen.super, 0, 0, msg, &pattern_white,
                    &pattern_black);
@@ -113,36 +113,6 @@ uint8 log2 (uint32 n)
 
 // Memory management functions.
 
-// A simple heap manager that doesn't reclaim memory
-
-void heap_init(struct heap *h, void *start, size_t size) {
-  h->start = start;
-  h->size = size;
-  h->alloc = 0;
-}
-
-void *heap_malloc(struct heap *h, size_t size) {
-
-  size_t a = h->alloc;
-
-  // maintain word alignment
-  size = (size + sizeof(void*) - 1) & ~(sizeof(void*) - 1);
-
-  if (a + size > h->size) {
-    debug_write("HEAP OVERFLOW");
-    return NULL; // heap overflow
-  }
-
-  h->alloc = a + size;
-
-  return CAST(void*,CAST(char*,h->start)+a);
-}
-
-void heap_free(struct heap *h, void *ptr) {
-}
-
-struct heap kheap; // kernel heap
-
 void* kmalloc(size_t size) {
   return heap_malloc(&kheap, size);
 }
@@ -152,7 +122,11 @@ void kfree(void* ptr) {
 }
 
 static void setup_kheap() {
-  heap_init(&kheap, CAST(void*,11*(1<<20)), 5*(1<<20));
+  heap_init(&kheap, CAST(void*,11*(1<<20)), 10*(1<<20));
+}
+
+static void setup_appheap() {
+  heap_init(&appheap, CAST(void*, 32 * (1 << 20)), 256 * (1 << 20));
 }
 
 extern "C" void* memcpy (void* dest, const void* src, size_t n)
@@ -320,7 +294,8 @@ extern "C"
 void __rtlib_entry ()
 {
   setup_bss ();
-  setup_kheap ();
+  setup_kheap();
+  setup_appheap();
   setup_intr ();
   setup_time ();
 

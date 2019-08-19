@@ -1,12 +1,14 @@
 #include "include/vfs.h"
-#include "include/stdstream.h"
 #include "general.h"
-#include "rtlib.h"
 #include "include/fat.h"
+#include "include/stdstream.h"
+#include "rtlib.h"
 #include "term.h"
+#include "uart.h"
 
 static file_vtable __vfnode_vtable;
 static vfnode sys_root;
+static vfnode dev_mnt_pt;
 
 static error_code vfnode_close(file* f);
 static size_t vfnode_len(file* f);
@@ -52,7 +54,7 @@ static dirent* vfnode_readdir(DIR* dir) {
 
   vfnode* child = vdir->child_cursor;
   dirent* result = &dir->ent;
-  result->d_type = child->header.type;
+  result->d_type = child->type;
 
   native_string p1 = dir->ent.d_name;
   native_string p2;
@@ -69,14 +71,23 @@ static dirent* vfnode_readdir(DIR* dir) {
   return result;
 }
 
-error_code normalize_path(native_string path, native_string new_path) {
-  uint32 i = 0;
-
+error_code normalize_path(native_string old_path, native_string new_path, uint8* _depth) {
+  // The path normalization algorithm does two passes on the text.
+  // The first one is to correctly analyze the paths (and collapse levels)
+  // while the second one removes the slashes to add \0 instead (except
+  // for the first forward slash since it is the name of the root folder).
+  // The resulting path is all the folder and file names that are explored
+  // in the path as a string. The length of all the strings is passed in the
+  // error code.
+  uint32 i = 0, j = 0;
+  uint8 depth;
+  native_string path = old_path;
+  new_path[i++] = '/';
   new_path[i++] = '/';
 
   while (path[0] != '\0') {
     if (path[0] == '/') {
-      i = 1;
+      i = 2;
       path++;
     } else if (path[0] == '.' && (path[1] == '\0' || path[1] == '/')) {
       if (path[1] == '\0')
@@ -106,99 +117,27 @@ error_code normalize_path(native_string path, native_string new_path) {
     }
   }
 
+  // If the last is not a forward slash
+  // add it.
+  if(new_path[i - 1] != '/') {
+    new_path[i++] = '/';
+  }
+
   new_path[i] = '\0';
 
-  return NO_ERROR;
-}
-
-/**
- * This is where parts are constructed
- * If relative paths were to be implemented, this is where it should be done.
- */
-short_file_name* decompose_path(native_string normalized_path, uint8* __count) {
-  *__count = 0;
-  uint8 count = 0;
-  uint8 entry = 0;
-  short_file_name* result = NULL;
-  native_char* scout = normalized_path;
-
-  if('\0' == *scout) return NULL;
-  if('/' != *scout) return NULL;
-  
-  do {
-    count += (*scout == '/');
-  } while(*scout++ != '\0');
-  count++;
-
-  if(NULL == (result = CAST(short_file_name*, kmalloc(count * sizeof(short_file_name_struct))))) {
-    return NULL; // meh
+  j = 1;
+  depth = 0;
+  while(new_path[j] != '\0') {
+    if (new_path[j] == '/') {
+      new_path[j] = '\0';
+      ++depth;
+    }
+    ++j;
   }
 
-  char* p = normalized_path;
-  while (entry < count) {
-    int i = 0;
-    bool seen_next_slash = FALSE;
-    
-    if (*p == '\0') {
-      // Overshot the count
-      --count;
-      goto decompose_path_end;
-    }
+  *_depth = depth;
 
-    while (*p != '\0' && *p != '.') {
-      if (*p == '/') {
-        seen_next_slash = TRUE;
-        break;
-      }
-      if (i < 8) {
-        result[entry].name[i] = *p;
-      }
-      i++;
-      p++;
-    }
-
-    while (i < 8) result[entry].name[i++] = ' ';
-
-    i = 0;
-
-    if (*p == '.') {
-      p++;
-      while (*p != '\0') {
-
-        if(*p == '/') {
-          seen_next_slash = TRUE;
-          break;
-        }
-
-        if (i < 3) result[entry].name[8 + i] = *p;
-        i++;
-        p++;
-      }
-    }
-
-    while (i < 3) result[entry].name[8 + i++] = ' ';
-
-    if (!seen_next_slash) {
-      while (*p != '/') {
-        p++;
-      }
-    }
-  
-    result[entry].name[11] = '\0';
-    p++;
-    entry++;
-  }
-decompose_path_end:
-  *__count = count;
-
-  // for (int i = 0; i < count; ++i) {
-  //   term_writeline(cout);
-  //   for (int j = 0; j < FAT_NAME_LENGTH; ++j) {
-  //     term_write(cout, CAST(native_char, result[i].name[j]));
-  //   }
-  //   term_writeline(cout);
-  // }
-  return result;
+  return i;
 }
 
 bool parse_mode(native_string mode, file_mode* result) {
@@ -241,22 +180,28 @@ vfs_parse_mode_loop_end:
   return '\0' == *c; // if we stopped at the null terminator, we did not fail anywhere
 }
 
-static vfnode* explore(short_file_name* parts, uint8 *depth) {
+static vfnode* explore(native_string* _parts, uint8* _depth) {
   vfnode* last_candidate = NULL;
   vfnode* scout = &sys_root;
-  uint8 bottom = *depth;
+  native_string parts = *_parts;
+  uint8 depth = *_depth;
+
   do {
-    if(0 == kstrcmp(scout->name, parts[bottom - (*depth)].name)) {
+    if (0 == kstrcmp(scout->name, parts)) {
       last_candidate = scout;
       scout = scout->_first_child;
-      *depth = *depth - 1;
-    } else if(NULL != scout->_next_sibling) {
+      depth--;
+      while (*parts++ != '\0')
+        ;
+    } else if (NULL != scout->_next_sibling) {
       scout = scout->_next_sibling;
     } else {
       scout = NULL;
     }
-  } while(NULL != scout);
+  } while (NULL != scout && depth > 0);
 
+  *_depth = depth;
+  *_parts = parts;
   return last_candidate;
 }
 
@@ -284,24 +229,19 @@ error_code file_rename(native_string old_name, native_string new_name) {
   native_char normalized_path[NAME_MAX + 1];
   uint8 depth_new;
 
-  if (ERROR(err = normalize_path(new_name, normalized_path))) {
-#ifdef SHOW_DISK_INFO
-    term_write(cout, "Failed to normalize the path\n\r");
-#endif
+  if (ERROR(err = normalize_path(new_name, normalized_path, &depth_new))) {
     return err;
   }
 
   // disable_interrupts(); // interrupts are disabled to ensure atomicity
 
-  short_file_name* parts_new = decompose_path(normalized_path, &depth_new);
-
   // Rename acts like a copy. It is more efficient to simply copy the directory entry
   // For that, we will deactivate the old entry (to allow the old folder to still work)
   // and copy the directory entry
 
-  file* old_file;
-  uint8 bottom_new = depth_new;
-  vfnode* deepest = explore(parts_new, &depth_new);
+  file* old_file = NULL;
+  native_string p = normalized_path;
+  vfnode* deepest = explore(&p, &depth_new);
 
   if(ERROR(err = file_open(old_name, "r", &old_file))) {
     goto rename_end;
@@ -309,7 +249,7 @@ error_code file_rename(native_string old_name, native_string new_name) {
 
   if(NULL == deepest) {
     err = FNF_ERROR;
-  } else if(deepest->header.type & TYPE_MOUNTPOINT) {
+  } else if(deepest->type & TYPE_MOUNTPOINT) {
     // Make sure the FS of the mountpoint and the FS of the file 
     // is the same:
     fs_header* target_fs = deepest->_value.mountpoint.mounted_fs;
@@ -318,15 +258,35 @@ error_code file_rename(native_string old_name, native_string new_name) {
       // This is an error because file_rename does not work across file systems.
       err = ARG_ERROR;
     } else {
-      err = fs_rename(target_fs, old_file, parts_new + (bottom_new - depth_new), depth_new);
+      err = fs_rename(target_fs, old_file, p, depth_new);
     }
   } else {
     err = FNF_ERROR;
   }
 
 rename_end:
-  kfree(parts_new);
+
+  if (NULL != old_file) {
+    file_close(old_file);
+  }
   // enable_interrupts(); // interrupts are disabled to ensure atomicity
+  return err;
+}
+
+error_code file_stat(native_string path, stat_buff* buf) {
+  error_code err = NO_ERROR;
+  file* f = NULL;
+
+  if (ERROR(err = file_open(path, "r", &f))) {
+    return err;
+  }
+
+  fs_stat(f->_fs_header, f, buf);
+
+  if (NULL != f) {
+    file_close(f);
+  }
+
   return err;
 }
 
@@ -336,24 +296,28 @@ error_code mkdir(native_string path, file** result) {
   file* hit;
   native_char normalized_path[NAME_MAX + 1];
 
-  if (ERROR(err = normalize_path(path, normalized_path))) {
+  if (ERROR(err = normalize_path(path, normalized_path, &depth))) {
 #ifdef SHOW_DISK_INFO
     term_write(cout, "Failed to normalize the path\n\r");
 #endif
     return err;
   }
-
-  short_file_name* parts = decompose_path(normalized_path, &depth);
-  uint8 bottom = depth;
-  vfnode* deepest = explore(parts, &depth);
+  
+  native_string p = normalized_path; 
+  vfnode* deepest = explore(&p, &depth);
 
   if(NULL == deepest) {
     err = FNF_ERROR;
-  } else if(deepest->header.type & TYPE_MOUNTPOINT) {
+  } else if(deepest->type & TYPE_MOUNTPOINT) {
     fs_header* fs = deepest->_value.mountpoint.mounted_fs;
-    err = fs_mkdir(fs, parts + (bottom - depth), depth, &hit);
+    err = fs_mkdir(fs, p, depth, &hit);
   } else {
+    // TODO if it is a VFOLDER is might be possible to add a folder
     err = FNF_ERROR;
+  }
+
+  if(HAS_NO_ERROR(err)) {
+    *result = hit;
   }
 
   return err;
@@ -366,28 +330,12 @@ error_code file_open(native_string path, native_string mode, file** result) {
   file_mode md;
   native_char normalized_path[NAME_MAX + 1];
 
-  if (ERROR(err = normalize_path(path, normalized_path))) {
-#ifdef SHOW_DISK_INFO
-    term_write(cout, "Failed to normalize the path\n\r");
-#endif
+  if (ERROR(err = normalize_path(path, normalized_path, &depth))) {
     return err;
   }
-  short_file_name* parts = decompose_path(normalized_path, &depth);
 
-  // Those lines are left as comments since they help debugging
-
-  // term_write(cout, "Parts in FOPEN:");
-  // for(int i = 0; i < depth; ++i) {
-  //   term_write(cout, "|");
-  //   for(int j = 0; j < 11; ++j) {
-  //     term_write(cout, parts[i].name[j]);
-  //   }
-  //   term_write(cout, "|");
-  // }
-  // term_writeline(cout);
-
-  uint8 bottom = depth;
-  vfnode* deepest = explore(parts, &depth);
+  native_string p = normalized_path;
+  vfnode* deepest = explore(&p, &depth);
 
   if (!parse_mode(mode, &md)) {
     return ARG_ERROR;
@@ -395,25 +343,61 @@ error_code file_open(native_string path, native_string mode, file** result) {
 
   if(NULL == deepest) {
     err = FNF_ERROR;
-  } else if(deepest->header.type & TYPE_MOUNTPOINT) {
-    fs_header* fs = deepest->_value.mountpoint.mounted_fs;
-    if (depth > 0) {
-      err = fs_file_open(fs, parts + (bottom - depth), depth, md, &hit);
-    } else {
-      err = fs_file_open(fs, parts, 1, md, &hit);
-    }
   } else if(depth == 0) {
-    hit = CAST(file*, deepest);
-  } else { 
-    err = FNF_ERROR;
+    if ((deepest->type & TYPE_VFOLDER) == TYPE_VFOLDER) {
+      hit = CAST(file*, kmalloc(sizeof(vfolder)));
+      hit->mode = md;
+      hit->type = deepest->type;
+      hit->_vtable = &__vfnode_vtable;
+      uint32 len = kstrlen(p) + 1;
+      hit->name = CAST(native_string, kmalloc(sizeof(native_char) * len));
+      CAST(vfolder*, hit)->node = deepest;
+    } else if ((deepest->type & TYPE_VFILE) == TYPE_VFILE) {
+      uint32 id = deepest->_value.file_gate.identifier;
+      err = deepest->_value.file_gate._vf_node_open(id, md, &hit);
+    } else if ((deepest->type & TYPE_MOUNTPOINT) == TYPE_MOUNTPOINT) {
+      fs_header* fs = deepest->_value.mountpoint.mounted_fs;
+      err = fs_file_open(fs, p , depth, md, &hit);
+    } else {
+      err = FNF_ERROR;
+    }
+  } else {
+    // depth > 0
+    if(deepest->type & TYPE_MOUNTPOINT) {
+      fs_header* fs = deepest->_value.mountpoint.mounted_fs;
+      err = fs_file_open(fs, p , depth, md, &hit);
+    } else {
+      err = FNF_ERROR;
+    }
   }
+
+  // if (NULL == deepest) {
+  //   err = FNF_ERROR;
+  // } else if(depth > 0 && deepest->type & TYPE_MOUNTPOINT) {
+  //   fs_header* fs = deepest->_value.mountpoint.mounted_fs;
+  //   err = fs_file_open(fs, p, depth, md, &hit);
+  // } else if(depth == 0) {
+  //   if(deepest->type & TYPE_VFOLDER) {
+  //     hit = CAST(file*, kmalloc(sizeof(vfolder)));
+  //     hit->mode = md;
+  //     hit->type = deepest->type;
+  //     hit->_vtable = &__vfnode_vtable;
+  //     uint32 len = kstrlen(p) + 1;
+  //     hit->name = CAST(native_string, kmalloc(sizeof(native_char) * len));
+  //     CAST(vfolder*, hit)->node = deepest;
+  //   } else if(deepest->type & TYPE_VFILE) {
+  //     uint32 id = deepest->_value.file_gate.identifier;
+  //     hit = deepest->_value.file_gate._vf_node_open(id);
+  //   } else {
+  //     err = ARG_ERROR;
+  //   }
+  // } else { 
+  //   err = FNF_ERROR;
+  // }
 
   if (HAS_NO_ERROR(err)) {
-    hit->path = path;
     *result = hit;
   }
-
-  kfree(parts);
 
   return err;
 }
@@ -428,7 +412,6 @@ DIR* opendir(const char* path) {
   error_code err;
 
   if (ERROR(err = file_open(CAST(native_string, path), "r", &f))) {
-    // debug_write("Error while opening the file :/");
     return NULL;
   }
 
@@ -437,15 +420,15 @@ DIR* opendir(const char* path) {
     return NULL;
   }
 
-  if(IS_VIRTUAL(f->type)) {
-    if((dir = CAST(DIR*, kmalloc(sizeof(VDIR)))) == NULL) {
+  if (IS_VIRTUAL(f->type)) {
+    if ((dir = CAST(DIR*, kmalloc(sizeof(VDIR)))) == NULL) {
       return NULL;
     }
-    vfnode* vf = CAST(vfnode*, f);
+    vfnode* vf = CAST(vfolder*, f)->node;
     VDIR* vdir = CAST(VDIR*, dir);
     vdir->child_cursor = vf->_first_child;
   } else {
-    if((dir = CAST(DIR*, kmalloc(sizeof(DIR)))) == NULL) {
+    if ((dir = CAST(DIR*, kmalloc(sizeof(DIR)))) == NULL) {
       return NULL;
     }
   }
@@ -469,7 +452,7 @@ void inline set_dir_entry_size(FAT_directory_entry* de, uint32 sz) {
 }
 
 void vfnode_add_child(vfnode* parent, vfnode* child) {
-  if(NULL == parent->_first_child) {
+  if (NULL == parent->_first_child) {
     parent->_first_child = child;
   } else {
     vfnode *prev, *scout;
@@ -478,7 +461,7 @@ void vfnode_add_child(vfnode* parent, vfnode* child) {
     do {
       prev = scout;
       scout = scout->_next_sibling;
-    } while(NULL != scout);
+    } while (NULL != scout);
 
     prev->_next_sibling = child;
     // child->prev_sibling = prev;
@@ -488,10 +471,7 @@ void vfnode_add_child(vfnode* parent, vfnode* child) {
 }
 
 vfnode* new_vfnode(vfnode* vf, native_string name, file_type type) {
-  vf->header.mode = MODE_READ;
-  vf->header.type = type;
-  vf->header._fs_header = NULL;
-  vf->header._vtable = &__vfnode_vtable;
+  vf->type = type;
   vf->name = name;
   vf->_first_child = vf->_next_sibling = vf->_parent = NULL;
 
@@ -509,13 +489,20 @@ error_code init_vfs() {
   __vfnode_vtable._file_write = vfnode_write;
   __vfnode_vtable._readdir = vfnode_readdir;
 
-  new_vfnode(&sys_root, "           ", TYPE_VFOLDER);
+  new_vfnode(&sys_root, "/", TYPE_VFOLDER);
+  new_vfnode(&dev_mnt_pt, "DEV", TYPE_VFOLDER);
 
-  if(ERROR(err = mount_streams(&sys_root))) {
+  vfnode_add_child(&sys_root, &dev_mnt_pt);
+
+  if (ERROR(err = setup_uarts(&dev_mnt_pt))) {
     return err;
   }
 
-  if(ERROR(err = mount_fat(&sys_root))) {
+  if (ERROR(err = mount_streams(&sys_root))) {
+    return err;
+  }
+
+  if (ERROR(err = mount_fat(&sys_root))) {
     return err;
   }
 
