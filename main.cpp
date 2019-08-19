@@ -112,7 +112,7 @@ int main() {
   
 #ifdef GAMBIT_REPL
   {
-    native_string file_name = "/dsk1/GSI.EXE";
+    native_string file_name = "/dsk1/GSC.EXE";
 
     file* prog;
     if (NO_ERROR == file_open(file_name, "r", &prog)) {
