@@ -499,6 +499,7 @@ error_code uart_open(uint32 id, file_mode mode, file** result) {
   // Init the port data
   port->rbuffer = CAST(uint8*, kmalloc(sizeof(uint8) * COM_BUFFER_SIZE));
   port->wbuffer = CAST(uint8*, kmalloc(sizeof(uint8) * COM_BUFFER_SIZE));
+  port->wbuffer_len = port->rbuffer_len = COM_BUFFER_SIZE;
   port->wrt_cv = CAST(condvar*, kmalloc(sizeof(condvar)));
   port->rd_cv = CAST(condvar*, kmalloc(sizeof(condvar)));
   new_condvar(port->wrt_cv);
@@ -531,8 +532,13 @@ error_code uart_close_handle(file* ff) {
  }
 
 error_code uart_write(file* ff, void* buff, uint32 count) {
+  debug_write("UART _WRITE");
   error_code err = NO_ERROR;
   uart_file* f = CAST(uart_file*, ff);
+  term_write(cout, "UART_WRITE\n");
+  term_write(cout, CAST(void*, f->port));
+  term_writeline(cout);
+  term_write(cout, CAST(void*, com_num(f->port)));
   com_port* port = &ports[com_num(f->port)];
 
   if(port->status & COM_PORT_STATUS_FORCIBLY_CLOSED) {
@@ -548,27 +554,38 @@ error_code uart_write(file* ff, void* buff, uint32 count) {
     send_serial(f->port, CAST(uint8*, buff)[i++]);
   }
 
+debug_write("A");
   port->status &= ~COM_PORT_STATUS_WRITE_READY;
+debug_write("B");
 
   for (; i < count; ++i) {
+    debug_write("H");
     uint32 next_hi = (port->whi + 1) % port->wbuffer_len;
+    debug_write("I");
+
 
     while (next_hi == port->wlo) {
+      debug_write("B1");
       condvar_mutexless_wait(port->wrt_cv);
+      debug_write("C1");
     }
 
     if (next_hi != port->wlo) {
+      debug_write("G");
       port->wbuffer[port->wlo] = CAST(uint8*, buff)[i];
     } else {
       panic(L"Multiple writer?");
     }
     port->whi = next_hi;
+    debug_write("D");
     condvar_mutexless_signal(port->wrt_cv);
+    debug_write("E");
   }
 
 uart_write_end:
   enable_interrupts();
   if(HAS_NO_ERROR(err)) err = i;
+  debug_write("END OF UART_WRITE");
   
   return err;
 } 
