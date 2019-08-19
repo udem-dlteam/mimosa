@@ -112,10 +112,8 @@ static error_code mount_FAT121632(disk* d, fat_file_system** result) {
   error_code err, release_err;
 
   {
-    term_write(cout, "Acquiring readlock on a cache block\n");
     if (ERROR(err = disk_cache_block_acquire(d, 0, &cb))) return err;
     rwmutex_readlock(cb->mut);
-    term_write(cout, "Cache block lock acquired\n");
 
     p = CAST(BIOS_Parameter_Block*, cb->buf);
 
@@ -237,9 +235,7 @@ static error_code mount_FAT121632(disk* d, fat_file_system** result) {
       }
     }
 
-    term_write(cout,"Unlocking the readlock\n");
     rwmutex_readunlock(cb->mut);
-    term_write(cout, "Readlock unlocked!\n"); 
     release_err = disk_cache_block_release(cb);
   }
 
@@ -397,21 +393,10 @@ static void mount_all_partitions(vfnode* parent) {
 
   index = 0;
 
-  term_write(cout, "Exploring disks...");  
-  term_writeline(cout);
-
   while ((d = disk_find(index)) != NULL) {
     error_code err = mount_partition(d, parent);
-    if(ERROR(err)) {
-      term_write(cout, "Failed to mount the partition with error code: ");
-      term_write(cout, err);
-      term_writeline(cout);
-    }
     index++;
   }
-
-  term_write(cout, "No more disk found.");
-  term_writeline(cout);
 }
 
 
