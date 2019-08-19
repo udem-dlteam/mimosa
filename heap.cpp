@@ -10,12 +10,6 @@ heap appheap;
 
 static const uint32 mem_block_size = sizeof(mem_block);
 
-static int byte_alignement = 4;
-
-static size_t align(size_t to_align) {
-    return to_align + (byte_alignement - (to_align % byte_alignement));
-}
-
 void heap_init(heap *h, void *start, size_t size) {
   h->start = start;
   h->size = size;
@@ -48,11 +42,11 @@ static void *heap_sbrk(heap *h, int32 size) {
 }
 
 static inline mem_block* get_block_ptr(void* ptr) {
-    return CAST(mem_block*, CAST(uint32, ptr) - mem_block_size);
+    return CAST(mem_block*, CAST(char*, ptr) - mem_block_size);
 }
 
 static inline void* get_data_ptr(mem_block* bk) {
-    return CAST(void*, CAST(uint32, bk) + mem_block_size);
+    return CAST(void*, CAST(char*, bk) + mem_block_size);
 }
 
 static mem_block* get_block(heap* h, size_t sz) {
