@@ -3,7 +3,7 @@
 OS_NAME = "\"MIMOSA version 1.2\""
 KERNEL_START = 0x20000
 
-KERNEL_OBJECTS = kernel.o libc/libc_os.o drivers/filesystem/vfs.o drivers/filesystem/stdstream.o main.o drivers/filesystem/fat.o drivers/ide.o disk.o thread.o chrono.o ps2.o term.o video.o intr.o rtlib.o uart.o $(NETWORK_OBJECTS)
+KERNEL_OBJECTS = kernel.o libc/libc_os.o drivers/filesystem/vfs.o drivers/filesystem/stdstream.o main.o drivers/filesystem/fat.o drivers/ide.o disk.o thread.o chrono.o ps2.o term.o video.o intr.o rtlib.o uart.o heap.o $(NETWORK_OBJECTS)
 #NETWORK_OBJECTS =
 #NETWORK_OBJECTS = eepro100.o tulip.o timer2.o misc.o pci.o config.o net.o
 DEFS = -DUSE_IRQ4_FOR_UART -DUSE_IRQ1_FOR_KEYBOARD -DINCLUDE_EEPRO100 
@@ -146,6 +146,8 @@ tulip.o: tulip.c etherboot.h osdep.h include/asm.h include/general.h \
 video.o: video.cpp include/video.h include/general.h include/asm.h \
 	include/vga.h include/term.h mono_5x7.cpp mono_6x9.cpp
 fat32.o: fat32.cpp include/fat32.h include/general.h
+
+heap.o: heap.cpp include/heap.h include/general.h include/rtlib.h
 
 drivers/filesystem/vfs.o: drivers/filesystem/vfs.cpp drivers/filesystem/include/vfs.h drivers/filesystem/include/fat.h
 
