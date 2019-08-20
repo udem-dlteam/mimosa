@@ -414,8 +414,10 @@ void __rtlib_setup ()
 
   identify_cpu();
 
-    the_idle = CAST(thread*, kmalloc(sizeof(thread)));
-  thread_start(new_thread(the_idle, idle_thread_run, "Idle thread"));
+  the_idle = CAST(thread*, kmalloc(sizeof(thread)));
+  the_idle = new_thread(the_idle, idle_thread_run, "Idle thread");
+  the_idle->_prio = null_priority;
+  thread_start(the_idle);
 
   term_write(cout, "Loading up disks...\n");
   setup_disk();

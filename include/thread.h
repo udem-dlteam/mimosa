@@ -193,9 +193,10 @@ const uint32 GAMBIT_START = 0x100000;
 
 typedef int priority;
 
-#define low_priority 0
-#define normal_priority 100
-#define high_priority 200
+#define null_priority 0
+#define low_priority 100
+#define normal_priority 200
+#define high_priority 300
 
 #define THREAD_TYPE_KERNEL 1
 #define THREAD_TYPE_USER 2
