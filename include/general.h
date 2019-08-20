@@ -98,8 +98,8 @@ typedef int32 error_code;
 // the RTC IRQ8 interrupt and PIT IRQ0 interrupt to be used
 // simultaneously.
 
-#define USE_IRQ8_FOR_TIME
-// #define USE_TSC_FOR_TIME
+// #define USE_IRQ8_FOR_TIME
+#define USE_TSC_FOR_TIME
 
 #ifdef USE_IRQ8_FOR_TIME
 #define IRQ8_COUNTS_PER_SEC 128  // power of 2, from 2 to 8192
@@ -131,7 +131,7 @@ typedef int32 error_code;
 #define GAMBIT_REPL
 // #define MIMOSA_REPL
 
-// #define SHOW_BOOT_TIME
+// #define THREAD_SLEEP_TEST 
 
 #ifdef GAMBIT_REPL
 #ifdef MIMOSA_REPL

@@ -21,8 +21,8 @@
 #include "uart.h"
 
 int main() {
-#ifdef SHOW_BOOT_TIME
-  {
+#ifdef THREAD_SLEEP_TEST
+  do {
     uint8 hours, minutes, seconds;
     int16 year;
     uint8 month, day;
@@ -44,7 +44,8 @@ int main() {
     term_write(cout, " : ");
     term_write(cout, year);
     term_writeline(cout);
-  }
+    thread_sleep(1000000 * 1000 * 10); // 10 seconds
+  } while(1);
 #endif
 #ifdef MIMOSA_REPL
   term_run(cout);
