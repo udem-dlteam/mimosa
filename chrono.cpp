@@ -409,7 +409,7 @@ void get_current_date(int16* year, uint8* month, uint8* day) {
   *year = ((year_in_century <= 50) ? 2000 : 1900) + year_in_century;
 }
 
-uint32 days_from_civil(uint16 y, uint16 m, uint16 d) {
+uint32 days_from_civil(int16 y, uint16 m, uint16 d) {
   y -= m <= 2;
   uint32 era = (y >= 0 ? y : y - 399) / 400;
   uint16 yoe = static_cast<unsigned>(y - era * 400);            // [0, 399]

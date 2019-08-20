@@ -85,7 +85,7 @@ void ide_irq(ide_controller* ctrl) {
   ide_cmd_queue_entry* entry;
   ide_device* dev;
   uint16 base;
-  uint16* p;
+  uint16* p = NULL;
 
   entry = &ctrl->cmd_queue[0];  // We only handle one operation at a time
   dev = entry->dev;
