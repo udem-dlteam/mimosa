@@ -73,9 +73,6 @@ static inline uint16 com_num_to_port(uint8 num) {
   }
 }
 
-//static bool errmess = TRUE;
-#define errmess TRUE
-
 /* TODO:
  * Add two args: arg1=stream de lecture arg2=stream d'ecriture
  */
@@ -129,27 +126,35 @@ static void read_msr(uint16 port){
   uint8 c = inb(port + UART_8250_MSR);
   debug_write( "Read MSR");
   if( UART_MSR_CARRIER_DETECT(c) ){
-    if(errmess)
+#ifdef SHOW_UART_MESSAGES
+
       debug_write("Modem connected to another modem");
+#endif
   } else {
-    if(errmess)
+#ifdef SHOW_UART_MESSAGES
+
       debug_write("Modem not connected to another modem");
+#endif
   }
   //if( UART_MSR_RING_INDICATOR(c) ){
   //  debug_write("\r\nRing Voltage\r\n");
   //}
   if( UART_MSR_DATA_SET_READY(c) ){
     // TODO
-    if(errmess)
+#ifdef SHOW_UART_MESSAGES
+
       debug_write("Data Set Ready");
+#endif
   }
   if( UART_MSR_CLEAR_TO_SEND(c) ){
     // handshaking signal. This is normally connected
     // to the RTS (Request To Send) signal on the remove
     // device. When that remote device asserts its RTS line,
     // data transmission can take place
-    if(errmess)
+#ifdef SHOW_UART_MESSAGES
+
       debug_write("Clear to Send");
+#endif
   }
   // ignored bits for the moment
   //if( UART_MSR_DELTA_DATA_CARRIER_DETECT(c) ){}
@@ -175,7 +180,9 @@ static void handle_thr(uint16 portn) {
       condvar_mutexless_signal(port->wrt_cv);
     }
 
-    if (errmess) debug_write("data written in THR");
+#ifdef SHOW_UART_MESSAGES
+     debug_write("data written in THR");
+#endif
   }
 }
 
@@ -205,27 +212,41 @@ static void read_lsr(uint16 port) {
 
   if (UART_LSR_DATA_AVAILABLE(e)) {
     // read (RHR)
-    if (errmess) debug_write("Data Available");
+#ifdef SHOW_UART_MESSAGES
+     debug_write("Data Available");
+#endif
     read_RHR(port);
   }
   if (UART_LSR_OVERRUN_ERROR(e)) {
-    if (errmess) debug_write("OVERRUN_ERROR");
+#ifdef SHOW_UART_MESSAGES
+     debug_write("OVERRUN_ERROR");
+#endif
   }
   if (UART_LSR_PARITY_ERROR(e)) {
-    if (errmess) debug_write("PARITY_ERROR");
+#ifdef SHOW_UART_MESSAGES
+     debug_write("PARITY_ERROR");
+#endif
   }
   if (UART_LSR_FRAMING_ERROR(e)) {
-    if (errmess) debug_write("FRAMING_ERROR");
+#ifdef SHOW_UART_MESSAGES
+     debug_write("FRAMING_ERROR");
+#endif
   }
   if (UART_LSR_BREAK_INTERRUPT(e)) {
-    if (errmess) debug_write("BREAK_INTERRUPT");
+#ifdef SHOW_UART_MESSAGES
+     debug_write("BREAK_INTERRUPT");
+#endif
   }
   if (UART_LSR_CAN_RECEIVE(e)) {
-    if (errmess) debug_write("CAN_RECEIVE");
+#ifdef SHOW_UART_MESSAGES
+     debug_write("CAN_RECEIVE");
+#endif
     // reading the lsr or writing to the data register clears this bit
   }
   if (UART_LSR_ALL_CAR_TRANSMITTED(e)) {
-    if (errmess) debug_write("ALL_CAR_TRANSMITTED");
+#ifdef SHOW_UART_MESSAGES
+     debug_write("ALL_CAR_TRANSMITTED");
+#endif
   }
   // if( UART_LSR_ERROR_IN_RECEIVED_FIFO(e) ){
   //  //FIFO never used for the moment.
@@ -234,15 +255,14 @@ static void read_lsr(uint16 port) {
 }
 
 void _handle_interrupt(uint16 port, uint8 com_index, uint8 iir) {
-  if (errmess) debug_write(inb(port + UART_8250_IIR));
 #ifdef SHOW_UART_MESSAGES
-  if (errmess) {
+    debug_write("interrupt code:");
+    debug_write(inb(port + UART_8250_IIR));
     debug_write("IRQ4 fired and COM ");
     debug_write(com_index);
     debug_write(" on port ");
     debug_write(port);
     debug_write(" got data");
-  }
 #endif
   uint8 cause = UART_IIR_GET_CAUSE(iir);
 
@@ -254,7 +274,9 @@ void _handle_interrupt(uint16 port, uint8 com_index, uint8 iir) {
       //             line signal detect signals.
       // priority :lowest
       // Reading Modem Status Register (MSR)
-      if (errmess) debug_write("Read_modem_status_register");
+#ifdef SHOW_UART_MESSAGES
+       debug_write("Read_modem_status_register");
+#endif
       read_msr(port);
       break;
     case UART_IIR_TRANSMITTER_HOLDING_REG:
@@ -264,7 +286,9 @@ void _handle_interrupt(uint16 port, uint8 com_index, uint8 iir) {
       // priority : next to lowest
       // Reading interrupt indentification register(IIR)
       // or writing to Transmit Holding Buffer (THR)
-      if (errmess) debug_write("Transmitter_Holding_reg");
+#ifdef SHOW_UART_MESSAGES
+       debug_write("Transmitter_Holding_reg");
+#endif
       handle_thr(port);
       break;
     case UART_IIR_RCV_LINE:
@@ -273,7 +297,9 @@ void _handle_interrupt(uint16 port, uint8 com_index, uint8 iir) {
       //             error, or break interrupt.
       // priority : highest
       // reading line status register
-      if (errmess) debug_write("Error or Break");
+#ifdef SHOW_UART_MESSAGES
+       debug_write("Error or Break");
+#endif
       read_lsr(port);
       break;
     case UART_IIR_DATA_AVAIL:
@@ -285,11 +311,15 @@ void _handle_interrupt(uint16 port, uint8 com_index, uint8 iir) {
       // This means that we need to read data
       // before the connection timeouts
       // reading receive Buffer Register(RHR)
-      if (errmess) debug_write("Data Avail");
+#ifdef SHOW_UART_MESSAGES
+       debug_write("Data Avail");
+#endif
       read_RHR(port);  // ***
       break;
     case UART_IIR_TIMEOUT:
-      if (errmess) debug_write("Timeout");
+#ifdef SHOW_UART_MESSAGES
+       debug_write("Timeout");
+#endif
       // simple serial read
       read_RHR(port);
       break;
@@ -387,6 +417,8 @@ error_code uart_open(uint32 id, file_mode mode, file** result) {
       return FNF_ERROR;
       break;
   }
+
+  mode |= MODE_NONBLOCK_ACCESS;
 
   // Only one can work on a port at a time
   com_port* port = &ports[com_num(port_id)];
