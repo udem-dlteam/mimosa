@@ -128,8 +128,8 @@ typedef int32 error_code;
 #define USE_RET_FOR_RESTORE_CONTEXT
 
 // #define REMOTE_COM
-// #define GAMBIT_REPL
-#define MIMOSA_REPL
+#define GAMBIT_REPL
+// #define MIMOSA_REPL
 
 // #define SHOW_BOOT_TIME
 
@@ -145,6 +145,7 @@ typedef int32 error_code;
 #endif
 #endif
 
+// #define SHOW_FILE_READ_PROGRESS
 // #define STREAM_STDOUT_TO_DEBUG_CONSOLE
 // #define SHOW_INTERRUPTS
 // #define SHOW_TIMER_INTERRUPTS

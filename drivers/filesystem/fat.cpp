@@ -986,11 +986,13 @@ error_code fat_read_file(file* ff, void* buf, uint32 count) {
         p = CAST(uint8*, buf);
 
         while (n > 0) {
+#ifdef SHOW_FILE_READ_PROGRESS
           term_write(cout, "Reading progress: ");
           term_write(cout, count - n);
           term_write(cout, " / ");
           term_write(cout, count);
-          term_writeline(cout); 
+          term_writeline(cout);
+#endif
           uint32 left1;
           uint32 left2;
 
@@ -1044,7 +1046,9 @@ error_code fat_read_file(file* ff, void* buf, uint32 count) {
           }
         }
 
+#ifdef SHOW_FILE_READ_PROGRESS
         term_write(cout, "Reading done\n");
+#endif
         return count - n;
       }
 
