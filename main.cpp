@@ -44,7 +44,7 @@ int main() {
     term_write(cout, " : ");
     term_write(cout, year);
     term_writeline(cout);
-    thread_sleep(1000000 * 1000 * 10); // 10 seconds
+    thread_sleep_seconds(10); 
   } while(1);
 #endif
 #ifdef MIMOSA_REPL

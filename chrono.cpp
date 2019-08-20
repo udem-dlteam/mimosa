@@ -148,7 +148,7 @@ void irq8 ()
 #ifdef USE_TSC_FOR_TIME
 
 static uint64 tsc_at_refpoint = 0;
-uint32 _tsc_counts_per_sec; // NOTE: works up to a 4.2 GHz processor clock
+uint32 _tsc_counts_per_sec = 0; // NOTE: works up to a 4.2 GHz processor clock
 time pos_infinity = { 18446744073709551615ULL };
 time neg_infinity = { 0 };
 

@@ -449,6 +449,24 @@ void thread_yield() {
 
 thread* thread_self() { return sched_current_thread; }
 
+void thread_sleep_seconds(uint64 seconds) {
+  disable_interrupts();
+
+  {
+    thread* current = sched_current_thread;
+
+    current->_timeout =
+        add_time(current_time_no_interlock(), seconds_to_time(seconds));
+
+    wait_queue_remove(current);
+    wait_queue_detach(current);
+
+    save_context(_sched_suspend_on_sleep_queue, NULL);
+  }
+
+  enable_interrupts();
+}
+
 void thread_sleep(uint64 timeout_nsecs) {
 #ifdef BUSY_WAIT_INSTEAD_OF_SLEEP
   for (int i = 0; i < 1; ++i) {

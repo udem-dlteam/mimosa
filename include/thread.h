@@ -506,6 +506,8 @@ void thread_yield();
 
 thread* thread_self();
 
+void thread_sleep_seconds(uint64 seconds);
+
 void thread_sleep(uint64 timeout_nsecs);
 
 native_string thread_name(thread* self);

@@ -136,32 +136,32 @@ typedef struct time { uint64 n; } time;
 })
 
 #define current_time_no_interlock() \
-({ \
-   time val; \
-   val.n = rdtsc (); \
-   val; \
-})
+  ({                                \
+    time val;                       \
+    val.n = rdtsc();                \
+    val;                            \
+  })
 
-#define seconds_to_time(x) \
-({ \
-   time val; \
-   val.n = CAST(uint64,x)*_tsc_counts_per_sec; \
-   val; \
-})
+#define seconds_to_time(x)                         \
+  ({                                               \
+    time val;                                      \
+    val.n = CAST(uint64, x) * _tsc_counts_per_sec; \
+    val;                                           \
+  })
 
-#define nanoseconds_to_time(x) \
-({ \
-   time val; \
-   val.n = CAST(uint64,x)*_tsc_counts_per_sec/1000000000; \
-   val; \
-})
+#define nanoseconds_to_time(x)                                  \
+  ({                                                            \
+    time val;                                                   \
+    val.n = CAST(uint64, x) * _tsc_counts_per_sec / 1000000000; \
+    val;                                                        \
+  })
 
-#define frequency_to_time(x) \
-({ \
-   time val; \
-   val.n = _tsc_counts_per_sec / (x); \
-   val; \
-})
+#define frequency_to_time(x)           \
+  ({                                   \
+    time val;                          \
+    val.n = _tsc_counts_per_sec / (x); \
+    val;                               \
+  })
 
 #define time_to_pit_counts(x) \
 ((x).n * PIT_COUNTS_PER_SEC / _tsc_counts_per_sec)
