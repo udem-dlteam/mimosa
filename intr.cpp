@@ -372,8 +372,6 @@ void unhandled_interrupt(int num) {
 }
 
 void interrupt_handle(interrupt_data data) {
-  bool handled = TRUE;
-
   debug_write("INT NO:");
   debug_write(data.int_no);
   debug_write("EIP=");
@@ -382,6 +380,7 @@ void interrupt_handle(interrupt_data data) {
   debug_write(data.error_code);
   debug_write("\n\r");
 
+  bool handled = TRUE;
 
   switch (data.int_no) {
     default:
@@ -394,4 +393,5 @@ void interrupt_handle(interrupt_data data) {
     panic(L"Unhandled CPU exception");
   }
 }
+
 //-----------------------------------------------------------------------------
