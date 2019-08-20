@@ -98,11 +98,11 @@ typedef int32 error_code;
 // the RTC IRQ8 interrupt and PIT IRQ0 interrupt to be used
 // simultaneously.
 
-// #define USE_IRQ8_FOR_TIME
-#define USE_TSC_FOR_TIME
+#define USE_IRQ8_FOR_TIME
+// #define USE_TSC_FOR_TIME
 
 #ifdef USE_IRQ8_FOR_TIME
-#define IRQ8_COUNTS_PER_SEC 128  // power of 2, from 2 to 8192
+#define IRQ8_COUNTS_PER_SEC 1024  // power of 2, from 2 to 8192
 #endif
 
 // For the keyboard and mouse, IRQ1 and IRQ12 are used respectively.
