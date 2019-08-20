@@ -405,7 +405,7 @@ thread* new_thread (thread* self, void_fn run, native_string name)
   // "run_thread" never returns). The general purpose is used for 
   // correct context switching and restoring between tasks.
   self->_sp = s;
-  self->_quantum = frequency_to_time (10000); // quantum is 1/10000th of a second
+  self->_quantum = frequency_to_time(200);  // quantum is 1/200th of a second
   self->_prio = normal_priority;
   self->_terminated = FALSE;
   self->_run = run;
