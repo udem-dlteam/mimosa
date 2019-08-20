@@ -33,6 +33,10 @@ typedef struct ide_module_struct {
 
 static ide_module ide_mod;
 
+static void ide_delay(uint16 port) {
+  for (int i = 0; i < 4; i++) inb(port + IDE_ALT_STATUS_REG);
+}
+
 ide_cmd_queue_entry* ide_cmd_queue_alloc(ide_device* dev) {
   int32 i;
   ide_controller* ctrl;
@@ -677,7 +681,7 @@ static void setup_ide_controller(ide_controller* ctrl, uint8 id) {
     term_write(cout, "[START] Sleeping 400 nsecs");
 #endif
 
-    thread_sleep(400);  // 400 nsecs
+    ide_delay(base); // 400 nsecs
 #ifdef SHOW_IDE_INFO
     term_write(cout, "[STOP ] Sleeping 400 nsecs");
 #endif
@@ -700,7 +704,7 @@ static void setup_ide_controller(ide_controller* ctrl, uint8 id) {
     term_write(cout, "Resetting the IDE...");
 
     outb(IDE_DEV_HEAD_IBM | IDE_DEV_HEAD_DEV(0), base + IDE_DEV_HEAD_REG);
-    thread_sleep(400);  // 400 nsecs
+    ide_delay(base); // 400 nsecs
     inb(base + IDE_STATUS_REG);
 
     thread_sleep(5000);  // 5 usecs
@@ -720,7 +724,7 @@ static void setup_ide_controller(ide_controller* ctrl, uint8 id) {
         term_write(cout, i);
         term_writeline(cout);
         outb(IDE_DEV_HEAD_IBM | IDE_DEV_HEAD_DEV(i), base + IDE_DEV_HEAD_REG);
-        thread_sleep(400);  // 400 nsecs
+        ide_delay(base); // 400 nsecs
         if (((inb(base + IDE_STATUS_REG) & IDE_STATUS_BSY) == 0) &&
             ctrl->device[i].kind == IDE_DEVICE_ATAPI) {
           ctrl->device[i].kind = IDE_DEVICE_ATA;
@@ -745,7 +749,7 @@ static void setup_ide_controller(ide_controller* ctrl, uint8 id) {
     if (candidates > 0) {
       for (i = 0; i < IDE_DEVICES_PER_CONTROLLER; i++) {
         outb(IDE_DEV_HEAD_IBM | IDE_DEV_HEAD_DEV(i), base + IDE_DEV_HEAD_REG);
-        thread_sleep(400);  // 400 nsecs
+        ide_delay(base); // 400 nsecs
 
         if (inb(base + IDE_CYL_LO_REG) == 0x14 &&
             inb(base + IDE_CYL_HI_REG) == 0xeb &&
@@ -760,7 +764,7 @@ static void setup_ide_controller(ide_controller* ctrl, uint8 id) {
           else {
             outb(IDE_DEV_HEAD_IBM | IDE_DEV_HEAD_DEV(i),
                  base + IDE_DEV_HEAD_REG);
-            thread_sleep(400);  // 400 nsecs
+            ide_delay(base); // 400 nsecs
 
             outb(0x58, base + IDE_ERROR_REG);
             outb(0xa5, base + IDE_CYL_LO_REG);
