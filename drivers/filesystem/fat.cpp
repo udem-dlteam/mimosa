@@ -90,25 +90,25 @@ error_code read_lfn(fs_header* fs, uint32 cluster, uint32 entry_position,
 // -------------------------------------------------------------
 
 static error_code mount_FAT121632(disk* d, fat_file_system** result) {
-  fat_file_system* fs;
-  BIOS_Parameter_Block* p;
-  bool expecting_FAT32;
-  uint16 bps;
-  uint8 log2_bps;
-  uint16 spc;
-  uint8 log2_spc;
-  uint16 rec;
-  uint16 total_sectors16;
-  uint32 total_sectors;
-  uint32 FAT_size;
-  uint32 reserved_sectors;
-  uint32 root_directory_sectors;
-  uint32 first_data_sector;
-  uint32 total_data_sectors;
-  uint32 total_data_clusters;
-  uint8 kind;
-  cache_block* cb;
-  error_code err, release_err;
+  fat_file_system* fs = NULL;
+  BIOS_Parameter_Block* p = NULL;
+  bool expecting_FAT32 = FALSE;
+  uint16 bps = 0;
+  uint8 log2_bps = 0;
+  uint16 spc = 0;
+  uint8 log2_spc = 0;
+  uint16 rec = 0;
+  uint16 total_sectors16 = 0;
+  uint32 total_sectors = 0;
+  uint32 FAT_size = 0;
+  uint32 reserved_sectors = 0;
+  uint32 root_directory_sectors = 0;
+  uint32 first_data_sector = 0;
+  uint32 total_data_sectors = 0;
+  uint32 total_data_clusters = 0;
+  uint8 kind = 0;
+  cache_block* cb = NULL;
+  error_code err = NO_ERROR, release_err = NO_ERROR;
 
   {
     if (ERROR(err = disk_cache_block_acquire(d, 0, &cb))) return err;
@@ -385,15 +385,12 @@ static error_code mount_partition(disk* d, vfnode* parent) {
 }
 
 static void mount_all_partitions(vfnode* parent) {
-  uint32 index;
-  disk* d;
-
+  uint32 index = 0;
+  disk* d = NULL;
   fs_mod.nb_mounted_fs = 0;
 
-  index = 0;
-
   while ((d = disk_find(index)) != NULL) {
-    error_code err = mount_partition(d, parent);
+    mount_partition(d, parent);
     index++;
   }
 }
