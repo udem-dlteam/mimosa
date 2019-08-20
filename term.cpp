@@ -706,7 +706,7 @@ const native_string LS_CMD = "ls";
 const native_string EXEC_CMD = "exec";
 const native_string CAT_CMD = "cat";
 
-static const int max_sz = 2056;
+static const uint32 max_sz = 2056;
 static native_char buff[max_sz];
 
 void term_run(term* term) {
