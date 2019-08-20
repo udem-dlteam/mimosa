@@ -416,7 +416,7 @@ void __rtlib_setup ()
 
   the_idle = CAST(thread*, kmalloc(sizeof(thread)));
   the_idle = new_thread(the_idle, idle_thread_run, "Idle thread");
-  the_idle->_prio = null_priority;
+  // the_idle->_prio = null_priority;
   thread_start(the_idle);
 
   term_write(cout, "Loading up disks...\n");
