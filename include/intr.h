@@ -49,25 +49,26 @@ void setup_intr ();
 
 // Enabling, disabling and acknowledging IRQs.
 
-#define ENABLE_IRQ(n) \
-do { \
-     if ((n) < 8) \
-       outb (inb (PIC_PORT_MASTER_IMR) & ~PIC_OCW1_MASK(n), \
-             PIC_PORT_MASTER_OCW1); \
-     else \
-       outb (inb (PIC_PORT_SLAVE_IMR) & ~PIC_OCW1_MASK((n)-8), \
-             PIC_PORT_SLAVE_OCW1); \
-   } while (0)
+#define ENABLE_IRQ(n)                                                         \
+  do {                                                                        \
+    if ((n) < 8)                                                              \
+      outb(inb(PIC_PORT_MASTER_IMR) & ~PIC_OCW1_MASK(n),                      \
+           PIC_PORT_MASTER_OCW1);                                             \
+    else {                                                                    \
+      uint8 j = (n)-8;                                                        \
+      outb(inb(PIC_PORT_SLAVE_IMR) & ~PIC_OCW1_MASK(j), PIC_PORT_SLAVE_OCW1); \
+    }                                                                         \
+  } while (0)
 
-#define DISABLE_IRQ(n) \
-do { \
-     if ((n) < 8) \
-       outb (inb (PIC_PORT_MASTER_IMR) | PIC_OCW1_MASK(n), \
-             PIC_PORT_MASTER_OCW1); \
-     else \
-       outb (inb (PIC_PORT_SLAVE_IMR) | PIC_OCW1_MASK((n)-8), \
-             PIC_PORT_SLAVE_OCW1); \
-   } while (0)
+#define DISABLE_IRQ(n)                                                         \
+  do {                                                                         \
+    if ((n) < 8)                                                               \
+      outb(inb(PIC_PORT_MASTER_IMR) | PIC_OCW1_MASK(n), PIC_PORT_MASTER_OCW1); \
+    else {                                                                     \
+      uint8 j = (n)-8;                                                         \
+      outb(inb(PIC_PORT_SLAVE_IMR) | PIC_OCW1_MASK(j), PIC_PORT_SLAVE_OCW1);   \
+    }                                                                          \
+  } while (0)
 
 #define ACKNOWLEDGE_IRQ(n) \
 do { \
