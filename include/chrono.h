@@ -51,7 +51,7 @@ void get_current_time(uint8* hour, uint8* min, uint8* sec);
 
 void get_current_date(int16* year, uint8* month, uint8* day);
 
-uint32 days_from_civil(uint16 y, unsigned m, unsigned d); 
+uint32 days_from_civil(uint16 y, uint16 m, uint16 d);
 // High resolution time datatype.
 
 #ifdef USE_IRQ8_FOR_TIME
