@@ -214,11 +214,11 @@ void setup_time ()
 #define RTC_RATE RTC_REGA_8192HZ
 #endif
 
-  outb (RTC_REGA, RTC_PORT_ADDR);
-  outb (RTC_REGA_OSC_ON | RTC_RATE, RTC_PORT_DATA);
+  outb(RTC_REGA, RTC_PORT_ADDR);
+  outb(RTC_REGA_OSC_ON | RTC_RATE, RTC_PORT_DATA);
 
-  outb (RTC_REGB, RTC_PORT_ADDR);
-  outb (RTC_REGB_PIE | RTC_REGB_DM_BCD | RTC_REGB_24, RTC_PORT_DATA);
+  outb(RTC_REGB, RTC_PORT_ADDR);
+  outb(RTC_REGB_PIE | RTC_REGB_DM_BCD | RTC_REGB_24, RTC_PORT_DATA);
 
 #endif
 
@@ -244,95 +244,91 @@ void setup_time ()
 
   uint8 old_sec = 255;
 
-  for (;;)
-    {
-      outb (RTC_REGA, RTC_PORT_ADDR);
-      if ((inb (RTC_PORT_DATA) & RTC_REGA_UIP) == 0)
-        {
-          outb (RTC_SEC, RTC_PORT_ADDR);
-          uint8 new_sec = inb (RTC_PORT_DATA);
+  for (;;) {
+    outb(RTC_REGA, RTC_PORT_ADDR);
+    if ((inb(RTC_PORT_DATA) & RTC_REGA_UIP) == 0) {
+      outb(RTC_SEC, RTC_PORT_ADDR);
+      uint8 new_sec = inb(RTC_PORT_DATA);
 
-          if (old_sec != new_sec)
-            {
+      if (old_sec != new_sec) {
 #ifdef USE_TSC_FOR_TIME
-              uint64 new_tsc = rdtsc ();
+        uint64 new_tsc = rdtsc();
 #ifdef USE_APIC_FOR_TIMER
-              uint32 new_apic_timer_count = APIC_CURRENT_TIMER_COUNT;
+        uint32 new_apic_timer_count = APIC_CURRENT_TIMER_COUNT;
 #endif
 #endif
 
-              if (--samples_left == 0)
-                {
+        if (--samples_left == 0) {
 #ifdef USE_TSC_FOR_TIME
-                  tsc_at_refpoint = new_tsc;
-                  _tsc_counts_per_sec = new_tsc - old_tsc;
+          tsc_at_refpoint = new_tsc;
+          _tsc_counts_per_sec = new_tsc - old_tsc;
 #ifdef USE_APIC_FOR_TIMER
-                  _cpu_bus_multiplier
-                    = rational_rationalize
-                        (make_rational (_tsc_counts_per_sec >> 10,
-                                        (old_apic_timer_count
-                                         - new_apic_timer_count) >> 10),
-                         make_rational (1,
-                                        16));
+          _cpu_bus_multiplier = rational_rationalize(
+              make_rational(
+                  _tsc_counts_per_sec >> 10,
+                  (old_apic_timer_count - new_apic_timer_count) >> 10),
+              make_rational(1, 16));
 #endif
 #endif
-                  break;
-                }
-
-              old_sec = new_sec;
-
-#ifdef USE_TSC_FOR_TIME
-              old_tsc = new_tsc;
-#ifdef USE_APIC_FOR_TIMER
-              old_apic_timer_count = new_apic_timer_count;
-#endif
-#endif
-            }
+          break;
         }
+
+        old_sec = new_sec;
+
+#ifdef USE_TSC_FOR_TIME
+        old_tsc = new_tsc;
+#ifdef USE_APIC_FOR_TIMER
+        old_apic_timer_count = new_apic_timer_count;
+#endif
+#endif
+      }
     }
+  }
 
   uint8 sec, min, hour, day_in_month, month, year_in_century;
   int32 year;
   int16 day_in_year;
 
-  outb (RTC_SEC, RTC_PORT_ADDR);
-  sec = bcd_to_int (inb (RTC_PORT_DATA));
+  outb(RTC_SEC, RTC_PORT_ADDR);
+  sec = bcd_to_int(inb(RTC_PORT_DATA));
 
-  outb (RTC_MIN, RTC_PORT_ADDR);
-  min = bcd_to_int (inb (RTC_PORT_DATA));
+  outb(RTC_MIN, RTC_PORT_ADDR);
+  min = bcd_to_int(inb(RTC_PORT_DATA));
 
-  outb (RTC_HOUR, RTC_PORT_ADDR);
-  hour = bcd_to_int (inb (RTC_PORT_DATA));
+  outb(RTC_HOUR, RTC_PORT_ADDR);
+  hour = bcd_to_int(inb(RTC_PORT_DATA));
 
-  outb (RTC_DAY_IN_MONTH, RTC_PORT_ADDR);
-  day_in_month = bcd_to_int (inb (RTC_PORT_DATA));
+  outb(RTC_DAY_IN_MONTH, RTC_PORT_ADDR);
+  day_in_month = bcd_to_int(inb(RTC_PORT_DATA));
 
-  outb (RTC_MONTH, RTC_PORT_ADDR);
-  month = bcd_to_int (inb (RTC_PORT_DATA));
+  outb(RTC_MONTH, RTC_PORT_ADDR);
+  month = bcd_to_int(inb(RTC_PORT_DATA));
 
-  outb (RTC_YEAR, RTC_PORT_ADDR);
-  year_in_century = bcd_to_int (inb (RTC_PORT_DATA));
+  outb(RTC_YEAR, RTC_PORT_ADDR);
+  year_in_century = bcd_to_int(inb(RTC_PORT_DATA));
 
   year = ((year_in_century <= 50) ? 2000 : 1900) + year_in_century;
 
-  day_in_year = days_since_jan1[month-1] + day_in_month;
+  day_in_year = days_since_jan1[month - 1] + day_in_month;
 
-  if (month > 2) // after february count back from january 1st of next year
-    {
-      year++;
-      day_in_year -= 365;
-    }
+  if (month > 2)  // after february count back from january 1st of next year
+  {
+    year++;
+    day_in_year -= 365;
+  }
 
   // The following computes the number of seconds since the Epoch.
   // Note that leap seconds are ignored.
 
   secs_since_epoch_at_refpoint =
-    (((DAYS_SINCE_JAN_1_2000 (year)
-       - DAYS_SINCE_JAN_1_2000 (EPOCH)
-       + day_in_year) * 24
-      + hour) * 60
-     + min) * 60
-    + sec;
+      (((DAYS_SINCE_JAN_1_2000(year) - DAYS_SINCE_JAN_1_2000(EPOCH) +
+         day_in_year) *
+            24 +
+        hour) *
+           60 +
+       min) *
+          60 +
+      sec;
 
 #ifdef USE_IRQ8_FOR_TIME
   _irq8_counter = 0;
@@ -340,80 +336,76 @@ void setup_time ()
 #endif
 }
 
-int gettimeofday (struct timeval *tv, struct timezone *tz)
-{
-  if (tv != NULL)
-    {
+int gettimeofday(struct timeval* tv, struct timezone* tz) {
+  if (tv != NULL) {
 #ifdef USE_IRQ8_FOR_TIME
 
-      disable_interrupts ();
-      uint64 n = _irq8_counter;
-      enable_interrupts ();
+    disable_interrupts();
+    uint64 n = _irq8_counter;
+    enable_interrupts();
 
-      tv->tv_sec = secs_since_epoch_at_refpoint + (n / (1 << IRQ8_LOG2_COUNTS_PER_SEC));
-      tv->tv_usec = (n % (1 << IRQ8_LOG2_COUNTS_PER_SEC)) * (1000000 / 2) /
-                    (1 << (IRQ8_LOG2_COUNTS_PER_SEC - 1));
+    tv->tv_sec =
+        secs_since_epoch_at_refpoint + (n / (1 << IRQ8_LOG2_COUNTS_PER_SEC));
+    tv->tv_usec = (n % (1 << IRQ8_LOG2_COUNTS_PER_SEC)) * (1000000 / 2) /
+                  (1 << (IRQ8_LOG2_COUNTS_PER_SEC - 1));
 
 #endif
 
 #ifdef USE_TSC_FOR_TIME
 
-      uint64 cycles = rdtsc () - tsc_at_refpoint;
-      uint64 secs = cycles / _tsc_counts_per_sec;
+    uint64 cycles = rdtsc() - tsc_at_refpoint;
+    uint64 secs = cycles / _tsc_counts_per_sec;
 
-      cycles -= secs * _tsc_counts_per_sec;
+    cycles -= secs * _tsc_counts_per_sec;
 
-      tv->tv_sec = secs_since_epoch_at_refpoint + secs;
-      tv->tv_usec = cycles * 1000000 / _tsc_counts_per_sec;
+    tv->tv_sec = secs_since_epoch_at_refpoint + secs;
+    tv->tv_usec = cycles * 1000000 / _tsc_counts_per_sec;
 
 #endif
-    }
+  }
 
-  if (tz != NULL)
-    {
-      tz->tz_minuteswest = 0;
-      tz->tz_dsttime = 0;
-    }
+  if (tz != NULL) {
+    tz->tz_minuteswest = 0;
+    tz->tz_dsttime = 0;
+  }
 
   return 0;
 }
 
 void get_current_time(uint8* hour, uint8* min, uint8* sec) {
-  outb (RTC_SEC, RTC_PORT_ADDR);
-  *sec = bcd_to_int (inb (RTC_PORT_DATA));
+  outb(RTC_SEC, RTC_PORT_ADDR);
+  *sec = bcd_to_int(inb(RTC_PORT_DATA));
 
-  outb (RTC_MIN, RTC_PORT_ADDR);
-  *min = bcd_to_int (inb (RTC_PORT_DATA));
+  outb(RTC_MIN, RTC_PORT_ADDR);
+  *min = bcd_to_int(inb(RTC_PORT_DATA));
 
-  outb (RTC_HOUR, RTC_PORT_ADDR);
-  *hour = bcd_to_int (inb (RTC_PORT_DATA));
+  outb(RTC_HOUR, RTC_PORT_ADDR);
+  *hour = bcd_to_int(inb(RTC_PORT_DATA));
 }
 
 void get_current_date(int16* year, uint8* month, uint8* day) {
   uint8 year_in_century;
 
-  outb (RTC_DAY_IN_MONTH, RTC_PORT_ADDR);
-  *day = bcd_to_int (inb (RTC_PORT_DATA));
+  outb(RTC_DAY_IN_MONTH, RTC_PORT_ADDR);
+  *day = bcd_to_int(inb(RTC_PORT_DATA));
 
-  outb (RTC_MONTH, RTC_PORT_ADDR);
-  *month = bcd_to_int (inb (RTC_PORT_DATA));
+  outb(RTC_MONTH, RTC_PORT_ADDR);
+  *month = bcd_to_int(inb(RTC_PORT_DATA));
 
-  outb (RTC_YEAR, RTC_PORT_ADDR);
-  year_in_century = bcd_to_int (inb (RTC_PORT_DATA));
+  outb(RTC_YEAR, RTC_PORT_ADDR);
+  year_in_century = bcd_to_int(inb(RTC_PORT_DATA));
 
   *year = ((year_in_century <= 50) ? 2000 : 1900) + year_in_century;
 }
 
-uint32 days_from_civil(uint16 y, unsigned m, unsigned d) 
-{
-    y -= m <= 2;
-    uint32 era = (y >= 0 ? y : y-399) / 400;
-    uint16 yoe = static_cast<unsigned>(y - era * 400);      // [0, 399]
-    uint16 doy = (153*(m + (m > 2 ? -3 : 9)) + 2)/5 + d-1;  // [0, 365]
-    uint32 doe = yoe * 365 + yoe/4 - yoe/100 + doy;         // [0, 146096]
-    return era * 146097 + doe - 719468;
+uint32 days_from_civil(uint16 y, unsigned m, unsigned d) {
+  y -= m <= 2;
+  uint32 era = (y >= 0 ? y : y - 399) / 400;
+  uint16 yoe = static_cast<unsigned>(y - era * 400);            // [0, 399]
+  uint16 doy = (153 * (m + (m > 2 ? -3 : 9)) + 2) / 5 + d - 1;  // [0, 365]
+  uint32 doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;           // [0, 146096]
+  return era * 146097 + doe - 719468;
 }
-
 
 // Local Variables: //
 // mode: C++ //
