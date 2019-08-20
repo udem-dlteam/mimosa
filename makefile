@@ -144,7 +144,7 @@ timer2.o: timer2.c etherboot.h osdep.h include/asm.h include/general.h \
 tulip.o: tulip.c etherboot.h osdep.h include/asm.h include/general.h \
 	nic.h pci.h cards.h
 video.o: video.cpp include/video.h include/general.h include/asm.h \
-	include/vga.h include/term.h fonts/mono_5x7.cpp fonts/mono_6x9.cpp
+	include/vga.h include/term.h 
 
 heap.o: heap.cpp include/heap.h include/general.h include/rtlib.h
 
