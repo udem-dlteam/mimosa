@@ -9,11 +9,13 @@
 //-----------------------------------------------------------------------------
 
 #include "chrono.h"
-#include "asm.h"
 #include "apic.h"
+#include "asm.h"
 #include "intr.h"
 #include "rtc.h"
+#include "rtlib.h"
 #include "term.h"
+#include "thread.h"
 
 //-----------------------------------------------------------------------------
 
@@ -120,11 +122,12 @@ static rational rational_rationalize (rational x, rational y)
 
 #define EPOCH 1970
 
-#define DAYS_SINCE_JAN_1_2000(year) \
-(((year)-1)*365 + ((year)-1)/4 - ((year)-1)/100 + ((year)-1)/400 - 730119)
+#define DAYS_SINCE_JAN_1_2000(year)                                          \
+  (((year)-1) * 365 + ((year)-1) / 4 - ((year)-1) / 100 + ((year)-1) / 400 - \
+   730119)
 
-static uint16 days_since_jan1[12] =
-{ 0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334 };
+static uint16 days_since_jan1[12] = {0,   31,  59,  90,  120, 151,
+                                     181, 212, 243, 273, 304, 334};
 
 #ifdef USE_IRQ8_FOR_TIME
 
@@ -153,24 +156,25 @@ time pos_infinity = { 18446744073709551615ULL };
 time neg_infinity = { 0 };
 
 #ifdef USE_APIC_FOR_TIMER
+
 rational _cpu_bus_multiplier;
+
 #endif
 
 #endif
 
 static int32 secs_since_epoch_at_refpoint = 0;
 
-uint8 bcd_to_int (uint8 bcd)
-{
+uint8 bcd_to_int(uint8 bcd) {
   // Convert "binary coded decimal" to integer.
-
   return 10 * (bcd >> 4) + (bcd & 15);
 }
 
 void setup_time ()
 {
-  // It is assumed that interrupts are currently disabled.  They might
-  // affect timing accuracy.
+  // Interrupts needs to be disabled to 
+  // prevents accuracy issues
+  ASSERT_INTERRUPTS_DISABLED();
 
 #ifdef USE_IRQ8_FOR_TIME
 
@@ -260,9 +264,12 @@ void setup_time ()
 
         if (--samples_left == 0) {
 #ifdef USE_TSC_FOR_TIME
+
           tsc_at_refpoint = new_tsc;
           _tsc_counts_per_sec = new_tsc - old_tsc;
+          
 #ifdef USE_APIC_FOR_TIMER
+
           _cpu_bus_multiplier = rational_rationalize(
               make_rational(
                   _tsc_counts_per_sec >> 10,
@@ -276,9 +283,13 @@ void setup_time ()
         old_sec = new_sec;
 
 #ifdef USE_TSC_FOR_TIME
+
         old_tsc = new_tsc;
+
 #ifdef USE_APIC_FOR_TIMER
+
         old_apic_timer_count = new_apic_timer_count;
+
 #endif
 #endif
       }
@@ -311,8 +322,7 @@ void setup_time ()
 
   day_in_year = days_since_jan1[month - 1] + day_in_month;
 
-  if (month > 2)  // after february count back from january 1st of next year
-  {
+  if (month > 2) {  // after february count back from january 1st of next year
     year++;
     day_in_year -= 365;
   }
@@ -331,8 +341,10 @@ void setup_time ()
       sec;
 
 #ifdef USE_IRQ8_FOR_TIME
+
   _irq8_counter = 0;
   ENABLE_IRQ(8);
+
 #endif
 }
 
