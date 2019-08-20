@@ -98,8 +98,8 @@ typedef int32 error_code;
 // the RTC IRQ8 interrupt and PIT IRQ0 interrupt to be used
 // simultaneously.
 
-#define USE_IRQ8_FOR_TIME
-// #define USE_TSC_FOR_TIME
+// #define USE_IRQ8_FOR_TIME
+#define USE_TSC_FOR_TIME
 
 #ifdef USE_IRQ8_FOR_TIME
 #define IRQ8_LOG2_COUNTS_PER_SEC \
