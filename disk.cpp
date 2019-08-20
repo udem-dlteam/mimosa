@@ -528,7 +528,7 @@ void cache_block_maid_run() {
   cache_block_deq* lru_probe;
   for (;;) {
     uint32 flushed_count = 0;
-    thread_sleep(seconds_to_time(60).n);
+    thread_sleep_seconds(60);
     
     if(mutex_lock_or_timeout(disk_mod.cache_mut, seconds_to_time(60))) {
       cb = NULL;
