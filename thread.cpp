@@ -326,6 +326,7 @@ void condvar_mutexless_signal(condvar* self) {
 program_thread* new_program_thread(program_thread* self, native_string cwd,
                                    libc_startup_fn run, native_string name) {
   new_thread(&self->super, NULL, name);
+  self->super._prio = high_priority;
   self->super.type = THREAD_TYPE_USER;
   self->_code = run;
   self->_cwd = NULL;
@@ -333,10 +334,6 @@ program_thread* new_program_thread(program_thread* self, native_string cwd,
 
   uint32 len = kstrlen(cwd)+1;
   self->_cwd = CAST(native_string, kmalloc(sizeof(native_char) * len));
-
-  if(NULL == self->_cwd) {
-    panic(L"Out of memory while allocating a thread");
-  }
   memcpy(self->_cwd, cwd, len);
 
   return self;
@@ -357,7 +354,8 @@ native_string program_thread_chdir(program_thread* self,
   return self->_cwd;
 }
 
-thread* new_thread(thread* self, void_fn run, native_string name) {
+thread* new_thread (thread* self, void_fn run, native_string name)
+{
   static const int stack_size = 65536 << 1; // size of thread stacks in bytes
 
   mutex_queue_init(&self->super.super);
@@ -409,7 +407,7 @@ thread* new_thread(thread* self, void_fn run, native_string name) {
   // "run_thread" never returns). The general purpose is used for 
   // correct context switching and restoring between tasks.
   self->_sp = s;
-  self->_quantum = nanoseconds_to_time(1000000);  // quantum is 1ms
+  self->_quantum = frequency_to_time(200);  // quantum is 1/200th of a second
   self->_prio = normal_priority;
   self->_terminated = FALSE;
   self->_run = run;

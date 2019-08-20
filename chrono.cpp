@@ -178,43 +178,43 @@ void setup_time ()
 
 #ifdef USE_IRQ8_FOR_TIME
 
-#if (1 << IRQ8_LOG2_COUNTS_PER_SEC) == 2
+#if IRQ8_COUNTS_PER_SEC == 2
 #define RTC_RATE RTC_REGA_2HZ
 #endif
-#if (1 << IRQ8_LOG2_COUNTS_PER_SEC) == 4
+#if IRQ8_COUNTS_PER_SEC == 4
 #define RTC_RATE RTC_REGA_4HZ
 #endif
-#if (1 << IRQ8_LOG2_COUNTS_PER_SEC) == 8
+#if IRQ8_COUNTS_PER_SEC == 8
 #define RTC_RATE RTC_REGA_8HZ
 #endif
-#if (1 << IRQ8_LOG2_COUNTS_PER_SEC) == 16
+#if IRQ8_COUNTS_PER_SEC == 16
 #define RTC_RATE RTC_REGA_16HZ
 #endif
-#if (1 << IRQ8_LOG2_COUNTS_PER_SEC) == 32
+#if IRQ8_COUNTS_PER_SEC == 32
 #define RTC_RATE RTC_REGA_32HZ
 #endif
-#if (1 << IRQ8_LOG2_COUNTS_PER_SEC) == 64
+#if IRQ8_COUNTS_PER_SEC == 64
 #define RTC_RATE RTC_REGA_64HZ
 #endif
-#if (1 << IRQ8_LOG2_COUNTS_PER_SEC) == 128
+#if IRQ8_COUNTS_PER_SEC == 128
 #define RTC_RATE RTC_REGA_128HZ
 #endif
-#if (1 << IRQ8_LOG2_COUNTS_PER_SEC) == 256
+#if IRQ8_COUNTS_PER_SEC == 256
 #define RTC_RATE RTC_REGA_256HZ
 #endif
-#if (1 << IRQ8_LOG2_COUNTS_PER_SEC) == 512
+#if IRQ8_COUNTS_PER_SEC == 512
 #define RTC_RATE RTC_REGA_512HZ
 #endif
-#if (1 << IRQ8_LOG2_COUNTS_PER_SEC) == 1024
+#if IRQ8_COUNTS_PER_SEC == 1024
 #define RTC_RATE RTC_REGA_1024HZ
 #endif
-#if (1 << IRQ8_LOG2_COUNTS_PER_SEC) == 2048
+#if IRQ8_COUNTS_PER_SEC == 2048
 #define RTC_RATE RTC_REGA_2048HZ
 #endif
-#if (1 << IRQ8_LOG2_COUNTS_PER_SEC) == 4096
+#if IRQ8_COUNTS_PER_SEC == 4096
 #define RTC_RATE RTC_REGA_4096HZ
 #endif
-#if (1 << IRQ8_LOG2_COUNTS_PER_SEC) == 8192
+#if IRQ8_COUNTS_PER_SEC == 8192
 #define RTC_RATE RTC_REGA_8192HZ
 #endif
 
@@ -356,10 +356,9 @@ int gettimeofday(struct timeval* tv, struct timezone* tz) {
     uint64 n = _irq8_counter;
     enable_interrupts();
 
-    tv->tv_sec =
-        secs_since_epoch_at_refpoint + (n / (1 << IRQ8_LOG2_COUNTS_PER_SEC));
-    tv->tv_usec = (n % (1 << IRQ8_LOG2_COUNTS_PER_SEC)) * (1000000 / 2) /
-                  (1 << (IRQ8_LOG2_COUNTS_PER_SEC - 1));
+      tv->tv_sec = secs_since_epoch_at_refpoint + (n / IRQ8_COUNTS_PER_SEC);
+      tv->tv_usec = (n % IRQ8_COUNTS_PER_SEC) * (1000000/2)
+                    / (IRQ8_COUNTS_PER_SEC/2);
 
 #endif
 

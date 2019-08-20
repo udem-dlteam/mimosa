@@ -102,9 +102,7 @@ typedef int32 error_code;
 #define USE_TSC_FOR_TIME
 
 #ifdef USE_IRQ8_FOR_TIME
-#define IRQ8_LOG2_COUNTS_PER_SEC \
-  10  // power of 2, the actual values ranging from 2 to 8192. The log2 value
-      // is therefore in [1,13] 
+#define IRQ8_COUNTS_PER_SEC 128  // power of 2, from 2 to 8192
 #endif
 
 // For the keyboard and mouse, IRQ1 and IRQ12 are used respectively.
@@ -137,7 +135,7 @@ typedef int32 error_code;
 #define GAMBIT_REPL
 // #define MIMOSA_REPL
 
-// #define THREAD_SLEEP_TEST
+// #define THREAD_SLEEP_TEST 
 
 #ifdef GAMBIT_REPL
 #ifdef MIMOSA_REPL
@@ -172,6 +170,7 @@ typedef int32 error_code;
 // to perform sleep operations. This is bad, but it might
 // help to debug some timer problems
 // #define BUSY_WAIT_INSTEAD_OF_SLEEP
+
 
 // #define ENABLE_LIBC_TRACE
 //-----------------------------------------------------------------------------
