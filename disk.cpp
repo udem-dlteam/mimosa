@@ -30,8 +30,9 @@ typedef struct disk_module_struct {
 static disk_module disk_mod;
 
 disk* disk_alloc() {
-  if (disk_mod.nb_disks < MAX_NB_DISKS)
+  if (disk_mod.nb_disks < MAX_NB_DISKS) {
     return &disk_mod.disk_table[disk_mod.nb_disks++];
+  }
   return NULL;
 }
 
@@ -44,63 +45,72 @@ uint32 disk_BIOS_CHS_to_LBA(disk* d, uint8 BIOS_CHS[3]) {
   uint16 C = ((CAST(uint16, BIOS_CHS[1]) & 0xc0) << 2) + BIOS_CHS[2];
   uint8 H = BIOS_CHS[0];
   uint8 S = BIOS_CHS[1] & 0x3f;
-  uint32 shift = 0;
+  uint32 shift = 0, lba = 0;
 
-  while ((d->_.ide.dev->cylinders_per_disk >> shift) > 1024 && shift < 4)
+  while ((d->_.ide.dev->cylinders_per_disk >> shift) > 1024 && shift < 4) {
     shift++;
+  }
 
-  return (((CAST(uint32, (C << shift)) * d->_.ide.dev->heads_per_cylinder) +
-           H) *
-          d->_.ide.dev->sectors_per_track) +
-         S - 1;
+  lba = (CAST(uint32, (C << shift)) * d->_.ide.dev->heads_per_cylinder) + H;
+  lba *= d->_.ide.dev->sectors_per_track;
+  lba += S - 1;
+
+  return lba;
 }
 
 uint32 disk_max_BIOS_CHS_to_LBA(disk* d) {
-  uint32 cyls;
-  uint32 shift = 0;
+  uint32 cyls = 0;
+  uint32 shift = 0, lba = 0;
 
-  while ((d->_.ide.dev->cylinders_per_disk >> shift) > 1024 && shift < 4)
+  while ((d->_.ide.dev->cylinders_per_disk >> shift) > 1024 && shift < 4) {
     shift++;
+  }
 
   cyls = d->_.ide.dev->cylinders_per_disk >> shift;
 
   if (cyls > 1024) cyls = 1024;
 
-  return ((cyls * d->_.ide.dev->heads_per_cylinder *
-           d->_.ide.dev->sectors_per_track)
-          << shift) -
-         1;
+  lba = (cyls * d->_.ide.dev->heads_per_cylinder *
+         d->_.ide.dev->sectors_per_track);
+  lba = (lba << shift) - 1;
+
+  return lba;
 }
 
-error_code disk_read_sectors(disk* d, uint32 sector_pos, void* buf,
-                             uint32 count) {
-  if (sector_pos < d->partition_length &&
-      sector_pos + count <= d->partition_length) {
+error_code disk_read_sectors(disk* d, uint32 lba, void* buf, uint32 count) {
+  error_code err = NO_ERROR;
+  if (lba < d->partition_length && lba + count <= d->partition_length) {
     switch (d->kind) {
       case DISK_IDE:
-        return ide_read_sectors(d->_.ide.dev, d->partition_start + sector_pos,
-                                buf, count);
-
+        err = ide_read_sectors(d->_.ide.dev, d->partition_start + lba, buf,
+                               count);
+        break;
       default:
-        return UNKNOWN_ERROR;
+        err = UNIMPL_ERROR;
+        break;
     }
+  } else {
+    err = ARG_ERROR;
   }
 
-  return UNKNOWN_ERROR;
+  return err;
 }
 
-error_code disk_write_sectors(disk* d, uint32 sector_pos, void* sector_buffs, uint32 sector_count) {
-  
-    error_code err = UNKNOWN_ERROR;
+error_code disk_write_sectors(disk* d, uint32 lba, void* buff, uint32 count) {
+  error_code err = UNKNOWN_ERROR;
 
-    if (sector_pos < d->partition_length && sector_pos + sector_count <= d->partition_length) {
+  if (lba < d->partition_length && lba + count <= d->partition_length) {
     switch (d->kind) {
       case DISK_IDE:
-        return ide_write_sectors(d->_.ide.dev, d->partition_start + sector_pos,
-                                 sector_buffs, sector_count);
+        err = ide_write_sectors(d->_.ide.dev, d->partition_start + lba, buff,
+                                count);
+        break;
       default:
-        return UNIMPL_ERROR;
+        err = UNIMPL_ERROR;
+        break;
     }
+  } else {
+    err = ARG_ERROR;
   }
 
   return err;
@@ -108,7 +118,6 @@ error_code disk_write_sectors(disk* d, uint32 sector_pos, void* sector_buffs, ui
 
 error_code disk_cache_block_acquire(disk* d, uint32 sector_pos,
                                     cache_block** block) {
-
   error_code err;
   cache_block* cb = NULL;
   cache_block_deq* LRU_deq;
@@ -275,7 +284,7 @@ static error_code flush_block(cache_block* block, time timeout) {
 
 error_code disk_cache_block_release(cache_block* block) {
   error_code err = NO_ERROR;
-  uint32 n;
+  uint32 n = 0;
 
 #ifdef USE_BLOCK_REF_COUNTER_FREE
   if (block->refcount == 1) {
@@ -285,7 +294,10 @@ error_code disk_cache_block_release(cache_block* block) {
     // will never have to wait on a lock, since
     // we are the last reference to it.
     // However, it is possible that we wait because
-    // of the maid.
+    // of the cache block maid. Since the cache block
+    // maid will clean the block, a timeout time of
+    // "zero" ensures that we never wait and that the
+    // block is always clean.
 
     flush_block(block, seconds_to_time(0));
   }
@@ -293,7 +305,7 @@ error_code disk_cache_block_release(cache_block* block) {
 
   if(HAS_NO_ERROR(err)) {
     mutex_lock(disk_mod.cache_mut);
-    n = --block->refcount;
+    { n = --block->refcount; }
     mutex_unlock(disk_mod.cache_mut);
 
     if (n == 0) {
@@ -308,11 +320,13 @@ error_code disk_cache_block_release(cache_block* block) {
 
 static native_string partition_name_from_type(uint8 type) {
   uint32 i;
-
-  for (i = 0;
-       i < sizeof(partition_type_table) / sizeof(partition_type_table[0]); i++)
-    if (partition_type_table[i].type == type)
+  size_t total_entries = sizeof(partition_type_table) / sizeof(partition_type_table[0]);
+  
+  for (i = 0; i < total_entries; i++) {
+    if (partition_type_table[i].type == type) {
       return partition_type_table[i].name;
+    }
+  }
 
   return "Unknown";
 }
@@ -342,7 +356,7 @@ void disk_print_id(disk* d) {
   term_write(cout, (d->partition_length >> (20 - d->log2_sector_size)));
   term_write(cout, "MB");
 
-  if (d->partition_type != 0) {
+  if (0 != d->partition_type) {
     term_write(cout, " (");
     term_write(cout, partition_name_from_type(d->partition_type));
     term_write(cout, ")");
@@ -527,21 +541,16 @@ void cache_block_maid_run() {
   cache_block_deq* deq;
   cache_block_deq* lru_probe;
   for (;;) {
-    uint32 flushed_count = 0;
     thread_sleep_seconds(60);
-    
-    if(mutex_lock_or_timeout(disk_mod.cache_mut, seconds_to_time(60))) {
+
+    if (mutex_lock_or_timeout(disk_mod.cache_mut, seconds_to_time(5))) {
       cb = NULL;
       deq = &disk_mod.LRU_deq;
       lru_probe = deq->prev;
 
       while (lru_probe != deq) {
         cb = CAST(cache_block*, CAST(uint8*, lru_probe) - (CAST(uint8*, &cb->LRU_deq) - CAST(uint8*, cb)));
-
-        if (flush_block(cb, seconds_to_time(10)) > 0) {
-          flushed_count += 1;
-        }
-
+        flush_block(cb, seconds_to_time(10));
         lru_probe = lru_probe->prev;
       }
 
