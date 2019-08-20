@@ -9,34 +9,33 @@
 //-----------------------------------------------------------------------------
 
 #include "term.h"
-#include "drivers/filesystem/include/vfs.h"
 #include "drivers/filesystem/include/stdstream.h"
-#include "thread.h"
+#include "drivers/filesystem/include/vfs.h"
 #include "ps2.h"
 #include "rtlib.h"
+#include "thread.h"
 
 //-----------------------------------------------------------------------------
 
 static file* term_stdout_write;
-static volatile bool stdout_bridge;
+static volatile bool stdout_configured;
 
 error_code init_terms() {
-  term_write(cout, "Enabling the terminal STDOUT bridge\n");
   error_code err = NO_ERROR;
+  term_write(cout, "Enabling the terminal STDOUT bridge\n");
 
   if (ERROR(err = file_open(STDOUT_PATH, "w", &term_stdout_write))) {
     return err;
   }
 
-  stdout_bridge = HAS_NO_ERROR(err);
+  stdout_configured = HAS_NO_ERROR(err);
 
   return err;
 }
 
 term* term_init(term* self, int x, int y, int nb_columns, int nb_rows,
-                font_c* font_normal, font_c* font_bold,
-                unicode_string title, bool initialy_visible) {
-
+                font_c* font_normal, font_c* font_bold, unicode_string title,
+                bool initialy_visible) {
   self->_x = x;
   self->_y = y;
   self->_nb_columns = nb_columns;
@@ -169,6 +168,9 @@ void term_color_to_pattern(term* self, int color, pattern** pat) {
     case 7:
       *pat = &pattern_white;
       break;
+    default:
+      *pat = &pattern_black;
+      break;
   }
 }
 
@@ -196,9 +198,9 @@ void term_toggle_cursor(term* self) {
 }
 
 int term_write(term* self, unicode_char* buf, int count) {
-  error_code err;
-  int start, end, i;
-  unicode_char c;
+  error_code err = NO_ERROR;
+  unicode_char c = L'\0';
+  int start = 0, end = 0, i = 0;
 
   screen.super.vtable->hide_mouse(&screen);
 
@@ -208,7 +210,7 @@ int term_write(term* self, unicode_char* buf, int count) {
   // We want to write characters sent as-is (with the escape sequences)
   // We want to read immediately: if we are the only reader we don't want
   // to let it get full
-  if (stdout_bridge) {
+  if (stdout_configured) {
     file* stream_write;
 
     if (cout == self) {
@@ -472,8 +474,8 @@ int term_write(term* self, unicode_char* buf, int count) {
       term_hide_cursor(self);
 
       font_draw_text(self->_bold ? self->_fn_bold : self->_fn_normal,
-                     &screen.super, sx, sy, buf + start, n,
-                     foreground, background);
+                     &screen.super, sx, sy, buf + start, n, foreground,
+                     background);
 
       start += n;
 
@@ -621,7 +623,6 @@ term* term_writeline(term* self) {
 }
 
 term* term_write(term* self, native_string x) {
-
   unicode_char buf[2];
 
   buf[1] = '\0';
@@ -630,6 +631,7 @@ term* term_write(term* self, native_string x) {
     buf[0] = CAST(uint8, *x++);
     term_write(self, buf);
   }
+
   return self;
 }
 
@@ -676,8 +678,6 @@ void debug_write(uint32 x) {
 
 void _debug_write(native_char c) {
   outb(c, OUT_PORT);
-  // outb('\n', OUT_PORT);
-  // outb('\r', OUT_PORT);
 }
 
 void debug_write(native_string str) {
@@ -689,29 +689,17 @@ void debug_write(native_string str) {
 }
 
 size_t strlen(char* str) {
-  int i;
+  uint32 i;
   for (i = 0; str[i] != '\0'; ++i)
     ;
   return i;
 }
 
 unsigned char strcmpl(char* a, char* b, size_t sz) {
-  int i = 0;
+  uint32 i;
   for (i = 0; i < sz && a[i] == b[i]; ++i)
     ;
   return i == sz;
-}
-
-unsigned char strcmp(char* a, char* b) {
-  while (*a == *b) {
-    if (*a == '\0') {
-      break;
-    } else {
-      a++;
-      b++;
-    }
-  }
-  return *a == *b;
 }
 
 const native_string LS_CMD = "ls";
@@ -722,14 +710,15 @@ static const int max_sz = 2056;
 static native_char buff[max_sz];
 
 void term_run(term* term) {
+  uint32 i = 0 ;
   for (;;) {
     //TODO make a real REPL
-    for(int i = 0; i < max_sz; ++i) 
+    for(i = 0; i < max_sz; ++i) 
       buff[i] = '\0'; // this is stupid
 
     term_write(term, "> ");
 
-    uint32 i = 0;
+    i = 0;
     while((buff[i++] = readline()) != '\0');
     // Remove the newline
     buff[i - 2] = '\0';
@@ -774,7 +763,8 @@ void term_run(term* term) {
       file* f;
       if (HAS_NO_ERROR(err = file_open(file_name, "r+", &f))) {
         uint32 len = file_len(f);
-        native_string buff = (native_char*)kmalloc(sizeof(native_char) * (len + 1));
+        native_string buff =
+            (native_char*)kmalloc(sizeof(native_char) * (len + 1));
         buff[len] = '\0';
         term_writeline(cout);
         {
@@ -784,7 +774,7 @@ void term_run(term* term) {
           term_writeline(term);
         }
         kfree(buff);
-      } else if(FNF_ERROR == err) {
+      } else if (FNF_ERROR == err) {
         term_write(term, "File not found\r\n");
       } else {
         term_write(term, "Failed to read the file.\r\n");
