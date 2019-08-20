@@ -174,8 +174,6 @@ int REDIRECT_NAME(stat)(const char *__pathname, struct stat *__buf) {
   return stat(__pathname, __buf);
 
 #else
-  debug_write("Stat");
-
   error_code err;
   stat_buff sbuffer;
   if(ERROR(err = file_stat(CAST(native_string, __pathname), &sbuffer))) {
