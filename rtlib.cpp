@@ -417,7 +417,7 @@ void __rtlib_setup ()
   the_idle = CAST(thread*, kmalloc(sizeof(thread)));
   the_idle = new_thread(the_idle, idle_thread_run, "Idle thread");
   // the_idle->_prio = null_priority;
-  the_idle->_quantum = frequency_to_time(10000); // Temp path for issue #56
+  the_idle->_quantum = nanoseconds_to_time(1000); // Temp path for issue #56
   thread_start(the_idle);
 
   term_write(cout, "Loading up disks...\n");

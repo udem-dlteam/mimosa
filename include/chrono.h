@@ -77,29 +77,30 @@ typedef struct time { uint64 n; } time;
 #define seconds_to_time(x) \
 ({ \
    time val; \
-   val.n = CAST(uint64,x)*IRQ8_COUNTS_PER_SEC; \
+   val.n = CAST(uint64,x) << IRQ8_LOG2_COUNTS_PER_SEC; \
    val; \
 })
 
-#define nanoseconds_to_time(x) \
-({ \
-   time val; \
-   val.n = CAST(uint64,x)*IRQ8_COUNTS_PER_SEC/1000000000; \
-   val; \
-})
+#define nanoseconds_to_time(x)                                     \
+  ({                                                               \
+    time val;                                                      \
+    val.n = (CAST(uint64, x) << IRQ8_LOG2_COUNTS_PER_SEC) / 1000000000; \
+    val;                                                           \
+  })
 
-#define frequency_to_time(x) \
-({ \
-   time val; \
-   val.n = IRQ8_COUNTS_PER_SEC / (x); \
-   val; \
-})
+#define frequency_to_time(x)                  \
+  ({                                          \
+    time val;                                 \
+    val.n = (1 << IRQ8_LOG2_COUNTS_PER_SEC) / (x); \
+    val;                                      \
+  })
 
 #define time_to_pit_counts(x) \
-((x).n * PIT_COUNTS_PER_SEC / IRQ8_COUNTS_PER_SEC)
+  ((x).n * PIT_COUNTS_PER_SEC / (1 << IRQ8_LOG2_COUNTS_PER_SEC))
 
-#define time_to_apic_timer_counts(x) \
-((x).n * _tsc_counts_per_sec * _cpu_bus_multiplier.den / (APIC_TIMER_DIVIDER*IRQ8_COUNTS_PER_SEC*_cpu_bus_multiplier.num))
+#define time_to_apic_timer_counts(x)                       \
+  ((x).n * _tsc_counts_per_sec * _cpu_bus_multiplier.den / \
+   ((APIC_TIMER_DIVIDER << IRQ8_LOG2_COUNTS_PER_SEC) * _cpu_bus_multiplier.num))
 
 #define add_time(x,y) \
 ({ \
