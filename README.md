@@ -1,3 +1,4 @@
+<!-- ![Mimosa Logo](res/logo.png) -->
 # Mimosa
 
 ## Project scope
