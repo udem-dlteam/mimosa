@@ -21,7 +21,6 @@ static error_code new_raw_stream(raw_stream* rs, bool autoresize);
 static error_code new_stream_file(stream_file* rs, file_mode mode,
                                   raw_stream* source);
 
-static void stream_reset_cursor(file* f);
 static error_code stream_move_cursor(file* f, int32 n);
 static error_code stream_set_to_absolute_position(file* f, uint32 position);
 static size_t stream_len(file* f);
@@ -136,7 +135,7 @@ static error_code stream_write(file* ff, void* buff, uint32 count) {
     // we want to signal every new character)
     uint32 i;
     for (i = 0; i < count; /*++i is in the write branch*/) {
-      int next_hi = (rs->high + 1);
+      uint32 next_hi = (rs->high + 1);
       if (next_hi < rs->len) {
         stream_buff[rs->high] = source_buff[i];
         rs->high = next_hi;

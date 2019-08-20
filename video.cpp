@@ -462,7 +462,7 @@ void raw_bitmap_invert_rect(raw_bitmap_c* self, int x, int y, int x_end,
   self->vtable->show_mouse(self);
 }
 
-bitmap_word* _raw_bitmap_select_layer(void* self, int layer) { ; }
+bitmap_word* _raw_bitmap_select_layer(void* self, int layer) { return NULL; }
 
 void raw_bitmap_show_mouse(void* self) { ; }
 

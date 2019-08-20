@@ -43,10 +43,7 @@ static error_code vfnode_read(file* f, void* buff, uint32 count) {
 }
 
 static dirent* vfnode_readdir(DIR* dir) {
-  error_code err;
-
   VDIR* vdir = CAST(VDIR*, dir);
-  vfnode* f = CAST(vfnode*, dir->f);
 
   if(NULL == vdir->child_cursor) {
     return NULL;
