@@ -353,6 +353,8 @@ native_string program_thread_chdir(program_thread* self,
   memcpy(self->_cwd, new_cwd, len + 1);
   self->_cwd = new_cwd;
   if(NULL != old) kfree(old);
+
+  return self->_cwd;
 }
 
 thread* new_thread(thread* self, void_fn run, native_string name) {
@@ -807,8 +809,8 @@ void _sched_setup_timer() {
 #define PIT_COUNT_FORMAT PIT_CW_LSB_MSB
 #endif
 
-  outb (PIT_CW_CTR(0) | PIT_COUNT_FORMAT | PIT_CW_MODE(0),
-        PIT_PORT_CW(PIT1_PORT_BASE));
+  outb(PIT_CW_CTR(0) | PIT_COUNT_FORMAT | PIT_CW_MODE(0),
+       PIT_PORT_CW(PIT1_PORT_BASE));
 
   ENABLE_IRQ(0);
 
