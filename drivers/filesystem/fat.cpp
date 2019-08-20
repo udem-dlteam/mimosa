@@ -3,7 +3,6 @@
 #include "chrono.h"
 #include "ide.h"
 #include "disk.h"
-#include "fat32.h"
 #include "thread.h"
 #include "include/vfs.h"
 #include "include/fat.h"

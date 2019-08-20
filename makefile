@@ -145,7 +145,6 @@ tulip.o: tulip.c etherboot.h osdep.h include/asm.h include/general.h \
 	nic.h pci.h cards.h
 video.o: video.cpp include/video.h include/general.h include/asm.h \
 	include/vga.h include/term.h mono_5x7.cpp mono_6x9.cpp
-fat32.o: fat32.cpp include/fat32.h include/general.h
 
 heap.o: heap.cpp include/heap.h include/general.h include/rtlib.h
 
