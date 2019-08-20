@@ -8,14 +8,14 @@
 
 //-----------------------------------------------------------------------------
 
-#include "drivers/filesystem/include/vfs.h"
-#include "drivers/filesystem/include/stdstream.h"
 #include "rtlib.h"
-#include "heap.h"
-#include "intr.h"
 #include "chrono.h"
-#include "ide.h"
 #include "disk.h"
+#include "drivers/filesystem/include/stdstream.h"
+#include "drivers/filesystem/include/vfs.h"
+#include "heap.h"
+#include "ide.h"
+#include "intr.h"
 #include "ps2.h"
 #include "term.h"
 #include "thread.h"
@@ -40,9 +40,11 @@ raw_bitmap_in_memory mouse_save;
 //-----------------------------------------------------------------------------
 
 void panic(unicode_string msg) {
-  __asm__ __volatile__("cli" : : : "memory");
+  disable_interrupts();
 
 #ifdef RED_PANIC_SCREEN
+  // The panic screen will take the top part of the screen to allow messges
+  // in the console to be read.
   raw_bitmap_fill_rect((raw_bitmap*)&screen, 0, 0, 640, 120, &pattern_red);
 
   font_draw_string(&font_mono_6x13, &screen.super, 0, 0, msg, &pattern_white,
@@ -65,9 +67,7 @@ void panic(unicode_string msg) {
 
 // 64 bit arithmetic routines.
 
-extern "C"
-uint64 __umoddi3 (uint64 n, uint64 d) // d must fit in 32 bits
-{
+extern "C" uint64 __umoddi3(uint64 n, uint64 d) {  // d must fit in 32 bits
   uint32 q0;
   uint32 q1;
   uint32 r;
@@ -75,16 +75,14 @@ uint64 __umoddi3 (uint64 n, uint64 d) // d must fit in 32 bits
   uint32 n1 = n >> 32;
   uint32 dv = d;
 
-  __asm__ ("divl %4" : "=a" (q1), "=d" (r) : "0" (n1), "1" (0), "rm" (dv));
+  __asm__("divl %4" : "=a"(q1), "=d"(r) : "0"(n1), "1"(0), "rm"(dv));
   n1 -= q1 * dv;
-  __asm__ ("divl %4" : "=a" (q0), "=d" (r) : "0" (n0), "1" (n1), "rm" (dv));
+  __asm__("divl %4" : "=a"(q0), "=d"(r) : "0"(n0), "1"(n1), "rm"(dv));
 
   return r;
 }
 
-extern "C"
-uint64 __udivdi3 (uint64 n, uint64 d) // d must fit in 32 bits
-{
+extern "C" uint64 __udivdi3(uint64 n, uint64 d) {  // d must fit in 32 bits
   uint32 q0;
   uint32 q1;
   uint32 r;
@@ -99,8 +97,7 @@ uint64 __udivdi3 (uint64 n, uint64 d) // d must fit in 32 bits
   return (CAST(uint64,q1) << 32) + q0;
 }
 
-uint8 log2 (uint32 n)
-{
+uint8 log2(uint32 n) {
   uint8 i = 0;
 
   while ((n >>= 1) != 0)
@@ -129,8 +126,7 @@ static void setup_appheap() {
   heap_init(&appheap, CAST(void*, 32 * (1 << 20)), 256 * (1 << 20));
 }
 
-extern "C" void* memcpy (void* dest, const void* src, size_t n)
-{
+extern "C" void* memcpy(void* dest, const void* src, size_t n) {
   uint8* d = CAST(uint8*,dest);
   uint8* s = CAST(uint8*,src);
   while (n-- > 0) *d++ = *s++;
@@ -161,38 +157,34 @@ uint32 kstrlen(native_string a) {
 // Based off glibc's strcmp
 // I roughly modified it to fit in the general code style of mimosa
 int16 kstrcmp(native_string a, native_string b) {
-
   native_string s1 = CAST(native_string, a);
   native_string s2 = CAST(native_string, b);
   native_char c1, c2;
-  do
-    {
-      c1 = CAST(native_char, *s1++);
-      c2 = CAST(native_char, *s2++);
-      if (c1 == '\0')
-        return c1 - c2;
-    }
-  while (c1 == c2);
+  do {
+    c1 = CAST(native_char, *s1++);
+    c2 = CAST(native_char, *s2++);
+    if (c1 == '\0') return c1 - c2;
+  } while (c1 == c2);
   return c1 - c2;
 }
 
 native_string kstrconcat(native_string a, native_string b) {
   uint32 alen = 0, blen = 0;
-  native_char *p;
+  native_char* p;
   native_string out;
 
   p = a;
-  while(*p != '\0') {
+  while (*p != '\0') {
     alen++;
     p++;
   }
 
   p = b;
-   while(*p != '\0') {
+  while (*p != '\0') {
     blen++;
     p++;
   }
-  
+
   out = CAST(native_string, kmalloc(sizeof(native_char) * (alen + blen + 1)));
   memcpy(out, a, alen);
   memcpy(out + alen, b, blen);
@@ -203,39 +195,23 @@ native_string kstrconcat(native_string a, native_string b) {
 
 //-----------------------------------------------------------------------------
 
-// The function "__pure_virtual" is called when a pure virtual method
-// is invoked.
-
-extern "C"
-void __pure_virtual ()
-{
-  panic(L"pure virtual function called");
-}
-
-extern "C"
-void __cxa_pure_virtual ()
-{
-  panic(L"pure virtual function called");
-}
-
-//-----------------------------------------------------------------------------
-
 // The global constructors and destructors are invoked by the
 // functions "__do_global_ctors" and "__do_global_dtors".
 
-typedef void (*func_ptr) ();
+typedef void (*func_ptr)();
 
 extern func_ptr __CTOR_LIST__[];
 extern func_ptr __DTOR_LIST__[];
 
 void __do_global_ctors ()
 {
-  unsigned long nptrs = CAST(unsigned long,__CTOR_LIST__[0]);
+  unsigned long nptrs = CAST(unsigned long, __CTOR_LIST__[0]);
   unsigned int i;
-  if (nptrs == CAST(unsigned long,-1))
-    for (nptrs = 0; __CTOR_LIST__[nptrs + 1] != 0; nptrs++);
-  for (i = nptrs; i >= 1; i--)
-    __CTOR_LIST__[i] ();
+  if (nptrs == CAST(unsigned long, -1))
+    for (nptrs = 0; __CTOR_LIST__[nptrs + 1] != 0; nptrs++)
+      ;
+
+  for (i = nptrs; i >= 1; i--) __CTOR_LIST__[i]();
   // Video VTables
   _video_vtable.hide_mouse = video_hide_mouse;
   _video_vtable.show_mouse = video_show_mouse;
@@ -258,14 +234,12 @@ void __do_global_ctors ()
   raw_bitmap_fill_rect(&screen.super, 0, 0, screen.super._width,
                        screen.super._height, &pattern_gray50);
 
-  raw_bitmap_in_memory_init
-    (&mouse_save,
-     mouse_bitmap, MOUSE_WIDTH_IN_BITMAP_WORDS << LOG2_BITMAP_WORD_WIDTH,
-     MOUSE_HEIGHT, 4);
+  raw_bitmap_in_memory_init(
+      &mouse_save, mouse_bitmap,
+      MOUSE_WIDTH_IN_BITMAP_WORDS << LOG2_BITMAP_WORD_WIDTH, MOUSE_HEIGHT, 4);
 
   // Create the console terminal
-  term_init(&term_console, 0, 0, 80, 25,
-            &font_mono_6x13, &font_mono_6x13B,
+  term_init(&term_console, 0, 0, 80, 25, &font_mono_6x13, &font_mono_6x13B,
             L"console", TRUE);
 }
 
@@ -280,19 +254,14 @@ void __do_global_dtors ()
 // responsible for setting up the runtime library, and to execute the
 // "main" function.
 
-static void setup_bss ()
-{
+static void setup_bss() {
   extern uint8 edata[], end[];
-
   uint8* p = edata;
-
   while (p < end) // zero out BSS
     *p++ = 0;
 }
 
-extern "C"
-void __rtlib_entry ()
-{
+extern "C" void __rtlib_entry() {
   setup_bss ();
   setup_kheap();
   setup_appheap();
@@ -307,23 +276,16 @@ void __rtlib_entry ()
 
 //-----------------------------------------------------------------------------
 
-static void identify_cpu ()
-{
+static void identify_cpu() {
   uint32 max_fn;
   native_char vendor[13];
   uint32 processor, dummy, features;
 
-  cpuid (0,
-         max_fn,
-         CAST(uint32*,vendor)[0],
-         CAST(uint32*,vendor)[2],
-         CAST(uint32*,vendor)[1]);
-
+  cpuid(0, max_fn, CAST(uint32*, vendor)[0], CAST(uint32*, vendor)[2],
+        CAST(uint32*, vendor)[1]);
   vendor[12] = '\0';
-
   cpuid (1, processor, dummy, dummy, features);
 
-#define SHOW_CPU_INFO
 #ifdef SHOW_CPU_INFO
 
   term_write(cout, "CPU is ");
@@ -400,8 +362,7 @@ void idle_thread_run() {
 
 extern void libc_init(void);
 
-void __rtlib_setup ()
-{ 
+void __rtlib_setup() {
   error_code err;
   thread* the_idle, *cache_block_maid_thread;
 
@@ -442,14 +403,15 @@ void __rtlib_setup ()
 
   // FS is loaded, now load the cache maid
 #ifdef USE_CACHE_BLOCK_MAID
-  term_write(cout, "Loading the cache block maid...\n");
 
+  term_write(cout, "Loading the cache block maid...\n");
   cache_block_maid_thread = CAST(thread*, kmalloc(sizeof(thread)));
   thread_start(new_thread(cache_block_maid_thread, cache_block_maid_run,
                           "Cache block maid"));
+
 #endif
 
-  main ();
+  main();
 
   __do_global_dtors();
   panic(L"System termination");

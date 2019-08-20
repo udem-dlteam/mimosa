@@ -155,7 +155,7 @@ typedef int32 error_code;
 // #define STREAM_STDOUT_TO_DEBUG_CONSOLE
 // #define SHOW_INTERRUPTS
 // #define SHOW_TIMER_INTERRUPTS
-//#define SHOW_CPU_INFO
+#define SHOW_CPU_INFO
 // #define SHOW_IDE_INFO
 // #define SHOW_DISK_INFO
 #define CHECK_ASSERTIONS
