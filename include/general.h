@@ -130,6 +130,10 @@ typedef int32 error_code;
 #define USE_RET_FOR_RESTORE_CONTEXT
 
 // #define REMOTE_COM
+
+// When you change the REPL, you should force a 
+// `make clean`. It seems that some parts of the
+// code that should be regenerated are not.
 #define GAMBIT_REPL
 // #define MIMOSA_REPL
 
@@ -156,7 +160,7 @@ typedef int32 error_code;
 // #define SHOW_DISK_INFO
 #define CHECK_ASSERTIONS
 // #define PRINT_ASSERTIONS
-// #define USE_CACHE_BLOCK_MAID
+#define USE_CACHE_BLOCK_MAID
 #define USE_BLOCK_REF_COUNTER_FREE
 // #define SHOW_UART_MESSAGES
 #define RED_PANIC_SCREEN
