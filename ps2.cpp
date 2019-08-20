@@ -43,13 +43,12 @@ static int32 controller_auxb_read ()
 {
   int32 timeout = 800000; // 400000 works on our test machine, use twice
                           // as much for safety
-
-  do
-    {
-      uint8 s = inb (PS2_PORT_STATUS);
-      if (s & PS2_OUTB)
-        return inb (PS2_PORT_A);
-    } while (--timeout > 0);
+  do {
+    uint8 s = inb(PS2_PORT_STATUS);
+    if (s & PS2_OUTB) {
+      return inb(PS2_PORT_A);
+    }
+  } while (--timeout > 0);
 
   return -1;
 }
@@ -161,9 +160,6 @@ static file* stdin;
 
 #define PRESSED(code) (keymap[(code) >> 5] & (1 << ((code) & 0x1f)))
 
-#define BUFFER_SIZE 16
-#define LINE_BUFFER_SIZE (1 << 11)
-
 static void keypress(uint8 ch) {
   error_code err = NO_ERROR;
   int kpr = ch;
@@ -232,10 +228,8 @@ native_char readline() {
 extern void send_signal(int sig); // from libc/src/signal.c
 
 static void process_keyboard_data(uint8 data) {
-
   if (data >= KBD_SCANCODE_ESC && data <= KBD_SCANCODE_F12) {
-
-    uint16 code;
+    uint16 code = 0;
 
     if (PRESSED(KBD_SCANCODE_LSHIFT) || PRESSED(KBD_SCANCODE_RSHIFT)) {
       code = keycode_table[data].with_shift;
@@ -258,8 +252,9 @@ static void process_keyboard_data(uint8 data) {
           send_signal(2); // send SIGINT
         }
       } else {
-        while (*seq != '\0')
+        while (*seq != '\0') {
           keypress(*seq++);
+        }
       }
     }
 
@@ -312,15 +307,15 @@ static void process_mouse_data (uint8 data)
   //        RB = 1 if right button is pressed, 0 otherwise
   //        LB = 1 if left button is pressed, 0 otherwise
 
-  if (mouse_buf_ptr == 0  // make sure that first byte of packet has a 1
-      && (data & 8) == 0) // at the right place (this helps
-    return;               // resynchronize with the head of the mouse
-                          // packets when communication errors occur)
+  if (mouse_buf_ptr == 0   // make sure that first byte of packet has a 1
+      && (data & 8) == 0)  // at the right place (this helps
+    return;                // resynchronize with the head of the mouse
+                           // packets when communication errors occur)
 
-  if(mouse_buf_ptr >= PS2_MOUSE_BUFF_SIZE) {
+  if (mouse_buf_ptr >= PS2_MOUSE_BUFF_SIZE) {
     mouse_buf_ptr = mouse_buf_ptr % PS2_MOUSE_BUFF_SIZE;
   }
-  
+
   mouse_buf[mouse_buf_ptr++] = data;
 
   if (mouse_buf_ptr < PS2_MOUSE_BUFF_SIZE) {
@@ -373,10 +368,8 @@ error_code setup_ps2() {
     return err;
   }
 
-  controller_config
-    (PS2_CONFIG_SCAN_CONVERT
-     | PS2_CONFIG_ENABLE_IRQ12
-     | PS2_CONFIG_ENABLE_IRQ1);
+  controller_config(PS2_CONFIG_SCAN_CONVERT | PS2_CONFIG_ENABLE_IRQ12 |
+                    PS2_CONFIG_ENABLE_IRQ1);
 
   controller_command (PS2_CMD_ENABLE_KEYBOARD);
 
@@ -388,25 +381,22 @@ error_code setup_ps2() {
 
   controller_auxb_command (PS2_MOUSE_CMD_RESET);
 
-  if (controller_auxb_read () == PS2_MOUSE_ACK
-      && controller_auxb_read () == PS2_MOUSE_BAT_ACK // the mouse passed BAT
-      && controller_auxb_read () == PS2_MOUSE_ID_PS2) // the mouse is a PS/2
-    {
-      controller_auxb_command (PS2_MOUSE_CMD_ENABLE_REPORTING);
+  if (controller_auxb_read() == PS2_MOUSE_ACK &&
+      controller_auxb_read() == PS2_MOUSE_BAT_ACK &&  // the mouse passed BAT
+      controller_auxb_read() == PS2_MOUSE_ID_PS2) {   // the mouse is a PS/2
+    controller_auxb_command(PS2_MOUSE_CMD_ENABLE_REPORTING);
 
-      if (controller_auxb_read () == PS2_MOUSE_ACK)
-        {
+    if (controller_auxb_read() == PS2_MOUSE_ACK) {
 #ifdef USE_IRQ12_FOR_MOUSE
-          ENABLE_IRQ(12);
+      ENABLE_IRQ(12);
 #endif
-        }
     }
+  }
 
   return err;
 }
 
 #endif
-
 //-----------------------------------------------------------------------------
 
 // Local Variables: //
