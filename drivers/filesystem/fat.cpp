@@ -986,14 +986,14 @@ error_code fat_read_file(file* ff, void* buf, uint32 count) {
 
         while (n > 0) {
 #ifdef SHOW_FILE_READ_PROGRESS
-          if ((progress_counter % 200) == 0) {
+          if ((progress_counter % 50) == 0) {
             term_write(cout, "Reading progress: ");
             term_write(cout, count - n);
             term_write(cout, " / ");
             term_write(cout, count);
             term_writeline(cout);
           }
-          progress_counter = (progress_counter + 1) % 200;
+          progress_counter = (progress_counter + 1) % 50;
 #endif
           uint32 left1;
           uint32 left2;

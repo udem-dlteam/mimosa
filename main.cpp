@@ -66,9 +66,17 @@ int main() {
       term_write(cout, len);
       term_writeline(cout);
 
+      term_write(cout, "Testing writing high addresses...");
+
+      for(uint32 i = 0; i < len; ++i) {
+        code[i] = 0x00;
+      }
+
+      term_write(cout, "Cleared the code buffer");
+
       error_code err;
       if (ERROR(err = file_read(prog, code, len))) {
-        panic(L"ERR");
+        panic(L"Error while loading the file.");
       }
 
       term_write(cout, "Gambit file loaded...");
@@ -77,6 +85,7 @@ int main() {
       program_thread* task =
           CAST(program_thread*, kmalloc(sizeof(program_thread)));
       new_program_thread(task, "/dsk1", CAST(libc_startup_fn, code), "Gambit");
+
       term_write(cout, "Starting the Gambit thread\n");
       thread_start(CAST(thread*, task));
 
