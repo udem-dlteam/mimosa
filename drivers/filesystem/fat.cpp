@@ -970,6 +970,9 @@ error_code fat_read_file(file* ff, void* buf, uint32 count) {
       case FAT12_FS:
       case FAT16_FS:
       case FAT32_FS: {
+#ifdef SHOW_FILE_READ_PROGRESS
+        uint8 progress_counter = 0;
+#endif
         uint32 n;
         uint8* p;
 
@@ -983,11 +986,14 @@ error_code fat_read_file(file* ff, void* buf, uint32 count) {
 
         while (n > 0) {
 #ifdef SHOW_FILE_READ_PROGRESS
-          term_write(cout, "Reading progress: ");
-          term_write(cout, count - n);
-          term_write(cout, " / ");
-          term_write(cout, count);
-          term_writeline(cout);
+          if ((progress_counter % 200) == 0) {
+            term_write(cout, "Reading progress: ");
+            term_write(cout, count - n);
+            term_write(cout, " / ");
+            term_write(cout, count);
+            term_writeline(cout);
+          }
+          progress_counter = (progress_counter + 1) % 200;
 #endif
           uint32 left1;
           uint32 left2;

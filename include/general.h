@@ -102,7 +102,7 @@ typedef int32 error_code;
 // #define USE_TSC_FOR_TIME
 
 #ifdef USE_IRQ8_FOR_TIME
-#define IRQ8_COUNTS_PER_SEC 1024  // power of 2, from 2 to 8192
+#define IRQ8_COUNTS_PER_SEC 8192  // power of 2, from 2 to 8192
 #endif
 
 // For the keyboard and mouse, IRQ1 and IRQ12 are used respectively.
@@ -149,7 +149,7 @@ typedef int32 error_code;
 #endif
 #endif
 
-// #define SHOW_FILE_READ_PROGRESS
+#define SHOW_FILE_READ_PROGRESS
 // #define STREAM_STDOUT_TO_DEBUG_CONSOLE
 // #define SHOW_INTERRUPTS
 // #define SHOW_TIMER_INTERRUPTS

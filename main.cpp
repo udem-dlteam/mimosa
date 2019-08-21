@@ -53,8 +53,10 @@ int main() {
 
 #ifdef GAMBIT_REPL
   {
-    term_write(cout, "Starting GSC...");
     native_string file_name = "/dsk1/GSC.EXE";
+    term_write(cout, "Starting ");
+    term_write(cout, file_name);
+    term_writeline(cout);
 
     file* prog = NULL;
     if (NO_ERROR == file_open(file_name, "r", &prog)) {
