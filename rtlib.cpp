@@ -40,7 +40,7 @@ raw_bitmap_in_memory mouse_save;
 //-----------------------------------------------------------------------------
 
 void panic(unicode_string msg) {
-  disable_interrupts();
+  if (ARE_INTERRUPTS_ENABLED()) disable_interrupts();
 
 #ifdef RED_PANIC_SCREEN
   // The panic screen will take the top part of the screen to allow messges
@@ -355,7 +355,30 @@ static void identify_cpu() {
 }
 
 void idle_thread_run() {
+#ifdef SHOW_HEARTBEAT  
+uint8 heartbeat_cycle = 0;
+uint32 heartbeat_counter = 0;
+#endif
+
   for(;;) {
+#ifdef SHOW_HEARTBEAT
+
+    if(0 == (heartbeat_counter % HEARTBEAT_FREQ)) {
+      if(0 == heartbeat_cycle) {
+        debug_write("RED");
+        raw_bitmap_fill_rect((raw_bitmap*)&screen, 610, 0, 640, 30,
+                             &pattern_red);
+        heartbeat_cycle = 1;
+      } else {
+        debug_write("Green");
+        raw_bitmap_fill_rect((raw_bitmap*)&screen, 610, 0, 640, 30,
+                             &pattern_green);
+        heartbeat_cycle = 0;
+      }
+    }
+    heartbeat_counter = (heartbeat_counter + 1) % HEARTBEAT_FREQ;  
+
+#endif
     thread_yield();
   }
 }

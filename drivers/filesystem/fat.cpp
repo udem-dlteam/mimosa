@@ -661,13 +661,18 @@ static error_code next_FAT_section(fat_file* f) {
     offset &= ~(~0U << fs->_.FAT121632.log2_bps);
 
     {
+      // term_writeline(cout);
+      // term_write(cout, "A");
       if (ERROR(err = disk_cache_block_acquire(fs->_.FAT121632.d, sector_pos,
                                                &cb))) {
         return err;
       }
+      // term_write(cout, "]");
 
       {
+        // term_write(cout, "L");
         rwmutex_readlock(cb->mut);
+        // term_write(cout, "]");
 
         if (fs->kind == FAT16_FS) {
           cluster = *CAST(uint16*, cb->buf + offset);
@@ -677,10 +682,14 @@ static error_code next_FAT_section(fat_file* f) {
           if (cluster >= FAT_32_EOF) err = EOF_ERROR;
         }
 
+        // term_write(cout, "R");
         rwmutex_readunlock(cb->mut);
+        // term_write(cout, "]");
       }
 
+      // term_write(cout, "D");
       error_code release_err = disk_cache_block_release(cb);
+      // term_write(cout, "]");
 
       if (ERROR(err)) {
         return err;
@@ -986,14 +995,14 @@ error_code fat_read_file(file* ff, void* buf, uint32 count) {
 
         while (n > 0) {
 #ifdef SHOW_FILE_READ_PROGRESS
-          if ((progress_counter % 50) == 0) {
+          if ((progress_counter % 200) == 0) {
             term_write(cout, "Reading progress: ");
             term_write(cout, count - n);
             term_write(cout, " / ");
             term_write(cout, count);
             term_writeline(cout);
           }
-          progress_counter = (progress_counter + 1) % 50;
+          progress_counter = (progress_counter + 1) % 200;
 #endif
           uint32 left1;
           uint32 left2;
@@ -1017,6 +1026,8 @@ error_code fat_read_file(file* ff, void* buf, uint32 count) {
             if (left2 > left1) left2 = left1;
 
             if (NULL != buf) {
+              // term_writeline(cout);
+              // term_write(cout, 'a');
               if (ERROR(
                       err = disk_cache_block_acquire(
                           fs->_.FAT121632.d,
@@ -1025,6 +1036,7 @@ error_code fat_read_file(file* ff, void* buf, uint32 count) {
                           &cb))) {
                 return err;
               }
+              // term_write(cout, ')');
 
               {
                 rwmutex_readlock(cb->mut);
@@ -1037,7 +1049,9 @@ error_code fat_read_file(file* ff, void* buf, uint32 count) {
                 rwmutex_readunlock(cb->mut);
               }
 
+              // term_write(cout, 'r');
               if (ERROR(err = disk_cache_block_release(cb))) return err;
+              // term_write(cout, ')');
             }
 
             left1 -= left2;

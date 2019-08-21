@@ -103,7 +103,7 @@ typedef int32 error_code;
 
 #ifdef USE_IRQ8_FOR_TIME
 
-#define IRQ8_COUNTS_PER_SEC 4096  // power of 2, from 2 to 8192
+#define IRQ8_COUNTS_PER_SEC 4096 // power of 2, from 2 to 8192
 
 #endif
 
@@ -151,6 +151,14 @@ typedef int32 error_code;
 #endif
 #endif
 
+#define SHOW_HEARTBEAT
+
+#ifdef SHOW_HEARTBEAT
+
+#define HEARTBEAT_FREQ 20 
+
+#endif
+
 #define SHOW_FILE_READ_PROGRESS
 // #define STREAM_STDOUT_TO_DEBUG_CONSOLE
 // #define SHOW_INTERRUPTS
@@ -160,11 +168,11 @@ typedef int32 error_code;
 // #define SHOW_DISK_INFO
 #define CHECK_ASSERTIONS
 // #define PRINT_ASSERTIONS
-#define USE_CACHE_BLOCK_MAID
+// #define USE_CACHE_BLOCK_MAID
 #define USE_BLOCK_REF_COUNTER_FREE
 // #define SHOW_UART_MESSAGES
 #define RED_PANIC_SCREEN
-#define ENABLE_DEBUG_WRITE
+// #define ENABLE_DEBUG_WRITE
 #define ENABLE_DEBUG_MARKER
 // #define ENABLE_MOUSE
 

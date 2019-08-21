@@ -186,7 +186,7 @@ error_code ide_read_sectors(ide_device* dev, uint32 lba, void* buf,
     ide_cmd_queue_entry* entry;
 
     disable_interrupts();
-
+ide_read_sector_retry:
     entry = ide_cmd_queue_alloc(dev);
 
     if (count > 256) count = 256;
@@ -204,6 +204,25 @@ error_code ide_read_sectors(ide_device* dev, uint32 lba, void* buf,
     outb(IDE_READ_SECTORS_CMD, base + IDE_COMMAND_REG);
 
     ide_delay(base);
+    uint16 busy_state = 0;
+    while (inb(base + IDE_STATUS_REG) & IDE_STATUS_BSY) {
+      busy_state++;
+      ide_delay(base);
+      if(busy_state == 500) {
+        term_write(cout, "\033[41m IDE IS TAKING A LONG TIME \033[0m");
+        term_writeline(cout);
+
+        outb(IDE_FLUSH_CACHE_CMD, base + IDE_COMMAND_REG);
+        condvar_mutexless_wait(entry->done);
+
+        term_write(cout, "Retring...");
+        term_writeline(cout);
+        ide_cmd_queue_free(entry);
+        term_write(cout, ".");
+        term_writeline(cout);
+        goto ide_read_sector_retry;
+      }
+    }
 
     condvar_mutexless_wait(entry->done);
 
