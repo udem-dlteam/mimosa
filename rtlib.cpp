@@ -365,20 +365,23 @@ uint32 heartbeat_counter = 0;
 
     if(0 == (heartbeat_counter % HEARTBEAT_FREQ)) {
       if(0 == heartbeat_cycle) {
-        debug_write("RED");
+        disable_interrupts();
         raw_bitmap_fill_rect((raw_bitmap*)&screen, 610, 0, 640, 30,
                              &pattern_red);
         heartbeat_cycle = 1;
+        enable_interrupts();
       } else {
-        debug_write("Green");
+        disable_interrupts();
         raw_bitmap_fill_rect((raw_bitmap*)&screen, 610, 0, 640, 30,
                              &pattern_green);
         heartbeat_cycle = 0;
+        enable_interrupts();
       }
     }
     heartbeat_counter = (heartbeat_counter + 1) % HEARTBEAT_FREQ;  
 
 #endif
+    ASSERT_INTERRUPTS_ENABLED();
     thread_yield();
   }
 }
