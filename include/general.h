@@ -166,7 +166,7 @@ typedef int32 error_code;
 
 #endif
 
-#define SHOW_FILE_READ_PROGRESS
+// #define SHOW_FILE_READ_PROGRESS
 // #define STREAM_STDOUT_TO_DEBUG_CONSOLE
 // #define SHOW_INTERRUPTS
 // #define SHOW_TIMER_INTERRUPTS
