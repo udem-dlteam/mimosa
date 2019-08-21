@@ -106,32 +106,32 @@ static mem_block* get_block(heap* h, size_t sz) {
 }
 
 void heap_free(heap* h, void* ptr) {
-  return;
-  mem_block* bk = get_block_ptr(ptr);
+  // return;
+  // mem_block* bk = get_block_ptr(ptr);
 
-  if (!bk->used) {
-    panic(L"Freeing a non-allocated block");
-  }
+  // if (!bk->used) {
+  //   panic(L"Freeing a non-allocated block");
+  // }
 
-  bk->used = 0;
+  // bk->used = 0;
 
-  mem_block* old_first = h->first_free;
-  h->first_free = bk;
+  // mem_block* old_first = h->first_free;
+  // h->first_free = bk;
 
-  if (NULL != old_first) {
-    bk->next_free = old_first;
-    old_first->prev_free = bk;
-  }
+  // if (NULL != old_first) {
+  //   bk->next_free = old_first;
+  //   old_first->prev_free = bk;
+  // }
 }
 
 void* heap_malloc(heap* h, size_t size) {
   return heap_sbrk(h, size);
 
-  void* bk = get_data_ptr(get_block(h, size));
+  // void* bk = get_data_ptr(get_block(h, size));
 
-  if ((CAST(uint32, bk) % 4) != 0) {
-    panic(L"Not aligned");
-  }
+  // if ((CAST(uint32, bk) % 4) != 0) {
+  //   panic(L"Not aligned");
+  // }
 
-  return bk;
+  // return bk;
 }
