@@ -33,7 +33,7 @@ __sighandler_t REDIRECT_NAME(signal)(int __sig, __sighandler_t __handler) {
 
 #else
 
-  libc_trace("signal");
+  // libc_trace("signal");
 
 #ifdef USE_HOST_LIBC
 
