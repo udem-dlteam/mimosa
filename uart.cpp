@@ -94,9 +94,9 @@ error_code init_serial(int com_port) {
   outb(0x03,
        com_port + UART_8250_DLL);  // Set divisor to 3 (lo byte) 38400 baud
   outb(0x00,
-       com_port + UART_8250_DLM);  // Set divisor to 3 (lo byte) 38400 baud
-  outb(0x03, com_port + UART_8250_LCR);  // 8 bits, no parity, one stop bit
-  outb(0x0F, com_port + UART_8250_IER);  //                  (hi byte)
+       com_port + UART_8250_DLH);  // Set (hi byte) 0 
+  outb(0x03, com_port + UART_8250_LCR);  // 8 bits, no parity, one stop bit, close DLAB
+  outb(0x0F, com_port + UART_8250_IER); 
   outb(0x8E,
        com_port +
            UART_8250_IIR);  //Do not enable FIFO, clear them, with 14-byte threshold
@@ -570,17 +570,67 @@ static error_code detect_hardware() {
   // Init the values to a known status
 
   for (uint8 i = 0; i < 4; ++i) {
+    port_exists(i);
+  }
+  for (uint8 i = 0; i < 4; ++i) {
     init_serial(com_num_to_port(i));
     ports[i].rbuffer = NULL;
     ports[i].wbuffer = NULL;
     ports[i].rbuffer_len = ports[i].wbuffer_len = 0;
     ports[i].rlo = ports[i].rhi = ports[i].wlo = ports[i].whi = 0;
     // Si le port est la, il faut mettre le status correct.
-    ports[i].status |= COM_PORT_STATUS_EXISTS;
+    if ( port_exists(i) ) ports[i].status |= COM_PORT_STATUS_EXISTS;
     ports[i].port = com_num_to_port(i);
   }
 
   return err;
+}
+
+// to detect if a port exists I can set a certain baud rate then watch if it has been
+// correctly set on the receiving machine
+bool port_exists(int port_num){
+  int com_port = com_num_to_port(port_num);
+  bool exist = true;
+
+  // set a baud rate of 57100
+  outb(0x80, com_port + UART_8250_LCR);  // Enable DLAB (set baud rate divisor)
+  outb(0x02, com_port + UART_8250_DLL); // set divisor to 2 div latch lo
+  outb(0x00, com_port + UART_8250_DLH); // (now baud rate is 57100)
+  uint8 LCR_val = inb(com_port + UART_8250_LCR) && 0x7F;
+  outb( LCR_val, com_port + UART_8250_LCR); // disable DLAB
+  
+  // get the baud rate that we set
+  outb(0x80, com_port + UART_8250_LCR); // enable DLAB
+  uint8 divisor_latch = ( inb(com_port + UART_8250_DLH) >> 8 ) + inb(com_port + UART_8250_DLL );
+  LCR_val = inb(com_port + UART_8250_LCR) && 0x7F;
+  outb( LCR_val, com_port + UART_8250_LCR); // disable DLAB
+
+  if( divisor_latch != 2 ) exist = false;
+
+    // set a baud rate of 115200
+  outb(0x80, com_port + UART_8250_LCR);  // Enable DLAB (set baud rate divisor)
+  outb(0x01, com_port + UART_8250_DLL); // set divisor to 1 div latch lo
+  outb(0x00, com_port + UART_8250_DLH); // (now baud rate is 115200)
+  LCR_val = inb(com_port + UART_8250_LCR) && 0x7F;
+  outb( LCR_val, com_port + UART_8250_LCR); // disable DLAB
+  
+  // get the baud rate that we set
+  outb(0x80, com_port + UART_8250_LCR); // enable DLAB
+  divisor_latch = ( inb(com_port + UART_8250_DLH) >> 8 ) + inb(com_port + UART_8250_DLL );
+  LCR_val = inb(com_port + UART_8250_LCR) && 0x7F;
+  outb( LCR_val, com_port + UART_8250_LCR); // disable DLAB
+
+  if( divisor_latch != 1) exist = false;
+    
+  _debug_write('C');
+  debug_write(com_port);
+
+  debug_write(divisor_latch);
+  
+  debug_write("port tested:");
+  debug_write(port_num);
+
+  return exist;
 }
 
 error_code setup_uarts(vfnode* parent_node) {
