@@ -622,14 +622,6 @@ bool port_exists(int port_num){
 
   if( divisor_latch != 1) exist = false;
     
-  _debug_write('C');
-  debug_write(com_port);
-
-  debug_write(divisor_latch);
-  
-  debug_write("port tested:");
-  debug_write(port_num);
-
   return exist;
 }
 
