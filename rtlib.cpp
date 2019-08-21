@@ -364,7 +364,12 @@ extern void libc_init(void);
 
 void __rtlib_setup() {
   error_code err;
-  thread* the_idle, *cache_block_maid_thread;
+  thread* the_idle;
+#ifdef USE_CACHE_BLOCK_MAID
+
+  thread *cache_block_maid_thread;
+
+#endif
 
   ASSERT_INTERRUPTS_ENABLED();
 
