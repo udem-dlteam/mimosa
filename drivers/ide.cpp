@@ -174,7 +174,7 @@ extern "C" void irq15() {
 
 #endif
 
-error_code  ide_read_sectors(ide_device* dev, uint32 lba, void* buf,
+error_code ide_read_sectors(ide_device* dev, uint32 lba, void* buf,
                             uint32 count) {
   error_code err = NO_ERROR;
 
@@ -202,6 +202,8 @@ error_code  ide_read_sectors(ide_device* dev, uint32 lba, void* buf,
     outb((lba >> 8), base + IDE_CYL_LO_REG);
     outb((lba >> 16), base + IDE_CYL_HI_REG);
     outb(IDE_READ_SECTORS_CMD, base + IDE_COMMAND_REG);
+
+    ide_delay(base);
 
     condvar_mutexless_wait(entry->done);
 
