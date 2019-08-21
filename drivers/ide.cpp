@@ -218,7 +218,6 @@ ide_read_sector_retry:
 error_code ide_write_sectors(ide_device* dev, uint32 lba, void* buf,
                              uint32 count) {
   error_code err = NO_ERROR;
-  panic(L"Write is disabled!");
 
   ASSERT_INTERRUPTS_ENABLED();  // Interrupts should be enabled at this point
 

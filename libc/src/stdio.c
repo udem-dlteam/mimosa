@@ -140,7 +140,7 @@ size_t REDIRECT_NAME(fwrite)(const void *__restrict __ptr, size_t __size,
 
 #else
 
-  //  libc_trace("fwrite");
+   libc_trace("fwrite");
 
 #ifdef USE_HOST_LIBC
 
