@@ -86,20 +86,13 @@ error_code init_serial(int com_port) {
     panic(L"Trying to init a serial port with an invalid COM port...");
   }
 
-
-  // TODO: verifier si le port est la...
-
   outb(0x00, com_port + UART_8250_IER);  // Disable all interrupts
   outb(0x80, com_port + UART_8250_LCR);  // Enable DLAB (set baud rate divisor)
-  outb(0x03,
-       com_port + UART_8250_DLL);  // Set divisor to 3 (lo byte) 38400 baud
-  outb(0x00,
-       com_port + UART_8250_DLH);  // Set (hi byte) 0 
+  outb(0x03, com_port + UART_8250_DLL);  // Set divisor to 3 (lo byte) 38400 baud
+  outb(0x00, com_port + UART_8250_DLH);  // Set (high byte) 0 
   outb(0x03, com_port + UART_8250_LCR);  // 8 bits, no parity, one stop bit, close DLAB
   outb(0x0F, com_port + UART_8250_IER); 
-  outb(0x8E,
-       com_port +
-           UART_8250_IIR);  //Do not enable FIFO, clear them, with 14-byte threshold
+  outb(0x8E, com_port + UART_8250_IIR);  //Do not enable FIFO, clear with 14-byte threshold
   outb(0x08, com_port + UART_8250_MCR);  // IRQs enabled, RTS/DSR set
 
   switch (com_port) {
@@ -417,7 +410,7 @@ error_code uart_open(uint32 id, file_mode mode, file** result) {
       return FNF_ERROR;
       break;
   }
-
+  // should be removed but required at the moment for Gambit to execute properly
   mode |= MODE_NONBLOCK_ACCESS;
 
   // Only one can work on a port at a time
@@ -568,10 +561,6 @@ static error_code detect_hardware() {
   error_code err = NO_ERROR;
 
   // Init the values to a known status
-
-  for (uint8 i = 0; i < 4; ++i) {
-    port_exists(i);
-  }
   for (uint8 i = 0; i < 4; ++i) {
     init_serial(com_num_to_port(i));
     ports[i].rbuffer = NULL;
@@ -579,7 +568,7 @@ static error_code detect_hardware() {
     ports[i].rbuffer_len = ports[i].wbuffer_len = 0;
     ports[i].rlo = ports[i].rhi = ports[i].wlo = ports[i].whi = 0;
     // Si le port est la, il faut mettre le status correct.
-    if ( port_exists(i) ) ports[i].status |= COM_PORT_STATUS_EXISTS;
+    if (port_exists(i)) ports[i].status |= COM_PORT_STATUS_EXISTS;
     ports[i].port = com_num_to_port(i);
   }
 
@@ -588,8 +577,8 @@ static error_code detect_hardware() {
 
 // to detect if a port exists I can set a certain baud rate then watch if it has been
 // correctly set on the receiving machine
-bool port_exists(int port_num){
-  int com_port = com_num_to_port(port_num);
+bool port_exists(uint16 port_num){
+  uint16 com_port = com_num_to_port(port_num);
   bool exist = true;
 
   // set a baud rate of 57100
