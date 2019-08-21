@@ -102,7 +102,9 @@ typedef int32 error_code;
 // #define USE_TSC_FOR_TIME
 
 #ifdef USE_IRQ8_FOR_TIME
-#define IRQ8_COUNTS_PER_SEC 8192  // power of 2, from 2 to 8192
+
+#define IRQ8_COUNTS_PER_SEC 4096  // power of 2, from 2 to 8192
+
 #endif
 
 // For the keyboard and mouse, IRQ1 and IRQ12 are used respectively.
