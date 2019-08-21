@@ -1458,9 +1458,11 @@ static error_code fat_fetch_first_empty_directory_position(
   return err;
 }
 
-static error_code fat_allocate_directory_entry(
-    fat_file_system * fs, fat_file * parent_folder, FAT_directory_entry * de,
-    native_char * name, uint32* _position) {
+static error_code fat_allocate_directory_entry(fat_file_system* fs,
+                                               fat_file* parent_folder,
+                                               FAT_directory_entry* de,
+                                               native_char* name,
+                                               uint32* _position) {
   long_file_name_entry lfe;
   error_code err = NO_ERROR;
 
@@ -1468,8 +1470,15 @@ static error_code fat_allocate_directory_entry(
   uint8 name_len = kstrlen(name);
   // We need to find enough empty directory entries to
   // allow the long file name to be stored.
-  uint8 required_spots = (name_len / FAT_CHARS_PER_LONG_NAME_ENTRY) +
-                         (name_len % FAT_CHARS_PER_LONG_NAME_ENTRY != 0);
+  uint8 required_spots;
+
+  if(name_len <= FAT_NAME_LENGTH) {
+    required_spots = 0;
+  } else {
+    required_spots = (name_len / FAT_CHARS_PER_LONG_NAME_ENTRY) +
+                     (name_len % FAT_CHARS_PER_LONG_NAME_ENTRY != 0);
+  }
+
   ++required_spots;
 
   if(ERROR(err = fat_set_to_absolute_position(CAST(file*, parent_folder), 0))) {
@@ -1488,6 +1497,11 @@ static error_code fat_allocate_directory_entry(
   }
 
   uint8 name_index = name_len;
+  term_write(cout, "Creating the file ");
+  term_write(cout, name);
+  term_write(cout, "Required spots: ");
+  term_write(cout, required_spots);
+
   for (uint8 entry_idx = 0; entry_idx < required_spots - 1; ++entry_idx) {
     uint8 ordinal = required_spots - 1 - entry_idx;
     uint8 max_chars, chars;
