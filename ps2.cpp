@@ -282,6 +282,8 @@ void irq1 ()
 
 //-----------------------------------------------------------------------------
 
+#ifdef ENABLE_MOUSE
+
 static uint8 mouse_buf[PS2_MOUSE_BUFF_SIZE];
 static uint8 mouse_buf_ptr = 0;
 
@@ -336,6 +338,8 @@ static void process_mouse_data (uint8 data)
 
   video_move_mouse(&screen, dx, -dy);
 }
+
+#endif
 
 #ifdef USE_IRQ12_FOR_MOUSE
 

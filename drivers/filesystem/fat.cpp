@@ -1,11 +1,11 @@
-#include "general.h"
-#include "rtlib.h"
-#include "chrono.h"
-#include "ide.h"
-#include "disk.h"
-#include "thread.h"
-#include "include/vfs.h"
 #include "include/fat.h"
+#include "chrono.h"
+#include "disk.h"
+#include "general.h"
+#include "ide.h"
+#include "include/vfs.h"
+#include "rtlib.h"
+#include "thread.h"
 
 // -------------------------------------------------------------
 // Declarations for the mounted FS systems
@@ -28,18 +28,31 @@ static fs_module fs_mod;
 static file_vtable _fat_file_vtable;
 static fs_vtable _fat_vtable;
 
-error_code new_fat_file(fat_file** result) {
+static error_code new_fat_file(fat_file** result) {
   error_code err = NO_ERROR;
   fat_file* allocated = CAST(fat_file*, kmalloc(sizeof(fat_file)));
 
   if(NULL == allocated) {
     err = MEM_ERROR;
-  } else {
-    allocated->header._vtable = &_fat_file_vtable;
+    return err;
   }
 
-  allocated->link = NULL;
+  allocated->header._vtable = &_fat_file_vtable;
   allocated->header.name = NULL;
+  allocated->header.mode = 0;
+  allocated->header.type = 0;
+  allocated->header._fs_header = NULL;
+
+  allocated->link = NULL;
+  allocated->first_cluster = 0;
+  allocated->current_cluster = 0;
+  allocated->current_section_start = 0;
+  allocated->current_section_length = 0;
+  allocated->current_pos = 0;
+  allocated->length = 0;
+  allocated->parent.first_cluster = 0;
+  allocated->entry.position = 0;
+
   *result = allocated;
 
   return err;
@@ -243,7 +256,7 @@ static error_code mount_FAT121632(disk* d, fat_file_system** result) {
 
   fs = CAST(fat_file_system*, kmalloc(sizeof(fat_file_system)));
 
-  if (fs == NULL) {
+  if (NULL == fs) {
     err = MEM_ERROR;
   } else {
     fs->header.kind = FAT;
@@ -315,15 +328,10 @@ static void unpack_fat_date(uint16 fat_date, int16* year, uint8* month, uint8* d
   *day = (fat_date) & 0x1F;
 }
 
-static int i = 1;
-
 static error_code mount_partition(disk* d, vfnode* parent) {
-#ifdef SHOW_DISK_INFO
-  term_write(cout, "IN MOUNT PART\n\r");
-#endif
-
+  native_string disk_name = "DSK1";
   fat_file_system* fs = NULL;
-  error_code err;
+  error_code err = NO_ERROR;
 
   switch (d->partition_type) {
     case 1:     // Primary DOS 12-bit FAT
@@ -338,16 +346,15 @@ static error_code mount_partition(disk* d, vfnode* parent) {
 
       vfnode* partition_mount_point = CAST(vfnode*, kmalloc(sizeof(vfnode)));
       // TODO make mount names
+      disk_name[3] += fs_mod.nb_mounted_fs;
       
-      if(i++ == 1) {
-        new_vfnode(partition_mount_point, "DSK1", TYPE_MOUNTPOINT);
+      if(NULL == new_vfnode(partition_mount_point, disk_name, TYPE_MOUNTPOINT)) {
+        err = MEM_ERROR;
       } else {
-        new_vfnode(partition_mount_point, "DSK2", TYPE_MOUNTPOINT);
+        partition_mount_point->_value.mountpoint.mounted_fs =
+            CAST(fs_header*, fs);
+        vfnode_add_child(parent, partition_mount_point);
       }
-
-      partition_mount_point->_value.mountpoint.mounted_fs = CAST(fs_header*, fs);
-
-      vfnode_add_child(parent, partition_mount_point);
       break;
     default:
       term_write(cout, "Unknown partition type: ");
@@ -356,7 +363,7 @@ static error_code mount_partition(disk* d, vfnode* parent) {
       break;
   }
 
-  if (fs != NULL) {
+  if (!ERROR(err) && fs != NULL) {
     if (fs_mod.nb_mounted_fs < MAX_NB_MOUNTED_FAT_FS) {
       fs_mod.mounted_fs[fs_mod.nb_mounted_fs++] = fs;
 
@@ -381,7 +388,9 @@ static error_code mount_partition(disk* d, vfnode* parent) {
     }
   }
 
-  return UNKNOWN_ERROR;
+  if(HAS_NO_ERROR(err)) err = UNKNOWN_ERROR;
+  
+  return err;
 }
 
 static void mount_all_partitions(vfnode* parent) {
@@ -400,7 +409,7 @@ static void mount_all_partitions(vfnode* parent) {
 // FAT manipulation routines
 // ------------------------------------------------------
 
-static inline void read_lfe_chars(uint8* buff, uint8 len,
+static inline void read_lfn_section(uint8* buff, uint8 len,
                                   native_string lfn_buff, uint8* _lfn_index) {
   native_char c;
   uint8 index = *_lfn_index;
@@ -413,13 +422,7 @@ static inline void read_lfe_chars(uint8* buff, uint8 len,
   *_lfn_index = index;
 }
 
-static inline void write_lfe_chars(uint8* buff, uint8 len, native_string name, uint8* index) {
-
-}
-
-static bool fat_is_root_dir(fat_file* f) {
-  return f->first_cluster <= 0x02;  // this might not always be the case...
-}
+#define FAT_IS_ROOT_DIR(f) ((f)->first_cluster <= FAT32_FIRST_CLUSTER)
 
 static error_code fat_open_directory_entry(fat_file* f,
                                            FAT_directory_entry* de) {
@@ -446,7 +449,7 @@ static error_code fat_open_directory_entry(fat_file* f,
 }
 
 static error_code fat_write_directory_entry(fat_file* f,
-                                           FAT_directory_entry* de) {
+                                            FAT_directory_entry* de) {
   error_code err = NO_ERROR;
   fat_file* parent_dir;                    
 
@@ -460,7 +463,8 @@ static error_code fat_write_directory_entry(fat_file* f,
   fat_reset_cursor(CAST(file*, parent_dir)); // might seem useless but it actually initialize the cursor correctly
   fat_set_to_absolute_position(CAST(file*, parent_dir), f->entry.position);
 
-  if (ERROR(err = fat_write_file(CAST(file*, parent_dir), de, sizeof(FAT_directory_entry)))) {
+  if (ERROR(err = fat_write_file(CAST(file*, parent_dir), de,
+                                 sizeof(FAT_directory_entry)))) {
     return err;
   }
 
@@ -549,6 +553,7 @@ fat_rename_end:
   if(NULL != parent_dir) {
     fat_close_file(CAST(file*, parent_dir));
   }
+
   return err;
 }
 
@@ -579,6 +584,7 @@ error_code fat_close_file(file* ff) {
 static void fat_reset_cursor(file* ff) {
   fat_file* f = CAST(fat_file*, ff);
   fat_file_system* fs = CAST(fat_file_system*, f->header._fs_header);
+
   f->current_cluster = f->first_cluster;
   f->current_section_length =
       1 << (fs->_.FAT121632.log2_bps + fs->_.FAT121632.log2_spc);
@@ -765,9 +771,6 @@ static error_code fat_move_cursor(file* ff, int32 n) {
     // If we cross a section boundary, the design of the FAT FS requires to start
     // from the beginning.
     if (crosses_section_boundary) {
-      // term_write(cout, "Pos. targeted:");
-      // term_write(cout, f->current_pos - displacement);
-      // term_writeline(cout);
       return fat_file_set_pos_from_start(f, f->current_pos - displacement);
     } else {
       // Simply update the position
@@ -778,9 +781,6 @@ static error_code fat_move_cursor(file* ff, int32 n) {
     // Forward mvmt
     displacement = n;
     bool crosses_section_boundary = ((displacement + f->current_section_pos) >= f->current_section_length);
-
-    // term_write(cout, "Moving "); term_write(cout, n); term_write(cout, " positions forward");
-    // term_writeline(cout);
 
     if(crosses_section_boundary) {
       // We are moving forward.
@@ -1053,7 +1053,7 @@ error_code fat_read_file(file* ff, void* buf, uint32 count) {
     }
   }
 
-  return 0;
+  return NO_ERROR;
 }
 
 static error_code fat_fetch_entry(fat_file_system* fs, fat_file* parent,
@@ -1089,9 +1089,9 @@ static error_code fat_fetch_entry(fat_file_system* fs, fat_file* parent,
   int16 checksum = -1;
 
 #define invalidate_lfn() \
-  do {                        \
-    checksum = -1;            \
-    lfn_index = 254;          \
+  do {                   \
+    checksum = -1;       \
+    lfn_index = 254;     \
   } while (0)
 
   while ((err = fat_read_file(CAST(file*, parent), &de, sizeof(de))) ==
@@ -1110,10 +1110,10 @@ static error_code fat_fetch_entry(fat_file_system* fs, fat_file* parent,
       } else {
         checksum = lfe->LDIR_Checksum;
         // We read in reverse, because we start from the n'th entry to the
-        // first one.
-        read_lfe_chars(lfe->LDIR_Name3, 4, lfn_buff, &lfn_index);
-        read_lfe_chars(lfe->LDIR_Name2, 12, lfn_buff, &lfn_index);
-        read_lfe_chars(lfe->LDIR_Name1, 10, lfn_buff, &lfn_index);
+        // first one, as described in the fat specification
+        read_lfn_section(lfe->LDIR_Name3, 4, lfn_buff, &lfn_index);
+        read_lfn_section(lfe->LDIR_Name2, 12, lfn_buff, &lfn_index);
+        read_lfn_section(lfe->LDIR_Name1, 10, lfn_buff, &lfn_index);
       }
     }
 
@@ -1208,9 +1208,6 @@ error_code fat_32_open_root_dir(fat_file_system* fs, fat_file* f) {
     if (ERROR(err = disk_cache_block_release(cb))) return err;
   }
 
-  // debug_write("In open root dir, the FS kind is: ");
-  // debug_write(fs->kind);
-
   f->header._fs_header = CAST(fs_header*, fs);
   f->first_cluster = f->current_cluster = root_cluster;
 
@@ -1221,14 +1218,13 @@ error_code fat_32_open_root_dir(fat_file_system* fs, fat_file* f) {
 #endif
 
   f->current_section_start = fs->_.FAT121632.first_data_sector;
-
-  // Length is not there
   f->current_section_length = bytes_per_sector * sectors_per_clusters;
 
 #ifdef SHOW_DISK_INFO
   term_write(cout, "FAT32 ROOT DIR [sector] start=");
   term_write(cout, fs->_.FAT121632.first_data_sector);
 #endif
+
   f->current_section_pos = 0;
   f->current_pos = 0;
   // Since the FAT32 root directory has no fixed size, we don't specify a length
@@ -1246,7 +1242,7 @@ static error_code fat_open_root_dir(fat_file_system* fs, file** result) {
   
   if(ERROR(err = new_fat_file(&f))) return err;
 
-  if (f == NULL) return MEM_ERROR;
+  if (NULL == f) return MEM_ERROR;
 
   switch (fs->kind) {
     case FAT12_FS:
@@ -1264,6 +1260,7 @@ static error_code fat_open_root_dir(fat_file_system* fs, file** result) {
       f->current_pos = 0;
       f->length = f->current_section_length;
       f->header.type = TYPE_FOLDER;
+
       break;
     }
 
@@ -1342,7 +1339,7 @@ static error_code fat_32_find_first_empty_cluster(fat_file_system* fs, uint32* r
   uint16 i;
   clus = i = 2;
   // We start from the first cluster because we have no clue where data has been
-  // overridden
+  // overwritten 
   while ((lba < max_lba) && !found) {
     if (ERROR(err = disk_cache_block_acquire(fs->_.FAT121632.d, lba, &cb))) {
       return err;
@@ -1413,8 +1410,7 @@ static error_code fat_32_set_fat_link_value(fat_file_system* fs, uint32 cluster,
 }
 
 static error_code fat_fetch_first_empty_directory_position(
-    fat_file* directory, uint32* _position,
-    uint8 required_spots) {
+    fat_file* directory, uint32* _position, uint8 required_spots) {
   FAT_directory_entry de;
   uint32 position = *_position;
   uint8 spots_left = required_spots;
@@ -1488,6 +1484,8 @@ static error_code fat_allocate_directory_entry(
     }
 
     native_char c;
+    // Write the LFN sections. This should be refactored...
+
     for (uint8 i = 0; i < 10; i += 2) {
       if (chars > 0) {
         c = name[name_index - (chars--)];
@@ -1745,7 +1743,7 @@ static error_code fat_mkdir(fs_header* ffs, native_string name, uint8 depth, fil
   if(HAS_NO_ERROR(err)) {
     FAT_directory_entry dot_dot_entry;
 
-    if(fat_is_root_dir(parent)) {
+    if(FAT_IS_ROOT_DIR(parent)) {
       // Fill out dotdot manually
       dot_dot_entry.DIR_Attr = FAT_ATTR_DIRECTORY;
 
