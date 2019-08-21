@@ -151,7 +151,14 @@ typedef int32 error_code;
 #endif
 #endif
 
-#define SHOW_HEARTBEAT
+// #define SHOW_HEARTBEAT
+#define KIND_MALLOC
+
+#ifdef KIND_MALLOC
+
+#warning "Kind malloc has been activated. This is a debug declaration and it will slow down the execution"
+
+#endif
 
 #ifdef SHOW_HEARTBEAT
 

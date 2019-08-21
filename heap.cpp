@@ -92,6 +92,16 @@ static mem_block* get_block(heap* h, size_t sz) {
   bk->next_free = bk->prev_free = NULL;
   bk->used = 1;
 
+#ifdef KIND_MALLOC
+
+  uint8* data_ptr = CAST(uint8*, get_data_ptr(bk));
+
+  for (uint32 i = 0; i < sz; ++i) {
+    data_ptr[i] = 0;
+  }
+
+#endif
+
   return bk;
 }
 
