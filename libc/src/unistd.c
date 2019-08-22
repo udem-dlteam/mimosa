@@ -31,6 +31,7 @@ int REDIRECT_NAME(chdir)(const char *__path) {
 
   if(gamb_thread->type == THREAD_TYPE_USER) {
     program_thread* t = CAST(program_thread*, gamb_thread);
+    debug_write(CAST(native_string, __path));
     program_thread_chdir(t, CAST(native_string, __path));
   } else {
     panic(L"Gambit thread is a kernel thread");
@@ -67,6 +68,7 @@ char *REDIRECT_NAME(getcwd)(char *__buf, size_t __size) {
     native_string cwd = t->_cwd;
     char *p = __buf;
     while ((*p++ = *cwd++) != '\0') ;
+    debug_write(__buf);
     return __buf;
   } else {
     panic(L"Gambit thread is a kernel thread");

@@ -53,8 +53,8 @@ int main() {
 
 #ifdef GAMBIT_REPL
   {
-    term_write(cout, "Starting GSC...");
-    native_string file_name = "/dsk1/GSC.EXE";
+    term_write(cout, "Starting GSI...");
+    native_string file_name = "/dsk1/gambit/bin/gsi";
 
     file* prog = NULL;
     if (NO_ERROR == file_open(file_name, "r", &prog)) {
@@ -74,7 +74,7 @@ int main() {
 
       program_thread* task =
           CAST(program_thread*, kmalloc(sizeof(program_thread)));
-      new_program_thread(task, "/dsk1", CAST(libc_startup_fn, code), "Gambit");
+      new_program_thread(task, "/dsk1/home/sam", CAST(libc_startup_fn, code), "Gambit");
       term_write(cout, "Starting the Gambit thread\n");
       thread_start(CAST(thread*, task));
 

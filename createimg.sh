@@ -15,7 +15,6 @@ mount -t vfat ~/mimosa-build/floppy.img /mnt/tmp -o loop
 
 cp ~/mimosa-build/kernel.bin   /mnt/tmp/BOOT.SYS
 cp -r ~/mimosa-build/archive-items/. /mnt/tmp/
-cp -r ~/mimosa-build/archive-items/gambini /mnt/tmp/.gambini.scm
 
 # mkdir /mnt/tmp/folder
 # touch /mnt/tmp/folder/fif.tst

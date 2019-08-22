@@ -127,7 +127,11 @@ char *REDIRECT_NAME(getenv)(const char *__name) {
 #else
 
   // TODO: implement
-  return NULL;
+  if (__name[0] == 'H' && __name[1] == 'O' && __name[2] == 'M' && __name[3] == 'E' && __name[4] == '\0') {
+    return (char*)"/dsk1/home/sam";
+  } else {
+    return NULL;
+  }
 
 #endif
 #endif

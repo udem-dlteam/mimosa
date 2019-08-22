@@ -1,5 +1,6 @@
 #include "include/libc_common.h"
 #include "include/stdio.h"
+#include "include/stdarg.h"
 
 #ifdef USE_MIMOSA
 
@@ -465,19 +466,13 @@ int fprintf_aux_longlong(FILE *__restrict __stream, longlong __num, int __base, 
   return fprintf_aux_string(__stream, p, 0);
 }
 
-int REDIRECT_NAME(fprintf_aux)(FILE *__restrict __stream, const char **__format) {
-
-#define VA_LIST const char *
-#define VA_ARG(ap, type) (ap += sizeof(type), *(type*)(ap-sizeof(type)))
-#define VA_ARG_CHAR(ap) (char)VA_ARG(ap, int)
-#define VA_START(ap, last) ap = ((VA_LIST)(last) + sizeof(*last))
+int REDIRECT_NAME(vfprintf)(FILE *__restrict __stream, const char *__format, va_list __ap) {
 
   int n = 0;
   char c;
-  VA_LIST ap;
-  const char *fmt = *__format;
+  const char *fmt = __format;
 
-  VA_START(ap, __format);
+  libc_trace("vfprintf");
 
   while ((c = *fmt++) != '\0') {
     if (c == '%') {
@@ -515,17 +510,17 @@ int REDIRECT_NAME(fprintf_aux)(FILE *__restrict __stream, const char **__format)
         base += 8;
         if (lng == 0) {
           n += fprintf_aux_longlong(__stream,
-                                    VA_ARG(ap, int), 
+                                    va_arg(__ap, int), 
                                     base,
                                     precision);
         } else if (lng == 1) {
           n += fprintf_aux_longlong(__stream,
-                                    VA_ARG(ap, long), 
+                                    va_arg(__ap, long), 
                                     base,
                                     precision);
         } else {
           n += fprintf_aux_longlong(__stream,
-                                    VA_ARG(ap, longlong), 
+                                    va_arg(__ap, longlong), 
                                     base,
                                     precision);
         }
@@ -533,17 +528,17 @@ int REDIRECT_NAME(fprintf_aux)(FILE *__restrict __stream, const char **__format)
         break;
       case 'p':
         n += fprintf_aux_longlong(__stream,
-                                  (longlong)VA_ARG(ap, void*), 
+                                  (longlong)va_arg(__ap, void*), 
                                   16,
                                   precision);
         p++;
         break;
       case 's':
-        n += fprintf_aux_string(__stream, VA_ARG(ap, const char *), precision);
+        n += fprintf_aux_string(__stream, va_arg(__ap, const char *), precision);
         p++;
         break;
       case 'c':
-        n += fprintf_aux_char(__stream, VA_ARG_CHAR(ap));
+        n += fprintf_aux_char(__stream, va_arg_char(__ap));
         p++;
         break;
       case '%':
@@ -560,34 +555,46 @@ int REDIRECT_NAME(fprintf_aux)(FILE *__restrict __stream, const char **__format)
   return n;      
 }
 
+#else
+
+int REDIRECT_NAME(vfprintf)(FILE *__restrict __stream, const char *__format, va_list __ap) {
+  return LIBC_LINK._vfprintf(__stream, __format, __ap);
+}
+
 #endif
 
 int REDIRECT_NAME(fprintf)(FILE *__restrict __stream, const char *__format, ...) {
 
+  va_list ap;
+  va_start(ap, __format);
+
 #ifdef USE_LIBC_LINK
 
-  return LIBC_LINK._fprintf_aux(__stream, &__format);
+  return LIBC_LINK._vfprintf(__stream, __format, ap);
 
 #else
 
   libc_trace("fprintf");
 
-  return REDIRECT_NAME(fprintf_aux)(__stream, &__format);
+  return REDIRECT_NAME(vfprintf)(__stream, __format, ap);
 
 #endif
 }
 
 int REDIRECT_NAME(printf)(const char *__format, ...) {
 
+  va_list ap;
+  va_start(ap, __format);
+
 #ifdef USE_LIBC_LINK
 
-  return LIBC_LINK._fprintf_aux(LIBC_LINK._stdout, &__format);
+  return LIBC_LINK._vfprintf(LIBC_LINK._stdout, __format, ap);
 
 #else
 
   libc_trace("printf");
 
-  return REDIRECT_NAME(fprintf_aux)(LIBC_LINK._stdout, &__format);
+  return REDIRECT_NAME(vfprintf)(LIBC_LINK._stdout, __format, ap);
 
 #endif
 }
