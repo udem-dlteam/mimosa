@@ -135,7 +135,7 @@ typedef int32 error_code;
 // `make clean`. It seems that some parts of the
 // code that should be regenerated are not.
 #define GAMBIT_REPL
-//#define MIMOSA_REPL
+// #define MIMOSA_REPL
 
 // #define THREAD_SLEEP_TEST 
 

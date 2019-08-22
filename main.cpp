@@ -55,6 +55,24 @@ int main() {
   }
 
 #ifdef MIMOSA_REPL
+
+  file* f = NULL;
+  error_code err;
+  if(ERROR(err = file_open("/dsk1/alongfilenammme.txt", "a+", &f))) {
+    panic(L"Failed to open the file");
+  }
+  
+  native_string msg = "This is running on real hardware!";
+  uint32 msg_len = kstrlen(msg) + 1;
+  
+  if(ERROR(err = file_write(f, msg, msg_len))) {
+    panic(L"Failed to write the file");
+  }
+
+  if(ERROR(err = file_close(f))) {
+    panic(L"Failed to close the file");
+  }
+
   term_run(cout);
 #endif
 
