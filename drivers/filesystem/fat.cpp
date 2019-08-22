@@ -1497,13 +1497,9 @@ static error_code fat_allocate_directory_entry(fat_file_system* fs,
   }
 
   uint8 name_index = name_len;
-  term_write(cout, "Creating the file ");
-  term_write(cout, name);
-  term_write(cout, "Required spots: ");
-  term_write(cout, required_spots);
 
-  for (uint8 entry_idx = 0; entry_idx < required_spots - 1; ++entry_idx) {
-    uint8 ordinal = required_spots - 1 - entry_idx;
+  for (uint8 entry_idx = 0; entry_idx < (required_spots - 1); ++entry_idx) {
+    uint8 ordinal = (required_spots - 1) - entry_idx;
     uint8 max_chars, chars;
 
     if (0 == entry_idx) {
@@ -1638,15 +1634,17 @@ static error_code fat_32_create_empty_file(fat_file_system* fs,
   // -------------------------------------------------------------------------------
   // Write the directory entry to the disk, modifications must be done by this point
   // -------------------------------------------------------------------------------
-  uint32 position;
-  if(ERROR(err = fat_allocate_directory_entry(fs, parent_folder, de, name, &position))) {
-    return err; 
-  }
 
+  // Claim the link right now to avoid it being taken by the directory entry
+  // if it needs to be enlarged
   if (ERROR(err = fat_32_set_fat_link_value(fs, cluster, FAT_32_EOF))) {
     return err;
   }
 
+  uint32 position;
+  if(ERROR(err = fat_allocate_directory_entry(fs, parent_folder, de, name, &position))) {
+    return err; 
+  }
   // Correctly set to the right coordinates in the FAT
   // so we are at the beginning of the file
   f->header._fs_header = parent_folder->header._fs_header;
