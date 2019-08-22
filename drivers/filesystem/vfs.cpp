@@ -468,8 +468,18 @@ void vfnode_add_child(vfnode* parent, vfnode* child) {
 }
 
 vfnode* new_vfnode(vfnode* vf, native_string name, file_type type) {
+  if(NULL == name) {
+    return NULL;
+  }
+
+  uint32 name_len = kstrlen(name) + 1;  // count the zero
   vf->type = type;
-  vf->name = name;
+  if (NULL == (vf->name = CAST(native_string,
+                               kmalloc(sizeof(native_char) * name_len)))) {
+    return NULL;
+  }
+
+  memcpy(vf->name, name, name_len);
   vf->_first_child = vf->_next_sibling = vf->_parent = NULL;
 
   return vf;

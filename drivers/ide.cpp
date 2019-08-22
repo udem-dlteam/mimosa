@@ -104,10 +104,10 @@ void ide_irq(ide_controller* ctrl) {
   s = inb(base + IDE_STATUS_REG);
 
   if (s & IDE_STATUS_ERR) {
-#ifdef SHOW_DISK_INFO
+// #ifdef SHOW_DISK_INFO
     uint8 err = inb(base + IDE_ERROR_REG);
 
-    term_write(cout, "***IDE ERROR***\n");
+    // term_write(cout, "***IDE ERROR***\n");
 
     if (err & IDE_ERROR_BBK)
       term_write(cout, "Bad block mark detected in sector's ID field\n");
@@ -121,7 +121,7 @@ void ide_irq(ide_controller* ctrl) {
       term_write(cout, "Track 0 not found during recalibrate command\n");
     if (err & IDE_ERROR_AMNF)
       term_write(cout, "Data address mark not found after ID field\n");
-#endif
+// #endif
 
     if (type == cmd_read_sectors) {
       entry->_.read_sectors.err = UNKNOWN_ERROR;
@@ -155,7 +155,7 @@ extern "C" void irq14() {
 
   ACKNOWLEDGE_IRQ(14);
 
-  ide_irq (&ide_mod.ide[0]);
+  ide_irq(&ide_mod.ide[0]);
 }
 
 #endif
@@ -174,7 +174,7 @@ extern "C" void irq15() {
 
 #endif
 
-error_code  ide_read_sectors(ide_device* dev, uint32 lba, void* buf,
+error_code ide_read_sectors(ide_device* dev, uint32 lba, void* buf,
                             uint32 count) {
   error_code err = NO_ERROR;
 
@@ -186,7 +186,7 @@ error_code  ide_read_sectors(ide_device* dev, uint32 lba, void* buf,
     ide_cmd_queue_entry* entry;
 
     disable_interrupts();
-
+ide_read_sector_retry:
     entry = ide_cmd_queue_alloc(dev);
 
     if (count > 256) count = 256;
@@ -215,7 +215,7 @@ error_code  ide_read_sectors(ide_device* dev, uint32 lba, void* buf,
   return err;
 }
 
-error_code  ide_write_sectors(ide_device* dev, uint32 lba, void* buf,
+error_code ide_write_sectors(ide_device* dev, uint32 lba, void* buf,
                              uint32 count) {
   error_code err = NO_ERROR;
 
@@ -688,9 +688,9 @@ static void setup_ide_controller(ide_controller* ctrl, uint8 id) {
 
     stat[i] = inb(base + IDE_STATUS_REG);
 
-    if ((stat[i] & (IDE_STATUS_BSY | IDE_STATUS_DRDY | IDE_STATUS_DF |
+    if ((stat[i] & (IDE_STATUS_BSY | IDE_STATUS_RDY | IDE_STATUS_DF |
                     IDE_STATUS_DSC | IDE_STATUS_DRQ)) !=
-        (IDE_STATUS_BSY | IDE_STATUS_DRDY | IDE_STATUS_DF | IDE_STATUS_DSC |
+        (IDE_STATUS_BSY | IDE_STATUS_RDY | IDE_STATUS_DF | IDE_STATUS_DSC |
          IDE_STATUS_DRQ)) {
       ctrl->device[i].kind = IDE_DEVICE_ATAPI;  // for now means the device
       candidates++;                             // is possibly present

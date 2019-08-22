@@ -48,13 +48,33 @@ int main() {
   } while(1);
 #endif
 #ifdef MIMOSA_REPL
+
+  file* f = NULL;
+  error_code err;
+  if(ERROR(err = file_open("/dsk1/write.txt", "a+", &f))) {
+    panic(L"Failed to open the file");
+  }
+
+  native_string msg = "this is a long message to write on disk";
+  uint32 msg_len = kstrlen(msg) + 1;
+  
+  if(ERROR(err = file_write(f, msg, msg_len))) {
+    panic(L"Failed to write the file");
+  }
+
+  if(ERROR(err = file_close(f))) {
+    panic(L"Failed to close the file");
+  }
+
   term_run(cout);
 #endif
 
 #ifdef GAMBIT_REPL
   {
-    term_write(cout, "Starting GSI...");
     native_string file_name = "/dsk1/gambit/bin/gsi";
+    term_write(cout, "Starting ");
+    term_write(cout, file_name);
+    term_writeline(cout);
 
     file* prog = NULL;
     if (NO_ERROR == file_open(file_name, "r", &prog)) {
@@ -66,7 +86,7 @@ int main() {
 
       error_code err;
       if (ERROR(err = file_read(prog, code, len))) {
-        panic(L"ERR");
+        panic(L"Error while loading the file.");
       }
 
       term_write(cout, "Gambit file loaded...");
@@ -77,6 +97,7 @@ int main() {
       new_program_thread(task, "/dsk1/home/sam", CAST(libc_startup_fn, code), "Gambit");
       term_write(cout, "Starting the Gambit thread\n");
       thread_start(CAST(thread*, task));
+      term_write(cout, "Gambit thread started\n");
 
 #ifdef REMOTE_COM
         for(;;){

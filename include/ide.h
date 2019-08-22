@@ -42,14 +42,14 @@
 #define IDE_DEV_CTRL_REG    0x206
 #define IDE_DRIVE_ADDR_REG  0x207
 
-#define IDE_STATUS_BSY   (1<<7) // Device busy bit
-#define IDE_STATUS_DRDY  (1<<6) // Device ready bit
-#define IDE_STATUS_DF    (1<<5) // Device fault bit
-#define IDE_STATUS_DSC   (1<<4) // Drive seek complete bit
-#define IDE_STATUS_DRQ   (1<<3) // Data request bit
-#define IDE_STATUS_CORR  (1<<2) // Corrected data bit
-#define IDE_STATUS_INDEX (1<<1) // Index bit
-#define IDE_STATUS_ERR   (1<<0) // Error bit
+#define IDE_STATUS_BSY (1 << 7)  // Device busy bit
+#define IDE_STATUS_RDY (1 << 6)  // Device ready bit
+#define IDE_STATUS_DF (1 << 5)   // Device fault bit
+#define IDE_STATUS_DSC (1 << 4)  // Drive seek complete bit
+#define IDE_STATUS_DRQ (1 << 3)  // Data request bit
+#define IDE_STATUS_CORR (1 << 2)  // Corrected data bit
+#define IDE_STATUS_INDEX (1 << 1)  // Index bit
+#define IDE_STATUS_ERR (1 << 0)    // Error bit
 
 #define IDE_ERROR_BBK   (1<<7) // Bad block mark detected in sector's ID field
 #define IDE_ERROR_UNC   (1<<6) // Uncorrectable data error encountered

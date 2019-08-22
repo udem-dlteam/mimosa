@@ -102,7 +102,9 @@ typedef int32 error_code;
 // #define USE_TSC_FOR_TIME
 
 #ifdef USE_IRQ8_FOR_TIME
-#define IRQ8_COUNTS_PER_SEC 1024  // power of 2, from 2 to 8192
+
+#define IRQ8_COUNTS_PER_SEC 4096 // power of 2, from 2 to 8192
+
 #endif
 
 // For the keyboard and mouse, IRQ1 and IRQ12 are used respectively.
@@ -132,8 +134,8 @@ typedef int32 error_code;
 // When you change the REPL, you should force a 
 // `make clean`. It seems that some parts of the
 // code that should be regenerated are not.
-#define GAMBIT_REPL
-// #define MIMOSA_REPL
+// #define GAMBIT_REPL
+#define MIMOSA_REPL
 
 // #define THREAD_SLEEP_TEST 
 
@@ -149,6 +151,21 @@ typedef int32 error_code;
 #endif
 #endif
 
+// #define SHOW_HEARTBEAT
+// #define KIND_MALLOC
+
+#ifdef KIND_MALLOC
+
+#warning "Kind malloc has been activated. This is a debug declaration and it will slow down the execution"
+
+#endif
+
+#ifdef SHOW_HEARTBEAT
+
+#define HEARTBEAT_FREQ 20 
+
+#endif
+
 // #define SHOW_FILE_READ_PROGRESS
 // #define STREAM_STDOUT_TO_DEBUG_CONSOLE
 // #define SHOW_INTERRUPTS
@@ -158,11 +175,11 @@ typedef int32 error_code;
 // #define SHOW_DISK_INFO
 #define CHECK_ASSERTIONS
 // #define PRINT_ASSERTIONS
-#define USE_CACHE_BLOCK_MAID
+// #define USE_CACHE_BLOCK_MAID
 #define USE_BLOCK_REF_COUNTER_FREE
 // #define SHOW_UART_MESSAGES
 #define RED_PANIC_SCREEN
-#define ENABLE_DEBUG_WRITE
+// #define ENABLE_DEBUG_WRITE
 #define ENABLE_DEBUG_MARKER
 // #define ENABLE_MOUSE
 

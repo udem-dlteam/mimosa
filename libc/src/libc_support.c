@@ -62,9 +62,8 @@ void libc_trace_(const char *msg) {
 
 #else
 
-  libc_wr_string(2, "------> ");
-  libc_wr_string(2, msg);
-  libc_wr_string(2, "\n");
+  term_write(cout, CAST(native_string, msg));
+  term_writeline(cout);
 
 #endif
 }

@@ -32,9 +32,10 @@ const uint32 GAMBIT_START = 0x100000;
 
 //-----------------------------------------------------------------------------
 
+#define ARE_INTERRUPTS_ENABLED() (eflags_reg() & (1 << 9))
+
 #ifdef CHECK_ASSERTIONS
 
-#define ARE_INTERRUPTS_ENABLED() (eflags_reg() & (1 << 9))
 
 #define ASSERT_INTERRUPTS_DISABLED()                 \
   do {                                               \

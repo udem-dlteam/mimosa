@@ -59,6 +59,7 @@ FILE *REDIRECT_NAME(fopen)(const char *__restrict __filename,
     // debug_write("STDIO FOPEN");
     // debug_write(CAST(native_string, __filename));
 
+
     error_code err;
     file *f;
     if (HAS_NO_ERROR(err = file_open(CAST(native_string, __filename),
@@ -140,7 +141,7 @@ size_t REDIRECT_NAME(fwrite)(const void *__restrict __ptr, size_t __size,
 
 #else
 
-  //  libc_trace("fwrite");
+   libc_trace("fwrite");
 
 #ifdef USE_HOST_LIBC
 

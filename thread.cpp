@@ -326,8 +326,8 @@ void condvar_mutexless_signal(condvar* self) {
 program_thread* new_program_thread(program_thread* self, native_string cwd,
                                    libc_startup_fn run, native_string name) {
   new_thread(&self->super, NULL, name);
-  self->super._prio = high_priority;
   self->super.type = THREAD_TYPE_USER;
+  self->super._prio = high_priority;
   self->_code = run;
   self->_cwd = NULL;
   self->super.vtable = &_program_thread_vtable;

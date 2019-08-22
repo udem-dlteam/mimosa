@@ -525,7 +525,7 @@ void setup_disk() {
     hash_bucket_deq->prev = hash_bucket_deq;
 
     // cb->d and cb->sector_pos and cb->err can stay undefined
-
+    cb->dirty = 0;
     cb->refcount = 0;
     cb->mut = new_rwmutex(CAST(rwmutex*, kmalloc(sizeof(rwmutex))));
     cb->cv = new_condvar(CAST(condvar*, kmalloc(sizeof(condvar))));
