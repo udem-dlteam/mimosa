@@ -627,33 +627,20 @@ error_code setup_uarts(vfnode* parent_node) {
   __uart_vtable._file_write = uart_write;
   __uart_vtable._readdir = uart_readdir;
 
-  if (ports[0].status & COM_PORT_STATUS_EXISTS) {
-    new_vfnode(&COM1_NODE, COM1_NAME, TYPE_VFILE);
-    COM1_NODE._value.file_gate.identifier = COM1_PORT_BASE;
-    COM1_NODE._value.file_gate._vf_node_open = uart_open;
-    vfnode_add_child(parent_node, &COM1_NODE);
+#define connect_port(node, name, index)                  \
+  if (ports[(index)].status & COM_PORT_STATUS_EXISTS) {  \
+    new_vfnode(&(node), (name), TYPE_VFILE);             \
+    (node)._value.file_gate.identifier = COM1_PORT_BASE; \
+    (node)._value.file_gate._vf_node_open = uart_open;   \
+    vfnode_add_child(parent_node, &(node));              \
   }
 
-  if (ports[1].status & COM_PORT_STATUS_EXISTS) {
-    new_vfnode(&COM2_NODE, COM2_NAME, TYPE_VFILE);
-    COM2_NODE._value.file_gate.identifier = COM2_PORT_BASE;
-    COM2_NODE._value.file_gate._vf_node_open = uart_open;
-    vfnode_add_child(parent_node, &COM2_NODE);
-  }
+  connect_port(COM1_NODE, COM1_NAME, 0);
+  connect_port(COM2_NODE, COM2_NAME, 1);
+  connect_port(COM3_NODE, COM3_NAME, 2);
+  connect_port(COM4_NODE, COM4_NAME, 3);
 
-  if (ports[2].status & COM_PORT_STATUS_EXISTS) {
-    new_vfnode(&COM3_NODE, COM3_NAME, TYPE_VFILE);
-    COM3_NODE._value.file_gate.identifier = COM3_PORT_BASE;
-    COM3_NODE._value.file_gate._vf_node_open = uart_open;
-    vfnode_add_child(parent_node, &COM3_NODE);
-  }
-
-  if (ports[3].status & COM_PORT_STATUS_EXISTS) {
-    new_vfnode(&COM4_NODE, COM4_NAME, TYPE_VFILE);
-    COM4_NODE._value.file_gate.identifier = COM4_PORT_BASE;
-    COM4_NODE._value.file_gate._vf_node_open = uart_open;
-    vfnode_add_child(parent_node, &COM4_NODE);
-  }
+#undef connect_port
 
   return err;
 }
