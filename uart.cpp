@@ -579,8 +579,7 @@ static error_code detect_hardware() {
 // correctly set on the receiving machine
 bool port_exists(uint16 port_num){
   uint16 com_port = com_num_to_port(port_num);
-  bool exist = true;
-
+  
   // set a baud rate of 57100
   outb(0x80, com_port + UART_8250_LCR);  // Enable DLAB (set baud rate divisor)
   outb(0x02, com_port + UART_8250_DLL); // set divisor to 2 div latch lo
@@ -594,7 +593,7 @@ bool port_exists(uint16 port_num){
   LCR_val = inb(com_port + UART_8250_LCR) && 0x7F;
   outb( LCR_val, com_port + UART_8250_LCR); // disable DLAB
 
-  if( divisor_latch != 2 ) exist = false;
+  if( divisor_latch != 2 ) return false;
 
     // set a baud rate of 115200
   outb(0x80, com_port + UART_8250_LCR);  // Enable DLAB (set baud rate divisor)
@@ -609,9 +608,7 @@ bool port_exists(uint16 port_num){
   LCR_val = inb(com_port + UART_8250_LCR) && 0x7F;
   outb( LCR_val, com_port + UART_8250_LCR); // disable DLAB
 
-  if( divisor_latch != 1) exist = false;
-    
-  return exist;
+  return divisor_latch != 1;
 }
 
 error_code setup_uarts(vfnode* parent_node) {
