@@ -19,6 +19,7 @@
 #include "term.h"
 #include "thread.h"
 #include "uart.h"
+#include "bios.h"
 
 int main() {
 #ifdef THREAD_SLEEP_TEST
@@ -47,13 +48,19 @@ int main() {
     thread_sleep_seconds(10); 
   } while(1);
 #endif
+
+  {
+    struct bios_call_regs r;
+    bios_call(0x10, &r);
+  }
+
 #ifdef MIMOSA_REPL
   term_run(cout);
 #endif
 
 #ifdef GAMBIT_REPL
   {
-    native_string file_name = "/dsk1/GSC.EXE";
+    native_string file_name = "/dsk1/gambit/bin/gsi";
     term_write(cout, "Starting ");
     term_write(cout, file_name);
     term_writeline(cout);
@@ -76,11 +83,10 @@ int main() {
 
       program_thread* task =
           CAST(program_thread*, kmalloc(sizeof(program_thread)));
-      new_program_thread(task, "/dsk1", CAST(libc_startup_fn, code), "Gambit");
-
-      term_write(cout, "Starting the Gambit thread\n");
+      new_program_thread(task, "/dsk1/home/sam/", CAST(libc_startup_fn, code), "Gambit");
+      // term_write(cout, "Starting the Gambit thread\n");
       thread_start(CAST(thread*, task));
-      term_write(cout, "Gambit thread started\n");
+      // term_write(cout, "Gambit thread started\n");
 
 #ifdef REMOTE_COM
         for(;;){

@@ -3,7 +3,7 @@
 OS_NAME = "\"MIMOSA version 1.2\""
 KERNEL_START = 0x20000
 
-KERNEL_OBJECTS = kernel.o libc/libc_os.o drivers/filesystem/vfs.o drivers/filesystem/stdstream.o main.o drivers/filesystem/fat.o drivers/ide.o disk.o thread.o chrono.o ps2.o term.o video.o intr.o rtlib.o uart.o heap.o $(NETWORK_OBJECTS)
+KERNEL_OBJECTS = kernel.o libc/libc_os.o drivers/filesystem/vfs.o drivers/filesystem/stdstream.o main.o drivers/filesystem/fat.o drivers/ide.o disk.o thread.o chrono.o ps2.o term.o video.o intr.o rtlib.o uart.o heap.o bios.o $(NETWORK_OBJECTS)
 #NETWORK_OBJECTS =
 #NETWORK_OBJECTS = eepro100.o tulip.o timer2.o misc.o pci.o config.o net.o
 DEFS = -DINCLUDE_EEPRO100 
@@ -42,7 +42,11 @@ img:
 	rm flop.tar.gz
 
 run:
-	qemu-system-i386 -s -m 1G -hda mimosa-build/floppy.img -serial tcp:localhost:44555,server,nowait -debugcon stdio
+	qemu-system-i386 -s -m 1G -hda mimosa-build/floppy.img -debugcon stdio
+
+run-with-serial:
+	qemu-system-i386 -s -m 1G -hda mimosa-build/floppy.img -serial tcp:localhost:44555,server,nowait -serial pty -serial pty -debugcon stdio 
+
 
 debug:
 	qemu-system-i386 -s -S -m 1G -hda mimosa-build/floppy.img -debugcon stdio

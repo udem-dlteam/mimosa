@@ -293,11 +293,12 @@ CODE_SEG_ER_CONF_ACCESSED  = (16+15)
 #  T (table indicator) T=0 for GDT, T=1 for LDT
 #  RPL (requested privilege level) RPL=0 is highest level
 
-NULL_SEGMENT = 0
-SYST_SEGMENT = 1
-CODE_SEGMENT = 2
-DATA_SEGMENT = 3
-NB_SEGMENTS  = 4
+CODE16_SEGMENT = 0   # convenient that it is 0
+DATA16_SEGMENT = 1
+CODE_SEGMENT   = 2
+DATA_SEGMENT   = 3
+NULL_SEGMENT   = 4
+NB_SEGMENTS    = 5
 
 GDT = 0
 LDT = 1
@@ -307,10 +308,11 @@ PL_1 = 1
 PL_2 = 2
 PL_3 = 3
 
-NULL_SEG_SEL = (NULL_SEGMENT<<3)+(GDT<<2)+PL_0
-SYST_SEG_SEL = (SYST_SEGMENT<<3)+(GDT<<2)+PL_0
-DATA_SEG_SEL = (DATA_SEGMENT<<3)+(GDT<<2)+PL_0
-CODE_SEG_SEL = (CODE_SEGMENT<<3)+(GDT<<2)+PL_0
+CODE16_SEG_SEL = (CODE16_SEGMENT<<3)+(GDT<<2)+PL_0
+DATA16_SEG_SEL = (DATA16_SEGMENT<<3)+(GDT<<2)+PL_0
+CODE_SEG_SEL   = (CODE_SEGMENT<<3)+(GDT<<2)+PL_0
+DATA_SEG_SEL   = (DATA_SEGMENT<<3)+(GDT<<2)+PL_0
+NULL_SEG_SEL   = (NULL_SEGMENT<<3)+(GDT<<2)+PL_0
 
 #------------------------------------------------------------------------------
 
@@ -670,15 +672,21 @@ init_gdt:
 
 # initialize GDT entries for null segment, code segment and data segment
 
-  xorl  %eax,%eax
-  movl  %eax,%es:NULL_SEGMENT*8+0
-  movl  %eax,%es:NULL_SEGMENT*8+4
+  movl  $0x0000ffff,%es:CODE16_SEGMENT*8+0
+  movl  $(GRANU_1<<23)+(DEF_SIZE_16<<22)+(PRESENT<<15)+(PL_0<<13)+(CODE_SEG_ER<<8)+0x000f0000,%es:CODE16_SEGMENT*8+4
+
+  movl  $0x0000ffff,%es:DATA16_SEGMENT*8+0
+  movl  $(GRANU_1<<23)+(SP_SIZE_16<<22)+(PRESENT<<15)+(PL_0<<13)+(DATA_SEG_RW<<8)+0x000f0000,%es:DATA16_SEGMENT*8+4
 
   movl  $0x0000ffff,%es:CODE_SEGMENT*8+0
   movl  $(GRANU_4096<<23)+(DEF_SIZE_32<<22)+(PRESENT<<15)+(PL_0<<13)+(CODE_SEG_ER<<8)+0x000f0000,%es:CODE_SEGMENT*8+4
 
   movl  $0x0000ffff,%es:DATA_SEGMENT*8+0
   movl  $(GRANU_4096<<23)+(SP_SIZE_32<<22)+(PRESENT<<15)+(PL_0<<13)+(DATA_SEG_RW<<8)+0x000f0000,%es:DATA_SEGMENT*8+4
+
+  xorl  %eax,%eax
+  movl  %eax,%es:NULL_SEGMENT*8+0
+  movl  %eax,%es:NULL_SEGMENT*8+4
 
 #------------------------------------------------------------------------------
 

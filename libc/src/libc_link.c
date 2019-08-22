@@ -77,7 +77,7 @@ void libc_init(void) {
   LIBC_LINK._fileno = REDIRECT_NAME(fileno);
   LIBC_LINK._setbuf = REDIRECT_NAME(setbuf);
   LIBC_LINK._rename = REDIRECT_NAME(rename);
-  LIBC_LINK._fprintf_aux = REDIRECT_NAME(fprintf_aux);
+  LIBC_LINK._vfprintf = REDIRECT_NAME(vfprintf);
 #if 0
   LIBC_LINK._stdin = REDIRECT_NAME(stdin);
   LIBC_LINK._stdout = REDIRECT_NAME(stdout);

@@ -16,6 +16,7 @@
 #include "include/unistd.h"
 #include "include/sys/time.h"
 #include "include/sys/resource.h"
+#include "include/stdarg.h"
 
 struct libc_link {
 
@@ -80,7 +81,7 @@ struct libc_link {
   int (*_fileno)(FILE *__restrict __stream);
   void (*_setbuf)(FILE *__restrict __stream, char *__restrict __buf);
   int (*_rename)(const char *__oldpath, const char *__newpath);
-  int (*_fprintf_aux)(FILE *__restrict __stream, const char **__format);
+  int (*_vfprintf)(FILE *__restrict __stream, const char *__format, va_list __ap);
   FILE *_stdin;
   FILE *_stdout;
   FILE *_stderr;

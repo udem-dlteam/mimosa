@@ -73,9 +73,6 @@ static inline uint16 com_num_to_port(uint8 num) {
   }
 }
 
-//static bool errmess = TRUE;
-#define errmess TRUE
-
 /* TODO:
  * Add two args: arg1=stream de lecture arg2=stream d'ecriture
  */
@@ -89,20 +86,13 @@ error_code init_serial(int com_port) {
     panic(L"Trying to init a serial port with an invalid COM port...");
   }
 
-
-  // TODO: verifier si le port est la...
-
   outb(0x00, com_port + UART_8250_IER);  // Disable all interrupts
   outb(0x80, com_port + UART_8250_LCR);  // Enable DLAB (set baud rate divisor)
-  outb(0x03,
-       com_port + UART_8250_DLL);  // Set divisor to 3 (lo byte) 38400 baud
-  outb(0x00,
-       com_port + UART_8250_DLM);  // Set divisor to 3 (lo byte) 38400 baud
-  outb(0x03, com_port + UART_8250_LCR);  // 8 bits, no parity, one stop bit
-  outb(0x0F, com_port + UART_8250_IER);  //                  (hi byte)
-  outb(0x8E,
-       com_port +
-           UART_8250_IIR);  //Do not enable FIFO, clear them, with 14-byte threshold
+  outb(0x03, com_port + UART_8250_DLL);  // Set divisor to 3 (lo byte) 38400 baud
+  outb(0x00, com_port + UART_8250_DLH);  // Set (high byte) 0 
+  outb(0x03, com_port + UART_8250_LCR);  // 8 bits, no parity, one stop bit, close DLAB
+  outb(0x0F, com_port + UART_8250_IER); 
+  outb(0x8E, com_port + UART_8250_IIR);  //Do not enable FIFO, clear with 14-byte threshold
   outb(0x08, com_port + UART_8250_MCR);  // IRQs enabled, RTS/DSR set
 
   switch (com_port) {
@@ -129,27 +119,35 @@ static void read_msr(uint16 port){
   uint8 c = inb(port + UART_8250_MSR);
   debug_write( "Read MSR");
   if( UART_MSR_CARRIER_DETECT(c) ){
-    if(errmess)
+#ifdef SHOW_UART_MESSAGES
+
       debug_write("Modem connected to another modem");
+#endif
   } else {
-    if(errmess)
+#ifdef SHOW_UART_MESSAGES
+
       debug_write("Modem not connected to another modem");
+#endif
   }
   //if( UART_MSR_RING_INDICATOR(c) ){
   //  debug_write("\r\nRing Voltage\r\n");
   //}
   if( UART_MSR_DATA_SET_READY(c) ){
     // TODO
-    if(errmess)
+#ifdef SHOW_UART_MESSAGES
+
       debug_write("Data Set Ready");
+#endif
   }
   if( UART_MSR_CLEAR_TO_SEND(c) ){
     // handshaking signal. This is normally connected
     // to the RTS (Request To Send) signal on the remove
     // device. When that remote device asserts its RTS line,
     // data transmission can take place
-    if(errmess)
+#ifdef SHOW_UART_MESSAGES
+
       debug_write("Clear to Send");
+#endif
   }
   // ignored bits for the moment
   //if( UART_MSR_DELTA_DATA_CARRIER_DETECT(c) ){}
@@ -175,7 +173,9 @@ static void handle_thr(uint16 portn) {
       condvar_mutexless_signal(port->wrt_cv);
     }
 
-    if (errmess) debug_write("data written in THR");
+#ifdef SHOW_UART_MESSAGES
+     debug_write("data written in THR");
+#endif
   }
 }
 
@@ -205,27 +205,41 @@ static void read_lsr(uint16 port) {
 
   if (UART_LSR_DATA_AVAILABLE(e)) {
     // read (RHR)
-    if (errmess) debug_write("Data Available");
+#ifdef SHOW_UART_MESSAGES
+     debug_write("Data Available");
+#endif
     read_RHR(port);
   }
   if (UART_LSR_OVERRUN_ERROR(e)) {
-    if (errmess) debug_write("OVERRUN_ERROR");
+#ifdef SHOW_UART_MESSAGES
+     debug_write("OVERRUN_ERROR");
+#endif
   }
   if (UART_LSR_PARITY_ERROR(e)) {
-    if (errmess) debug_write("PARITY_ERROR");
+#ifdef SHOW_UART_MESSAGES
+     debug_write("PARITY_ERROR");
+#endif
   }
   if (UART_LSR_FRAMING_ERROR(e)) {
-    if (errmess) debug_write("FRAMING_ERROR");
+#ifdef SHOW_UART_MESSAGES
+     debug_write("FRAMING_ERROR");
+#endif
   }
   if (UART_LSR_BREAK_INTERRUPT(e)) {
-    if (errmess) debug_write("BREAK_INTERRUPT");
+#ifdef SHOW_UART_MESSAGES
+     debug_write("BREAK_INTERRUPT");
+#endif
   }
   if (UART_LSR_CAN_RECEIVE(e)) {
-    if (errmess) debug_write("CAN_RECEIVE");
+#ifdef SHOW_UART_MESSAGES
+     debug_write("CAN_RECEIVE");
+#endif
     // reading the lsr or writing to the data register clears this bit
   }
   if (UART_LSR_ALL_CAR_TRANSMITTED(e)) {
-    if (errmess) debug_write("ALL_CAR_TRANSMITTED");
+#ifdef SHOW_UART_MESSAGES
+     debug_write("ALL_CAR_TRANSMITTED");
+#endif
   }
   // if( UART_LSR_ERROR_IN_RECEIVED_FIFO(e) ){
   //  //FIFO never used for the moment.
@@ -234,15 +248,14 @@ static void read_lsr(uint16 port) {
 }
 
 void _handle_interrupt(uint16 port, uint8 com_index, uint8 iir) {
-  if (errmess) debug_write(inb(port + UART_8250_IIR));
 #ifdef SHOW_UART_MESSAGES
-  if (errmess) {
+    debug_write("interrupt code:");
+    debug_write(inb(port + UART_8250_IIR));
     debug_write("IRQ4 fired and COM ");
     debug_write(com_index);
     debug_write(" on port ");
     debug_write(port);
     debug_write(" got data");
-  }
 #endif
   uint8 cause = UART_IIR_GET_CAUSE(iir);
 
@@ -254,7 +267,9 @@ void _handle_interrupt(uint16 port, uint8 com_index, uint8 iir) {
       //             line signal detect signals.
       // priority :lowest
       // Reading Modem Status Register (MSR)
-      if (errmess) debug_write("Read_modem_status_register");
+#ifdef SHOW_UART_MESSAGES
+       debug_write("Read_modem_status_register");
+#endif
       read_msr(port);
       break;
     case UART_IIR_TRANSMITTER_HOLDING_REG:
@@ -264,7 +279,9 @@ void _handle_interrupt(uint16 port, uint8 com_index, uint8 iir) {
       // priority : next to lowest
       // Reading interrupt indentification register(IIR)
       // or writing to Transmit Holding Buffer (THR)
-      if (errmess) debug_write("Transmitter_Holding_reg");
+#ifdef SHOW_UART_MESSAGES
+       debug_write("Transmitter_Holding_reg");
+#endif
       handle_thr(port);
       break;
     case UART_IIR_RCV_LINE:
@@ -273,7 +290,9 @@ void _handle_interrupt(uint16 port, uint8 com_index, uint8 iir) {
       //             error, or break interrupt.
       // priority : highest
       // reading line status register
-      if (errmess) debug_write("Error or Break");
+#ifdef SHOW_UART_MESSAGES
+       debug_write("Error or Break");
+#endif
       read_lsr(port);
       break;
     case UART_IIR_DATA_AVAIL:
@@ -285,11 +304,15 @@ void _handle_interrupt(uint16 port, uint8 com_index, uint8 iir) {
       // This means that we need to read data
       // before the connection timeouts
       // reading receive Buffer Register(RHR)
-      if (errmess) debug_write("Data Avail");
+#ifdef SHOW_UART_MESSAGES
+       debug_write("Data Avail");
+#endif
       read_RHR(port);  // ***
       break;
     case UART_IIR_TIMEOUT:
-      if (errmess) debug_write("Timeout");
+#ifdef SHOW_UART_MESSAGES
+       debug_write("Timeout");
+#endif
       // simple serial read
       read_RHR(port);
       break;
@@ -387,6 +410,8 @@ error_code uart_open(uint32 id, file_mode mode, file** result) {
       return FNF_ERROR;
       break;
   }
+  // should be removed but required at the moment for Gambit to execute properly
+  mode |= MODE_NONBLOCK_ACCESS;
 
   // Only one can work on a port at a time
   com_port* port = &ports[com_num(port_id)];
@@ -536,7 +561,6 @@ static error_code detect_hardware() {
   error_code err = NO_ERROR;
 
   // Init the values to a known status
-
   for (uint8 i = 0; i < 4; ++i) {
     init_serial(com_num_to_port(i));
     ports[i].rbuffer = NULL;
@@ -544,11 +568,48 @@ static error_code detect_hardware() {
     ports[i].rbuffer_len = ports[i].wbuffer_len = 0;
     ports[i].rlo = ports[i].rhi = ports[i].wlo = ports[i].whi = 0;
     // Si le port est la, il faut mettre le status correct.
-    ports[i].status |= COM_PORT_STATUS_EXISTS;
+    if (port_exists(i)) ports[i].status |= COM_PORT_STATUS_EXISTS;
     ports[i].port = com_num_to_port(i);
   }
 
   return err;
+}
+
+// to detect if a port exists I can set a certain baud rate then watch if it has been
+// correctly set on the receiving machine
+bool port_exists(int port_num) {
+
+  uint16 com_port = com_num_to_port(port_num);
+  
+  // set a baud rate of 57100
+  outb(0x80, com_port + UART_8250_LCR);  // Enable DLAB (set baud rate divisor)
+  outb(0x02, com_port + UART_8250_DLL); // set divisor to 2 div latch lo
+  outb(0x00, com_port + UART_8250_DLH); // (now baud rate is 57100)
+  uint8 LCR_val = inb(com_port + UART_8250_LCR) && 0x7F;
+  outb( LCR_val, com_port + UART_8250_LCR); // disable DLAB
+  
+  // get the baud rate that we set
+  outb(0x80, com_port + UART_8250_LCR); // enable DLAB
+  uint8 divisor_latch = ( inb(com_port + UART_8250_DLH) >> 8 ) + inb(com_port + UART_8250_DLL );
+  LCR_val = inb(com_port + UART_8250_LCR) && 0x7F;
+  outb( LCR_val, com_port + UART_8250_LCR); // disable DLAB
+
+  if( divisor_latch != 2 ) return false;
+
+    // set a baud rate of 115200
+  outb(0x80, com_port + UART_8250_LCR);  // Enable DLAB (set baud rate divisor)
+  outb(0x01, com_port + UART_8250_DLL); // set divisor to 1 div latch lo
+  outb(0x00, com_port + UART_8250_DLH); // (now baud rate is 115200)
+  LCR_val = inb(com_port + UART_8250_LCR) && 0x7F;
+  outb( LCR_val, com_port + UART_8250_LCR); // disable DLAB
+  
+  // get the baud rate that we set
+  outb(0x80, com_port + UART_8250_LCR); // enable DLAB
+  divisor_latch = ( inb(com_port + UART_8250_DLH) >> 8 ) + inb(com_port + UART_8250_DLL );
+  LCR_val = inb(com_port + UART_8250_LCR) && 0x7F;
+  outb( LCR_val, com_port + UART_8250_LCR); // disable DLAB
+
+  return divisor_latch != 1;
 }
 
 error_code setup_uarts(vfnode* parent_node) {

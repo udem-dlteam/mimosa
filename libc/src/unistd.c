@@ -25,9 +25,34 @@ int REDIRECT_NAME(chdir)(const char *__path) {
   return chdir(__path);
 
 #else
-  debug_write("CHDIR called");
+
+  //  debug_write("chdir");
+  //  debug_write(CAST(native_string, __path));
 
   thread* gamb_thread = thread_self();
+
+  error_code err;
+  stat_buff sbuffer;
+
+  if (ERROR(err = file_stat(CAST(native_string, __path), &sbuffer))) {
+
+    switch (err) {
+    case FNF_ERROR:
+      errno = ENOENT; 
+      break;
+    
+    default:
+      errno = ENOENT;
+      break;
+    }
+
+    return -1;
+  }
+
+  if ((sbuffer.type & TYPE_FOLDER) != TYPE_FOLDER) {
+    errno = ENOTDIR;
+    return -1;
+  }
 
   if(gamb_thread->type == THREAD_TYPE_USER) {
     program_thread* t = CAST(program_thread*, gamb_thread);
@@ -36,7 +61,6 @@ int REDIRECT_NAME(chdir)(const char *__path) {
     panic(L"Gambit thread is a kernel thread");
   }
 
-  // TODO: implement
   return 0;
 
 #endif
@@ -58,7 +82,6 @@ char *REDIRECT_NAME(getcwd)(char *__buf, size_t __size) {
   return getcwd(__buf, __size);
 
 #else
-  debug_write("getcwd called");
 
   thread* gamb_thread = thread_self();
 
@@ -174,6 +197,10 @@ int REDIRECT_NAME(stat)(const char *__pathname, struct stat *__buf) {
   return stat(__pathname, __buf);
 
 #else
+
+  //  debug_write("stat");
+  //  debug_write(CAST(native_string, __pathname));
+
   error_code err;
   stat_buff sbuffer;
   if(ERROR(err = file_stat(CAST(native_string, __pathname), &sbuffer))) {

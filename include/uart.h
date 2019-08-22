@@ -38,7 +38,6 @@ extern native_string COM4_PATH;
 #define COM4_IRQ 3
 
 //#define UART_16550_FCR 2
-//#define UART_16550_SCR 7
 #define UART_8250_RHR 0
 #define UART_8250_THR 0
 #define UART_8250_IER 1
@@ -47,9 +46,12 @@ extern native_string COM4_PATH;
 #define UART_8250_MCR 4
 #define UART_8250_LSR 5
 #define UART_8250_MSR 6
+#define UART_8250_SCR 7
 
-#define UART_8250_DLL 0
-#define UART_8250_DLM 1
+// to set the DLAB you have to set last LCR byte to 0 or 1
+
+#define UART_8250_DLL 0 // divisor latch lo byte (needs DLAB at 0)
+#define UART_8250_DLH 1 // divisor latch hi byte (needs DLAB at 1)
 
 #define DIV_MSB(baud) ((115200 / baud) >> 8)
 #define DIV_LSB(baud) ((115200 / baud) & 0xff)
@@ -117,6 +119,7 @@ error_code setup_uarts(vfnode* parent_node);
 void init_serial(int port, file* input, file* output);
 void send_serial(int com, native_char x);
 int serial_received(int com_port);
+bool port_exists(int port_num);
 
 error_code uart_open(uint32 id, file_mode mode, file** result);
 

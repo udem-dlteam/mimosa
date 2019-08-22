@@ -4,6 +4,7 @@
 
 #include "include/libc_header.h"
 #include "include/stddef.h"
+#include "include/stdarg.h"
 
 #ifdef USE_MIMOSA
 #include "general.h"
@@ -51,7 +52,7 @@ extern void REDIRECT_NAME(setbuf)(FILE *__restrict __stream, char *__restrict __
 
 extern int REDIRECT_NAME(rename)(const char *__oldpath, const char *__newpath);
 
-extern int REDIRECT_NAME(fprintf_aux)(FILE *__restrict __stream, const char **__format);
+extern int REDIRECT_NAME(vfprintf)(FILE *__restrict __stream, const char *__format, va_list __ap);
 
 #ifdef USE_LIBC_LINK
 
