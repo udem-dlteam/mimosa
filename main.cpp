@@ -58,11 +58,11 @@ int main() {
 
   file* f = NULL;
   error_code err;
-  if(ERROR(err = file_open("/dsk1/write.txt", "a+", &f))) {
+  if(ERROR(err = file_open("/dsk1/alongfilenammme.txt", "a+", &f))) {
     panic(L"Failed to open the file");
   }
-
-  native_string msg = "this is a long message to write on disk";
+  
+  native_string msg = "This is running on real hardware!";
   uint32 msg_len = kstrlen(msg) + 1;
   
   if(ERROR(err = file_write(f, msg, msg_len))) {

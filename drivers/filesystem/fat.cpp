@@ -1458,9 +1458,11 @@ static error_code fat_fetch_first_empty_directory_position(
   return err;
 }
 
-static error_code fat_allocate_directory_entry(
-    fat_file_system * fs, fat_file * parent_folder, FAT_directory_entry * de,
-    native_char * name, uint32* _position) {
+static error_code fat_allocate_directory_entry(fat_file_system* fs,
+                                               fat_file* parent_folder,
+                                               FAT_directory_entry* de,
+                                               native_char* name,
+                                               uint32* _position) {
   long_file_name_entry lfe;
   error_code err = NO_ERROR;
 
@@ -1468,8 +1470,15 @@ static error_code fat_allocate_directory_entry(
   uint8 name_len = kstrlen(name);
   // We need to find enough empty directory entries to
   // allow the long file name to be stored.
-  uint8 required_spots = (name_len / FAT_CHARS_PER_LONG_NAME_ENTRY) +
-                         (name_len % FAT_CHARS_PER_LONG_NAME_ENTRY != 0);
+  uint8 required_spots;
+
+  if(name_len <= FAT_NAME_LENGTH) {
+    required_spots = 0;
+  } else {
+    required_spots = (name_len / FAT_CHARS_PER_LONG_NAME_ENTRY) +
+                     (name_len % FAT_CHARS_PER_LONG_NAME_ENTRY != 0);
+  }
+
   ++required_spots;
 
   if(ERROR(err = fat_set_to_absolute_position(CAST(file*, parent_folder), 0))) {
@@ -1488,8 +1497,9 @@ static error_code fat_allocate_directory_entry(
   }
 
   uint8 name_index = name_len;
-  for (uint8 entry_idx = 0; entry_idx < required_spots - 1; ++entry_idx) {
-    uint8 ordinal = required_spots - 1 - entry_idx;
+
+  for (uint8 entry_idx = 0; entry_idx < (required_spots - 1); ++entry_idx) {
+    uint8 ordinal = (required_spots - 1) - entry_idx;
     uint8 max_chars, chars;
 
     if (0 == entry_idx) {
@@ -1624,15 +1634,17 @@ static error_code fat_32_create_empty_file(fat_file_system* fs,
   // -------------------------------------------------------------------------------
   // Write the directory entry to the disk, modifications must be done by this point
   // -------------------------------------------------------------------------------
-  uint32 position;
-  if(ERROR(err = fat_allocate_directory_entry(fs, parent_folder, de, name, &position))) {
-    return err; 
-  }
 
+  // Claim the link right now to avoid it being taken by the directory entry
+  // if it needs to be enlarged
   if (ERROR(err = fat_32_set_fat_link_value(fs, cluster, FAT_32_EOF))) {
     return err;
   }
 
+  uint32 position;
+  if(ERROR(err = fat_allocate_directory_entry(fs, parent_folder, de, name, &position))) {
+    return err; 
+  }
   // Correctly set to the right coordinates in the FAT
   // so we are at the beginning of the file
   f->header._fs_header = parent_folder->header._fs_header;

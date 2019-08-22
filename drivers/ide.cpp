@@ -97,6 +97,8 @@ void ide_irq(ide_controller* ctrl) {
     p = CAST(uint16*, entry->_.read_sectors.buf);
   } else if (type == cmd_write_sectors) {
     p = CAST(uint16*, entry->_.write_sectors.buf);
+  } else if (type == cmd_flush_cache) {
+    p = NULL;
   } else {
     panic(L"[IDE.CPP] Unknown command type...");
   }
@@ -104,10 +106,9 @@ void ide_irq(ide_controller* ctrl) {
   s = inb(base + IDE_STATUS_REG);
 
   if (s & IDE_STATUS_ERR) {
-// #ifdef SHOW_DISK_INFO
+    // #ifdef SHOW_DISK_INFO
     uint8 err = inb(base + IDE_ERROR_REG);
-
-    // term_write(cout, "***IDE ERROR***\n");
+    term_write(cout, "***IDE ERROR***\n");
 
     if (err & IDE_ERROR_BBK)
       term_write(cout, "Bad block mark detected in sector's ID field\n");
@@ -121,29 +122,49 @@ void ide_irq(ide_controller* ctrl) {
       term_write(cout, "Track 0 not found during recalibrate command\n");
     if (err & IDE_ERROR_AMNF)
       term_write(cout, "Data address mark not found after ID field\n");
-// #endif
+    // #endif
 
     if (type == cmd_read_sectors) {
       entry->_.read_sectors.err = UNKNOWN_ERROR;
     } else if (type == cmd_write_sectors) {
       entry->_.write_sectors.err = UNKNOWN_ERROR;
     }
-
-  } else if(type == cmd_read_sectors) {
+    condvar_mutexless_signal(entry->done);
+    ide_cmd_queue_free(entry);
+  } else if (type == cmd_read_sectors) {
     for (i = entry->_.read_sectors.count << (IDE_LOG2_SECTOR_SIZE - 1); i > 0;
          i--)
       *p++ = inw(base + IDE_DATA_REG);
 
-    if (inb(base + IDE_ALT_STATUS_REG) & IDE_STATUS_DRQ)
+    if (inb(base + IDE_ALT_STATUS_REG) & IDE_STATUS_DRQ) {
       entry->_.read_sectors.err = UNKNOWN_ERROR;
-    else
+    } else {
       entry->_.read_sectors.err = NO_ERROR;
+    }
+    condvar_mutexless_signal(entry->done);
+    ide_cmd_queue_free(entry);
   } else if (type == cmd_write_sectors) {
-    // Nothing, it's only a flush command
+    if (entry->_.write_sectors.written < entry->_.write_sectors.count) {
+      // Write the next sector to write
+      for (uint16 i = 1 << (IDE_LOG2_SECTOR_SIZE - 1); i > 0; i--) {
+        outw(*p++, base + IDE_DATA_REG);
+      }
+      entry->_.write_sectors.buf = p;
+      entry->_.write_sectors.written++;
+    } else {
+      // This is the status interrupt
+      if (inb(base + IDE_ALT_STATUS_REG) & IDE_STATUS_DRQ) {
+        entry->_.write_sectors.err = UNKNOWN_ERROR;
+      } else {
+        entry->_.write_sectors.err = NO_ERROR;
+      }
+      condvar_mutexless_signal(entry->done);
+      ide_cmd_queue_free(entry);
+    }
+  } else if (type == cmd_flush_cache) {
+    condvar_mutexless_signal(entry->done);
+    ide_cmd_queue_free(entry);
   }
-
-  condvar_mutexless_signal(entry->done);
-  ide_cmd_queue_free(entry);
 }
 
 #ifdef USE_IRQ14_FOR_IDE0
@@ -186,7 +207,6 @@ error_code ide_read_sectors(ide_device* dev, uint32 lba, void* buf,
     ide_cmd_queue_entry* entry;
 
     disable_interrupts();
-ide_read_sector_retry:
     entry = ide_cmd_queue_alloc(dev);
 
     if (count > 256) count = 256;
@@ -228,13 +248,14 @@ error_code ide_write_sectors(ide_device* dev, uint32 lba, void* buf,
 
     disable_interrupts();
 
-
+    if(count != 1) panic(L"Only one sector supported...");
     if (count > 256) count = 256;
 
     entry = ide_cmd_queue_alloc(dev);
     entry->cmd = cmd_write_sectors;
     entry->_.write_sectors.buf = buf;
     entry->_.write_sectors.count = count;
+    entry->_.write_sectors.written = 1;  // We write a sector right now
 
     outb(IDE_DEV_HEAD_LBA | IDE_DEV_HEAD_DEV(dev->id) | (lba >> 24),
          base + IDE_DEV_HEAD_REG);
@@ -244,33 +265,38 @@ error_code ide_write_sectors(ide_device* dev, uint32 lba, void* buf,
     outb((lba >> 16), base + IDE_CYL_HI_REG);
     outb(IDE_WRITE_SECTORS_CMD, base + IDE_COMMAND_REG);
 
+    while ((inb(base + IDE_STATUS_REG) & IDE_STATUS_BSY) ||
+           !(inb(base + IDE_STATUS_REG) & IDE_STATUS_DRQ))
+      ide_delay(base);
+
     uint16* p = CAST(uint16*, entry->_.write_sectors.buf);
 
-    for (int i = entry->_.write_sectors.count << (IDE_LOG2_SECTOR_SIZE - 1); i > 0; i--) {
+    // Write the first sector immediately
+    for (uint16 i = (1 << (IDE_LOG2_SECTOR_SIZE - 1)); i > 0; i--) {
       outw(*p++, base + IDE_DATA_REG);
     }
 
-    if (inb(base + IDE_ALT_STATUS_REG) & IDE_STATUS_DRQ) {
-      entry->_.write_sectors.err = UNKNOWN_ERROR;
-    } else {
-      entry->_.write_sectors.err = NO_ERROR;
-    }
+    entry->_.write_sectors.buf = p;  // So we can write from there
+
+    condvar_mutexless_wait(entry->done);
+    err = entry->_.write_sectors.err;
+    ide_cmd_queue_free(entry);
+    
+    // Flush the command buffer
+    entry = ide_cmd_queue_alloc(dev);
+    entry->cmd = cmd_flush_cache;
 
     outb(IDE_FLUSH_CACHE_CMD, base + IDE_COMMAND_REG);
     condvar_mutexless_wait(entry->done);
 
-    err = entry->_.write_sectors.err;
-
     ide_cmd_queue_free(entry);
-
     enable_interrupts();
   };
 
   return err;
 }
 
-static void swap_and_trim (native_string dst, uint16* src, uint32 len)
-{
+static void swap_and_trim(native_string dst, uint16* src, uint32 len) {
   uint32 i;
   uint32 end = 0;
 

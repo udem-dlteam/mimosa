@@ -90,7 +90,7 @@
 
 #define MAX_NB_IDE_CMD_QUEUE_ENTRIES 1
 
-typedef enum { cmd_read_sectors, cmd_write_sectors } cmd_type;
+typedef enum { cmd_read_sectors, cmd_write_sectors, cmd_flush_cache } cmd_type;
 
 typedef struct ide_cmd_queue_entry_struct
   {
@@ -111,7 +111,8 @@ typedef struct ide_cmd_queue_entry_struct
         struct
           {
             void* buf;
-            uint32 count;
+            uint8 count;
+            uint8 written; 
             error_code err;
           } write_sectors;
       } _;
