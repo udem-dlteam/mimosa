@@ -55,8 +55,8 @@ extern native_string COM4_PATH;
 
 
 
-#define DIV_DLH(baud) ((115200 / baud) >> 8)
-#define DIV_DLL(baud) ((115200 / baud) & 0xff)
+#define DIV_DLH(baud) ((115200 / (baud)) >> 8)
+#define DIV_DLL(baud) ((115200 / (baud)) & 0xff)
 
 // Line Status register (LSR)
 #define UART_8250_LSR_ERF (1 << 7)
@@ -122,6 +122,9 @@ void init_serial(int port, file* input, file* output);
 void send_serial(int com, native_char x);
 int serial_received(int com_port);
 bool port_exists(uint8 port_num);
+
+uint32 get_baud_rate(uint8 port_num);
+void set_baud_rate(uint8 port_num, uint32 baud_rate);
 
 error_code uart_open(uint32 id, file_mode mode, file** result);
 
