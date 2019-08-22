@@ -2192,7 +2192,9 @@ static dirent* fat_readdir(DIR* dir) {
               memcpy(p1, lfn, kstrlen(lfn));
             }
 
-            dir->ent.d_type = (de.DIR_Attr & FAT_ATTR_DIRECTORY) ? TYPE_FOLDER : TYPE_REGULAR;
+            dir->ent.d_type = (de.DIR_Attr & FAT_ATTR_DIRECTORY)
+                                  ? DIR_FILE_TYPE_REG
+                                  : DIR_FILE_TYPE_DIR;
 
             return &dir->ent;
           }

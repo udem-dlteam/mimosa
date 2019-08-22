@@ -36,7 +36,6 @@ const uint32 GAMBIT_START = 0x100000;
 
 #ifdef CHECK_ASSERTIONS
 
-
 #define ASSERT_INTERRUPTS_DISABLED()                 \
   do {                                               \
     if (ARE_INTERRUPTS_ENABLED() != 0) {             \
