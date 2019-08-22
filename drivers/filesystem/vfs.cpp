@@ -81,8 +81,6 @@ static dirent* vfnode_readdir(DIR* dir) {
   if (p1 == p2) p1--; // erase the dot
   *p1++ = '\0';
 
-  debug_write(dir->ent.d_name);
-
   vdir->child_cursor = child->_next_sibling;
   
   return result;
