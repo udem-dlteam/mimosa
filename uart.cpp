@@ -87,10 +87,8 @@ error_code init_serial(int com_port) {
   }
 
   outb(0x00, com_port + UART_8250_IER);  // Disable all interrupts
-  outb(0x80, com_port + UART_8250_LCR);  // Enable DLAB (set baud rate divisor)
-  outb(0x03, com_port + UART_8250_DLL);  // Set divisor to 3 (lo byte) 38400 baud
-  outb(0x00, com_port + UART_8250_DLH);  // Set (high byte) 0 
-  outb(0x03, com_port + UART_8250_LCR);  // 8 bits, no parity, one stop bit, close DLAB
+  outb(0x03, com_port + UART_8250_LCR);  // 8 bits, no parity, one stop bit
+  set_baud_rate(com_num(com_port), DEFAULT_BAUD_RATE); // set baud rate
   outb(0x0F, com_port + UART_8250_IER); 
   outb(0x8E, com_port + UART_8250_IIR);  //Do not enable FIFO, clear with 14-byte threshold
   outb(0x08, com_port + UART_8250_MCR);  // IRQs enabled, RTS/DSR set

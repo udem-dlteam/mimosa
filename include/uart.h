@@ -24,6 +24,9 @@ extern native_string COM4_PATH;
 // Definitions for 8250/16550 universal asynchronous receiver transmitter.
 //
 
+/* DEFAULT BAUD RATE */
+#define DEFAULT_BAUD_RATE 115200
+
 /* COM1 */
 #define COM1_PORT_BASE 0x3f8
 #define COM1_IRQ 4
