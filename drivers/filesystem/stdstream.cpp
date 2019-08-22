@@ -105,6 +105,17 @@ static error_code new_stream_file(stream_file* rs, file_mode mode,
 static error_code stream_close(file* ff) {
   error_code err = NO_ERROR;
   stream_file* f = CAST(stream_file*, ff);
+  bool write_only;
+  file_mode mode = ff->mode;
+
+  if (IS_MODE_WRITE_ONLY(mode)) {
+    write_only = TRUE;
+  } else {
+    write_only = FALSE;
+  }
+
+  if (!write_only) f->_source->readers--;
+
   kfree(f);
   return err;
 }
