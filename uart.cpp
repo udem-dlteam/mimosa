@@ -577,7 +577,7 @@ static error_code detect_hardware() {
 
 // to detect if a port exists I can set a certain baud rate then watch if it has been
 // correctly set on the receiving machine
-bool port_exists(uint16 port_num){
+bool port_exists(uint8 port_num){
   uint16 com_port = com_num_to_port(port_num);
   
   // set a baud rate of 57100
