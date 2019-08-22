@@ -627,12 +627,12 @@ error_code setup_uarts(vfnode* parent_node) {
   __uart_vtable._file_write = uart_write;
   __uart_vtable._readdir = uart_readdir;
 
-#define connect_port(node, name, port_base, index)       \
-  if (ports[(index)].status & COM_PORT_STATUS_EXISTS) {  \
-    new_vfnode(&(node), (name), TYPE_VFILE);             \
-    (node)._value.file_gate.identifier = (port_base); \
-    (node)._value.file_gate._vf_node_open = uart_open;   \
-    vfnode_add_child(parent_node, &(node));              \
+#define connect_port(node, name, port_base, index)      \
+  if (ports[(index)].status & COM_PORT_STATUS_EXISTS) { \
+    new_vfnode(&(node), (name), TYPE_VFILE);            \
+    (node)._value.file_gate.identifier = (port_base);   \
+    (node)._value.file_gate._vf_node_open = uart_open;  \
+    vfnode_add_child(parent_node, &(node));             \
   }
 
   connect_port(COM1_NODE, COM1_NAME, COM1_PORT_BASE, 0);
