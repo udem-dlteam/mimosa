@@ -113,6 +113,24 @@ error_code init_serial(int com_port) {
    return err;
 }
 
+static void set_baud_rate(uint8 port_num, uint32 baud_rate){
+
+  uint16 com_port = com_num_to_port(port_num);
+  outb(0x80, com_port + UART_8250_LCR);  // Enable DLAB (set baud rate divisor)
+  outb(DIV_DLL(baud_rate), com_port + UART_8250_DLL); // set divisor of div latch lo
+  outb(DIV_DLH(baud_rate), com_port + UART_8250_DLH); // set div latch hi
+  uint16 LCR_val = inb(com_port + UART_8250_LCR) && 0x7F;
+  outb( LCR_val, com_port + UART_8250_LCR); // disable DLAB
+}
+
+static  uint16 get_baud_rate(uint8 port_num){
+  uint16 com_port = com_num_to_port(port_num);
+  outb(0x80, com_port + UART_8250_LCR); // enable DLAB
+  uint16 divisor_latch = ( inb(com_port + UART_8250_DLH) >> 8 ) + inb(com_port + UART_8250_DLL );
+  uint16 LCR_val = inb(com_port + UART_8250_LCR) && 0x7F;
+  outb( LCR_val, com_port + UART_8250_LCR); // disable DLAB
+  return divisor_latch;
+}
 
 // Modem Status Register read
 static void read_msr(uint16 port){
@@ -577,39 +595,17 @@ static error_code detect_hardware() {
 
 // to detect if a port exists I can set a certain baud rate then watch if it has been
 // correctly set on the receiving machine
-bool port_exists(int port_num) {
+bool port_exists(uint8 port_num){
 
   uint16 com_port = com_num_to_port(port_num);
-  
   // set a baud rate of 57100
-  outb(0x80, com_port + UART_8250_LCR);  // Enable DLAB (set baud rate divisor)
-  outb(0x02, com_port + UART_8250_DLL); // set divisor to 2 div latch lo
-  outb(0x00, com_port + UART_8250_DLH); // (now baud rate is 57100)
-  uint8 LCR_val = inb(com_port + UART_8250_LCR) && 0x7F;
-  outb( LCR_val, com_port + UART_8250_LCR); // disable DLAB
-  
+  set_baud_rate(port_num, 57100);
   // get the baud rate that we set
-  outb(0x80, com_port + UART_8250_LCR); // enable DLAB
-  uint8 divisor_latch = ( inb(com_port + UART_8250_DLH) >> 8 ) + inb(com_port + UART_8250_DLL );
-  LCR_val = inb(com_port + UART_8250_LCR) && 0x7F;
-  outb( LCR_val, com_port + UART_8250_LCR); // disable DLAB
-
-  if( divisor_latch != 2 ) return false;
-
-    // set a baud rate of 115200
-  outb(0x80, com_port + UART_8250_LCR);  // Enable DLAB (set baud rate divisor)
-  outb(0x01, com_port + UART_8250_DLL); // set divisor to 1 div latch lo
-  outb(0x00, com_port + UART_8250_DLH); // (now baud rate is 115200)
-  LCR_val = inb(com_port + UART_8250_LCR) && 0x7F;
-  outb( LCR_val, com_port + UART_8250_LCR); // disable DLAB
-  
+  if(get_baud_rate(port_num) != 2) return false;
+  // set a baud rate of 115200
+  set_baud_rate(port_num, 115200);
   // get the baud rate that we set
-  outb(0x80, com_port + UART_8250_LCR); // enable DLAB
-  divisor_latch = ( inb(com_port + UART_8250_DLH) >> 8 ) + inb(com_port + UART_8250_DLL );
-  LCR_val = inb(com_port + UART_8250_LCR) && 0x7F;
-  outb( LCR_val, com_port + UART_8250_LCR); // disable DLAB
-
-  return divisor_latch != 1;
+  return get_baud_rate(port_num) != 1;
 }
 
 error_code setup_uarts(vfnode* parent_node) {

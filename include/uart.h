@@ -53,8 +53,10 @@ extern native_string COM4_PATH;
 #define UART_8250_DLL 0 // divisor latch lo byte (needs DLAB at 0)
 #define UART_8250_DLH 1 // divisor latch hi byte (needs DLAB at 1)
 
-#define DIV_MSB(baud) ((115200 / baud) >> 8)
-#define DIV_LSB(baud) ((115200 / baud) & 0xff)
+
+
+#define DIV_DLH(baud) ((115200 / baud) >> 8)
+#define DIV_DLL(baud) ((115200 / baud) & 0xff)
 
 // Line Status register (LSR)
 #define UART_8250_LSR_ERF (1 << 7)
@@ -119,7 +121,7 @@ error_code setup_uarts(vfnode* parent_node);
 void init_serial(int port, file* input, file* output);
 void send_serial(int com, native_char x);
 int serial_received(int com_port);
-bool port_exists(int port_num);
+bool port_exists(uint8 port_num);
 
 error_code uart_open(uint32 id, file_mode mode, file** result);
 
