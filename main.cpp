@@ -84,10 +84,7 @@ int main() {
       program_thread* task =
           CAST(program_thread*, kmalloc(sizeof(program_thread)));
       new_program_thread(task, "/dsk1/home/sam/", CAST(libc_startup_fn, code), "Gambit");
-      // term_write(cout, "Starting the Gambit thread\n");
       thread_start(CAST(thread*, task));
-      // term_write(cout, "Gambit thread started\n");
-
 #ifdef REMOTE_COM
         for(;;){
           file_read(stdout, &i, sizeof(unicode_char));
@@ -123,7 +120,6 @@ int main() {
       panic(L"Error!");
     }
 #endif
-
     thread_yield();
   } while (1);
 
