@@ -134,8 +134,8 @@ typedef int32 error_code;
 // When you change the REPL, you should force a 
 // `make clean`. It seems that some parts of the
 // code that should be regenerated are not.
-// #define GAMBIT_REPL
-#define MIMOSA_REPL
+#define GAMBIT_REPL
+// #define MIMOSA_REPL
 
 // #define THREAD_SLEEP_TEST 
 
