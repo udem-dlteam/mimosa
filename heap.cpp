@@ -31,7 +31,7 @@ static void *heap_sbrk(heap *h, int32 size) {
   size = (size + sizeof(void*) - 1) & ~(sizeof(void*) - 1);
     
   if (a + size > h->size) {
-    panic(L"Heap overflow");
+    return NULL;
   } else if (a + size < 0) {
     panic(L"Incorrect call on heap_sbrk");
   }

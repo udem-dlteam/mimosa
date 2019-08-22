@@ -16,7 +16,7 @@
 // Definitions for calling BIOS functions.
 //
 
-struct bios_fn_regs {
+struct bios_call_regs {
   uint32 eax;
   uint32 ebx;
   uint32 ecx;
@@ -25,7 +25,7 @@ struct bios_fn_regs {
   uint32 edi;
 };
 
-extern void call_bios(struct bios_fn_regs *regs);
+extern void bios_call(int intr_num, struct bios_call_regs *regs);
 
 //-----------------------------------------------------------------------------
 

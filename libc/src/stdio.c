@@ -45,6 +45,9 @@ FILE *REDIRECT_NAME(fopen)(const char *__restrict __filename,
 
 #else
 
+  //  debug_write("fopen");
+  //  debug_write(CAST(native_string, __filename));
+
   // TODO: implement
   if (__filename[0] == '.' &&
       __filename[1] == '/' &&
@@ -55,10 +58,6 @@ FILE *REDIRECT_NAME(fopen)(const char *__restrict __filename,
 
     return &FILE_root_dir;
   } else {
-
-    // debug_write("STDIO FOPEN");
-    // debug_write(CAST(native_string, __filename));
-
 
     error_code err;
     file *f;
@@ -198,13 +197,13 @@ int REDIRECT_NAME(fclose)(FILE *__restrict __stream) {
 
   // Before doing actual flclose, all streams must be actually streams (STDERR and STDOUT) 
 
-  // file* sys_file = __stream->f;
-  // error_code err = NO_ERROR;
-  // if(ERROR(err = file_close(sys_file))) {
-  //   return (-1);
-  // } else {
-  //   return 0;
-  // }
+  file* sys_file = __stream->f;
+  error_code err = NO_ERROR;
+  if(ERROR(err = file_close(sys_file))) {
+    return (-1);
+  } else {
+    return 0;
+  }
   
 #endif
 #endif
@@ -407,7 +406,6 @@ int REDIRECT_NAME(rename)(const char *__oldpath, const char *__newpath) {
 
 #else
 
-  // TODO: implement
   return file_rename(CAST(native_string, __oldpath),
                      CAST(native_string, __newpath));
 

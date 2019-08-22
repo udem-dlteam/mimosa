@@ -488,7 +488,7 @@ typedef struct thread {
 typedef struct program_thread_struct {
   thread super;
   libc_startup_fn _code;
-  native_string _cwd;
+  native_char _cwd[1024 + 1];
 } program_thread;
 
 thread* new_thread(thread* self, void_fn run, native_string name);

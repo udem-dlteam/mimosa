@@ -119,11 +119,11 @@ void kfree(void* ptr) {
 }
 
 static void setup_kheap() {
-  heap_init(&kheap, CAST(void*,11*(1<<20)), 10*(1<<20));
+  heap_init(&kheap, CAST(void*, 32 * (1<<20)), 32 * (1<<20));
 }
 
 static void setup_appheap() {
-  heap_init(&appheap, CAST(void*, 32 * (1 << 20)), 256 * (1 << 20));
+  heap_init(&appheap, CAST(void*, 64 * (1<<20)), 900 * (1<<20));
 }
 
 extern "C" void* memcpy(void* dest, const void* src, size_t n) {
