@@ -1,5 +1,25 @@
 ;;;----------------------------------------------------------------------------
 
+(define (startup-repl-on-port port) ;; compatible with old _repl.scm
+  (let ((t
+         (make-thread
+          (lambda ()
+            (let ((repl-channel (##make-repl-channel-ports port port #;port)))
+               (##vector-set! (current-thread) 28 repl-channel))
+            (##repl-debug-main)))))
+    (thread-start! t)))
+
+(define (startup-repl-on-port2 port) ;; compatible with new _repl.scm
+  (let ((t
+         (make-thread
+          (lambda ()
+            (let ((repl-channel (##make-repl-channel-ports port port port)))
+               (##vector-set! (current-thread) 28 repl-channel))
+            (##repl-debug-main)))))
+    (thread-start! t)))
+
+;;;----------------------------------------------------------------------------
+
 ;; Convert a u8vector containing machine code into a Scheme procedure
 ;; taking 0 to 3 arguments.  Calling the Scheme procedure will execute
 ;; the machine code using the C calling convention.
