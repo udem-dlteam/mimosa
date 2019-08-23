@@ -7,7 +7,7 @@
 
 void libc_wr_char(int fd, char c) {
   // write(fd, &c, 1);
-  term_write(cout, (native_char) c);
+  term_write(&term_console, (native_char) c);
 }
 
 void libc_wr_string(int fd, const char *s) {

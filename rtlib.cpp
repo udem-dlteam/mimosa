@@ -24,6 +24,7 @@
 void __rtlib_setup (); // forward declaration
 
 term term_console;
+term term_log;
 video screen;
 
 thread_vtable _thread_vtable;
@@ -239,13 +240,12 @@ void __do_global_ctors ()
       MOUSE_WIDTH_IN_BITMAP_WORDS << LOG2_BITMAP_WORD_WIDTH, MOUSE_HEIGHT, 4);
 
   // Create the console terminal
-#if 0
-  term_init(&term_console, 0, 0, 80, 25, &font_mono_6x13, &font_mono_6x13B,
+
+  term_init(&term_console, 0, 0, 80, 24, &font_mono_6x13, &font_mono_6x13B,
             L"console", TRUE);
-#else
-  term_init(&term_console, 0, 0, 80, 75, &font_mono_4x6, &font_mono_4x6,
-            L"console", TRUE);
-#endif
+
+  term_init(&term_log, 490, 0, 35, 76, &font_mono_4x6, &font_mono_4x6,
+            L"log", TRUE);
 }
 
 void __do_global_dtors ()
@@ -295,45 +295,45 @@ static void identify_cpu() {
 
   term_write(cout, "CPU is ");
   term_write(cout, vendor);
-  term_write(cout, " family=");
+  term_write(cout, "\n family=");
   term_write(cout, ((processor >> 8) & 0xf));
-  term_write(cout, " model=");
+  term_write(cout, "\n model=");
   term_write(cout, ((processor >> 4) & 0xf));
-  term_write(cout, " stepping=");
+  term_write(cout, "\n stepping=");
   term_write(cout, (processor & 0xf));
-  term_write(cout, "\n");
+  term_write(cout, "\n has:\n");
 
   // For meaning of these values check:
   //   http://grafi.ii.pw.edu.pl/gbm/x86/cpuid.html
 
-  if (features & HAS_FPU)       term_write(cout,"  has Floating Point Unit\n");
-  if (features & HAS_VME)       term_write(cout,"  has V86 Mode Extensions\n");
-  if (features & HAS_DE)        term_write(cout,"  has Debug Extensions\n");
-  if (features & HAS_PSE)       term_write(cout,"  has Page Size Extensions\n");
-  if (features & HAS_TSC)       term_write(cout,"  has Time Stamp Counter\n");
-  if (features & HAS_MSR)       term_write(cout,"  has Model Specific Registers\n");
-  if (features & HAS_PAE)       term_write(cout,"  has Physical Address Extensions\n");
-  if (features & HAS_MCE)       term_write(cout,"  has Machine Check Exception\n");
-  if (features & HAS_CX8)       term_write(cout,"  has CMPXCHG8B instruction\n");
-  if (features & HAS_APIC)      term_write(cout,"  has Local APIC\n");
-  if (features & HAS_SEP)       term_write(cout,"  has Fast system call\n");
-  if (features & HAS_MTRR)      term_write(cout,"  has Memory Type Range Registers\n");
-  if (features & HAS_PGE)       term_write(cout,"  has Page Global Enable\n");
-  if (features & HAS_MCA)       term_write(cout,"  has Machine Check Architecture\n");
-  if (features & HAS_CMOV)      term_write(cout,"  has Conditional MOVe\n");
-  if (features & HAS_PAT)       term_write(cout,"  has Page Attribute Table\n");
-  if (features & HAS_PSE36)     term_write(cout,"  has 36 bit Page Size Extensions\n");
-  if (features & HAS_PSN)       term_write(cout,"  has Processor Serial Number\n");
-  if (features & HAS_CFLSH)     term_write(cout,"  has Cache Flush\n");
-  if (features & HAS_DTES)      term_write(cout,"  has Debug Trace Store\n");
-  if (features & HAS_ACPI)      term_write(cout,"  has ACPI support\n");
-  if (features & HAS_MMX)       term_write(cout,"  has MultiMedia Extensions\n");
-  if (features & HAS_FXSR)      term_write(cout,"  has FXSAVE and FXRSTOR\n");
-  if (features & HAS_SSE)       term_write(cout,"  has SSE instructions\n");
-  if (features & HAS_SSE2)      term_write(cout,"  has SSE2 instructions\n");
-  if (features & HAS_SELFSNOOP) term_write(cout,"  has Self Snoop\n");
-  if (features & HAS_ACC)       term_write(cout,"  has Automatic clock control\n");
-  if (features & HAS_IA64)      term_write(cout,"  has IA64 instructions\n");
+  if (features & HAS_FPU)       term_write(cout,"  Floating Point Unit\n");
+  if (features & HAS_VME)       term_write(cout,"  V86 Mode Extensions\n");
+  if (features & HAS_DE)        term_write(cout,"  Debug Extensions\n");
+  if (features & HAS_PSE)       term_write(cout,"  Page Size Extensions\n");
+  if (features & HAS_TSC)       term_write(cout,"  Time Stamp Counter\n");
+  if (features & HAS_MSR)       term_write(cout,"  Model Specific Registers\n");
+  if (features & HAS_PAE)       term_write(cout,"  Physical Address Extensions\n");
+  if (features & HAS_MCE)       term_write(cout,"  Machine Check Exception\n");
+  if (features & HAS_CX8)       term_write(cout,"  CMPXCHG8B instruction\n");
+  if (features & HAS_APIC)      term_write(cout,"  Local APIC\n");
+  if (features & HAS_SEP)       term_write(cout,"  Fast system call\n");
+  if (features & HAS_MTRR)      term_write(cout,"  Memory Type Range Registers\n");
+  if (features & HAS_PGE)       term_write(cout,"  Page Global Enable\n");
+  if (features & HAS_MCA)       term_write(cout,"  Machine Check Architecture\n");
+  if (features & HAS_CMOV)      term_write(cout,"  Conditional MOVe\n");
+  if (features & HAS_PAT)       term_write(cout,"  Page Attribute Table\n");
+  if (features & HAS_PSE36)     term_write(cout,"  36 bit Page Size Extensions\n");
+  if (features & HAS_PSN)       term_write(cout,"  Processor Serial Number\n");
+  if (features & HAS_CFLSH)     term_write(cout,"  Cache Flush\n");
+  if (features & HAS_DTES)      term_write(cout,"  Debug Trace Store\n");
+  if (features & HAS_ACPI)      term_write(cout,"  ACPI support\n");
+  if (features & HAS_MMX)       term_write(cout,"  MultiMedia Extensions\n");
+  if (features & HAS_FXSR)      term_write(cout,"  FXSAVE and FXRSTOR\n");
+  if (features & HAS_SSE)       term_write(cout,"  SSE instructions\n");
+  if (features & HAS_SSE2)      term_write(cout,"  SSE2 instructions\n");
+  if (features & HAS_SELFSNOOP) term_write(cout,"  Self Snoop\n");
+  if (features & HAS_ACC)       term_write(cout,"  Automatic clock control\n");
+  if (features & HAS_IA64)      term_write(cout,"  IA64 instructions\n");
 
 #ifdef USE_TSC_FOR_TIME
   

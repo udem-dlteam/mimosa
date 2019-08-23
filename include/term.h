@@ -13,7 +13,8 @@
 #include "general.h"
 #include "video.h"
 
-#define cout &term_console
+#define cout &term_log
+
 //-----------------------------------------------------------------------------
 
 // "term" class declaration.
@@ -128,7 +129,9 @@ unsigned char strcmp(char* a, char* b);
 //-----------------------------------------------------------------------------
 // Static objects
 //-----------------------------------------------------------------------------
+
 extern term term_console;
+extern term term_log;
 
 #endif
 
