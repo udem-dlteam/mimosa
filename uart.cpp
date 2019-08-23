@@ -567,7 +567,7 @@ error_code uart_write(file* ff, void* buff, uint32 count) {
 
 error_code uart_read(file* ff, void* buff, uint32 count) {
   error_code err = NO_ERROR;
-  uart_file* f = CAST(uart_file*, f);
+  uart_file* f = CAST(uart_file*, ff);
   com_port* port = &ports[com_num(f->port)];
 
   if (port->status & COM_PORT_STATUS_FORCIBLY_CLOSED) {
