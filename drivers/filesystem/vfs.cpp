@@ -51,7 +51,25 @@ static dirent* vfnode_readdir(DIR* dir) {
 
   vfnode* child = vdir->child_cursor;
   dirent* result = &dir->ent;
-  result->d_type = child->type;
+
+  switch (child->type) {
+    case TYPE_FOLDER:
+    case TYPE_VFOLDER:
+      result->d_type = DIR_FILE_TYPE_DIR;
+      break;
+    case TYPE_MOUNTPOINT:
+      result->d_type = DIR_FILE_TYPE_DIR;
+      break;
+    case TYPE_VFILE:
+      result->d_type = DIR_FILE_TYPE_BLK;
+      break;
+    case TYPE_REGULAR:
+      result->d_type = DIR_FILE_TYPE_REG;
+      break;
+    default:
+      result->d_type = DIR_FILE_TYPE_UNKNOWN;
+      break;
+  }
 
   native_string p1 = dir->ent.d_name;
   native_string p2;

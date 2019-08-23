@@ -3,6 +3,15 @@
 
 #include "general.h"
 
+#define DIR_FILE_TYPE_UNKNOWN 0
+#define DIR_FILE_TYPE_FIFO 1
+#define DIR_FILE_TYPE_CHR 2
+#define DIR_FILE_TYPE_DIR 4
+#define DIR_FILE_TYPE_BLK 6
+#define DIR_FILE_TYPE_REG 8
+#define DIR_FILE_TYPE_LNK 10
+#define DIR_FILE_TYPE_SOCK 12
+
 #define MODE_PLUS (1 << 7)
 #define MODE_READ (1 << 0)
 #define MODE_READ_WRITE (MODE_PLUS | MODE_READ)
