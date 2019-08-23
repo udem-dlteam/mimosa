@@ -230,12 +230,15 @@ static void read_RHR(int com_port) {
   struct com_port_struct* port = &ports[com_num(com_port)];
   uint32 next_hi = (port->rhi + 1) % port->rbuffer_len;
 
-  while (next_hi == port->rlo) {
-    condvar_mutexless_wait(port->rd_cv);
+  if (next_hi == port->rlo) {
+    // MATHIEU: Ici, inserer le code pour dire au port UART: envoit plus rien pour l'instant
+    return;
+    // Tell the port that we cannot read right now
   }
 
   if (next_hi != port->rlo) {
     port->rbuffer[port->rhi] = c;
+    condvar_mutexless_signal(port->rd_cv);
   } else {
     panic(L"[INT] Multiple writer?");
   }
@@ -496,6 +499,7 @@ error_code uart_open(uint32 id, file_mode mode, file** result) {
 }
 
 error_code uart_close_handle(file* ff) {
+  debug_write("UART CLOSE");
   error_code err = NO_ERROR;
   uart_file* f = CAST(uart_file*, ff);
   com_port* port = &ports[com_num(f->port)];
@@ -515,6 +519,7 @@ error_code uart_close_handle(file* ff) {
 }
 
 error_code uart_write(file* ff, void* buff, uint32 count) {
+  debug_write("UART write");
   error_code err = NO_ERROR;
   uart_file* f = CAST(uart_file*, ff);
   uint16 port_base = f->port;
@@ -556,6 +561,7 @@ error_code uart_write(file* ff, void* buff, uint32 count) {
   enable_interrupts();
   if (HAS_NO_ERROR(err)) err = i;
 
+  debug_write("UART write out");
   return err;
 }
 
@@ -568,7 +574,8 @@ error_code uart_read(file* ff, void* buff, uint32 count) {
     return FNF_ERROR;
   }
 
-  bool nonblock = f->mode & MODE_NONBLOCK_ACCESS;
+  // bool nonblock = f->mode & MODE_NONBLOCK_ACCESS;
+  bool nonblock = TRUE;
 
   disable_interrupts();
 
@@ -582,7 +589,7 @@ error_code uart_read(file* ff, void* buff, uint32 count) {
       uint8 bt = port->rbuffer[port->rlo];
       CAST(uint8*, buff)[i] = bt;
       port->rlo = (port->rlo + 1) % port->rbuffer_len;
-      condvar_mutexless_signal(port->rd_cv);
+      // Mathieu: ici tu met le code pour envoyer au port UART que tu est pret a recevoir plus de caracteres
     } else {
       break;
     }
@@ -590,7 +597,9 @@ error_code uart_read(file* ff, void* buff, uint32 count) {
 
   enable_interrupts();
 
-  if (HAS_NO_ERROR(err)) err = i;
+  if (HAS_NO_ERROR(err)) {
+    err = i;
+  }
 
   return err;
 }
@@ -624,7 +633,7 @@ bool port_exists(uint8 port_num){
   // set a baud rate of 57100
   set_baud_rate(port_num, 57600);
   // get the baud rate that we set
-  if(get_baud_rate(port_num) != 57600) return false;
+  if(get_baud_rate(port_num) != 57600) return FALSE;
   // set a baud rate of 115200
   set_baud_rate(port_num, 115200);
   // get the baud rate that we set
