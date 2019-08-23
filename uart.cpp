@@ -146,24 +146,26 @@ uint32 identify_material(uint8 port_num){
   outb(0xE7, com_port + FCR);
   // Read the value of the IIR to test for what flags actually got set. 
   uint8 test = inb(com_port + IIR);
+  uint32 material;
   if((test & 0x40) > 0){
     if((test & 0x80) > 0){
       if((test & 0x20) > 0){
         // UART is a 16750
-        return 16750;
+        material = 16750;
       } else {
-        return 16550;
+        material = 16550;
       }
     } else {
-      return 16550;
+      material = 16550;
     }
   } else {
     outb(0x2A, com_port + SCR);
     if(inb(com_port + SCR) == 0x2A){
-      return 16450;
+      material = 16450;
     } else {
-      return 8250;
+      material = 8250;
     }}
+  return material;
 }
 
 // Modem Status Register read
