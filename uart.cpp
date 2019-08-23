@@ -114,7 +114,7 @@ error_code init_serial(int com_port) {
 void set_baud_rate(uint8 port_num, uint32 baud_rate){
 
   uint16 com_port = com_num_to_port(port_num);
-  outb(0x80, com_port + UART_8250_LCR);  // Enable DLAB (set baud rate divisor)
+  outb(inb(com_port + UART_8250_LCR) | 0x80, com_port + UART_8250_LCR);  // Enable DLAB (set baud rate divisor)
   outb(DIV_DLL(baud_rate), com_port + UART_8250_DLL); // set divisor of div latch lo
   outb(DIV_DLH(baud_rate), com_port + UART_8250_DLH); // set div latch hi
   uint16 LCR_val = inb(com_port + UART_8250_LCR) && 0x7F;
@@ -124,33 +124,14 @@ void set_baud_rate(uint8 port_num, uint32 baud_rate){
 // 
 uint32 get_baud_rate(uint8 port_num){
   uint16 com_port = com_num_to_port(port_num);
-  outb(0x80, com_port + UART_8250_LCR); // enable DLAB
+  outb(inb(com_port + UART_8250_LCR) | 0x80, com_port + UART_8250_LCR);  // Enable DLAB (set baud rate divisor)
   uint32 div_hi = inb(com_port + UART_8250_DLH);
   uint32 div_lo = inb(com_port + UART_8250_DLL);
   uint32 baud_rate;
   // see the baud rate diagram of
   // https://en.wikibooks.org/wiki/Serial_Programming/8250_UART_Programming
-  if(div_hi > 0){
-    switch(div_hi)
-      {
-      case 1:
-        baud_rate = 300;
-        break;
-      case 2:
-        baud_rate = 220;
-        break;
-      case 4:
-        baud_rate = 110;
-        break;
-      case 9:
-        baud_rate = 50;
-        break;
-      default:
-        baud_rate = 255;
-      }
-  } else {
-    baud_rate =  115200/div_lo;
-  }
+  div_hi = (div_hi << 8);
+  baud_rate = (115200 / (div_hi + div_lo));
   uint16 LCR_val = inb(com_port + UART_8250_LCR) && 0x7F;
   outb( LCR_val, com_port + UART_8250_LCR); // disable DLAB
   return baud_rate;
