@@ -126,8 +126,8 @@ struct vfolder_struct {
 };
 
 struct dirent_struct {
-  file_type d_type;
   native_char d_name[NAME_MAX + 1];
+  file_type d_type;
 };
 
 struct DIR_struct {
