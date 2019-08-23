@@ -137,6 +137,35 @@ uint32 get_baud_rate(uint8 port_num){
   return baud_rate;
 }
 
+uint32 identify_material(uint8 port_num){
+  uint8 FCR = 2;
+  uint8 IIR = 2;
+  uint8 SCR = 7;
+  uint16 com_port = com_num_to_port(port_num);
+  // Set the value "0xE7" to the FCR to test the status of the FIFO flags.
+  outb(0xE7, com_port + FCR);
+  // Read the value of the IIR to test for what flags actually got set. 
+  uint8 test = inb(com_port + IIR);
+  if((test & 0x40) > 0){
+    if((test & 0x80) > 0){
+      if((test & 0x20) > 0){
+        // UART is a 16750
+        return 16750;
+      } else {
+        return 16550;
+      }
+    } else {
+      return 16550;
+    }
+  } else {
+    outb(0x2A, com_port + SCR);
+    if(inb(com_port + SCR) == 0x2A){
+      return 16450;
+    } else {
+      return 8250;
+    }}
+}
+
 // Modem Status Register read
 static void read_msr(uint16 port){
   uint8 c = inb(port + UART_8250_MSR);
@@ -592,6 +621,7 @@ dirent* uart_readdir(DIR* dir) { return NULL; }  // Makes no sense on a COM port
 static error_code detect_hardware() {
   error_code err = NO_ERROR;
 
+  debug_write(identify_material(1));
   // Init the values to a known status
   for (uint8 i = 0; i < 4; ++i) {
     init_serial(com_num_to_port(i));
