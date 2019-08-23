@@ -493,6 +493,7 @@ bitmap_word pattern_get_word(pattern* self, int y, int layer) {
 
 #define font font_c
 
+#include "fonts/mono_4x6_256.c"
 #include "fonts/mono_5x7_256.c"
 //#include "fonts/mono_5x7.c"
 //#include "fonts/mono_5x8.c"

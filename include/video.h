@@ -214,6 +214,7 @@ extern pattern pattern_blue;
 extern pattern pattern_magenta;
 extern pattern pattern_cyan;
 
+extern font_c font_mono_4x6;
 extern font_c font_mono_5x7;
 extern font_c font_mono_5x8;
 extern font_c font_mono_6x9;
