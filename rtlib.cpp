@@ -239,8 +239,13 @@ void __do_global_ctors ()
       MOUSE_WIDTH_IN_BITMAP_WORDS << LOG2_BITMAP_WORD_WIDTH, MOUSE_HEIGHT, 4);
 
   // Create the console terminal
+#if 0
   term_init(&term_console, 0, 0, 80, 25, &font_mono_6x13, &font_mono_6x13B,
             L"console", TRUE);
+#else
+  term_init(&term_console, 0, 0, 80, 75, &font_mono_4x6, &font_mono_4x6,
+            L"console", TRUE);
+#endif
 }
 
 void __do_global_dtors ()

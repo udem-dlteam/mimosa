@@ -505,6 +505,7 @@ void virtual_program_thread_run(thread* sself) {
   int argc = sizeof(argv) / sizeof(argv[0]) - 1;
   static char* env[] = {NULL};
   self->_code(argc, argv, env);
+  term_write(cout, "Program thread terminating\n");
 }
 
 native_string thread_name(thread* self) { return self->_name; }
