@@ -567,11 +567,8 @@ error_code fat_close_file(file* ff) {
     fat_open_chain* link = f->link;
     link->ref_count--;
 
-    if (0 == link->ref_count) {
-      if (link->remove_on_close) {
-        fat_actual_remove(fs, f);
-      }
-
+    if (0 == link->ref_count && link->remove_on_close) {
+      fat_actual_remove(fs, f);
       fat_chain_del(link);
       kfree(link);
     }
@@ -1727,13 +1724,13 @@ static error_code fat_fetch_parent(fat_file_system* fs, native_string* _parts,
     }
   }
 
-  if (ERROR(err)) {
-    if (NULL != parent) fat_close_file(CAST(file*, parent));
-    return err;
+  if (ERROR(err) && NULL != parent) {
+    fat_close_file(CAST(file*, parent));
   } else {
     *_parts = parts;
     *result = parent;
   }
+
   return err;
 }
 
@@ -1883,7 +1880,7 @@ static error_code fat_truncate_file(fat_file* f) {
 error_code fat_file_open(fs_header* ffs, native_string parts, uint8 depth, file_mode mode, file** result) {
   error_code err = NO_ERROR;
   fat_file_system* fs = CAST(fat_file_system*, ffs);
-  fat_file *parent,*child;
+  fat_file *parent, *child;
 
   switch (fs->kind) {
     case FAT12_FS:
@@ -1901,14 +1898,16 @@ error_code fat_file_open(fs_header* ffs, native_string parts, uint8 depth, file_
   }
 
   if(0 == depth) {
-    *result = CAST(file*, parent);
-    return NO_ERROR;
+    child = parent;
+    parent = NULL;
+    // Bugged
+    // *result = CAST(file*,child);
+    // return NO_ERROR;
+    // Not bugged
+    goto fat_open_file_done;
   }
 
-  if (HAS_NO_ERROR(err = fat_fetch_entry(fs, parent, parts, &child))) {
-    fat_set_to_absolute_position(CAST(file*, parent), 0);
-    fat_set_to_absolute_position(CAST(file*, child), 0);
-  }
+  err = fat_fetch_entry(fs, parent, parts, &child); 
   
   if (ERROR(err) && FNF_ERROR != err) {
     if (NULL != parent) fat_close_file(CAST(file*, parent));
@@ -1967,6 +1966,7 @@ error_code fat_file_open(fs_header* ffs, native_string parts, uint8 depth, file_
     }
   }
 
+fat_open_file_done:
   if (HAS_NO_ERROR(err)) {
     child->header.mode = mode;
 
@@ -1983,6 +1983,8 @@ error_code fat_file_open(fs_header* ffs, native_string parts, uint8 depth, file_
   }
 
   if (NULL != parent) fat_close_file(CAST(file*, parent));
+  
+  fat_set_to_absolute_position(CAST(file*, child), 0);
 
   *result = CAST(file*, child);
 
