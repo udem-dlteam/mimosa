@@ -304,7 +304,7 @@ static void read_lsr(uint16 port) {
   //}
 }
 
-void _handle_interrupt(uint16 port, uint8 com_index, uint8 iir) {
+void _handle_interrupt(uint16 port_base, uint8 com_index, uint8 iir) {
 #ifdef SHOW_UART_MESSAGES
     debug_write("interrupt code:");
     debug_write(inb(port + UART_8250_IIR));
@@ -315,6 +315,9 @@ void _handle_interrupt(uint16 port, uint8 com_index, uint8 iir) {
     debug_write(" got data");
 #endif
   uint8 cause = UART_IIR_GET_CAUSE(iir);
+  com_port* port = &ports[com_num(port_base)];
+
+  if (!(port->status & COM_PORT_STATUS_OPEN)) return;  // Drop silently
 
   switch (cause) {
     case UART_IIR_MODEM:
@@ -327,7 +330,7 @@ void _handle_interrupt(uint16 port, uint8 com_index, uint8 iir) {
 #ifdef SHOW_UART_MESSAGES
        debug_write("Read_modem_status_register");
 #endif
-      read_msr(port);
+      read_msr(port_base);
       break;
     case UART_IIR_TRANSMITTER_HOLDING_REG:
       // Transmitter empty
@@ -339,7 +342,7 @@ void _handle_interrupt(uint16 port, uint8 com_index, uint8 iir) {
 #ifdef SHOW_UART_MESSAGES
        debug_write("Transmitter_Holding_reg");
 #endif
-      handle_thr(port);
+      handle_thr(port_base);
       break;
     case UART_IIR_RCV_LINE:
       // Error or Break
@@ -350,7 +353,7 @@ void _handle_interrupt(uint16 port, uint8 com_index, uint8 iir) {
 #ifdef SHOW_UART_MESSAGES
        debug_write("Error or Break");
 #endif
-      read_lsr(port);
+      read_lsr(port_base);
       break;
     case UART_IIR_DATA_AVAIL:
       // Data Available
@@ -364,14 +367,14 @@ void _handle_interrupt(uint16 port, uint8 com_index, uint8 iir) {
 #ifdef SHOW_UART_MESSAGES
        debug_write("Data Avail");
 #endif
-      read_RHR(port);  // ***
+      read_RHR(port_base);  // ***
       break;
     case UART_IIR_TIMEOUT:
 #ifdef SHOW_UART_MESSAGES
        debug_write("Timeout");
 #endif
       // simple serial read
-      read_RHR(port);
+      read_RHR(port_base);
       break;
 
     default:
@@ -503,6 +506,8 @@ error_code uart_open(uint32 id, file_mode mode, file** result) {
   new_condvar(port->wrt_cv);
   new_condvar(port->rd_cv);
 
+  port->status |= COM_PORT_STATUS_OPEN;
+
   if (HAS_NO_ERROR(err)) {
     *result = CAST(file*, uart_handle);
   }
@@ -623,10 +628,9 @@ dirent* uart_readdir(DIR* dir) { return NULL; }  // Makes no sense on a COM port
 static error_code detect_hardware() {
   error_code err = NO_ERROR;
 
-  debug_write(identify_material(1));
   // Init the values to a known status
   for (uint8 i = 0; i < 4; ++i) {
-    init_serial(com_num_to_port(i));
+    ports[i].status = 0;
     ports[i].rbuffer = NULL;
     ports[i].wbuffer = NULL;
     ports[i].rbuffer_len = ports[i].wbuffer_len = 0;
@@ -634,6 +638,11 @@ static error_code detect_hardware() {
     // Si le port est la, il faut mettre le status correct.
     if (port_exists(i)) ports[i].status |= COM_PORT_STATUS_EXISTS;
     ports[i].port = com_num_to_port(i);
+
+    if (ports[i].status & COM_PORT_STATUS_EXISTS) {
+      // Only init a port that exists
+      init_serial(com_num_to_port(i));
+    }
   }
 
   return err;
