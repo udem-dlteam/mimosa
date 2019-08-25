@@ -1792,7 +1792,7 @@ the _parts pointer would be:
                             file\0
 at the end of the function call.
 */
-static error_code fat_fetch_parent(fat_file_system* fs, native_string* _parts,
+static error_code fat_fetch_parent(fat_file_system* fs, native_char** _parts,
                                    uint8 depth, fat_file** result) {
   error_code err = NO_ERROR;
   native_string parts = *_parts;

@@ -195,7 +195,7 @@ vfs_parse_mode_loop_end:
   return '\0' == *c; // if we stopped at the null terminator, we did not fail anywhere
 }
 
-static vfnode* explore(native_string* _parts, uint8* _depth) {
+static vfnode* explore(native_char** _parts, uint8* _depth) {
   vfnode* last_candidate = NULL;
   vfnode* scout = &sys_root;
   native_string parts = *_parts;
@@ -349,7 +349,7 @@ error_code file_open(native_string path, native_string mode, file** result) {
     return err;
   }
 
-  native_string p = normalized_path;
+  native_char* p = normalized_path;
   vfnode* deepest = explore(&p, &depth);
 
   if (!parse_mode(mode, &md)) {
