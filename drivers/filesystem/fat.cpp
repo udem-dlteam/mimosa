@@ -345,12 +345,11 @@ static error_code mount_partition(disk* d, vfnode* parent) {
       }
 
       vfnode* partition_mount_point = CAST(vfnode*, kmalloc(sizeof(vfnode)));
-      // TODO make mount names
-      disk_name[3] += fs_mod.nb_mounted_fs;
-      
-      if(NULL == new_vfnode(partition_mount_point, disk_name, TYPE_MOUNTPOINT)) {
+
+      if (NULL == new_vfnode(partition_mount_point, disk_name, TYPE_MOUNTPOINT)) {
         err = MEM_ERROR;
       } else {
+        partition_mount_point->name[3] += fs_mod.nb_mounted_fs;
         partition_mount_point->_value.mountpoint.mounted_fs =
             CAST(fs_header*, fs);
         vfnode_add_child(parent, partition_mount_point);
@@ -409,17 +408,27 @@ static void mount_all_partitions(vfnode* parent) {
 // FAT manipulation routines
 // ------------------------------------------------------
 
-static inline void read_lfn_section(uint8* buff, uint8 len,
-                                  native_string lfn_buff, uint8* _lfn_index) {
+/*
+Read a section of a LFN entry. The lfn section pointer points towards 
+the LFN entry's section to read. The max len indicates the number of
+bytes to read from the section (the section length). The buffer is the
+string buffer where the characters are inserted and the index pointer
+is used to keep track of the index where to write in the buffer. It is
+updated after the section has been read. Since LFN sections are inserted
+backwards, this procedure reads characters backwards into the buffer so
+the buffer can be used as a string afterwards.
+*/
+static inline void read_lfn_section(uint8* lfn_section, uint8 maxlen,
+                                    native_string buff, uint8* _index) {
   native_char c;
-  uint8 index = *_lfn_index;
-  for (int8 k = len - 2; k >= 0; k -= 2) {
-    if (0xFF != buff[k] || 0xFF != buff[k + 1]) {
-      c = 0xFF & buff[k];
-      lfn_buff[index--] = (c >= 'a' && c <= 'z') ? (c - 32) : c;
+  uint8 index = *_index;
+  for (int8 k = maxlen - 2; k >= 0; k -= 2) {
+    if (0xFF != lfn_section[k] || 0xFF != lfn_section[k + 1]) {
+      c = 0xFF & lfn_section[k];
+      buff[index--] = (c >= 'a' && c <= 'z') ? (c - 32) : c;
     }
   }
-  *_lfn_index = index;
+  *_index = index;
 }
 
 #define FAT_IS_ROOT_DIR(f) ((f)->first_cluster <= FAT32_FIRST_CLUSTER)
