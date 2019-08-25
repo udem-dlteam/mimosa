@@ -59,9 +59,12 @@ static error_code new_fat_file(fat_file** result) {
 }
 
 static error_code fat_remove(fs_header* header, file* file);
-static error_code fat_rename(fs_header* header, file* source, native_string name, uint8 depth);
-static error_code fat_mkdir(fs_header* header,native_string name, uint8 depth, file** result);
-static error_code fat_file_open(fs_header* header, native_string parts, uint8 depth, file_mode mode, file** result);
+static error_code fat_rename(fs_header* header, file* source,
+                             native_string name, uint8 depth);
+static error_code fat_mkdir(fs_header* header, native_string name, uint8 depth,
+                            file** result);
+static error_code fat_file_open(fs_header* header, native_string parts,
+                                uint8 depth, file_mode mode, file** result);
 static error_code fat_stat(fs_header* header, file* f, stat_buff* buf);
 static void fat_reset_cursor(file* f);
 static error_code fat_move_cursor(file* f, int32 n);
@@ -77,8 +80,8 @@ static error_code fat_32_set_fat_link_value(fat_file_system* fs, uint32 cluster,
 static error_code fat_update_file_length(fat_file* f);
 static error_code fat_fetch_first_empty_directory_position(
     fat_file* directory, uint32* position, uint8 required_spots);
-static error_code fat_fetch_file(fat_file* parent,
-                                  native_char* name, fat_file** result);
+static error_code fat_fetch_file(fat_file* parent, native_char* name,
+                                 fat_file** result);
 static size_t fat_file_len(file* f);
 
 static fat_open_chain* fat_chain_fetch(fat_file_system* fs, uint32 cluster);
@@ -87,16 +90,18 @@ static error_code fat_chain_del(fat_open_chain* link);
 
 static error_code fat_actual_remove(fat_file_system* fs, fat_file* f);
 static fat_open_chain* new_chain_link(fat_file_system* fs, fat_file* file);
-static error_code fat_allocate_directory_entry(
-    fat_file_system * fs, fat_file * parent_folder, FAT_directory_entry * de,
-    native_char * name, uint32* position);
+static error_code fat_allocate_directory_entry(fat_file_system* fs,
+                                               fat_file* parent_folder,
+                                               FAT_directory_entry* de,
+                                               native_char* name,
+                                               uint32* position);
 static uint8 lfn_checksum(uint8* name_entry);
 static void name_to_short_file_name(native_string n, short_file_name* result);
-static error_code fat_fetch_parent(fat_file_system* fs, native_string* _parts, uint8 depth,
-                                   fat_file** result);
+static error_code fat_fetch_parent(fat_file_system* fs, native_string* _parts,
+                                   uint8 depth, fat_file** result);
 
 static error_code read_lfn(fs_header* fs, uint32 cluster, uint32 entry_position,
-                    native_string* result) ;
+                           native_string* result);
 
 // -------------------------------------------------------------
 // Mounting routines
