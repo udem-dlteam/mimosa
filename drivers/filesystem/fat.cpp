@@ -1085,7 +1085,7 @@ static error_code fat_fetch_entry(fat_file_system* fs, fat_file* parent,
   FAT_directory_entry de;
   fat_file* f;
 
-  if(name == '\0') {
+  if ('\0' == name[0]) {
     return ARG_ERROR;
   }
   
@@ -1720,7 +1720,7 @@ static error_code fat_fetch_parent(fat_file_system* fs, native_string* _parts,
       child = NULL;
 
       while (*parts++ != '\0')
-        ;
+        ; // Go to the next string in the "parts" string array
     }
   }
 

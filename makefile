@@ -24,20 +24,20 @@ all: bin_files
 
 single-archive:
 	mkdir -p mimosa-build
-	tar --exclude='*.img' -czf - . | ssh administrator@localhost -p 10022 "mkdir -p mimosa-build;cd mimosa-build;tar xzf -;rm -rf kernel.bin; rm -rf bootsect.bin; rm -rf kernel.elf;make; cd .. ;echo pass999word | sudo ./mimosa-build/createimg.sh;cd mimosa-build; tar czf mb.tar.gz kernel.bin kernel.elf bootsect.bin floppy.img;";
-	scp -P 10022 administrator@localhost:~/mimosa-build/mb.tar.gz ./
+	tar --exclude='*.img' -czf - . | ssh administrator@192.168.1.156 -p 10022 "mkdir -p mimosa-build;cd mimosa-build;tar xzf -;rm -rf kernel.bin; rm -rf bootsect.bin; rm -rf kernel.elf;make; cd .. ;echo pass999word | sudo ./mimosa-build/createimg.sh;cd mimosa-build; tar czf mb.tar.gz kernel.bin kernel.elf bootsect.bin floppy.img;";
+	scp -P 10022 administrator@192.168.1.156:~/mimosa-build/mb.tar.gz ./
 	tar xC mimosa-build -xzf mb.tar.gz
 	rm mb.tar.gz
 
 build:
 	mkdir -p mimosa-build
-	tar --exclude='*.img' -czf - . | ssh administrator@localhost -p 10022 "mkdir -p mimosa-build;cd mimosa-build;tar xzf -;rm -rf kernel.bin; rm -rf bootsect.bin; rm -rf kernel.elf;make;tar czf mb.tar.gz kernel.bin kernel.elf bootsect.bin"
-	scp -P 10022 administrator@localhost:~/mimosa-build/mb.tar.gz ./
+	tar --exclude='*.img' -czf - . | ssh administrator@192.168.1.156 -p 10022 "mkdir -p mimosa-build;cd mimosa-build;tar xzf -;rm -rf kernel.bin; rm -rf bootsect.bin; rm -rf kernel.elf;make;tar czf mb.tar.gz kernel.bin kernel.elf bootsect.bin"
+	scp -P 10022 administrator@192.168.1.156:~/mimosa-build/mb.tar.gz ./
 	tar xC mimosa-build -xzf mb.tar.gz
 
 img:
-	ssh administrator@localhost -p 10022 "sudo mimosa-build/createimg.sh;tar czf flop.tar.gz mimosa-build/floppy.img"
-	scp -P 10022 administrator@localhost:~/flop.tar.gz ./
+	ssh administrator@192.168.1.156 -p 10022 "sudo mimosa-build/createimg.sh;tar czf flop.tar.gz mimosa-build/floppy.img"
+	scp -P 10022 administrator@192.168.1.156:~/flop.tar.gz ./
 	tar xzf flop.tar.gz
 	rm flop.tar.gz
 
@@ -91,7 +91,7 @@ bootsect.bin: bootsect.o
 	as --defsym OS_NAME=$(OS_NAME) --defsym KERNEL_START=$(KERNEL_START) --defsym KERNEL_SIZE=`cat kernel.bin | wc --bytes | sed -e "s/ //g"` -o $*.o $*.s
 
 clean:
-	ssh administrator@localhost -p 10022 "rm -rf mimosa-build;"
+	ssh administrator@192.168.1.156 -p 10022 "rm -rf mimosa-build;"
 	rm -rf mimosa-build
 	rm -f *.o *.asm *.bin *.tmp *.d
 
