@@ -427,7 +427,7 @@ static inline void read_lfn_section(uint8* buff, uint8 len,
 static error_code fat_open_directory_entry(fat_file* f,
                                            FAT_directory_entry* de) {
   error_code err = NO_ERROR;
-  fat_file* parent_dir;
+  fat_file* parent_dir = NULL;
 
   if (ERROR(err = new_fat_file(&parent_dir))) return err;
 
@@ -451,7 +451,7 @@ static error_code fat_open_directory_entry(fat_file* f,
 static error_code fat_write_directory_entry(fat_file* f,
                                             FAT_directory_entry* de) {
   error_code err = NO_ERROR;
-  fat_file* parent_dir;                    
+  fat_file* parent_dir = NULL;
 
   if (ERROR(err = new_fat_file(&parent_dir))) return err;
 
@@ -598,7 +598,7 @@ static error_code next_FAT_section(fat_file* f) {
   uint32 offset;
   uint32 sector_pos;
   uint32 cluster;
-  cache_block* cb;
+  cache_block* cb = NULL;
   error_code err;
 
   if (fs->kind == FAT12_FS) {
@@ -710,8 +710,8 @@ static error_code next_FAT_section(fat_file* f) {
 static error_code fat_file_set_pos_from_start(fat_file* f, uint32 position) {
   error_code err, release_error = NO_ERROR;
   fat_file_system* fs = CAST(fat_file_system*,f->header._fs_header);
-  BIOS_Parameter_Block* p;
-  cache_block* cb;
+  BIOS_Parameter_Block* p = NULL;
+  cache_block* cb = NULL;
   disk* d = fs->_.FAT121632.d;
 
   if (IS_REGULAR_FILE(f->header.type) && (position > f->length)) {
@@ -758,8 +758,8 @@ static error_code fat_file_set_pos_from_start(fat_file* f, uint32 position) {
 static error_code fat_move_cursor(file* ff, int32 n) {
   fat_file* f = CAST(fat_file*, ff);
   uint32 displacement;
-  BIOS_Parameter_Block* p;
-  cache_block* cb;
+  BIOS_Parameter_Block* p = NULL;
+  cache_block* cb = NULL;
   error_code err = NO_ERROR;
   fat_file_system* fs = CAST(fat_file_system*, f->header._fs_header);
   disk* d = fs->_.FAT121632.d;
@@ -1076,14 +1076,14 @@ error_code fat_read_file(file* ff, void* buf, uint32 count) {
 static error_code fat_fetch_entry(fat_file_system* fs, fat_file* parent,
                                   native_char* name, fat_file** result) {
   native_char lfn_buff[256];
-  uint8 len_name;
+  uint8 name_len;
   uint8 lfn_index = 254;
   short_file_name sfn_buff;
   uint8 name_match = 0;
   uint32 i = 0;
   error_code err = NO_ERROR;
   FAT_directory_entry de;
-  fat_file* f;
+  fat_file* f = NULL;
 
   if ('\0' == name[0]) {
     return ARG_ERROR;
@@ -1094,9 +1094,9 @@ static error_code fat_fetch_entry(fat_file_system* fs, fat_file* parent,
   }
 
   lfn_buff[255] = '\0';
-  len_name = kstrlen(name);
+  name_len = kstrlen(name);
 
-  if (len_name <= FAT_NAME_LENGTH) {
+  if (name_len <= FAT_NAME_LENGTH) {
     name_to_short_file_name(name, &sfn_buff);
   }
 
@@ -1113,7 +1113,7 @@ static error_code fat_fetch_entry(fat_file_system* fs, fat_file* parent,
 
   while ((err = fat_read_file(CAST(file*, parent), &de, sizeof(de))) ==
          sizeof(de)) {
-    if (de.DIR_Attr == FAT_ATTR_LONG_NAME && len_name > FAT_NAME_LENGTH) {
+    if (de.DIR_Attr == FAT_ATTR_LONG_NAME && name_len > FAT_NAME_LENGTH) {
       // We want to write in the buffer since we are already over the entry
       long_file_name_entry* lfe = CAST(long_file_name_entry*, &de);
 
@@ -1139,7 +1139,7 @@ static error_code fat_fetch_entry(fat_file_system* fs, fat_file* parent,
     if (de.DIR_Name[0] != FAT_UNUSED_ENTRY && (de.DIR_Attr & FAT_ATTR_HIDDEN) == 0 &&
         (de.DIR_Attr & FAT_ATTR_VOLUME_ID) == 0) {
 
-      if(len_name <= FAT_NAME_LENGTH) {
+      if(name_len <= FAT_NAME_LENGTH) {
         for (i = 0; i < FAT_NAME_LENGTH; i++) {
           if (de.DIR_Name[i] != sfn_buff.name[i]) break;
         }
@@ -1178,8 +1178,8 @@ static error_code fat_fetch_entry(fat_file_system* fs, fat_file* parent,
         f->entry.position = position;
 
         f->header.name =
-            CAST(native_string, kmalloc(sizeof(unicode_char) * (len_name + 1)));
-        memcpy(f->header.name, name, len_name + 1);
+            CAST(native_string, kmalloc(sizeof(unicode_char) * (name_len + 1)));
+        memcpy(f->header.name, name, name_len + 1);
 
         goto found;
       } else {
@@ -1205,7 +1205,7 @@ error_code fat_32_open_root_dir(fat_file_system* fs, fat_file* f) {
 #ifdef SHOW_DISK_INFO
   term_write(cout, "Loading FAT32 root dir\n\r");
 #endif
-  cache_block* cb;
+  cache_block* cb = NULL;
   disk* d = fs->_.FAT121632.d;
   error_code err;
   uint16 bytes_per_sector;
@@ -1255,7 +1255,7 @@ error_code fat_32_open_root_dir(fat_file_system* fs, fat_file* f) {
 
 static error_code fat_open_root_dir(fat_file_system* fs, file** result) {
   error_code err;
-  fat_file* f;
+  fat_file* f = NULL;
   
   if(ERROR(err = new_fat_file(&f))) return err;
 
@@ -1303,7 +1303,7 @@ error_code fat_32_get_fat_link_value(fat_file_system* fs, uint32 cluster,
   uint32 lba;
   disk* d = fs->_.FAT121632.d;
   error_code err;
-  cache_block* cb;
+  cache_block* cb = NULL;
   // entries per sector = Bytes Per sector / 4 (an entry is 4 bytes)
   uint16 entries_per_sector = (1 << fs->_.FAT121632.log2_bps) >> 2;
 
@@ -1341,7 +1341,7 @@ error_code fat_32_get_fat_link_value(fat_file_system* fs, uint32 cluster,
 
 static error_code fat_32_find_first_empty_cluster(fat_file_system* fs, uint32* result) {
   error_code err = NO_ERROR;
-  cache_block* cb;
+  cache_block* cb = NULL;
   uint32 max_lba = fs->_.FAT121632.total_sectors;
   uint16 entries_per_sector = (1 << fs->_.FAT121632.log2_bps) >> 2;
 
@@ -1386,7 +1386,7 @@ static error_code fat_32_find_first_empty_cluster(fat_file_system* fs, uint32* r
 static error_code fat_32_set_fat_link_value(fat_file_system* fs, uint32 cluster,
                                      uint32 value) {
   uint32 lba;
-  cache_block* cb;
+  cache_block* cb = NULL;
   disk* d = fs->_.FAT121632.d;
   uint16 entries_per_sector = (1 << fs->_.FAT121632.log2_bps) >> 2;
   error_code err;
@@ -1573,7 +1573,7 @@ static error_code fat_32_create_empty_file(fat_file_system* fs,
                                            uint8 attributes,
                                            fat_file** result) {
   error_code err;
-  fat_file* f;
+  fat_file* f = NULL;
 
   if(ERROR(err = new_fat_file(&f))) {
     return err;
@@ -1698,7 +1698,7 @@ static error_code fat_fetch_parent(fat_file_system* fs, native_string* _parts,
                                    uint8 depth, fat_file** result) {
   error_code err = NO_ERROR;
   native_string parts = *_parts;
-  fat_file *parent, *child;
+  fat_file *parent = NULL, *child = NULL;
 
   if (ERROR(err = fat_open_root_dir(fs, CAST(file**, &parent)))) {
     return err;
@@ -1737,7 +1737,7 @@ static error_code fat_fetch_parent(fat_file_system* fs, native_string* _parts,
 static error_code fat_mkdir(fs_header* ffs, native_string name, uint8 depth, file** result) {
   error_code err = NO_ERROR;
   fat_file_system* fs = CAST(fat_file_system*, ffs);
-  fat_file *parent,*folder;
+  fat_file *parent = NULL, *folder = NULL;
 
   switch (fs->kind) {
     case FAT12_FS:
@@ -1840,7 +1840,7 @@ static error_code fat_update_file_length(fat_file* f) {
     de.DIR_WrtDate[i] = as_uint8(date,i);
   }
 
-  for (int i = 0; i < 4; ++i) {
+  for (uint8 i = 0; i < 4; ++i) {
     de.DIR_FileSize[i] = as_uint8(f->length, i);
   }
 
@@ -1880,7 +1880,7 @@ static error_code fat_truncate_file(fat_file* f) {
 error_code fat_file_open(fs_header* ffs, native_string parts, uint8 depth, file_mode mode, file** result) {
   error_code err = NO_ERROR;
   fat_file_system* fs = CAST(fat_file_system*, ffs);
-  fat_file *parent, *child;
+  fat_file *parent = NULL, *child = NULL;
 
   switch (fs->kind) {
     case FAT12_FS:
@@ -2062,7 +2062,7 @@ error_code read_lfn(fs_header* fs, uint32 cluster, uint32 entry_position,
   uint8 j, k, checksum, lfn_entry_count = 0;
   FAT_directory_entry de;
   long_file_name_entry lfn_e;
-  fat_file* reader;
+  fat_file* reader = NULL;
 
   if (ERROR(err = new_fat_file(&reader))) return err;
 
@@ -2304,7 +2304,7 @@ static error_code fat_chain_del(fat_open_chain* link) {
 }
 
 static fat_open_chain* new_chain_link(fat_file_system* fs, fat_file* file) {
-  fat_open_chain* nlink;
+  fat_open_chain* nlink = NULL;
 
   if(NULL == (nlink = CAST(fat_open_chain*, kmalloc(sizeof(fat_open_chain))))) return NULL;
 
@@ -2319,10 +2319,9 @@ static fat_open_chain* new_chain_link(fat_file_system* fs, fat_file* file) {
 static error_code fat_stat(fs_header* header, file* ff, stat_buff* buf) {
   error_code err = NO_ERROR;
   fat_file_system* fs = CAST(fat_file_system*, header);
-  fat_file* f = CAST(fat_file*, ff); 
-
+  fat_file* f = CAST(fat_file*, ff);
   FAT_directory_entry de;
-  
+
   if(ERROR(err = fat_open_directory_entry(f, &de))) {
     return err;
   }
