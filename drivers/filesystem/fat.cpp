@@ -77,7 +77,7 @@ static error_code fat_32_set_fat_link_value(fat_file_system* fs, uint32 cluster,
 static error_code fat_update_file_length(fat_file* f);
 static error_code fat_fetch_first_empty_directory_position(
     fat_file* directory, uint32* position, uint8 required_spots);
-static error_code fat_fetch_entry(fat_file_system* fs, fat_file* parent,
+static error_code fat_fetch_file(fat_file* parent,
                                   native_char* name, fat_file** result);
 static size_t fat_file_len(file* f);
 
@@ -587,6 +587,13 @@ error_code fat_close_file(file* ff) {
   return NO_ERROR;
 }
 
+/*
+ Reset the cursor of a fat file. This will also
+ correctly initialize it and is safe to call on
+ fat files that are not completly initialized. The 
+ only fields that are required are the first cluster
+ and the file system pointer.
+*/
 static void fat_reset_cursor(file* ff) {
   fat_file* f = CAST(fat_file*, ff);
   fat_file_system* fs = CAST(fat_file_system*, f->header._fs_header);
@@ -601,6 +608,10 @@ static void fat_reset_cursor(file* ff) {
   f->current_pos = 0;
 }
 
+/*
+ Move a file cursor to the next FAT section. It will cross
+ the boundaries of a cluster.
+*/
 static error_code next_FAT_section(fat_file* f) {
   fat_file_system* fs = CAST(fat_file_system*, f->header._fs_header);
   uint32 n = f->current_cluster;
@@ -716,6 +727,13 @@ static error_code next_FAT_section(fat_file* f) {
   return NO_ERROR;
 }
 
+/*
+Set the cursor position to the position in parameter, but starting the
+mouvements from the absolute start of the file (it will set the cursor to zero,
+then move to the position). This is useful to perform cluster boundary-crossing
+mouvements backwards, but is slower than doing small relatives movements (not
+always possible).
+*/
 static error_code fat_file_set_pos_from_start(fat_file* f, uint32 position) {
   error_code err, release_error = NO_ERROR;
   fat_file_system* fs = CAST(fat_file_system*,f->header._fs_header);
@@ -764,6 +782,11 @@ static error_code fat_file_set_pos_from_start(fat_file* f, uint32 position) {
   return err;
 }
 
+/*
+Move the cursor of a fat file by a movement 'n'. A negative movement
+indicates a "backwards" movement in the file buffer where as a positive
+movement indicates a "forward" movement in the same file.
+*/
 static error_code fat_move_cursor(file* ff, int32 n) {
   fat_file* f = CAST(fat_file*, ff);
   uint32 displacement;
@@ -816,9 +839,6 @@ static error_code fat_move_cursor(file* ff, int32 n) {
         uint32 no_of_clusters = (new_section_pos / cluster_sz);
         new_section_pos %= cluster_sz; // We put back in "section length" units
 
-        // term_write(cout, "This requires moving "); term_write(cout, no_of_clusters); term_write(cout, " cluster(s) forward");
-        // term_writeline(cout);
-
         for (uint32 i = 0; i < no_of_clusters; ++i) {
           if(ERROR(err = next_FAT_section(f))) {
             break;
@@ -840,10 +860,12 @@ static error_code fat_move_cursor(file* ff, int32 n) {
   return err;
 }
 
+/*
+Set the cursor of a fat file to an absolute position, relative to 0, the start
+of the file
+*/
 static error_code fat_set_to_absolute_position(file* ff, uint32 position) {
   fat_file* f = CAST(fat_file*, ff);
-  // To goal of this method is to set the file cursor to an absolute position,
-  // but maybe by using relative movements. It decides what is more appropriate.
 
   if(f->current_pos == position) {
     return NO_ERROR;
@@ -1082,8 +1104,12 @@ error_code fat_read_file(file* ff, void* buf, uint32 count) {
   return NO_ERROR;
 }
 
-static error_code fat_fetch_entry(fat_file_system* fs, fat_file* parent,
-                                  native_char* name, fat_file** result) {
+/*
+Fetch a file of name "name" from the parent directory (parent).
+The result is passed back and an error code is returned. 
+*/
+static error_code fat_fetch_file(fat_file* parent, native_string name,
+                                 fat_file** result) {
   native_char lfn_buff[256];
   uint8 name_len;
   uint8 lfn_index = 254;
@@ -1093,6 +1119,7 @@ static error_code fat_fetch_entry(fat_file_system* fs, fat_file* parent,
   error_code err = NO_ERROR;
   FAT_directory_entry de;
   fat_file* f = NULL;
+  fat_file_system* fs = CAST(fat_file_system*, parent->header._fs_header);
 
   if ('\0' == name[0]) {
     return ARG_ERROR;
@@ -1210,7 +1237,7 @@ found:
   return NO_ERROR;
 }
 
-error_code fat_32_open_root_dir(fat_file_system* fs, fat_file* f) {
+static error_code fat_32_open_root_dir(fat_file_system* fs, fat_file* f) {
 #ifdef SHOW_DISK_INFO
   term_write(cout, "Loading FAT32 root dir\n\r");
 #endif
@@ -1307,6 +1334,10 @@ static error_code fat_open_root_dir(fat_file_system* fs, file** result) {
   return NO_ERROR;
 }
 
+/*
+Get a value of a link in the fat chain. The cluster number identifies the link
+to get the value from. An error code is returned.
+*/
 error_code fat_32_get_fat_link_value(fat_file_system* fs, uint32 cluster,
                                      uint32* value) {
   uint32 lba;
@@ -1348,6 +1379,9 @@ error_code fat_32_get_fat_link_value(fat_file_system* fs, uint32 cluster,
   return err;
 }
 
+/*
+Scan the FAT chain to find the first empty, usable cluster.
+*/
 static error_code fat_32_find_first_empty_cluster(fat_file_system* fs, uint32* result) {
   error_code err = NO_ERROR;
   cache_block* cb = NULL;
@@ -1391,7 +1425,10 @@ static error_code fat_32_find_first_empty_cluster(fat_file_system* fs, uint32* r
   return err;
 }
 
-
+/*
+Set a link value in the cluster chain. The cluster identifies the link. An
+error code is returned in case of an error.
+*/
 static error_code fat_32_set_fat_link_value(fat_file_system* fs, uint32 cluster,
                                      uint32 value) {
   uint32 lba;
@@ -1435,12 +1472,21 @@ static error_code fat_32_set_fat_link_value(fat_file_system* fs, uint32 cluster,
   return err;
 }
 
+/*
+Find the section of a directory that can be used to allocate
+"required_spots" directory entries. The file may be extended
+to make place for those entries.
+*/
 static error_code fat_fetch_first_empty_directory_position(
     fat_file* directory, uint32* _position, uint8 required_spots) {
   FAT_directory_entry de;
   uint32 position = *_position;
   uint8 spots_left = required_spots;
-  error_code err;
+  error_code err = NO_ERROR;
+
+  if(directory->header.mode == MODE_READ) {
+    return ARG_ERROR;
+  }
 
   fat_reset_cursor(CAST(file*, directory));
 
@@ -1459,11 +1505,27 @@ static error_code fat_fetch_first_empty_directory_position(
     spots_left = required_spots;
   }
 
+  if (EOF_ERROR == err) {
+    de.DIR_Attr = 0;
+    err = NO_ERROR;
+    for (uint8 i = 0; i < required_spots; ++i) {
+      if (ERROR(err = file_write(directory, &de, sizeof(de)))) {
+        break;
+      }
+    }
+  }
+
   *_position = position;
 
   return err;
 }
 
+/*
+Write the directory entry de in the parent_folder. The name of the file
+is passed in case that the file requires "long file name support". The
+position pointer is updated with the position of the directory entry of the
+file. The directory entry is expected to be filled completly.
+*/
 static error_code fat_allocate_directory_entry(fat_file_system* fs,
                                                fat_file* parent_folder,
                                                FAT_directory_entry* de,
@@ -1575,6 +1637,11 @@ static error_code fat_allocate_directory_entry(fat_file_system* fs,
   return err;
 }
 
+/*
+Create an empty fat file in the folder "parent_folder". The directory
+entrty "de" is filled by this function. The resulting file is placed into
+"result".
+*/
 static error_code fat_32_create_empty_file(fat_file_system* fs,
                                            fat_file* parent_folder,
                                            FAT_directory_entry* de,
@@ -1703,6 +1770,23 @@ static error_code fat_create_file(native_char* name, fat_file* parent_folder, fa
   return err;
 }
 
+/*
+From the "_part" string (that represents a decomposed file path), fetch the parent of the last
+item in the path (wheter it is a folder or a file). The depth represents the number of
+levels in the path. The result is placed into result and an error code is returned. 
+Exemple:
+  File path: //parentA//parentB//parentC//parentD//file\0
+  _parts:    \0parentA\0parentB\0parentC\0parentD\0file\0
+  Depth: 5
+  The last file is file, so the parent returned is parentD.
+  For a depth of 4, the last file would be parentD, so the parent
+  returned would be parentC.
+This function is expected to move the _parts "cursor" forward up
+until the beginning of the last part of the name. In the first example,
+the _parts pointer would be:
+                            file\0
+at the end of the function call.
+*/
 static error_code fat_fetch_parent(fat_file_system* fs, native_string* _parts,
                                    uint8 depth, fat_file** result) {
   error_code err = NO_ERROR;
@@ -1721,7 +1805,7 @@ static error_code fat_fetch_parent(fat_file_system* fs, native_string* _parts,
 
   for (uint8 i = 0; i < depth - 1; ++i) {
     // Go get the actual parent folder
-    if (ERROR(err = fat_fetch_entry(fs, parent, parts, &child))) {
+    if (ERROR(err = fat_fetch_file(parent, parts, &child))) {
       break;
     } else {
       fat_close_file(CAST(file*, parent));
@@ -1767,7 +1851,7 @@ static error_code fat_mkdir(fs_header* ffs, native_string name, uint8 depth, fil
     return err;
   }
 
-  if (HAS_NO_ERROR(err = fat_fetch_entry(fs, parent, name, &folder))) {
+  if (HAS_NO_ERROR(err = fat_fetch_file(parent, name, &folder))) {
     // We expected a FNF
     if (NULL != parent) fat_close_file(CAST(file*, parent));
     return ARG_ERROR; // incorrect file since it exists already
@@ -1822,6 +1906,7 @@ static error_code fat_mkdir(fs_header* ffs, native_string name, uint8 depth, fil
   return err;
 }
 
+/* Update the file length of a file on disk */
 static error_code fat_update_file_length(fat_file* f) {
   // Update the directory entry
   // to set the correct length of the file
@@ -1858,6 +1943,10 @@ static error_code fat_update_file_length(fat_file* f) {
   return err;
 }
 
+/*
+Unlink the chain for the file f. This is used
+when deleting a file for instance.
+*/
 static error_code fat_unlink_file(fat_file* f) {
   error_code err = NO_ERROR;
 
@@ -1871,6 +1960,7 @@ static error_code fat_unlink_file(fat_file* f) {
   return err;
 }
 
+/* Truncate a file to be of size 0 */
 static error_code fat_truncate_file(fat_file* f) {
   error_code err = NO_ERROR;
   
@@ -1880,7 +1970,6 @@ static error_code fat_truncate_file(fat_file* f) {
   if(ERROR(err = fat_32_set_fat_link_value(CAST(fat_file_system*, f->header._fs_header), clus, FAT_32_EOF))) return err;
 
   f->length = 0;
-  
   if(ERROR(err = fat_update_file_length(f))) return err;
 
   return err;
@@ -1916,7 +2005,9 @@ error_code fat_file_open(fs_header* ffs, native_string parts, uint8 depth, file_
     goto fat_open_file_done;
   }
 
-  err = fat_fetch_entry(fs, parent, parts, &child); 
+  // Calling fetch_parent updated the parts
+  // up to the name of the file
+  err = fat_fetch_file(parent, parts, &child); 
   
   if (ERROR(err) && FNF_ERROR != err) {
     if (NULL != parent) fat_close_file(CAST(file*, parent));
@@ -2000,7 +2091,11 @@ fat_open_file_done:
   return err;
 }
 
-
+/* 
+Perform the actual deletion of a file on disk. It is important than
+this file is not open by any process, since it could result in a file being
+overwritten incorrectly.
+*/
 static error_code fat_actual_remove(fat_file_system* fs, fat_file* f) {
   error_code err = fat_unlink_file(f);
   if(ERROR(err)) return err;
@@ -2054,6 +2149,8 @@ static error_code fat_remove(fs_header* header, file* file) {
     return ARG_ERROR;
   }
 
+  // Indicate that the file is going to be removed
+  // when the last reference is closed.
   link->remove_on_close = 1;
   return NO_ERROR;
 }
@@ -2063,7 +2160,14 @@ static size_t fat_file_len(file* ff) {
   return CAST(size_t, f->length);
 }
 
-error_code read_lfn(fs_header* fs, uint32 cluster, uint32 entry_position,
+/*
+Read the LFN that starts at the cluster "cluster" in the position "position", where
+the cluster indicates the start of a directory and the position is the absolute position
+relative to that cluster.
+
+The result must be freed by the caller.
+*/
+static error_code read_lfn(fs_header* fs, uint32 cluster, uint32 position,
                     native_string* result) {
   // We need to find the first entry.
   error_code err = NO_ERROR;
@@ -2081,8 +2185,8 @@ error_code read_lfn(fs_header* fs, uint32 cluster, uint32 entry_position,
 
   fat_reset_cursor(CAST(file*, reader));
 
-  if (ERROR(err = fat_set_to_absolute_position(CAST(file*, reader),
-                                               entry_position))) {
+  if (ERROR(err =
+                fat_set_to_absolute_position(CAST(file*, reader), position))) {
     return err;
   }
 
@@ -2103,14 +2207,13 @@ error_code read_lfn(fs_header* fs, uint32 cluster, uint32 entry_position,
   j = 0;
   while (HAS_NO_ERROR(err)) {
     // We don't want to go before the file actually starts
-    if (entry_position <
-        (sizeof(long_file_name_entry) * (lfn_entry_count + 1))) {
+    if (position < (sizeof(long_file_name_entry) * (lfn_entry_count + 1))) {
       err = FNF_ERROR;
       goto fat_read_lfn_end;
     }
 
-    uint32 position = entry_position - (sizeof(long_file_name_entry) *
-                                                  (lfn_entry_count + 1));
+    uint32 position =
+        position - (sizeof(long_file_name_entry) * (lfn_entry_count + 1));
 
     fat_set_to_absolute_position(CAST(file*, reader), position);
 
@@ -2161,6 +2264,10 @@ fat_read_lfn_end:
   return err;
 }
 
+/*
+Read the long file name of the file f and place the result
+in "result". The result buffer must be freed by the caller
+*/
 error_code read_lfn(fat_file* f, native_string* result) {
   return read_lfn(f->header._fs_header, f->parent.first_cluster,
                   f->entry.position, result);
@@ -2280,6 +2387,7 @@ static void name_to_short_file_name(native_string n, short_file_name* result) {
   while (i < 3) result->name[8 + i++] = ' ';
 
   if(full_length > FAT_NAME_LENGTH) {
+    // TODO: check the folder for collisions
     result->name[6] = '~';
     result->name[7] = '1';
   }
