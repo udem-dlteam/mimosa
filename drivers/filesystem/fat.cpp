@@ -95,7 +95,7 @@ static void name_to_short_file_name(native_string n, short_file_name* result);
 static error_code fat_fetch_parent(fat_file_system* fs, native_string* _parts, uint8 depth,
                                    fat_file** result);
 
-error_code read_lfn(fs_header* fs, uint32 cluster, uint32 entry_position,
+static error_code read_lfn(fs_header* fs, uint32 cluster, uint32 entry_position,
                     native_string* result) ;
 
 // -------------------------------------------------------------
