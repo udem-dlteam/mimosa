@@ -123,17 +123,24 @@ void set_baud_rate(uint8 port_num, uint32 baud_rate){
 
 // 
 uint32 get_baud_rate(uint8 port_num){
-  uint16 com_port = com_num_to_port(port_num);
-  outb(inb(com_port + UART_8250_LCR) | 0x80, com_port + UART_8250_LCR);  // Enable DLAB (set baud rate divisor)
-  uint32 div_hi = inb(com_port + UART_8250_DLH);
-  uint32 div_lo = inb(com_port + UART_8250_DLL);
-  uint32 baud_rate;
   // see the baud rate diagram of
   // https://en.wikibooks.org/wiki/Serial_Programming/8250_UART_Programming
-  div_hi = (div_hi << 8);
-  baud_rate = (115200 / (div_hi + div_lo));
-  uint16 LCR_val = inb(com_port + UART_8250_LCR) && 0x7F;
-  outb( LCR_val, com_port + UART_8250_LCR); // disable DLAB
+  uint32 baud_rate;
+  uint16 com_port = com_num_to_port(port_num);
+  outb(inb(com_port + UART_8250_LCR) | 0x80,
+       com_port + UART_8250_LCR);  // Enable DLAB (set baud rate divisor)
+  uint32 div_hi = inb(com_port + UART_8250_DLH);
+  uint32 div_lo = inb(com_port + UART_8250_DLL);
+
+  if(0 == (div_hi + div_lo)) {
+    baud_rate = 0;
+  } else {
+    div_hi = (div_hi << 8);
+    baud_rate = (115200 / (div_hi + div_lo));
+    uint16 LCR_val = inb(com_port + UART_8250_LCR) && 0x7F;
+    outb(LCR_val, com_port + UART_8250_LCR);  // disable DLAB
+  }
+
   return baud_rate;
 }
 
