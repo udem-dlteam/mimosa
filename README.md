@@ -1,5 +1,5 @@
 # Mimosa
-![Mimosa Logo](res/logo.png)<!-- .element height="50%" width="50%" -->
+<img src="res/logo.png" width="100" >
 
 ## Project scope
 
