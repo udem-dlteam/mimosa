@@ -6,6 +6,8 @@
 #include "term.h"
 #include "uart.h"
 
+static fs_header __vfs;
+static fs_vtable __vfs_vtable;
 static file_vtable __vfnode_vtable;
 static vfnode sys_root;
 static vfnode dev_mnt_pt;
@@ -296,7 +298,12 @@ error_code file_stat(native_string path, stat_buff* buf) {
     return err;
   }
 
-  fs_stat(f->_fs_header, f, buf);
+  if (NULL == f->_fs_header) {
+    // TODO: stderr would be cool here
+    debug_write("Calling file_stat on a file without a FS");
+  } else {
+    err = fs_stat(f->_fs_header, f, buf);
+  }
 
   if (NULL != f) {
     file_close(f);
@@ -361,6 +368,7 @@ error_code file_open(native_string path, native_string mode, file** result) {
   } else if(depth == 0) {
     if ((deepest->type & TYPE_VFOLDER) == TYPE_VFOLDER) {
       hit = CAST(file*, kmalloc(sizeof(vfolder)));
+      hit->_fs_header = &__vfs;
       hit->mode = md;
       hit->type = deepest->type;
       hit->_vtable = &__vfnode_vtable;
@@ -386,30 +394,6 @@ error_code file_open(native_string path, native_string mode, file** result) {
       err = FNF_ERROR;
     }
   }
-
-  // if (NULL == deepest) {
-  //   err = FNF_ERROR;
-  // } else if(depth > 0 && deepest->type & TYPE_MOUNTPOINT) {
-  //   fs_header* fs = deepest->_value.mountpoint.mounted_fs;
-  //   err = fs_file_open(fs, p, depth, md, &hit);
-  // } else if(depth == 0) {
-  //   if(deepest->type & TYPE_VFOLDER) {
-  //     hit = CAST(file*, kmalloc(sizeof(vfolder)));
-  //     hit->mode = md;
-  //     hit->type = deepest->type;
-  //     hit->_vtable = &__vfnode_vtable;
-  //     uint32 len = kstrlen(p) + 1;
-  //     hit->name = CAST(native_string, kmalloc(sizeof(native_char) * len));
-  //     CAST(vfolder*, hit)->node = deepest;
-  //   } else if(deepest->type & TYPE_VFILE) {
-  //     uint32 id = deepest->_value.file_gate.identifier;
-  //     hit = deepest->_value.file_gate._vf_node_open(id);
-  //   } else {
-  //     err = ARG_ERROR;
-  //   }
-  // } else { 
-  //   err = FNF_ERROR;
-  // }
 
   if (HAS_NO_ERROR(err)) {
     *result = hit;
@@ -504,8 +488,47 @@ vfnode* new_vfnode(vfnode* vf, native_string name, file_type type) {
   return vf;
 }
 
+error_code vfs_open(fs_header* header, native_string parts, uint8 depth,
+                    file_mode mode, file** result) {
+  return UNKNOWN_ERROR;
+}
+
+error_code vfs_mkdir(fs_header* header, native_string name, uint8 depth, file** result) {
+  return UNKNOWN_ERROR;
+}
+
+error_code vfs_rename(fs_header* header, file* source, native_string name, uint8 depth) {
+  return UNKNOWN_ERROR;
+}
+
+error_code vfs_remove(fs_header* header, file* source) {
+  return UNKNOWN_ERROR;
+}
+
+error_code vfs_stat(fs_header* header, file* source, stat_buff* buf) {
+  error_code err = NO_ERROR;
+
+  buf->bytes = file_len(source);
+  buf->fs = header;
+  buf->fs_block_size = 0;
+  buf->creation_time_epochs_secs = 0;
+  buf->last_modifs_epochs_secs = 0;
+  buf->type = source->type;
+
+  return err;
+}
+
 error_code init_vfs() {
   error_code err = NO_ERROR;
+  
+  __vfs_vtable._file_open = vfs_open;
+  __vfs_vtable._mkdir = vfs_mkdir;
+  __vfs_vtable._remove = vfs_remove;
+  __vfs_vtable._rename = vfs_rename;
+  __vfs_vtable._stat = vfs_stat;
+
+  __vfs._vtable = &__vfs_vtable;
+  __vfs.kind = NONE; 
 
   __vfnode_vtable._file_close = vfnode_close;
   __vfnode_vtable._file_len = vfnode_len;

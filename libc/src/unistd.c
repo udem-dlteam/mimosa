@@ -37,13 +37,13 @@ int REDIRECT_NAME(chdir)(const char *__path) {
   if (ERROR(err = file_stat(CAST(native_string, __path), &sbuffer))) {
 
     switch (err) {
-    case FNF_ERROR:
-      errno = ENOENT; 
-      break;
-    
-    default:
-      errno = ENOENT;
-      break;
+      case FNF_ERROR:
+        errno = ENOENT;
+        break;
+
+      default:
+        errno = ENOENT;
+        break;
     }
 
     return -1;
