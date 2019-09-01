@@ -59,6 +59,8 @@ typedef struct fs_header_struct {
   fs_vtable* _vtable;
 } fs_header;
 
+extern fs_header __vfs;
+
 struct stat_buff_struct {
   fs_header* fs;
   file_type type;

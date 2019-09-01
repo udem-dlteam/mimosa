@@ -6,7 +6,7 @@
 #include "term.h"
 #include "uart.h"
 
-static fs_header __vfs;
+fs_header __vfs;
 static fs_vtable __vfs_vtable;
 static file_vtable __vfnode_vtable;
 static vfnode sys_root;
