@@ -1,5 +1,5 @@
 <h1 style="float:left">Mimosa</h1>
-<img src="res/logo.png" align=right width="80" >
+<img src="res/logo.png" width="80" >
 
 <div style="clear:both"></div>
 
