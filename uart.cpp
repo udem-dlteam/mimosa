@@ -114,7 +114,7 @@ error_code init_serial(int com_port) {
 void set_baud_rate(uint8 port_num, uint32 baud_rate){
 
   uint16 com_port = com_num_to_port(port_num);
-  outb(0x80, com_port + UART_8250_LCR);  // Enable DLAB (set baud rate divisor)
+  outb(inb(com_port + UART_8250_LCR) | 0x80, com_port + UART_8250_LCR);  // Enable DLAB (set baud rate divisor)
   outb(DIV_DLL(baud_rate), com_port + UART_8250_DLL); // set divisor of div latch lo
   outb(DIV_DLH(baud_rate), com_port + UART_8250_DLH); // set div latch hi
   uint16 LCR_val = inb(com_port + UART_8250_LCR) && 0x7F;
@@ -123,37 +123,56 @@ void set_baud_rate(uint8 port_num, uint32 baud_rate){
 
 // 
 uint32 get_baud_rate(uint8 port_num){
-  uint16 com_port = com_num_to_port(port_num);
-  outb(0x80, com_port + UART_8250_LCR); // enable DLAB
-  uint32 div_hi = inb(com_port + UART_8250_DLH);
-  uint32 div_lo = inb(com_port + UART_8250_DLL);
-  uint32 baud_rate;
   // see the baud rate diagram of
   // https://en.wikibooks.org/wiki/Serial_Programming/8250_UART_Programming
-  if(div_hi > 0){
-    switch(div_hi)
-      {
-      case 1:
-        baud_rate = 300;
-        break;
-      case 2:
-        baud_rate = 220;
-        break;
-      case 4:
-        baud_rate = 110;
-        break;
-      case 9:
-        baud_rate = 50;
-        break;
-      default:
-        baud_rate = 255;
-      }
+  uint32 baud_rate;
+  uint16 com_port = com_num_to_port(port_num);
+  outb(inb(com_port + UART_8250_LCR) | 0x80,
+       com_port + UART_8250_LCR);  // Enable DLAB (set baud rate divisor)
+  uint32 div_hi = inb(com_port + UART_8250_DLH);
+  uint32 div_lo = inb(com_port + UART_8250_DLL);
+
+  if(0 == (div_hi + div_lo)) {
+    baud_rate = 0;
   } else {
-    baud_rate =  115200/div_lo;
+    div_hi = (div_hi << 8);
+    baud_rate = (115200 / (div_hi + div_lo));
+    uint16 LCR_val = inb(com_port + UART_8250_LCR) && 0x7F;
+    outb(LCR_val, com_port + UART_8250_LCR);  // disable DLAB
   }
-  uint16 LCR_val = inb(com_port + UART_8250_LCR) && 0x7F;
-  outb( LCR_val, com_port + UART_8250_LCR); // disable DLAB
+
   return baud_rate;
+}
+
+uint32 identify_material(uint8 port_num){
+  uint8 FCR = 2;
+  uint8 IIR = 2;
+  uint8 SCR = 7;
+  uint16 com_port = com_num_to_port(port_num);
+  // Set the value "0xE7" to the FCR to test the status of the FIFO flags.
+  outb(0xE7, com_port + FCR);
+  // Read the value of the IIR to test for what flags actually got set. 
+  uint8 test = inb(com_port + IIR);
+  uint32 material;
+  if((test & 0x40) > 0){
+    if((test & 0x80) > 0){
+      if((test & 0x20) > 0){
+        // UART is a 16750
+        material = 16750;
+      } else {
+        material = 16550;
+      }
+    } else {
+      material = 16550;
+    }
+  } else {
+    outb(0x2A, com_port + SCR);
+    if(inb(com_port + SCR) == 0x2A){
+      material = 16450;
+    } else {
+      material = 8250;
+    }}
+  return material;
 }
 
 // Modem Status Register read
@@ -292,7 +311,7 @@ static void read_lsr(uint16 port) {
   //}
 }
 
-void _handle_interrupt(uint16 port, uint8 com_index, uint8 iir) {
+void _handle_interrupt(uint16 port_base, uint8 com_index, uint8 iir) {
 #ifdef SHOW_UART_MESSAGES
     debug_write("interrupt code:");
     debug_write(inb(port + UART_8250_IIR));
@@ -303,6 +322,9 @@ void _handle_interrupt(uint16 port, uint8 com_index, uint8 iir) {
     debug_write(" got data");
 #endif
   uint8 cause = UART_IIR_GET_CAUSE(iir);
+  com_port* port = &ports[com_num(port_base)];
+
+  if (!(port->status & COM_PORT_STATUS_OPEN)) return;  // Drop silently
 
   switch (cause) {
     case UART_IIR_MODEM:
@@ -315,7 +337,7 @@ void _handle_interrupt(uint16 port, uint8 com_index, uint8 iir) {
 #ifdef SHOW_UART_MESSAGES
        debug_write("Read_modem_status_register");
 #endif
-      read_msr(port);
+      read_msr(port_base);
       break;
     case UART_IIR_TRANSMITTER_HOLDING_REG:
       // Transmitter empty
@@ -327,7 +349,7 @@ void _handle_interrupt(uint16 port, uint8 com_index, uint8 iir) {
 #ifdef SHOW_UART_MESSAGES
        debug_write("Transmitter_Holding_reg");
 #endif
-      handle_thr(port);
+      handle_thr(port_base);
       break;
     case UART_IIR_RCV_LINE:
       // Error or Break
@@ -338,7 +360,7 @@ void _handle_interrupt(uint16 port, uint8 com_index, uint8 iir) {
 #ifdef SHOW_UART_MESSAGES
        debug_write("Error or Break");
 #endif
-      read_lsr(port);
+      read_lsr(port_base);
       break;
     case UART_IIR_DATA_AVAIL:
       // Data Available
@@ -352,14 +374,14 @@ void _handle_interrupt(uint16 port, uint8 com_index, uint8 iir) {
 #ifdef SHOW_UART_MESSAGES
        debug_write("Data Avail");
 #endif
-      read_RHR(port);  // ***
+      read_RHR(port_base);  // ***
       break;
     case UART_IIR_TIMEOUT:
 #ifdef SHOW_UART_MESSAGES
        debug_write("Timeout");
 #endif
       // simple serial read
-      read_RHR(port);
+      read_RHR(port_base);
       break;
 
     default:
@@ -491,6 +513,8 @@ error_code uart_open(uint32 id, file_mode mode, file** result) {
   new_condvar(port->wrt_cv);
   new_condvar(port->rd_cv);
 
+  port->status |= COM_PORT_STATUS_OPEN;
+
   if (HAS_NO_ERROR(err)) {
     *result = CAST(file*, uart_handle);
   }
@@ -613,7 +637,7 @@ static error_code detect_hardware() {
 
   // Init the values to a known status
   for (uint8 i = 0; i < 4; ++i) {
-    init_serial(com_num_to_port(i));
+    ports[i].status = 0;
     ports[i].rbuffer = NULL;
     ports[i].wbuffer = NULL;
     ports[i].rbuffer_len = ports[i].wbuffer_len = 0;
@@ -621,6 +645,11 @@ static error_code detect_hardware() {
     // Si le port est la, il faut mettre le status correct.
     if (port_exists(i)) ports[i].status |= COM_PORT_STATUS_EXISTS;
     ports[i].port = com_num_to_port(i);
+
+    if (ports[i].status & COM_PORT_STATUS_EXISTS) {
+      // Only init a port that exists
+      init_serial(com_num_to_port(i));
+    }
   }
 
   return err;

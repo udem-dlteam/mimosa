@@ -11,8 +11,8 @@
 //-----------------------------------------------------------------------------
 
 void bios_call(int intr_num, struct bios_call_regs *regs) {
-  debug_write("enter call_bios");
-  debug_write("leave call_bios");
+  // debug_write("enter call_bios");
+  // debug_write("leave call_bios");
 }
 
 //-----------------------------------------------------------------------------

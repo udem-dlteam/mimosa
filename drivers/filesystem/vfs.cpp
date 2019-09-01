@@ -195,7 +195,7 @@ vfs_parse_mode_loop_end:
   return '\0' == *c; // if we stopped at the null terminator, we did not fail anywhere
 }
 
-static vfnode* explore(native_string* _parts, uint8* _depth) {
+static vfnode* explore(native_char** _parts, uint8* _depth) {
   vfnode* last_candidate = NULL;
   vfnode* scout = &sys_root;
   native_string parts = *_parts;
@@ -349,7 +349,7 @@ error_code file_open(native_string path, native_string mode, file** result) {
     return err;
   }
 
-  native_string p = normalized_path;
+  native_char* p = normalized_path;
   vfnode* deepest = explore(&p, &depth);
 
   if (!parse_mode(mode, &md)) {
@@ -366,6 +366,7 @@ error_code file_open(native_string path, native_string mode, file** result) {
       hit->_vtable = &__vfnode_vtable;
       uint32 len = kstrlen(p) + 1;
       hit->name = CAST(native_string, kmalloc(sizeof(native_char) * len));
+      memcpy(hit->name, p, len);
       CAST(vfolder*, hit)->node = deepest;
     } else if ((deepest->type & TYPE_VFILE) == TYPE_VFILE) {
       uint32 id = deepest->_value.file_gate.identifier;
