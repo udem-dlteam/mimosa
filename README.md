@@ -1,7 +1,5 @@
-<h1 style="float:left">Mimosa</h1>
-<img src="res/logo.png" style="float:right" width="80" >
-
-<div style="clear:both"></div>
+<h1>Mimosa</h1>
+<img src="res/logo.png" align=right width="80" >
 
 ## Project scope
 
