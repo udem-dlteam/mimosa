@@ -1,5 +1,5 @@
-<!-- ![Mimosa Logo](res/logo.png) -->
 # Mimosa
+![Mimosa Logo](res/logo.png)<!-- .element height="50%" width="50%" -->
 
 ## Project scope
 
