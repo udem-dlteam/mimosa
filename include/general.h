@@ -137,7 +137,7 @@ typedef int32 error_code;
 #define GAMBIT_REPL
 // #define MIMOSA_REPL
 
-// #define THREAD_SLEEP_TEST 
+// #define BIOS_CALL_TEST 
 
 #ifdef GAMBIT_REPL
 #ifdef MIMOSA_REPL

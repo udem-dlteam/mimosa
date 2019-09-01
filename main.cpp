@@ -22,37 +22,12 @@
 #include "bios.h"
 
 int main() {
-#ifdef THREAD_SLEEP_TEST
-  do {
-    uint8 hours, minutes, seconds;
-    int16 year;
-    uint8 month, day;
-    
-    get_current_time(&hours, &minutes, &seconds);
-    get_current_date(&year, &month, &day);
-
-    term_write(cout, "It is currently:\n");
-    term_write(cout, hours);
-    term_write(cout, " : ");
-    term_write(cout, minutes);
-    term_write(cout, " : ");
-    term_write(cout, seconds);
-    term_writeline(cout);
-    term_write(cout, "On the: \n");
-    term_write(cout, day);
-    term_write(cout, " : ");
-    term_write(cout, month);
-    term_write(cout, " : ");
-    term_write(cout, year);
-    term_writeline(cout);
-    thread_sleep_seconds(10); 
-  } while(1);
-#endif
-
+#ifdef BIOS_CALL_TEST
   {
     struct bios_call_regs r;
     bios_call(0x10, &r);
   }
+#endif
 
 #ifdef MIMOSA_REPL
   term_run(cout);
