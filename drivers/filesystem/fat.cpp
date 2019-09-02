@@ -13,8 +13,8 @@
 
 #define MAX_NB_MOUNTED_FAT_FS 8
 
-static native_string DOT_NAME = ".          ";
-static native_string DOT_DOT_NAME = "..         ";
+static native_string DOT_NAME = ".";
+static native_string DOT_DOT_NAME = "..";
 
 typedef struct fs_module_struct {
   fat_file_system* mounted_fs[MAX_NB_MOUNTED_FAT_FS];
@@ -1893,9 +1893,11 @@ static error_code fat_mkdir(fs_header* ffs, native_string name, uint8 depth, fil
 
     // Overwrite the names of the entries
     for(uint8 i = 0; i < 11; ++i) {
-      file_de.DIR_Name[i] = DOT_NAME[i];
-      dot_dot_entry.DIR_Name[i] = DOT_DOT_NAME[i];
+      file_de.DIR_Name[i] = dot_dot_entry.DIR_Name[i] = ' '; 
     }
+
+    memcpy(file_de.DIR_Name, DOT_NAME, 1);
+    memcpy(dot_dot_entry.DIR_Name, DOT_DOT_NAME, 2);
 
     if(ERROR(err = file_write(folder, &file_de, sizeof(FAT_directory_entry)))) {
       // error
