@@ -3,12 +3,24 @@
 
 <div style="clear:both"></div>
 
+<img src="res/mimosa_screenshot.png" width="600">
+
 ## Project scope
 
 The mimosa repository contains the sources for a minimal operating
 system for x86 (called Mimosa).  It is intended as a basis for benchmarking and
-running Gambit. The idea is also to develop an operating system that uses the gambit environment
-to execute userspace programs.
+running Gambit. 
+
+Many objectives are targeted with the developement of Mimosa. While developping a benchmarking tool for 
+generated Gambit code is of course a primary objective, the perspective of using Scheme to develop a complete
+operating system is an intriguing one. This project can thefore be used as a jumping point towards a Scheme 
+implementation and point of reference in terms of performance and structure. Many Scheme features are unknown
+to traditional operating system development:
+
+- Dynamic typing
+- Automatic memory management
+- Functional paradigm in general
+
 
 ## Quick-install and run instructions
 
