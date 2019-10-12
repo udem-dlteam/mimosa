@@ -40,7 +40,7 @@ wget http://www.iro.umontreal.ca/~feeley/ubuntu-6.06-i386.img.gz
 gunzip ubuntu-6.06-i386.img.gz
 ```
 
-The following script will run the `.img` so you can compile and run the machine:
+The following script will run the `.img` so you can compile and run the OS:
 ```
 #!/bin/sh
 
