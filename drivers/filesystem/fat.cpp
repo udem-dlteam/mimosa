@@ -346,6 +346,9 @@ static error_code mount_partition(disk* d, vfnode* parent) {
     {
       if (ERROR(err = mount_FAT121632(d, &fs))) {
         term_write(cout, "Failed to mount\n\r");
+        // term_write(cout, "Mount error is: ");
+        // term_write(cout, (int)err);
+        // term_write(cout, "\n");
         return err;
       }
 

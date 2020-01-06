@@ -54,7 +54,7 @@ run-with-serial:
 	qemu-system-i386 -s -m 1G -hda ./floppy.img -serial tcp:localhost:44555,server,nowait -serial pty -serial pty -debugcon stdio 
 
 debug:
-	qemu-system-i386 -s -S -m 1G -hda mimosa-build/floppy.img -debugcon stdio
+	qemu-system-i386 -s -S -m 1G -hda ./floppy.img -debugcon stdio
 
 mf:
 	make clean

@@ -9,12 +9,15 @@ fi
 
 echo "Mount and write the OS onto the FS"
 sudo mkdir -p /mnt/tmp
-cp ./empty_usb.img ~/mimosa-build/floppy.img
+sudo cp ./empty_usb.img ./floppy.img
 echo "Mounting..."
-sudo mount -t vfat ~/mimosa-build/floppy.img /mnt/tmp -o loop
+sudo mount -t vfat ./floppy.img /mnt/tmp -o loop
+echo "Mounted"
 
-cp kernel.bin /mnt/tmp/BOOT.SYS
-cp -r ./archive-items/. /mnt/tmp/
+echo "Copying items to the disk..."
+sudo cp kernel.bin /mnt/tmp/BOOT.SYS
+sudo cp -r ./archive-items/. /mnt/tmp/
+sudo chmod 777 /mnt/tmp/*
 
 # mkdir /mnt/tmp/folder
 # touch /mnt/tmp/folder/fif.tst
