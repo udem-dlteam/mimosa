@@ -1,6 +1,6 @@
 // file: "general.h"
 
-// Copyright (c) 2001 by Marc Feeley and Universit� de Montr�al, All
+// Copyright (c) 2001 by Marc Feeley and Université de Montréal, All
 // Rights Reserved.
 //
 // Revision History

@@ -8,12 +8,12 @@ KERNEL_OBJECTS = kernel.o libc/libc_os.o drivers/filesystem/vfs.o drivers/filesy
 #NETWORK_OBJECTS = eepro100.o tulip.o timer2.o misc.o pci.o config.o net.o
 DEFS = -DINCLUDE_EEPRO100 
 
-GCC = gcc-3.4 -m32 -Wno-write-strings -g
-GPP = g++-3.4 -m32 -Wno-write-strings -g
+GCC = gcc -m32 -Wno-write-strings -g
+GPP = g++ -m32 -Wno-write-strings -g
 
 SPECIAL_OPTIONS =
 
-GCC_OPTIONS = $(SPECIAL_OPTIONS) $(DEFS) -DOS_NAME=$(OS_NAME) -DKERNEL_START=$(KERNEL_START) -fomit-frame-pointer -fno-strict-aliasing -Wall -O3 -ffast-math -nostdinc -Iinclude -Ilibc -I/usr/include
+GCC_OPTIONS = $(SPECIAL_OPTIONS) $(DEFS) -DOS_NAME=$(OS_NAME) -DKERNEL_START=$(KERNEL_START) -fomit-frame-pointer -fno-strict-aliasing -Wall -O3 -ffast-math -nostdinc -Iinclude -Ilibc -I/usr/include -ffreestanding -nostdlib
 
 GPP_OPTIONS = $(GCC_OPTIONS) -fno-rtti -fno-builtin -fno-exceptions -nostdinc++
 
@@ -22,22 +22,28 @@ GPP_OPTIONS = $(GCC_OPTIONS) -fno-rtti -fno-builtin -fno-exceptions -nostdinc++
 
 all: bin_files
 
+# ar --exclude='*.img' -czf - . | ssh administrator@localhost -p 10022 "mkdir -p mimosa-build;cd mimosa-build;tar xzf -;rm -rf kernel.bin; rm -rf bootsect.bin; rm -rf kernel.elf;make; cd .. ;echo pass999word | sudo ./mimosa-build/createimg.sh;cd mimosa-build; tar czf mb.tar.gz kernel.bin kernel.elf bootsect.bin floppy.img;";
+	# scp -P 10022 administrator@localhost:~/mimosa-build/mb.tar.gz ./
+
 single-archive:
-	mkdir -p mimosa-build
-	tar --exclude='*.img' -czf - . | ssh administrator@localhost -p 10022 "mkdir -p mimosa-build;cd mimosa-build;tar xzf -;rm -rf kernel.bin; rm -rf bootsect.bin; rm -rf kernel.elf;make; cd .. ;echo pass999word | sudo ./mimosa-build/createimg.sh;cd mimosa-build; tar czf mb.tar.gz kernel.bin kernel.elf bootsect.bin floppy.img;";
-	scp -P 10022 administrator@localhost:~/mimosa-build/mb.tar.gz ./
+	echo "Make single-archive"
+	mkdir -p mimosa-build;cd mimosa-build;tar xzf -;rm -rf kernel.bin; rm -rf bootsect.bin; rm -rf kernel.elf;
+	cd ..; make;
+	# cd .. ; sudo ./mimosa-build/createimg.sh;cd mimosa-build; tar czf mb.tar.gz kernel.bin kernel.elf bootsect.bin floppy.img;";
+
+	cp ./mimosa-build/mb.tar.gz ./
 	tar xC mimosa-build -xzf mb.tar.gz
 	rm mb.tar.gz
 
 build:
 	mkdir -p mimosa-build
-	tar --exclude='*.img' -czf - . | ssh administrator@localhost -p 10022 "mkdir -p mimosa-build;cd mimosa-build;tar xzf -;rm -rf kernel.bin; rm -rf bootsect.bin; rm -rf kernel.elf;make;tar czf mb.tar.gz kernel.bin kernel.elf bootsect.bin"
-	scp -P 10022 administrator@localhost:~/mimosa-build/mb.tar.gz ./
+	tar --exclude='*.img' -czf - . mkdir -p mimosa-build;cd mimosa-build;tar xzf -;rm -rf kernel.bin; rm -rf bootsect.bin; rm -rf kernel.elf;make;tar czf mb.tar.gz kernel.bin kernel.elf bootsect.bin
+	cp ./mimosa-build/mb.tar.gz ./
 	tar xC mimosa-build -xzf mb.tar.gz
 
 img:
-	ssh administrator@localhost -p 10022 "sudo mimosa-build/createimg.sh;tar czf flop.tar.gz mimosa-build/floppy.img"
-	scp -P 10022 administrator@localhost:~/flop.tar.gz ./
+	./mimosa-build/createimg.sh;tar czf flop.tar.gz mimosa-build/floppy.img
+	cp administrator@localhost:~/flop.tar.gz ./
 	tar xzf flop.tar.gz
 	rm flop.tar.gz
 
@@ -62,7 +68,7 @@ mf:
 bin_files: bootsect.bin kernel.bin
 
 kernel.bin: $(KERNEL_OBJECTS)
-	ld --script=script.ld $(KERNEL_OBJECTS) -o $*.bin -Ttext $(KERNEL_START) --omagic --entry=kernel_entry --oformat elf32-i386 -Map kernel.map
+	ld --nostdlib --script=script.ld $(KERNEL_OBJECTS) -o $*.bin -Ttext $(KERNEL_START) --omagic --entry=kernel_entry --oformat elf32-i386 -Map kernel.map
 	cp kernel.bin kernel.elf
 	objcopy -O binary kernel.elf kernel.bin
 
