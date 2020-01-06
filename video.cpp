@@ -401,8 +401,6 @@ void raw_bitmap_bitblt(raw_bitmap_c* self, int x, int y, int x_end, int y_end,
 void raw_bitmap_fill_rect(raw_bitmap_c* self, int x, int y, int x_end,
                           int y_end, pattern* foreground) {
 
-  debug_write("Entered raw bitmap fill rect");
-
   if (x < x_end && y < y_end) {
     int nb_words_per_row =
         ((x_end - 1) >> LOG2_BITMAP_WORD_WIDTH) - (x >> LOG2_BITMAP_WORD_WIDTH);
@@ -415,14 +413,10 @@ void raw_bitmap_fill_rect(raw_bitmap_c* self, int x, int y, int x_end,
     if (nb_words_per_row > 0) {
       for (row = nb_rows; row > 0; row--) {
         for (layer = self->_depth - 1; layer >= 0; layer--) {
-          debug_write("Pattern get word call");
           bitmap_word fg = pattern_get_word(foreground, y, layer);
-          debug_write("After call");
 
           bitmap_word* d = self->vtable->_select_layer(self, layer) +
                            ((y * self->_width + x) >> LOG2_BITMAP_WORD_WIDTH);
-
-      debug_write("Selected layer");
 
           bitmap_word m;
           int col;
@@ -458,9 +452,7 @@ void raw_bitmap_fill_rect(raw_bitmap_c* self, int x, int y, int x_end,
         y++;
       }
     }
-    debug_write("After IF");
     self->vtable->show_mouse(self);
-    debug_write("After show mouse");
   }
 }
 
