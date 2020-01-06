@@ -76,16 +76,16 @@ kernel.bss:
 	cat kernel.map | grep '\.bss ' | grep -v '\.o' | sed 's/.*0x/0x/'
 
 kernel.o: kernel.s
-	as --defsym KERNEL_START=$(KERNEL_START) -o $*.o $*.s
+	as --32 --defsym KERNEL_START=$(KERNEL_START) -o $*.o $*.s
 
 .o.asm:
 	objdump --disassemble-all $*.o > $*.asm
 
 bootsect.o: bootsect.s kernel.bin
-	as --defsym KERNEL_START=$(KERNEL_START) --defsym KERNEL_SIZE=`cat kernel.bin | wc --bytes | sed -e "s/ //g"` -o $*.o $*.s
+	as --32 --defsym KERNEL_START=$(KERNEL_START) --defsym KERNEL_SIZE=`cat kernel.bin | wc --bytes | sed -e "s/ //g"` -o $*.o $*.s 
 
 bootsect.bin: bootsect.o
-	ld $*.o -o $*.bin -Ttext 0x7c00 --omagic --entry=bootsect_entry --oformat binary -Map bootsect.map
+	ld $*.o -o $*.bin -Ttext 0x7c00 --omagic --entry=bootsect_entry -m elf_i386 --oformat binary -Map bootsect.map
 
 .cpp.o:
 	$(GPP) $(GPP_OPTIONS) -c -o $*.o $*.cpp
