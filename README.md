@@ -24,8 +24,7 @@ to traditional operating system development:
 
 ## Quick-install and run instructions
 
-Assuming the ubuntu-6 ssh server is running (see
-https://github.com/udem-dlteam/ubuntu-6), the following steps will
+Assuming you have the correct compiler setup, the following steps will
 build and run mimosa:
     
     make clean
@@ -33,50 +32,11 @@ build and run mimosa:
     make img # to create the disk image
     make run       # make debug is also available, it expects a debug connection to start
 
-In case you do not have the ubuntu-6 VM, you can download it from:
-
-```
-wget http://www.iro.umontreal.ca/~feeley/ubuntu-6.06-i386.img.gz
-gunzip ubuntu-6.06-i386.img.gz
-```
-
-The following script will run the `.img` so you can compile and run the OS:
-```
-#!/bin/sh
-
-ISO_FILE="ubuntu-6.06-dvd-i386.iso"
-HDA_FILE="ubuntu-6.06-i386.img"
-USERNAME="administrator"
-PASSWORD="pass999word"
-SCREEN=5
-
-if [ ! -e "$HDA_FILE" ] ; then
-  echo "*** you must first run: ./ubuntu-6-setup"
-else
-  echo "*** the first time you run this script you should run the following command"
-  echo "*** after the guest ubuntu has finished booting in qemu (after 40 seconds"
-  echo "*** or so):"
-  echo "***"
-  echo "***    cat ~/.ssh/id_rsa.pub | ssh $USERNAME@localhost -p10022 \"mkdir -p ~/.ssh ; cat >> .ssh/authorized_keys\""
-  echo "***"
-  echo "*** after that you can ssh and scp to the guest ubuntu without having"
-  echo "*** to enter the password with:"
-  echo "***"
-  echo "***    ssh $USERNAME@localhost -p10022"
-  echo "***"
-  echo "*** to terminate the guest ubuntu cleanly, run this command:"
-  echo "***"
-  echo "***    ssh $USERNAME@localhost -p10022 \"sudo halt\""
-  qemu-system-x86_64 -boot a -m 4096 -hda "$HDA_FILE" -net user,hostfwd=tcp::10022-:22 -net nic
-  echo "*** guest ubuntu has terminated"
-fi
-```
-
-The ubuntu-6 system is required because it has gcc version 3.4 which
-is *currently* required to build mimosa.  In the future this requirement
-will be removed so that mimosa can build with recent versions of gcc.
-
 The createimg.sh script is used to create a FAT32 image that can be mounted. Files can be added
-to this image without a risk of making the system unbootable. 
+to this image without a risk of making the system unbootable. However, the folder `archive-items`will be replicated on the image.
 
 To run mimosa with `make run` or `make debug`, you will need QEMU installed (at least `qemu-system-i386`)
+
+## Required software
+
+Currently, Mimosa builds with GCC 9.2.1. You will need the 32 bit tools in order to build the system.
