@@ -18,3 +18,7 @@ mimosa-build/
 *.o
 
 *.img
+
+*.map
+
+*.elf

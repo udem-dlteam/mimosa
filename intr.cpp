@@ -387,6 +387,11 @@ void interrupt_handle(interrupt_data data) {
     default:
       // All CPU faults not managed should crash the system
       handled = FALSE;
+
+      while(1) {
+        NOP();
+      }
+
       break;
   }
 

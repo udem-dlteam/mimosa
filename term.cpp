@@ -211,14 +211,13 @@ int term_write(term* self, unicode_char* buf, int count) {
   // We want to read immediately: if we are the only reader we don't want
   // to let it get full
   if (stdout_configured) {
-    file* stream_write;
+    // file* stream_write;
 
-    if (cout == self) {
-      stream_write = term_stdout_write;
-    } else {
-      // ignore, but STDERR would be useful to.
-    }
-
+    // if (cout == self) {
+    //   stream_write = term_stdout_write;
+    // } else {
+    //   // ignore, but STDERR would be useful to.
+    // }
     if (ERROR(err = file_write(term_stdout_write, buf, sizeof(unicode_char) * count))) {
       // Buffer is full, some content might be lost.
     }

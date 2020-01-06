@@ -18,69 +18,69 @@
 static bitmap_word black_bitmap_words[] = {0x00, 0x00, 0x00, 0x00,
                                            0x00, 0x00, 0x00, 0x00};
 
-pattern pattern_black = new_pattern(black_bitmap_words, 8, 1);
+pattern pattern_black; 
 
 static bitmap_word gray25_bitmap_words[] = {0x00, 0x55, 0x00, 0x55,
                                             0x00, 0x55, 0x00, 0x55};
 
-pattern pattern_gray25 = new_pattern(gray25_bitmap_words, 8, 1);
+pattern pattern_gray25; 
 
 static bitmap_word gray50_bitmap_words[] = {0xaa, 0x55, 0xaa, 0x55,
                                             0xaa, 0x55, 0xaa, 0x55};
 
-pattern pattern_gray50 = new_pattern(gray50_bitmap_words, 8, 1);
+pattern pattern_gray50; 
 
 static bitmap_word gray75_bitmap_words[] = {0xff, 0x55, 0xff, 0x55,
                                             0xff, 0x55, 0xff, 0x55};
 
-pattern pattern_gray75 = new_pattern(gray75_bitmap_words, 8, 1);
+pattern pattern_gray75; 
 
 static bitmap_word white_bitmap_words[] = {0xff, 0xff, 0xff, 0xff,
                                            0xff, 0xff, 0xff, 0xff};
 
-pattern pattern_white = new_pattern(white_bitmap_words, 8, 1);
+pattern pattern_white; 
 
 static bitmap_word red_bitmap_words[] = {
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
     0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
 
-pattern pattern_red = new_pattern(red_bitmap_words, 8, 4);
+pattern pattern_red; 
 
 static bitmap_word green_bitmap_words[] = {
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff,
     0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
 
-pattern pattern_green = new_pattern(green_bitmap_words, 8, 4);
+pattern pattern_green; 
 
 static bitmap_word yellow_bitmap_words[] = {
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff,
     0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
     0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
 
-pattern pattern_yellow = new_pattern(yellow_bitmap_words, 8, 4);
+pattern pattern_yellow; 
 
 static bitmap_word blue_bitmap_words[] = {
     0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
 
-pattern pattern_blue = new_pattern(blue_bitmap_words, 8, 4);
+pattern pattern_blue; 
 
 static bitmap_word magenta_bitmap_words[] = {
     0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00,
     0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
     0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
 
-pattern pattern_magenta = new_pattern(magenta_bitmap_words, 8, 4);
+pattern pattern_magenta; 
 
 static bitmap_word cyan_bitmap_words[] = {
     0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
     0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
 
-pattern pattern_cyan = new_pattern(cyan_bitmap_words, 8, 4);
+pattern pattern_cyan; 
 
 //-----------------------------------------------------------------------------
 
@@ -122,6 +122,19 @@ extern struct VBE_info vbe_info;
 extern struct VBE_mode_info vbe_mode_info;
 
 video* video_init(video* self) {
+
+  pattern_black = new_pattern(black_bitmap_words, 8, 1);
+  pattern_gray25 = new_pattern(gray25_bitmap_words, 8, 1);
+  pattern_gray50 = new_pattern(gray50_bitmap_words, 8, 1);
+  pattern_gray75 = new_pattern(gray75_bitmap_words, 8, 1);
+  pattern_white = new_pattern(white_bitmap_words, 8, 1);
+  pattern_green = new_pattern(green_bitmap_words, 8, 4);
+  pattern_yellow = new_pattern(yellow_bitmap_words, 8, 4);
+  pattern_blue = new_pattern(blue_bitmap_words, 8, 4);
+  pattern_red = new_pattern(red_bitmap_words, 8, 4);
+  pattern_magenta = new_pattern(magenta_bitmap_words, 8, 4);
+  pattern_cyan = new_pattern(cyan_bitmap_words, 8, 4);
+
   self->super.vtable = &_video_vtable;
 
   self->_mode = video_mode;
@@ -388,6 +401,7 @@ void raw_bitmap_bitblt(raw_bitmap_c* self, int x, int y, int x_end, int y_end,
 
 void raw_bitmap_fill_rect(raw_bitmap_c* self, int x, int y, int x_end,
                           int y_end, pattern* foreground) {
+
   if (x < x_end && y < y_end) {
     int nb_words_per_row =
         ((x_end - 1) >> LOG2_BITMAP_WORD_WIDTH) - (x >> LOG2_BITMAP_WORD_WIDTH);
@@ -401,8 +415,10 @@ void raw_bitmap_fill_rect(raw_bitmap_c* self, int x, int y, int x_end,
       for (row = nb_rows; row > 0; row--) {
         for (layer = self->_depth - 1; layer >= 0; layer--) {
           bitmap_word fg = pattern_get_word(foreground, y, layer);
+
           bitmap_word* d = self->vtable->_select_layer(self, layer) +
                            ((y * self->_width + x) >> LOG2_BITMAP_WORD_WIDTH);
+
           bitmap_word m;
           int col;
 
@@ -437,7 +453,6 @@ void raw_bitmap_fill_rect(raw_bitmap_c* self, int x, int y, int x_end,
         y++;
       }
     }
-
     self->vtable->show_mouse(self);
   }
 }

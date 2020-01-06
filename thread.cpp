@@ -100,7 +100,7 @@ void rwmutex_writelock(rwmutex* self) {
 
   mutex* mself = &self->super;
 
-  if(was_waiting = (mself->_locked || self->_readers > 0)) self->_writerq++;
+  if((was_waiting = (mself->_locked || self->_readers > 0))) self->_writerq++;
 
   while (mself->_locked || self->_readers > 0) {
     save_context(_sched_suspend_on_wait_queue, &mself->super);
