@@ -22,18 +22,11 @@ GPP_OPTIONS = $(GCC_OPTIONS) -fno-rtti -fno-builtin -fno-exceptions -nostdinc++
 
 all: bin_files
 
-# ar --exclude='*.img' -czf - . | ssh administrator@localhost -p 10022 "mkdir -p mimosa-build;cd mimosa-build;tar xzf -;rm -rf kernel.bin; rm -rf bootsect.bin; rm -rf kernel.elf;make; cd .. ;echo pass999word | sudo ./mimosa-build/createimg.sh;cd mimosa-build; tar czf mb.tar.gz kernel.bin kernel.elf bootsect.bin floppy.img;";
-	# scp -P 10022 administrator@localhost:~/mimosa-build/mb.tar.gz ./
-
 single-archive:
-	echo "Make single-archive"
 	rm -rf kernel.bin; rm -rf bootsect.bin; rm -rf kernel.elf;
 	make
 	# cd .. ; sudo ./mimosa-build/createimg.sh;cd mimosa-build; tar czf mb.tar.gz kernel.bin kernel.elf bootsect.bin floppy.img;";
 	./createimg.sh
-	# cp ./mimosa-build/mb.tar.gz ./
-	# tar xC mimosa-build -xzf mb.tar.gz
-	# rm mb.tar.gz
 
 build:
 	mkdir -p mimosa-build
@@ -198,5 +191,4 @@ libc/libc_os.o: libc/libc_os.cpp \
                 libc/src/unistd.c
 
 uart.o: uart.cpp include/term.h include/general.h include/uart.h include/asm.h
-
 bios.o: bios.cpp include/bios.h

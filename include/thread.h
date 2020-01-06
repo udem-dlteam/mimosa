@@ -442,7 +442,7 @@ void condvar_mutexless_signal(
 
 typedef uint8 thread_type;
 
-typedef struct thread;
+typedef struct thread thread;
 
 typedef struct thread_vtable_struct {
   void (*thread_run)(thread* self);

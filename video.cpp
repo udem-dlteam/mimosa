@@ -131,6 +131,7 @@ video* video_init(video* self) {
   pattern_green = new_pattern(green_bitmap_words, 8, 4);
   pattern_yellow = new_pattern(yellow_bitmap_words, 8, 4);
   pattern_blue = new_pattern(blue_bitmap_words, 8, 4);
+  pattern_red = new_pattern(red_bitmap_words, 8, 4);
   pattern_magenta = new_pattern(magenta_bitmap_words, 8, 4);
   pattern_cyan = new_pattern(cyan_bitmap_words, 8, 4);
 

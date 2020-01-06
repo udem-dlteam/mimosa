@@ -69,6 +69,7 @@ static inline uint16 com_num_to_port(uint8 num) {
       break;
     default:
       panic(L"Invalid port usage");
+      return COM1_PORT_BASE;
       break;
   }
 }
