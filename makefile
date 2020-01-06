@@ -27,13 +27,13 @@ all: bin_files
 
 single-archive:
 	echo "Make single-archive"
-	mkdir -p mimosa-build;cd mimosa-build;tar xzf -;rm -rf kernel.bin; rm -rf bootsect.bin; rm -rf kernel.elf;
-	cd ..; make;
+	rm -rf kernel.bin; rm -rf bootsect.bin; rm -rf kernel.elf;
+	make
 	# cd .. ; sudo ./mimosa-build/createimg.sh;cd mimosa-build; tar czf mb.tar.gz kernel.bin kernel.elf bootsect.bin floppy.img;";
-
-	cp ./mimosa-build/mb.tar.gz ./
-	tar xC mimosa-build -xzf mb.tar.gz
-	rm mb.tar.gz
+	./createimg.sh
+	# cp ./mimosa-build/mb.tar.gz ./
+	# tar xC mimosa-build -xzf mb.tar.gz
+	# rm mb.tar.gz
 
 build:
 	mkdir -p mimosa-build
@@ -48,10 +48,10 @@ img:
 	rm flop.tar.gz
 
 run:
-	qemu-system-i386 -s -m 1G -hda mimosa-build/floppy.img -debugcon stdio
+	qemu-system-i386 -s -m 1G -hda ./floppy.img -debugcon stdio
 
 run-with-serial:
-	qemu-system-i386 -s -m 1G -hda mimosa-build/floppy.img -serial tcp:localhost:44555,server,nowait -serial pty -serial pty -debugcon stdio 
+	qemu-system-i386 -s -m 1G -hda ./floppy.img -serial tcp:localhost:44555,server,nowait -serial pty -serial pty -debugcon stdio 
 
 
 debug:
