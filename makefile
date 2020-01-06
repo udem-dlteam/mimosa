@@ -53,7 +53,6 @@ run:
 run-with-serial:
 	qemu-system-i386 -s -m 1G -hda ./floppy.img -serial tcp:localhost:44555,server,nowait -serial pty -serial pty -debugcon stdio 
 
-
 debug:
 	qemu-system-i386 -s -S -m 1G -hda mimosa-build/floppy.img -debugcon stdio
 
@@ -97,9 +96,7 @@ bootsect.bin: bootsect.o
 	as --defsym OS_NAME=$(OS_NAME) --defsym KERNEL_START=$(KERNEL_START) --defsym KERNEL_SIZE=`cat kernel.bin | wc --bytes | sed -e "s/ //g"` -o $*.o $*.s
 
 clean:
-	ssh administrator@localhost -p 10022 "rm -rf mimosa-build;"
-	rm -rf mimosa-build
-	rm -f *.o *.asm *.bin *.tmp *.d
+	rm -f *.o *.asm *.bin *.tmp *.d *.elf *.map
 
 # dependencies:
 config.o: config.c etherboot.h osdep.h include/asm.h include/general.h \
