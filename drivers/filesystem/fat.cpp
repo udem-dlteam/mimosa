@@ -337,13 +337,13 @@ static error_code mount_partition(disk* d, vfnode* parent) {
   native_string disk_name = "DSK1";
   fat_file_system* fs = NULL;
   error_code err = NO_ERROR;
-
+  
   switch (d->partition_type) {
     case 1:     // Primary DOS 12-bit FAT
     case 4:     // Primary DOS 16-bit FAT
     case 6:     // Primary big DOS >32Mb
     case 0x0C:  // FAT32 LBA
-
+    {
       if (ERROR(err = mount_FAT121632(d, &fs))) {
         term_write(cout, "Failed to mount\n\r");
         return err;
@@ -359,11 +359,13 @@ static error_code mount_partition(disk* d, vfnode* parent) {
             CAST(fs_header*, fs);
         vfnode_add_child(parent, partition_mount_point);
       }
+    }
       break;
-    default:
+    default: {
       term_write(cout, "Unknown partition type: ");
       term_write(cout, d->partition_type);
       term_write(cout, "\n\r");
+    }
       break;
   }
 
