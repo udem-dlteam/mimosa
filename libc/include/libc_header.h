@@ -21,11 +21,18 @@
 
 #endif
 
-// #include "gambit.h"
+#define ___DONT_HAVE_LIMITS_H
+#define ___DONT_HAVE_WCHAR_H
+#define ___DONT_HAVE_FLOAT_H
+#define ___DONT_HAVE_SIGNAL_H
+#define ___DONT_HAVE_NEW 
+#define ___DONT_HAVE_MATH_H
 
-// #undef ___GSTATE
-// #define ___GSTATE ___local_gstate
-// extern ___global_state ___local_gstate;
+#include "gambit.h"
+
+#undef ___GSTATE
+#define ___GSTATE ___local_gstate
+extern ___global_state ___local_gstate;
 
 #include "include/libc_redirect.h"
 
