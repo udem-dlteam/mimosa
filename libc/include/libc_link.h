@@ -139,8 +139,11 @@ struct libc_link {
                     const struct itimerval *__restrict __new,
                     struct itimerval *__restrict __old);
 
-  // *** add new things below here for backward compatibility ***
+                    // 
 
+  void (*set_gstate)(___global_state gs);
+
+  // *** add new things below here for backward compatibility ***
 };
 
 #ifdef USE_MIMOSA_LIBC_LINK

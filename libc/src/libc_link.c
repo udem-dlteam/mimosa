@@ -13,6 +13,19 @@
 #include "include/sys/time.h"
 #include "include/sys/resource.h"
 
+___global_state ___local_gstate;
+
+/**
+ * Set the local gstate
+ * This function should be called through gambit and never
+ * manually.
+ */
+void libc_set_gstate(___global_state gs) {
+  debug_write("Setting the local gstate...");
+  ___local_gstate = gs;
+  debug_write("Done setting the local gstate...");
+}
+
 void libc_init(void) {
     
   libc_trace("libc_init begin");
@@ -127,6 +140,10 @@ void libc_init(void) {
   LIBC_LINK._settimeofday = REDIRECT_NAME(settimeofday);
   LIBC_LINK._getitimer = REDIRECT_NAME(getitimer);
   LIBC_LINK._setitimer = REDIRECT_NAME(setitimer);
+
+  // GSTATE
+  LIBC_LINK.set_gstate = REDIRECT_NAME(set_gstate);
+
 
   libc_init_dirent();
   libc_init_errno();
