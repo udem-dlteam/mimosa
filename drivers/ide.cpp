@@ -83,12 +83,10 @@ void ide_irq(ide_controller* ctrl) {
   uint8 s;
   uint32 i;
   ide_cmd_queue_entry* entry;
-  ide_device* dev;
   uint16 base;
   uint16* p = NULL;
 
   entry = &ctrl->cmd_queue[0];  // We only handle one operation at a time
-  dev = entry->dev;
   base = ide_controller_map[ctrl->id].base;
 
   cmd_type type = entry->cmd;
@@ -685,7 +683,6 @@ static void setup_ide_controller(ide_controller* ctrl, uint8 id) {
   uint32 i;
   uint32 j;
   uint8 stat[IDE_DEVICES_PER_CONTROLLER];
-  uint8 err;
   uint8 candidates;
   uint16 base = ide_controller_map[id].base;
 
@@ -740,7 +737,7 @@ static void setup_ide_controller(ide_controller* ctrl, uint8 id) {
     thread_sleep(5000);  // 5 usecs
     outb(IDE_DEV_CTRL_nIEN, base + IDE_DEV_CTRL_REG);
     thread_sleep(2000000);  // 2 msecs
-    err = inb(base + IDE_ERROR_REG);
+    inb(base + IDE_ERROR_REG);
     thread_sleep(5000);  // 5 usecs
 
     for (j = 30000; j > 0; j--)  // wait up to 30 seconds for a response

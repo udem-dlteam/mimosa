@@ -21,6 +21,12 @@
 
 #endif
 
+// #include "gambit.h"
+
+// #undef ___GSTATE
+// #define ___GSTATE ___local_gstate
+// extern ___global_state ___local_gstate;
+
 #include "include/libc_redirect.h"
 
 #endif // libc_header.h

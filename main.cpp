@@ -86,7 +86,6 @@ int main() {
 #endif
 
   do {
-    
 #ifdef STREAM_STDOUT_TO_DEBUG_CONSOLE
     if (!ERROR(err = file_read(__stdout, buff, 512 * sizeof(unicode_char)))) {
       for (uint32 i = 0; i < (err / sizeof(unicode_char)); ++i) {

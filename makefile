@@ -89,7 +89,7 @@ bootsect.bin: bootsect.o
 	as --defsym OS_NAME=$(OS_NAME) --defsym KERNEL_START=$(KERNEL_START) --defsym KERNEL_SIZE=`cat kernel.bin | wc --bytes | sed -e "s/ //g"` -o $*.o $*.s
 
 clean:
-	rm -f *.o *.asm *.bin *.tmp *.d *.elf *.map
+	rm -rf *.o *.asm *.bin *.tmp *.d *.elf *.map
 
 # dependencies:
 config.o: config.c etherboot.h osdep.h include/asm.h include/general.h \

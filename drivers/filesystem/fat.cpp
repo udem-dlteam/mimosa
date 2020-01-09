@@ -376,17 +376,10 @@ static error_code mount_partition(disk* d, vfnode* parent) {
     if (fs_mod.nb_mounted_fs < MAX_NB_MOUNTED_FAT_FS) {
       fs_mod.mounted_fs[fs_mod.nb_mounted_fs++] = fs;
 
-      const char* kind;
-
       switch (fs->kind) {
         case FAT12_FS:
-          kind = "FAT12";
-          break;
         case FAT16_FS:
-          kind = "FAT16";
-          break;
         case FAT32_FS:
-          kind = "FAT32";
           break;
         default:
           panic(L"Unknown FAT FS");
@@ -1418,7 +1411,7 @@ static error_code fat_32_find_first_empty_cluster(fat_file_system* fs, uint32* r
 
     for (; i < entries_per_sector; ++i, ++clus) {
       uint32 entry = CAST(uint32*, cb->buf)[i];
-      if (found = (entry == 0)) {
+      if ((found = (entry == 0))) {
         break;
       }
     }
@@ -2224,8 +2217,7 @@ static error_code read_lfn(fs_header* fs, uint32 cluster, uint32 position,
       goto fat_read_lfn_end;
     }
 
-    uint32 position =
-        position - (sizeof(long_file_name_entry) * (lfn_entry_count + 1));
+    position = position - (sizeof(long_file_name_entry) * (lfn_entry_count + 1));
 
     fat_set_to_absolute_position(CAST(file*, reader), position);
 
