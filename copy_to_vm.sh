@@ -3,6 +3,7 @@
 
 make clean
 echo "Copying to VM..."
+rm -rf libc/gambit
 cd libc
 git clone https://github.com/gambit/gambit.git
 cd ..
