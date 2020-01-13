@@ -8,8 +8,9 @@ KERNEL_OBJECTS = kernel.o libc/libc_os.o drivers/filesystem/vfs.o drivers/filesy
 #NETWORK_OBJECTS = eepro100.o tulip.o timer2.o misc.o pci.o config.o net.o
 DEFS = -DINCLUDE_EEPRO100 
 
-GCC = gcc -m32 -Wno-write-strings -g -march=i686
-GPP = g++ -m32 -Wno-write-strings -g -march=i686
+TARGET_ARCH = i686
+GCC = gcc -m32 -Wno-write-strings -g -march=$(TARGET_ARCH)
+GPP = g++ -m32 -Wno-write-strings -g -march=$(TARGET_ARCH)
 
 SPECIAL_OPTIONS =
 
