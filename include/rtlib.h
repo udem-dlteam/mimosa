@@ -17,6 +17,8 @@
 
 // Error handling.
 
+void reboot();
+
 void panic(unicode_string msg);
 
 //-----------------------------------------------------------------------------

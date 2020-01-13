@@ -40,6 +40,38 @@ raw_bitmap_in_memory mouse_save;
 
 //-----------------------------------------------------------------------------
 
+
+#define KBRD_INTRFC 0x64
+#define KBRD_RESET 0xFE /* reset CPU command */
+ 
+void reboot() {
+    term_write(cout, "ATT! Rebooting...\n");
+    // Some magic reboot code found at
+    // https://forum.osdev.org/viewtopic.php?f=1&t=18769 
+    outb(0x8F,0x70);
+    outb(0x00,0x71);
+    outb(0x00,0x70);
+    outb(inb(0x92) | 1, 0x92);
+
+    // If that did not work, use the "official" keyboard controller tricks
+    uint8 temp;
+    do
+    {
+        temp = inb(0x64);
+        if((temp & 0x01) != 0)
+        {
+            (void)inb(0x60);
+            continue;
+        }
+    } while((temp & 0x02) != 0);
+
+    /* Reset! */
+    outb(0xFE, 0x64);
+
+    // At this point the reboot procedure did not work and there is nothing to do
+    term_write(cout, "Rebooting failed...\n");
+}
+
 void panic(unicode_string msg) {
   if (ARE_INTERRUPTS_ENABLED()) disable_interrupts();
 
@@ -60,7 +92,12 @@ void panic(unicode_string msg) {
   }
 #endif
 
-  for (;;) NOP();  // freeze execution
+  // Wait a bit...
+  for(uint32 i = 0; i < CAST(uint32,(-1)); ++i) {
+      NOP();
+  }
+
+  reboot();
   // ** NEVER REACHED ** (this function never returns)
 }
 
