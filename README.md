@@ -39,4 +39,4 @@ To run mimosa with `make run` or `make debug`, you will need QEMU installed (at 
 
 ## Required software
 
-Currently, Mimosa builds with GCC 9.2.1. You will need the 32 bit tools in order to build the system.
+Currently, Mimosa builds with GCC 9.2.1. You will need the 32 bit tools in order to build the system (`g++-multilib`).
