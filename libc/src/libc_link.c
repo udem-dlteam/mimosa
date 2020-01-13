@@ -13,6 +13,7 @@
 #include "include/sys/time.h"
 #include "include/sys/resource.h"
 
+#ifdef USE_MIMOSA
 ___global_state ___local_gstate;
 
 /**
@@ -25,6 +26,8 @@ void libc_set_gstate(___global_state gs) {
   ___local_gstate = gs;
   debug_write("Done setting the local gstate...");
 }
+
+#endif
 
 void libc_init(void) {
     

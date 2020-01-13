@@ -141,7 +141,9 @@ struct libc_link {
 
                     // 
 
+#ifdef USE_MIMOSA
   void (*set_gstate)(___global_state gs);
+#endif
 
   // *** add new things below here for backward compatibility ***
 };
