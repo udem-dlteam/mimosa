@@ -6,6 +6,6 @@ echo "Copying to VM..."
 cd libc
 git clone https://github.com/gambit/gambit.git
 cd ..
-tar --exclude='*.img' -czf - . | ssh administrator@localhost -p 10022 "mkdir -p mimosa-build;cd mimosa-build;tar xzf -;";
+tar --exclude='*.img' -czf - . | ssh administrator@localhost -p 10022 "rm -rf mimosa-build; mkdir -p mimosa-build; cd mimosa-build; tar xzf -;";
 rm -rf libc/gambit
 echo "Done!"
