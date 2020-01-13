@@ -13,18 +13,17 @@ GPP = g++ -m32 -Wno-write-strings -g
 
 SPECIAL_OPTIONS =
 
-GCC_OPTIONS = $(SPECIAL_OPTIONS) $(DEFS) -DOS_NAME=$(OS_NAME) -DKERNEL_START=$(KERNEL_START) -fomit-frame-pointer -fno-strict-aliasing -Wall -O3 -ffast-math -nostdinc -Iinclude -Ilibc -I/usr/include -ffreestanding -nostdlib
+GCC_OPTIONS = $(SPECIAL_OPTIONS) $(DEFS) -DOS_NAME=$(OS_NAME) -DKERNEL_START=$(KERNEL_START) -fno-stack-protector -fomit-frame-pointer -fno-strict-aliasing -Wall -O3 -ffast-math -nostdinc -Iinclude -Ilibc -I/usr/include -I${HOME}/g4_9_3-devel/include -ffreestanding -nostdlib
 
-GPP_OPTIONS = $(GCC_OPTIONS) -fno-rtti -fno-builtin -fno-exceptions -nostdinc++ 
+GPP_OPTIONS = $(GCC_OPTIONS) -fno-rtti -fno-builtin -fno-exceptions -nostdinc++
 
 .SUFFIXES:
 .SUFFIXES: .h .s .c .cpp .o .asm .bin .map .d
 
 all: bin_files
 
-single-archive:
-	rm -rf kernel.bin; rm -rf bootsect.bin; rm -rf kernel.elf;
-	make
+single-archive: clean-bin
+	$(MAKE)
 	# cd .. ; sudo ./mimosa-build/createimg.sh;cd mimosa-build; tar czf mb.tar.gz kernel.bin kernel.elf bootsect.bin floppy.img;";
 	./createimg.sh
 
@@ -50,8 +49,8 @@ debug:
 	qemu-system-i386 -s -S -m 1G -hda ./floppy.img -debugcon stdio
 
 mf:
-	make clean
-	make SPECIAL_OPTIONS=-MMD
+	$(MAKE) clean
+	$(MAKE) SPECIAL_OPTIONS=-MMD
 	sed "/^# dependencies:$$/q" makefile | cat - *.d > mf
 	rm -f *.d
 	mv makefile makefile.old
@@ -88,8 +87,15 @@ bootsect.bin: bootsect.o
 .s.o: kernel.bin
 	as --defsym OS_NAME=$(OS_NAME) --defsym KERNEL_START=$(KERNEL_START) --defsym KERNEL_SIZE=`cat kernel.bin | wc --bytes | sed -e "s/ //g"` -o $*.o $*.s
 
-clean:
-	rm -rf *.o *.asm *.bin *.tmp *.d *.elf *.map floppy.img
+clean-bin:
+	rm -f -- kernel.bin bootsect.bin kernel.elf
+
+
+clean-libc:
+	rm -f -- libc/libc_os.o
+
+clean: clean-libc
+	rm -f -- *.o *.asm *.bin *.tmp *.d *.elf *.map floppy.img drivers/filesystem/stdstream.o drivers/filesystem/fat.o drivers/filesystem/vfs.o drivers/ide.o
 
 # dependencies:
 config.o: config.c etherboot.h osdep.h include/asm.h include/general.h \
