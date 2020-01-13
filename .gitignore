@@ -22,3 +22,5 @@ mimosa-build/
 *.map
 
 *.elf
+
+\.ycm_extra_conf\.py
