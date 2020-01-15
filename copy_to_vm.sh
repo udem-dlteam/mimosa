@@ -26,9 +26,10 @@ build_gambit() {
     rm -rf gambit
 }
 
-build_gambit
+# build_gambit
 
 echo "Copying to VM..."
-tar --exclude-vcs --exclude-vcs-ignore --exclude='*.img' -czf - . | ssh administrator@localhost -p 10022 "rm -rf mimosa-build; mkdir -p mimosa-build; cd mimosa-build; tar xzf -;";
+
+tar --exclude-vcs --exclude-vcs-ignore --exclude='*.img' -czf - ./libc | ssh administrator@localhost -p 10022 "rm -rf ./libc; tar xzf -;";
 
 echo "Done!"
