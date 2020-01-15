@@ -1,5 +1,5 @@
 //#define ENABLE_LIBC_TRACE
-//#define USE_MIMOSA
+#define USE_MIMOSA
 #define USE_MIMOSA_LIBC_LINK
 #undef REDIRECT_PREFIX
 #define REDIRECT_PREFIX libc_

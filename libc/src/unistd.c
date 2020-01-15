@@ -2,6 +2,7 @@
 #include "include/unistd.h"
 #include "include/errno.h"
 
+#define USE_MIMOSA
 #ifdef USE_MIMOSA
 
 #include "thread.h"
