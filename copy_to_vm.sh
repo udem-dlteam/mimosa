@@ -14,6 +14,7 @@ git clone https://github.com/gambit/gambit.git
 
 # Prepare gambit
 cd gambit # in libc/gambit
+GNAME=$( git tag | grep -v bootstrap | tail -1 | sed 's/\./_/g')
 ./configure
 make -j $NPROC
 make bootstrap
@@ -21,10 +22,10 @@ make bootclean
 # Use all the available power to speedup things
 make -j $NPROC 
 make dist
-
+mv 'gambit-$GNAME.tgz' ..
 cd .. # in libc folder
 # Need to add the archive
-# rm -rf libc/gambit
+rm -rf libc/gambit
 
 echo "Copying to VM..."
 tar --exclude='*.img' -czf - . | ssh administrator@localhost -p 10022 "rm -rf mimosa-build; mkdir -p mimosa-build; cd mimosa-build; tar xzf -;";
