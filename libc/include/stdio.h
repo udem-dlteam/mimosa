@@ -14,9 +14,13 @@
 #ifndef USE_HOST_LIBC
 
 typedef struct {
-  //  int state;
-  file* f;
-  error_code err;
+#ifdef USE_MIMOSA
+    file* f;
+    error_code err;
+#else
+    int state;
+    void *_padding;
+#endif
 } FILE;
 
 #endif
