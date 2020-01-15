@@ -13,7 +13,7 @@
 #include "include/sys/time.h"
 #include "include/sys/resource.h"
 
-#ifdef USE_MIMOSA
+#ifdef GAMBIT_GSTATE 
 ___global_state ___local_gstate;
 
 /**
@@ -145,7 +145,9 @@ void libc_init(void) {
   LIBC_LINK._setitimer = REDIRECT_NAME(setitimer);
 
   // GSTATE
+#ifdef GAMBIT_GSTATE
   LIBC_LINK.set_gstate = REDIRECT_NAME(set_gstate);
+#endif
 
 
   libc_init_dirent();

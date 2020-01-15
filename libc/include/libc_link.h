@@ -141,7 +141,7 @@ struct libc_link {
 
                     // 
 
-#ifdef USE_MIMOSA
+#ifdef GAMBIT_GSTATE 
   void (*set_gstate)(___global_state gs);
 #endif
 

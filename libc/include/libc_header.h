@@ -21,7 +21,7 @@
 
 #endif
 
-#ifdef USE_MIMOSA 
+#ifdef GAMBIT_GSTATE 
 
 #define ___DONT_HAVE_LIMITS_H
 #define ___DONT_HAVE_WCHAR_H
