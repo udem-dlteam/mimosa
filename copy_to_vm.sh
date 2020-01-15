@@ -1,33 +1,34 @@
+#!/bin/bash
 # This script will prepare the environment so Gambit can be built on
 # the ubuntu-6 VM which represents the Mimosa target.
-NPROC=$( nproc )
+set -e
 
+NPROC=$( nproc )
 if [ $NPROC -gt 2 ]; then
     NPROC=$(( NPROC - 2 ))
 fi
 
-make clean
-echo "Compiling Gambit..."
-rm -rf libc/gambit
-cd libc
-git clone https://github.com/gambit/gambit.git
+build_gambit() {
+    git clone https://github.com/gambit/gambit
+    cd gambit
+    GAMBIT_VERSION=$( git tag | grep -v bootstrap | tail -1 | sed 's/\./_/g')
 
-# Prepare gambit
-cd gambit # in libc/gambit
-GNAME=$( git tag | grep -v bootstrap | tail -1 | sed 's/\./_/g')
-./configure
-make -j $NPROC
-make bootstrap
-make bootclean
-# Use all the available power to speedup things
-make -j $NPROC 
-make dist
-mv 'gambit-$GNAME.tgz' ..
-cd .. # in libc folder
-# Need to add the archive
-rm -rf libc/gambit
+    ./configure
+    make -j $NPROC
+    make bootstrap
+    make bootclean
+    make -j $NPROC
+    make dist
+
+    mv "gambit-$GAMBIT_VERSION.tgz" ../libc
+    cd -
+
+    rm -rf gambit
+}
+
+build_gambit
 
 echo "Copying to VM..."
-tar --exclude='*.img' -czf - . | ssh administrator@localhost -p 10022 "rm -rf mimosa-build; mkdir -p mimosa-build; cd mimosa-build; tar xzf -;";
+tar --exclude-vcs --exclude-vcs-ignore --exclude='*.img' -czf - . | ssh administrator@localhost -p 10022 "rm -rf mimosa-build; mkdir -p mimosa-build; cd mimosa-build; tar xzf -;";
 
 echo "Done!"
