@@ -115,12 +115,14 @@ size_t REDIRECT_NAME(fread)(void *__restrict __ptr, size_t __size, size_t __n,
 #else
 
   error_code err;
+
   file *f = __stream->f;
   uint32 count = __n * __size;
+  
   if (ERROR(err = file_read(f, __ptr, count))) {
     // fread interface has 0 for an error
     __n = 0;
-    __stream->err = err;
+    __stream->err = 0;
   } else {
     // Number of items read, not byte count
     __n = err / __size;
@@ -150,7 +152,6 @@ size_t REDIRECT_NAME(fwrite)(const void *__restrict __ptr, size_t __size,
 
   // TODO: implement writing to files other than stdout/stderr
   if (__stream == &FILE_stdout || __stream == &FILE_stderr) {
-
     unicode_char *p = CAST(unicode_char*,__ptr);
     int n = __size * __n / sizeof(unicode_char);
 
