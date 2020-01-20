@@ -2,7 +2,6 @@
 #include "include/unistd.h"
 #include "include/errno.h"
 
-#define USE_MIMOSA
 #ifdef USE_MIMOSA
 
 #include "thread.h"
@@ -270,8 +269,7 @@ int REDIRECT_NAME(isatty)(int __fd) {
 
 #else
 
-  // TODO: implement
-  return 0;
+  return 1;
 
 #endif
 #endif
