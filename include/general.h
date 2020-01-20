@@ -199,6 +199,7 @@ typedef int32 error_code;
 #endif
 
 #define USE_MIMOSA
+#define GAMBIT_GSTATE 
 
 #endif
 

@@ -3,6 +3,7 @@
 #define _SETJMP_HEADER 1
 
 #include "include/libc_header.h"
+#include "include/libc_redirect.h"
 
 #ifndef USE_HOST_LIBC
 

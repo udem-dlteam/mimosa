@@ -9,10 +9,11 @@ if [ $NPROC -gt 2 ]; then
 fi
 
 build_gambit() {
-#    git clone https://github.com/gambit/gambit
+    git clone https://github.com/gambit/gambit
     cd gambit
     GAMBIT_VERSION=$( git tag | grep -v bootstrap | tail -1 | sed 's/\./_/g')
-
+    
+    # Just in case
     ./configure
     make -j $NPROC
     make bootstrap

@@ -142,7 +142,7 @@ struct libc_link {
                     // 
 
 #ifdef GAMBIT_GSTATE 
-  void (*set_gstate)(___global_state gs);
+  void (*_set_gstate)(struct ___global_state_struct *gs);
 #endif
 
   // *** add new things below here for backward compatibility ***
@@ -155,5 +155,7 @@ extern struct libc_link LIBC_LINK;
 #endif
 
 extern void libc_init(void);
+
+void REDIRECT_NAME(set_gstate)(struct ___global_state_struct *gs);
 
 #endif // libc_link.h

@@ -315,28 +315,31 @@ static void process_keyboard_data(uint8 data) {
     if (PRESSED(KBD_SCANCODE_LSHIFT) || PRESSED(KBD_SCANCODE_RSHIFT)) {
       code = keycode_table[data].with_shift;
     } else if (PRESSED(KBD_SCANCODE_CTRL)) {
-      code = keycode_table[data].with_ctrl;
+        code = keycode_table[data].with_ctrl;
     } else if (PRESSED(KBD_SCANCODE_ALT)) {
-      code = keycode_table[data].with_alt;
+        code = keycode_table[data].with_alt;
     } else {
-      code = keycode_table[data].normal;
+        code = keycode_table[data].normal;
     }
 
     keymap[data >> 5] |= (1 << (data & 0x1f));
 
     if (code != DEAD) {
-      char* seq = keycode_table[data].seq;
-      if (seq == NULL) {
-        uint8 ch = code & 0xff;
-        keypress(ch);
-        if (ch == 3) {     // CTRL-C
-          send_signal(2);  // send SIGINT
+        char* seq = keycode_table[data].seq;
+
+        if(EMERGENCY_REBOOT_CODE == code) {
+            reboot();
+        }  else if (seq == NULL) {
+            uint8 ch = code & 0xff;
+            keypress(ch);
+            if (ch == 3) {     // CTRL-C
+                send_signal(2);  // send SIGINT
+            }
+        }  else {
+            while (*seq != '\0') {
+                keypress(*seq++);
+            }
         }
-      } else {
-        while (*seq != '\0') {
-          keypress(*seq++);
-        }
-      }
     }
 
   } else if (data >= (KBD_SCANCODE_ESC | 0x80) &&

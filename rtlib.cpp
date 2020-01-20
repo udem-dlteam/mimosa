@@ -46,14 +46,8 @@ raw_bitmap_in_memory mouse_save;
  
 void reboot() {
     term_write(cout, "ATT! Rebooting...\n");
-    // Some magic reboot code found at
-    // https://forum.osdev.org/viewtopic.php?f=1&t=18769 
-    outb(0x8F,0x70);
-    outb(0x00,0x71);
-    outb(0x00,0x70);
-    outb(inb(0x92) | 1, 0x92);
 
-    // If that did not work, use the "official" keyboard controller tricks
+    // Start with the official keyboard controller trick
     uint8 temp;
     do
     {
@@ -67,6 +61,16 @@ void reboot() {
 
     /* Reset! */
     outb(0xFE, 0x64);
+
+    debug_write("Did not reset with keyboard trick");
+
+    // If at this point we did not reboot, try this little hack 
+    // Some magic reboot code found at
+    // https://forum.osdev.org/viewtopic.php?f=1&t=18769 
+    outb(0x8F,0x70);
+    outb(0x00,0x71);
+    outb(0x00,0x70);
+    outb(inb(0x92) | 1, 0x92);
 
     // At this point the reboot procedure did not work and there is nothing to do
     term_write(cout, "Rebooting failed...\n");

@@ -33,9 +33,9 @@
 
 #include "gambit.h"
 
-#undef ___GSTATE
-#define ___GSTATE ___local_gstate
-extern ___global_state ___local_gstate;
+//#undef ___GSTATE
+//#define ___GSTATE ___local_gstate
+extern struct ___global_state_struct *___local_gstate;
 
 #endif
 

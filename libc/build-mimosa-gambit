@@ -6,7 +6,7 @@
 #   tar xf ../gambit-v4_9_3.tgz 
 #   mv gambit-v4_9_3 gambit
 #   ./build-mimosa-gambit
-
+set -e # crash on error
 CCOMP=gcc-3.4
 
 cd gambit
@@ -49,7 +49,7 @@ echo "#include \"include/libc_link.h\"" >> conf.h
 mv conf.h include/config.h
 
 echo "#!/bin/sh" > ccomp
-echo "$CCOMP -nostdinc -I `pwd`/.. -I `pwd`/../include -m32 -Wno-write-strings -ffreestanding -DUSE_MIMOSA_LIBC_LINK -DUSE_LIBC_LINK -D___SUPPORT_LOWLEVEL_EXEC -D___LITTLE_ENDIAN \"\$@\"" >> ccomp
+echo "$CCOMP -nostdinc -I `pwd`/include -I `pwd`/.. -I `pwd`/../include -m32 -Wno-write-strings -ffreestanding -DUSE_MIMOSA_LIBC_LINK -DGAMBIT_GSTATE  -DUSE_LIBC_LINK -D___SUPPORT_LOWLEVEL_EXEC -D___LITTLE_ENDIAN \"\$@\"" >> ccomp
 
 cd lib
 make
