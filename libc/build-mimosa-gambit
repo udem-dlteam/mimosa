@@ -49,7 +49,7 @@ echo "#include \"include/libc_link.h\"" >> conf.h
 mv conf.h include/config.h
 
 echo "#!/bin/sh" > ccomp
-echo "$CCOMP -nostdinc -I `pwd`/.. -I `pwd`/../include -m32 -Wno-write-strings -ffreestanding -DUSE_MIMOSA_LIBC_LINK -DUSE_LIBC_LINK -D___SUPPORT_LOWLEVEL_EXEC \"\$@\"" >> ccomp
+echo "$CCOMP -nostdinc -I `pwd`/.. -I `pwd`/../include -m32 -Wno-write-strings -ffreestanding -DUSE_MIMOSA_LIBC_LINK -DUSE_LIBC_LINK -D___SUPPORT_LOWLEVEL_EXEC -D___LITTLE_ENDIAN \"\$@\"" >> ccomp
 
 cd lib
 make

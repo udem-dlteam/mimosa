@@ -198,6 +198,8 @@ typedef int32 error_code;
 #endif
 #endif
 
+#define USE_MIMOSA
+
 #endif
 
 // Local Variables: //

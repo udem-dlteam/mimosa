@@ -9,7 +9,7 @@ if [ $NPROC -gt 2 ]; then
 fi
 
 build_gambit() {
-    git clone https://github.com/gambit/gambit
+#    git clone https://github.com/gambit/gambit
     cd gambit
     GAMBIT_VERSION=$( git tag | grep -v bootstrap | tail -1 | sed 's/\./_/g')
 
@@ -23,10 +23,14 @@ build_gambit() {
     mv "gambit-$GAMBIT_VERSION.tgz" ../libc
     cd -
 
-    rm -rf gambit
+    #rm -rf gambit
 }
 
-# build_gambit
+if [ "x$1" != x ]; then
+    echo "Building Gambit"
+    build_gambit
+fi
+
 
 echo "Copying to VM..."
 

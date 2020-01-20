@@ -506,7 +506,8 @@ void virtual_program_thread_run(thread* sself) {
   program_thread* self = CAST(program_thread*, sself);
   term_write(cout, "Running program thread");
   term_writeline(cout);
-  static char* argv[] = {"app", "-:t4,:~~lib,:~~userlib", NULL};
+  static char* argv[] = {"app", "-:dc,t4,f4,-4,search=~~lib,search=~~userlib", NULL};
+  //static char* argv[] = {"app", "-:t1,f1,-1,search=~~lib,search=~~userlib", NULL};
   int argc = sizeof(argv) / sizeof(argv[0]) - 1;
   static char* env[] = {NULL};
   self->_code(argc, argv, env);
