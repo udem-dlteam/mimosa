@@ -329,11 +329,10 @@ program_thread* new_program_thread(program_thread* self, native_string cwd,
   self->super.type = THREAD_TYPE_USER;
   self->super._prio = high_priority;
   self->_code = run;
+  self->_cwd = NULL;
   self->super.vtable = &_program_thread_vtable;
 
-  uint32 len = kstrlen(cwd);
-  memcpy(self->_cwd, cwd, len+1);
-
+  program_thread_chdir(self, cwd);
   return self;
 }
 
@@ -341,13 +340,19 @@ native_string program_thread_cwd(program_thread* self) { return self->_cwd; }
 
 native_string program_thread_chdir(program_thread* self,
                                    native_string new_cwd) {
+  native_string old = self->_cwd;
   uint32 len = kstrlen(new_cwd);
-  uint32 add_slash = (len == 0 || new_cwd[len-1] != '/');
 
+  bool requires_slash = (0 == len || '/' != new_cwd[len - 1]);
+
+  self->_cwd = CAST(native_string,
+                    kmalloc(sizeof(native_char) * (len + 1 + requires_slash)));
   memcpy(self->_cwd, new_cwd, len);
 
-  self->_cwd[len] = '/';  // always end dir with /
-  self->_cwd[len+add_slash] = '\0';
+  self->_cwd[len] = '/';
+  self->_cwd[len + requires_slash] = '\0';
+
+  if (NULL != old) kfree(old);
 
   return self->_cwd;
 }
@@ -922,6 +927,45 @@ void _sched_timer_elapsed() {
     save_context(_sched_switch_to_next_thread, NULL);
   }
 }
+
+void do_fork(uint32 cs, uint32 eflags, uint32* sp,
+                                  void* q) {
+    thread* current = sched_current_thread;
+    static const int stack_size = 65536 << 1; // size of thread stacks in bytes
+    // Allocate a new thread
+    thread* nt = CAST(thread*, kmalloc(sizeof(thread)));
+    // Clone the new thread
+    *nt = *current;
+
+    // Allocate a new stack
+    uint32* s = CAST(uint32*, kmalloc(stack_size));
+    // Clone the stacks
+    memcpy(s, sched_current_thread->_stack, stack_size);
+    // Set the stack
+    nt->_stack = s;
+    // Correct the stack pointer
+    nt->_sp = (sp - current->_stack) + s;
+
+    // The thread we built up is ready!
+    wait_queue_insert(nt, readyq);
+
+    // Return
+    current->_sp = sp;
+    //*(current->_sp + (8 * sizeof(int) + 2 * sizeof(int))) = 8;
+    restore_context(current->_sp); 
+}
+
+int fork_handler(int pid) {
+    disable_interrupts();
+    save_context(do_fork, NULL);
+    enable_interrupts();
+    return pid;
+}
+
+int fork() {
+    return fork_handler(0);
+}
+
 
 //-----------------------------------------------------------------------------
 
