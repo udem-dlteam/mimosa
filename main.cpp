@@ -24,16 +24,23 @@
 
 int main() {
 
-    debug_write("Main...");
     int pid = fork();
-    debug_write("Back!");
-    debug_write("Pid: ");
-    debug_write(pid);
+
+    if(-1 == pid) {
+        debug_write("Error while forking");
+    } else if (0 == pid) {
+        debug_write("Parent process");
+    } else if(1 == pid) {
+        debug_write("Child process");
+    } else {
+        debug_write("I don't know who I am.");
+    }
 
     while(1) {
-        NOP();
         thread_yield();
+        NOP();
     }
+
 
 
 

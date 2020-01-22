@@ -9,6 +9,7 @@
 //-----------------------------------------------------------------------------
 
 #include "thread.h"
+#include "general.h"
 #include "asm.h"
 #include "pic.h"
 #include "apic.h"
@@ -930,28 +931,40 @@ void _sched_timer_elapsed() {
 
 void do_fork(uint32 cs, uint32 eflags, uint32* sp,
                                   void* q) {
+    error_code err = NO_ERROR;
     thread* current = sched_current_thread;
     static const int stack_size = 65536 << 1; // size of thread stacks in bytes
     // Allocate a new thread
-    thread* nt = CAST(thread*, kmalloc(sizeof(thread)));
-    // Clone the new thread
-    *nt = *current;
+    thread* nt = NULL;
+    
+    if(NULL == (nt = CAST(thread*, kmalloc(sizeof(thread))))) {
+        err = MEM_ERROR; 
+    } else {
+        // Clone the new thread
+        *nt = *current;
 
-    // Allocate a new stack
-    uint32* s = CAST(uint32*, kmalloc(stack_size));
-    // Clone the stacks
-    memcpy(s, sched_current_thread->_stack, stack_size);
-    // Set the stack
-    nt->_stack = s;
-    // Correct the stack pointer
-    nt->_sp = (sp - current->_stack) + s;
+        // Allocate a new stack
+        uint32* s = CAST(uint32*, kmalloc(stack_size));
+        // Clone the stacks
+        memcpy(s, sched_current_thread->_stack, stack_size);
+        // Set the stack
+        nt->_stack = s;
+        // Correct the stack pointer
+        nt->_sp = s - (current->_stack - sp);
 
-    // The thread we built up is ready!
-    wait_queue_insert(nt, readyq);
+        // The thread we built up is ready!
+        wait_queue_insert(nt, readyq);
 
-    // Return
-    current->_sp = sp;
-    //*(current->_sp + (8 * sizeof(int) + 2 * sizeof(int))) = 8;
+        // Return
+        current->_sp = sp;
+
+        // PID of the child (1 here)
+        *(nt->_sp + 17) = 1;
+    }
+
+    // PID of the parent
+    *(sp + 17) = (ERROR(err) ? -1 : 0);
+
     restore_context(current->_sp); 
 }
 
@@ -963,7 +976,7 @@ int fork_handler(int pid) {
 }
 
 int fork() {
-    return fork_handler(0);
+    return fork_handler(0xFF << 24 | 0xAA);
 }
 
 
