@@ -13,28 +13,6 @@
 #include "include/sys/time.h"
 #include "include/sys/resource.h"
 
-#ifdef GAMBIT_GSTATE 
-
-#include "gambit.h"
-
-struct ___global_state_struct *___local_gstate;
-
-/**
- * Set the local gstate
- * This function should be called through gambit and never
- * manually.
- */
-void REDIRECT_NAME(set_gstate)(___global_state_struct *gs) {
-#ifdef USE_LIBC_LINK
-    LIBC_LINK._set_gstate(gs);
-#else
-    debug_write("Setting the local gstate...");
-    ___local_gstate = gs;
-    debug_write("Done setting the local gstate...");
-#endif
-}
-
-#endif
 
 void libc_init(void) {
     

@@ -156,6 +156,4 @@ extern struct libc_link LIBC_LINK;
 
 extern void libc_init(void);
 
-void REDIRECT_NAME(set_gstate)(struct ___global_state_struct *gs);
-
 #endif // libc_link.h
