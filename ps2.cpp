@@ -329,7 +329,7 @@ static void process_keyboard_data(uint8 data) {
     if (code != DEAD) {
         char* seq = keycode_table[data].seq;
 
-        if(EMERGENCY_REBOOT_CODE == code) {
+        if (MANUAL_GAMBIT_INTERRUPT_CODE == code) {
             debug_write("Sending an interrupt");
             if(NULL == ___local_gstate) {
                 debug_write("Null local GSTATE!!");
@@ -342,6 +342,8 @@ static void process_keyboard_data(uint8 data) {
                 ___local_gstate->___raise_interrupt(5);
             }
             debug_write("Done sending the interrupt");
+        } else if(EMERGENCY_REBOOT_CODE == code) {
+            reboot();
         }  else if (seq == NULL) {
             uint8 ch = code & 0xff;
             keypress(ch);

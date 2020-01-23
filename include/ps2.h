@@ -195,6 +195,7 @@
 #define KBD_SCANCODE_MENU      0x5D // always prefixed with 0xE0
 
 #define EMERGENCY_REBOOT_CODE 0x532e
+#define MANUAL_GAMBIT_INTERRUPT_CODE 0x1749
 
 #define IS_VISIBLE_CHAR(c) (((c) >= 0x20) && ((c) <= 0x7E))
 #define IS_NEWLINE(c) (((c) == '\r') || ((c) == '\n'))
