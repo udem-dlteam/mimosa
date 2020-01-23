@@ -19,6 +19,7 @@
 #include "term.h"
 #include "thread.h"
 #include "video.h"
+#include "libc/include/libc_header.h"
 
 //-----------------------------------------------------------------------------
 
@@ -308,6 +309,7 @@ native_char readline() {
 
 extern void send_signal(int sig);  // from libc/src/signal.c
 
+
 static void process_keyboard_data(uint8 data) {
   if (data >= KBD_SCANCODE_ESC && data <= KBD_SCANCODE_F12) {
     uint16 code = 0;
@@ -328,7 +330,18 @@ static void process_keyboard_data(uint8 data) {
         char* seq = keycode_table[data].seq;
 
         if(EMERGENCY_REBOOT_CODE == code) {
-            reboot();
+            debug_write("Sending an interrupt");
+            if(NULL == ___local_gstate) {
+                debug_write("Null local GSTATE!!");
+            } else {
+
+                if(NULL == ___local_gstate->___raise_interrupt) {
+                    debug_write("Null fonction pointer!");
+                }
+
+                ___local_gstate->___raise_interrupt(5);
+            }
+            debug_write("Done sending the interrupt");
         }  else if (seq == NULL) {
             uint8 ch = code & 0xff;
             keypress(ch);
