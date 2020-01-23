@@ -308,6 +308,8 @@ native_string program_thread_cwd(program_thread* self) { return self->_cwd; }
 
 native_string program_thread_chdir(program_thread* self,
         native_string new_cwd) {
+    debug_write("CHDIR");
+    debug_write(new_cwd);
     native_string old = self->_cwd;
     uint32 len = kstrlen(new_cwd);
 
@@ -474,7 +476,7 @@ void virtual_program_thread_run(thread* sself) {
     program_thread* self = CAST(program_thread*, sself);
     term_write(cout, "Running program thread");
     term_writeline(cout);
-    static char* argv[] = {"app", "-:dc,t4,f4,-4,search=~~lib,search=~~userlib", NULL};
+    static char* argv[] = {"app", "-:dc,t4,search=~~lib,search=~~userlib", NULL};
     //static char* argv[] = {"app", "-:t1,f1,-1,search=~~lib,search=~~userlib", NULL};
     int argc = sizeof(argv) / sizeof(argv[0]) - 1;
     static char* env[] = {NULL};
