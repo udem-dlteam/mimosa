@@ -131,7 +131,7 @@ void libc_init(void) {
 
   // GSTATE
 #ifdef GAMBIT_GSTATE
-  LIBC_LINK.set_gstate = REDIRECT_NAME(set_gstate);
+  LIBC_LINK._set_gstate = REDIRECT_NAME(set_gstate);
 #endif
 
 

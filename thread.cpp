@@ -892,9 +892,11 @@ void _sched_timer_elapsed() {
         //      cout << "timer is fast\n";/////////////
         _sched_set_timer(current->_end_of_quantum, now);
     } else {
+#if 0
         debug_write("Thread ");
         debug_write(current->_name);
         debug_write("ran out of time");
+#endif
         send_signal(26); // send SIGVTALRM
         save_context(_sched_switch_to_next_thread, NULL);
     }
