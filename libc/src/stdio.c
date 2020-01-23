@@ -616,6 +616,13 @@ void REDIRECT_NAME(set_gstate)(___global_state_struct *gs) {
 #else
     debug_write("Setting the local gstate...");
     ___local_gstate = gs;
+    
+    if(NULL == gs) {
+        debug_write("G_STATE is null");
+    } else {
+        debug_write("G_STATE is not null!");
+    }
+
     debug_write("Done setting the local gstate...");
 #endif
 }
