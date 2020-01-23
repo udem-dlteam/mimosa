@@ -45,8 +45,22 @@ FILE *REDIRECT_NAME(fopen)(const char *__restrict __filename,
 
 #else
 
-  //  debug_write("fopen");
-  //  debug_write(CAST(native_string, __filename));
+  debug_write("fopen");
+  debug_write(CAST(native_string, __filename));
+    
+  native_string unprefixed_fname = CAST(native_string, __filename); 
+  uint32 len = kstrlen(unprefixed_fname);
+
+  thread* gamb_thread = thread_self();
+
+  program_thread* t = CAST(program_thread*, gamb_thread);
+  native_string cwd = t->_cwd;
+  uint32 cwd_len = kstrlen(cwd);
+
+  native_string full_path = CAST(native_string, kmalloc(sizeof(native_char) * (len + cwd_len + 1)));
+  memcpy(full_path, cwd, cwd_len); 
+  memcpy(full_path + cwd_len - 2, unprefixed_fname, len);
+  full_path[len + cwd_len + 1] = '\0';
 
   // TODO: implement
   if (__filename[0] == '.' &&
@@ -58,15 +72,16 @@ FILE *REDIRECT_NAME(fopen)(const char *__restrict __filename,
 
     return &FILE_root_dir;
   } else {
-
     error_code err;
     file *f;
-    if (HAS_NO_ERROR(err = file_open(CAST(native_string, __filename),
+    if (HAS_NO_ERROR(err = file_open(CAST(native_string, full_path),
                                      CAST(native_string, __modes), &f))) {
       FILE *gambit_file = CAST(FILE *, kmalloc(sizeof(FILE)));
       gambit_file->f = f;
+      kfree(full_path);
       return gambit_file;
     } else {
+      kfree(full_path);
       return NULL;
     }
   }
@@ -124,7 +139,7 @@ size_t REDIRECT_NAME(fread)(void *__restrict __ptr, size_t __size, size_t __n,
     __n = 0;
     __stream->err = 0;
   } else {
-    // Number of items read, not byte count
+      // Number of items read, not byte count
     __n = err / __size;
   }
 
@@ -614,16 +629,9 @@ void REDIRECT_NAME(set_gstate)(___global_state_struct *gs) {
 #ifdef USE_LIBC_LINK
     LIBC_LINK._set_gstate(gs);
 #else
-    debug_write("Setting the local gstate...");
-    ___local_gstate = gs;
-    
-    if(NULL == gs) {
-        debug_write("G_STATE is null");
-    } else {
-        debug_write("G_STATE is not null!");
-    }
-
-    debug_write("Done setting the local gstate...");
+    if(NULL == (___local_gstate = gs)) {
+        panic(L"Gambit state is null...");
+    } 
 #endif
 }
 
@@ -653,7 +661,7 @@ void libc_init_stdio(void) {
   }
 #endif
 
-  if(ERROR(err = file_open("/dsk1", "r", &FILE_root_dir.f))) {
+  if(ERROR(err = file_open("/dsk1/home/sam", "r", &FILE_root_dir.f))) {
     panic(L"Failed to load the root dir for gambit");
   }
 

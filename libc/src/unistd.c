@@ -269,7 +269,7 @@ int REDIRECT_NAME(isatty)(int __fd) {
 
 #else
 
-  return 1;
+  return TRUE;
 
 #endif
 #endif

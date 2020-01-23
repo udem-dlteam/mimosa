@@ -1,0 +1,9 @@
+(define (fact n) (if (= n 1)
+                     1
+                     (* n (fact (- n 1)))))
+
+(define (mimosa_interrupt_handler)
+  (let ()
+    (display "An interrupt has been received.\n")))
+
+(##interrupt-vector-set! 5 mimosa_interrupt_handler)
