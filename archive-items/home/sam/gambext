@@ -1,23 +1,58 @@
-(define SHARED_MEMORY_HI 4192256)
-(define SHARED_MEMORY_LO 2620161)
+; The MIMOSA project
+; Scheme executor bridge
+;(include "~~lib/_asm#.scm")
+;(include "~~lib/_x86#.scm")
+;(include "~~lib/_codegen#.scm")
+(define MEMORY_FILE_NAME "mem.txt")
+
+
+;(define inb ;; parameter: port number
+  ;(asm
+   ;(lambda (cgc)
+     ;(x86-mov   cgc (x86-edx) (x86-mem 4 (x86-esp)))
+     ;(x86-sar   cgc (x86-edx) (x86-imm-int 2))
+     ;(x86-mov   cgc (x86-eax) (x86-imm-int 0))
+     ;(x86-in-dx cgc (x86-al))
+     ;(x86-shl   cgc (x86-eax) (x86-imm-int 2))
+     ;(x86-ret   cgc)
+     ;)))
+
+;(define outb ;; parameters: value and port number
+  ;(asm
+   ;(lambda (cgc)
+     ;(x86-mov   cgc (x86-edx) (x86-mem 8 (x86-esp)))
+     ;(x86-sar   cgc (x86-edx) (x86-imm-int 2))
+     ;(x86-mov   cgc (x86-eax) (x86-mem 4 (x86-esp)))
+     ;(x86-sar   cgc (x86-eax) (x86-imm-int 2))
+     ;(x86-out-dx cgc (x86-al))
+     ;(x86-shl   cgc (x86-eax) (x86-imm-int 2))
+     ;(x86-ret   cgc)
+     ;)))
+
+(define RTC_PORT_ADDR #x70)
+(define RTC_PORT_DATA #x71)
+
+(define RTC_SEC  0)
+(define RTC_MIN  2)
+(define RTC_HOUR 4)
+
+;(define (get-RTC_SEC)
+  ;(outb RTC_SEC RTC_PORT_ADDR) ;; select seconds reg
+  ;(inb RTC_PORT_DATA))         ;; read the register
 
 (define (fact n) (if (= n 1)
                      1
                      (* n (fact (- n 1)))))
 
 (define (mimosa_interrupt_handler)
-  (display "HI:")
-  (display (##u8vector-ref SHARED_MEMORY_HI -1))
-  (display (##u8vector-ref SHARED_MEMORY_HI 1))
-  (display (##u8vector-ref SHARED_MEMORY_HI 2))
-  (display (##u8vector-ref SHARED_MEMORY_HI 3))
-  (newline)
-  (display "LO:")
-  (display (##u8vector-ref SHARED_MEMORY_LO -1))
-  (display (##u8vector-ref SHARED_MEMORY_LO 1))
-  (display (##u8vector-ref SHARED_MEMORY_LO 2))
-  (display (##u8vector-ref SHARED_MEMORY_LO 3))
-  (newline)
-  (newline))
+  (let ((memory_file (open-file (list path: MEMORY_FILE_NAME truncate: #f))))
+    (let ((ipt (char->integer (read-char memory_file))))
+      (display "Read ")
+      (display (number->string ipt))
+      (display " from tasks.")
+      (newline)
+      (write (fact ipt) memory_file)
+      (force-output output_file))))
+
 
 (##interrupt-vector-set! 5 mimosa_interrupt_handler)
