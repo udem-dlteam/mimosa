@@ -20,6 +20,7 @@
 #include "thread.h"
 #include "video.h"
 #include "libc/include/libc_header.h"
+#include "gambit.h"
 
 //-----------------------------------------------------------------------------
 
@@ -310,6 +311,8 @@ native_char readline() {
 extern void send_signal(int sig);  // from libc/src/signal.c
 
 
+uint8 i = 1;
+
 static void process_keyboard_data(uint8 data) {
   if (data >= KBD_SCANCODE_ESC && data <= KBD_SCANCODE_F12) {
     uint16 code = 0;
@@ -339,6 +342,11 @@ static void process_keyboard_data(uint8 data) {
                     debug_write("Null fonction pointer!");
                 }
 
+                CAST(uint8*, GAMBIT_SHARED_MEM)[0] = i++;
+                term_write(cout, CAST(void*, ___BODY(GAMBIT_SHARED_MEM)));
+                term_writeline(cout);
+                term_write(cout, CAST(void*, (GAMBIT_SHARED_MEM)));
+                term_writeline(cout);
                 ___local_gstate->___raise_interrupt(5);
             }
             debug_write("Done sending the interrupt");
