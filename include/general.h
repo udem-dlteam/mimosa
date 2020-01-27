@@ -1,6 +1,6 @@
 // file: "general.h"
 
-// Copyright (c) 2001 by Marc Feeley and Universit� de Montr�al, All
+// Copyright (c) 2001 by Marc Feeley and Université de Montréal, All
 // Rights Reserved.
 //
 // Revision History
@@ -137,7 +137,7 @@ typedef int32 error_code;
 #define GAMBIT_REPL
 // #define MIMOSA_REPL
 
-// #define THREAD_SLEEP_TEST 
+// #define BIOS_CALL_TEST 
 
 #ifdef GAMBIT_REPL
 #ifdef MIMOSA_REPL
@@ -197,6 +197,9 @@ typedef int32 error_code;
 #error "A cache block cleaning strategy must be defined"
 #endif
 #endif
+
+#define USE_MIMOSA
+#define GAMBIT_GSTATE 
 
 #endif
 

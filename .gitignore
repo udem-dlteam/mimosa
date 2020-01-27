@@ -14,7 +14,16 @@ mimosa-build/
 *.scratch
 
 \.code-workspace
+gambit
 
 *.o
 
 *.img
+
+*.map
+
+*.elf
+
+\.ycm_extra_conf\.py
+
+tags

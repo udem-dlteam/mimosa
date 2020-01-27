@@ -41,7 +41,7 @@ typedef uint8 file_type;
 
 #define NAME_MAX 1024 + 1
 
-typedef enum fs_kind { FAT, UART, STREAM } fs_kind;
+typedef enum fs_kind { NONE, FAT, UART, STREAM } fs_kind;
 
 // A file system descriptor header
 
@@ -58,6 +58,8 @@ typedef struct fs_header_struct {
   fs_kind kind;
   fs_vtable* _vtable;
 } fs_header;
+
+extern fs_header __vfs;
 
 struct stat_buff_struct {
   fs_header* fs;

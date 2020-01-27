@@ -69,6 +69,7 @@ static inline uint16 com_num_to_port(uint8 num) {
       break;
     default:
       panic(L"Invalid port usage");
+      return COM1_PORT_BASE;
       break;
   }
 }
@@ -495,27 +496,40 @@ error_code uart_open(uint32 id, file_mode mode, file** result) {
   // to open it
   // TODO: check the file mode, maybe it is incorrect?
   uart_file* uart_handle = CAST(uart_file*, kmalloc(sizeof(uart_file)));
-  uart_handle->header.mode = mode;
-  uart_handle->header._fs_header = NULL;  // TODO?
-  uart_handle->header._vtable = &__uart_vtable;
-  uart_handle->header.name = port_name;
-  uart_handle->header.type = TYPE_VFILE;
-  uart_handle->mode = mode;
 
-  // TODO: PERFORM NULL CHECKS
-  uart_handle->port = port_id;
-  // Init the port data
-  port->rbuffer = CAST(uint8*, kmalloc(sizeof(uint8) * COM_BUFFER_SIZE));
-  port->wbuffer = CAST(uint8*, kmalloc(sizeof(uint8) * COM_BUFFER_SIZE));
-  port->wbuffer_len = port->rbuffer_len = COM_BUFFER_SIZE;
-  port->wrt_cv = CAST(condvar*, kmalloc(sizeof(condvar)));
-  port->rd_cv = CAST(condvar*, kmalloc(sizeof(condvar)));
-  new_condvar(port->wrt_cv);
-  new_condvar(port->rd_cv);
-
-  port->status |= COM_PORT_STATUS_OPEN;
+  if (NULL == uart_handle) {
+    err = MEM_ERROR;
+  } else {
+    uart_handle->header._fs_header = &__vfs;
+    uart_handle->header.mode = mode;
+    uart_handle->header._vtable = &__uart_vtable;
+    uart_handle->header.name = port_name;
+    uart_handle->header.type = TYPE_VFILE;
+    uart_handle->mode = mode;
+    uart_handle->port = port_id;
+    // Init the port data
+    if (NULL == (port->rbuffer =
+                     CAST(uint8*, kmalloc(sizeof(uint8) * COM_BUFFER_SIZE)))) {
+      err = MEM_ERROR;
+    } else if (NULL ==
+               (port->wbuffer =
+                    CAST(uint8*, kmalloc(sizeof(uint8) * COM_BUFFER_SIZE)))) {
+      err = MEM_ERROR;
+    } else if (NULL ==
+               (port->wrt_cv = CAST(condvar*, kmalloc(sizeof(condvar))))) {
+      err = MEM_ERROR;
+    } else if (NULL ==
+               (port->rd_cv = CAST(condvar*, kmalloc(sizeof(condvar))))) {
+      err = MEM_ERROR;
+    }
+  }
 
   if (HAS_NO_ERROR(err)) {
+    port->wbuffer_len = port->rbuffer_len = COM_BUFFER_SIZE;
+    new_condvar(port->wrt_cv);
+    new_condvar(port->rd_cv);
+
+    port->status |= COM_PORT_STATUS_OPEN;
     *result = CAST(file*, uart_handle);
   }
 
@@ -523,7 +537,6 @@ error_code uart_open(uint32 id, file_mode mode, file** result) {
 }
 
 error_code uart_close_handle(file* ff) {
-  debug_write("UART CLOSE");
   error_code err = NO_ERROR;
   uart_file* f = CAST(uart_file*, ff);
   com_port* port = &ports[com_num(f->port)];
@@ -543,7 +556,6 @@ error_code uart_close_handle(file* ff) {
 }
 
 error_code uart_write(file* ff, void* buff, uint32 count) {
-  debug_write("UART write");
   error_code err = NO_ERROR;
   uart_file* f = CAST(uart_file*, ff);
   uint16 port_base = f->port;
@@ -585,7 +597,6 @@ error_code uart_write(file* ff, void* buff, uint32 count) {
   enable_interrupts();
   if (HAS_NO_ERROR(err)) err = i;
 
-  debug_write("UART write out");
   return err;
 }
 

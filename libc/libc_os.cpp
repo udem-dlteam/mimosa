@@ -10,7 +10,7 @@
 #include "chrono.h"
 #include "ps2.h"
 
-#include <math.h>
+// #include <math.h>
 
 #endif
 

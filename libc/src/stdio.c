@@ -45,8 +45,22 @@ FILE *REDIRECT_NAME(fopen)(const char *__restrict __filename,
 
 #else
 
-  //  debug_write("fopen");
-  //  debug_write(CAST(native_string, __filename));
+  debug_write("fopen");
+  debug_write(CAST(native_string, __filename));
+    
+  native_string unprefixed_fname = CAST(native_string, __filename); 
+  uint32 len = kstrlen(unprefixed_fname);
+
+  thread* gamb_thread = thread_self();
+
+  program_thread* t = CAST(program_thread*, gamb_thread);
+  native_string cwd = t->_cwd;
+  uint32 cwd_len = kstrlen(cwd);
+
+  native_string full_path = CAST(native_string, kmalloc(sizeof(native_char) * (len + cwd_len + 1)));
+  memcpy(full_path, cwd, cwd_len); 
+  memcpy(full_path + cwd_len - 2, unprefixed_fname, len);
+  full_path[len + cwd_len + 1] = '\0';
 
   // TODO: implement
   if (__filename[0] == '.' &&
@@ -58,15 +72,16 @@ FILE *REDIRECT_NAME(fopen)(const char *__restrict __filename,
 
     return &FILE_root_dir;
   } else {
-
     error_code err;
     file *f;
-    if (HAS_NO_ERROR(err = file_open(CAST(native_string, __filename),
+    if (HAS_NO_ERROR(err = file_open(CAST(native_string, full_path),
                                      CAST(native_string, __modes), &f))) {
       FILE *gambit_file = CAST(FILE *, kmalloc(sizeof(FILE)));
       gambit_file->f = f;
+      kfree(full_path);
       return gambit_file;
     } else {
+      kfree(full_path);
       return NULL;
     }
   }
@@ -115,14 +130,16 @@ size_t REDIRECT_NAME(fread)(void *__restrict __ptr, size_t __size, size_t __n,
 #else
 
   error_code err;
+
   file *f = __stream->f;
   uint32 count = __n * __size;
+  
   if (ERROR(err = file_read(f, __ptr, count))) {
     // fread interface has 0 for an error
     __n = 0;
-    __stream->err = err;
+    __stream->err = 0;
   } else {
-    // Number of items read, not byte count
+      // Number of items read, not byte count
     __n = err / __size;
   }
 
@@ -150,7 +167,6 @@ size_t REDIRECT_NAME(fwrite)(const void *__restrict __ptr, size_t __size,
 
   // TODO: implement writing to files other than stdout/stderr
   if (__stream == &FILE_stdout || __stream == &FILE_stderr) {
-
     unicode_char *p = CAST(unicode_char*,__ptr);
     int n = __size * __n / sizeof(unicode_char);
 
@@ -598,6 +614,30 @@ int REDIRECT_NAME(printf)(const char *__format, ...) {
 #endif
 }
 
+#ifdef GAMBIT_GSTATE 
+
+#include "gambit.h"
+
+struct ___global_state_struct *___local_gstate;
+
+/**
+ * Set the local gstate
+ * This function should be called through gambit and never
+ * manually.
+ */
+void REDIRECT_NAME(set_gstate)(___global_state_struct *gs) {
+#ifdef USE_LIBC_LINK
+    LIBC_LINK._set_gstate(gs);
+#else
+    if(NULL == (___local_gstate = gs)) {
+        panic(L"Gambit state is null...");
+    } 
+#endif
+}
+
+#endif
+
+
 #ifndef USE_LIBC_LINK
 
 void libc_init_stdio(void) {
@@ -621,7 +661,7 @@ void libc_init_stdio(void) {
   }
 #endif
 
-  if(ERROR(err = file_open("/dsk1", "r", &FILE_root_dir.f))) {
+  if(ERROR(err = file_open("/dsk1/home/sam", "r", &FILE_root_dir.f))) {
     panic(L"Failed to load the root dir for gambit");
   }
 

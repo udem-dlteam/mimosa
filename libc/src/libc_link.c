@@ -13,6 +13,7 @@
 #include "include/sys/time.h"
 #include "include/sys/resource.h"
 
+
 void libc_init(void) {
     
   libc_trace("libc_init begin");
@@ -127,6 +128,12 @@ void libc_init(void) {
   LIBC_LINK._settimeofday = REDIRECT_NAME(settimeofday);
   LIBC_LINK._getitimer = REDIRECT_NAME(getitimer);
   LIBC_LINK._setitimer = REDIRECT_NAME(setitimer);
+
+  // GSTATE
+#ifdef GAMBIT_GSTATE
+  LIBC_LINK._set_gstate = REDIRECT_NAME(set_gstate);
+#endif
+
 
   libc_init_dirent();
   libc_init_errno();

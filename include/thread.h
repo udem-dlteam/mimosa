@@ -18,6 +18,7 @@
 //-----------------------------------------------------------------------------
 
 const uint32 GAMBIT_START = 0x100000;
+const uint32 GAMBIT_SHARED_MEM = 0xFFE00;
 
 //-----------------------------------------------------------------------------
 
@@ -117,7 +118,7 @@ const uint32 GAMBIT_START = 0x100000;
          addl  $8,%%esp         # Remove the third and fourth parameter    \n \
          popa" \
         :                                                                       \
-        : "i"(receiver), "g"(data)                                              \
+        : "g"(receiver), "g"(data)                                              \
         : "memory");                                                            \
   } while (0)
 
@@ -442,7 +443,7 @@ void condvar_mutexless_signal(
 
 typedef uint8 thread_type;
 
-typedef struct thread;
+typedef struct thread thread;
 
 typedef struct thread_vtable_struct {
   void (*thread_run)(thread* self);

@@ -17,7 +17,8 @@ double REDIRECT_NAME(acos)(double __x) {
 
 #else
 
-  return acos(__x);
+  // return acos(__x);
+  return 0;
 
 #endif
 #endif
@@ -62,7 +63,8 @@ double REDIRECT_NAME(asin)(double __x) {
 
 #else
 
-  return asin(__x);
+  // return asin(__x);
+  return 0;
 
 #endif
 #endif
@@ -176,7 +178,8 @@ double REDIRECT_NAME(ceil)(double __x) {
 
 #else
 
-  return ceil(__x);
+  // return ceil(__x);
+  return 0;
 
 #endif
 #endif
@@ -244,7 +247,8 @@ double REDIRECT_NAME(expm1)(double __x) {
 
 #else
 
-  return expm1(__x);
+  // return expm1(__x);
+  return 0;
 
 #endif
 #endif
@@ -266,7 +270,8 @@ double REDIRECT_NAME(exp)(double __x) {
 
 #else
 
-  return expm1(__x) + 1.0;
+  // return expm1(__x) + 1.0;
+  return 0;
 
 #endif
 #endif
@@ -288,7 +293,8 @@ double REDIRECT_NAME(fabs)(double __x) {
 
 #else
 
-  return fabs(__x);
+  // return fabs(__x);
+  return 0;
 
 #endif
 #endif
@@ -310,7 +316,8 @@ double REDIRECT_NAME(floor)(double __x) {
 
 #else
 
-  return floor(__x);
+  // return floor(__x);
+  return 0;
 
 #endif
 #endif
@@ -471,9 +478,11 @@ double REDIRECT_NAME(modf)(double __x, double *__iptr) {
   if (__x == 0.0) {
     return *__iptr = __x;
   } else if (__x < 0.0) {
-    return __x - (*__iptr = ceil(__x));
+    // return __x - (*__iptr = ceil(__x));
+    return __x - (*__iptr = 0);
   } else {
-    return __x - (*__iptr = floor(__x));
+    // return __x - (*__iptr = floor(__x));
+    return __x - (*__iptr = 0);
   }
 
 #endif
@@ -624,7 +633,8 @@ double REDIRECT_NAME(tan)(double __x) {
 
 #else
 
-  return tan(__x);
+  // return tan(__x);
+  return 0;
 
 #endif
 #endif

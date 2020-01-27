@@ -21,6 +21,24 @@
 
 #endif
 
+#ifdef GAMBIT_GSTATE 
+
+#define ___DONT_HAVE_LIMITS_H
+#define ___DONT_HAVE_WCHAR_H
+#define ___DONT_HAVE_FLOAT_H
+#define ___DONT_HAVE_SIGNAL_H
+#define ___DONT_HAVE_NEW 
+#define ___DONT_HAVE_MATH_H
+
+
+#include "gambit.h"
+
+//#undef ___GSTATE
+//#define ___GSTATE ___local_gstate
+extern struct ___global_state_struct *___local_gstate;
+
+#endif
+
 #include "include/libc_redirect.h"
 
 #endif // libc_header.h

@@ -19,6 +19,7 @@
 
 #define disable_interrupts() __asm__ __volatile__ ("cli" : : : "memory")
 #define enable_interrupts() __asm__ __volatile__ ("sti" : : : "memory")
+#define halt() __asm__ __volatile__ ("hlt" : : : "memory")
 
 //-----------------------------------------------------------------------------
 

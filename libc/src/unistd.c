@@ -2,7 +2,6 @@
 #include "include/unistd.h"
 #include "include/errno.h"
 
-#define USE_MIMOSA
 #ifdef USE_MIMOSA
 
 #include "thread.h"
@@ -37,13 +36,13 @@ int REDIRECT_NAME(chdir)(const char *__path) {
   if (ERROR(err = file_stat(CAST(native_string, __path), &sbuffer))) {
 
     switch (err) {
-    case FNF_ERROR:
-      errno = ENOENT; 
-      break;
-    
-    default:
-      errno = ENOENT;
-      break;
+      case FNF_ERROR:
+        errno = ENOENT;
+        break;
+
+      default:
+        errno = ENOENT;
+        break;
     }
 
     return -1;
@@ -270,8 +269,7 @@ int REDIRECT_NAME(isatty)(int __fd) {
 
 #else
 
-  // TODO: implement
-  return 0;
+  return TRUE;
 
 #endif
 #endif

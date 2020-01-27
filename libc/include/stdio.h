@@ -14,9 +14,13 @@
 #ifndef USE_HOST_LIBC
 
 typedef struct {
-  //  int state;
-  file* f;
-  error_code err;
+#ifdef USE_MIMOSA
+    file* f;
+    error_code err;
+#else
+    int state;
+    void *_padding;
+#endif
 } FILE;
 
 #endif
@@ -53,6 +57,13 @@ extern void REDIRECT_NAME(setbuf)(FILE *__restrict __stream, char *__restrict __
 extern int REDIRECT_NAME(rename)(const char *__oldpath, const char *__newpath);
 
 extern int REDIRECT_NAME(vfprintf)(FILE *__restrict __stream, const char *__format, va_list __ap);
+
+
+#ifdef GAMBIT_GSTATE
+
+extern void REDIRECT_NAME(set_gstate)(struct ___global_state_struct *gs);
+
+#endif
 
 #ifdef USE_LIBC_LINK
 

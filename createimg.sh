@@ -1,20 +1,35 @@
 #!/bin/bash
-if [ ! -f ~/empty_usb.img ]; then
+set -e
+if [ ! -f ./empty_usb.img ]; then
     echo "Empty drive not found!"
     echo "Decompressing the image..."
-    tar -pxvzf ~/mimosa-build/empty_usb.tar.gz
-    cp ~/mimosa-build/empty_usb.img ~/empty_usb.img
-    rm ~/mimosa-build/empty_usb.img
+    tar -pxvzf ./empty_usb.tar.gz
+    # cp ~/mimosa-build/empty_usb.img ~/empty_usb.img
+    # rm ~/mimosa-build/empty_usb.img
 fi
 
-echo "Mount and write the OS onto the FS"
-mkdir -p /mnt/tmp
-cp ~/empty_usb.img ~/mimosa-build/floppy.img
-echo "Mounting..."
-mount -t vfat ~/mimosa-build/floppy.img /mnt/tmp -o loop
+# Admin routines
+admin-mount() {
+  sudo mount $@
+}
 
-cp ~/mimosa-build/kernel.bin   /mnt/tmp/BOOT.SYS
-cp -r ~/mimosa-build/archive-items/. /mnt/tmp/
+admin-umount() {
+  : ${1:?"Expected path"}
+  sudo umount "$1"
+}
+
+## Creating image
+echo "Mount and write the OS onto the FS"
+TMPDIR=$(mktemp -d)
+cp ./empty_usb.img ./floppy.img
+
+echo "Mounting..."
+admin-mount -t vfat ./floppy.img "$TMPDIR" -o loop,uid=$UID
+echo "Mounted"
+
+echo "Copying items to the disk..."
+cp kernel.bin "$TMPDIR/BOOT.SYS"
+cp -r ./archive-items/. "$TMPDIR"
 
 # mkdir /mnt/tmp/folder
 # touch /mnt/tmp/folder/fif.tst
@@ -26,12 +41,13 @@ cp -r ~/mimosa-build/archive-items/. /mnt/tmp/
 
 # cp ~/mimosa-build/copypa.txt /mnt/tmp/copypa.txt
 
-ls -al /mnt/tmp # List all the files in the img
+ls -al "$TMPDIR" # List all the files in the img
 
-umount /mnt/tmp
-rm -rf /mnt/tmp
+admin-umount "$TMPDIR"
+rmdir "$TMPDIR"
 
 # Write the bootsector
-hexdump -C -n 512 ~/mimosa-build/floppy.img
-chmod 777 ~/mimosa-build/floppy.img
-dd if=mimosa-build/bootsect.bin of=mimosa-build/floppy.img bs=512 count=2 conv=notrunc
+hexdump -C -n 512 ./floppy.img
+
+dd if=bootsect.bin of=floppy.img bs=512 count=2 conv=notrunc
+echo "Image created"

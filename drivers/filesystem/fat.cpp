@@ -13,8 +13,8 @@
 
 #define MAX_NB_MOUNTED_FAT_FS 8
 
-static native_string DOT_NAME = ".          ";
-static native_string DOT_DOT_NAME = "..         ";
+static native_string DOT_NAME = ".";
+static native_string DOT_DOT_NAME = "..";
 
 typedef struct fs_module_struct {
   fat_file_system* mounted_fs[MAX_NB_MOUNTED_FAT_FS];
@@ -337,15 +337,18 @@ static error_code mount_partition(disk* d, vfnode* parent) {
   native_string disk_name = "DSK1";
   fat_file_system* fs = NULL;
   error_code err = NO_ERROR;
-
+  
   switch (d->partition_type) {
     case 1:     // Primary DOS 12-bit FAT
     case 4:     // Primary DOS 16-bit FAT
     case 6:     // Primary big DOS >32Mb
     case 0x0C:  // FAT32 LBA
-
+    {
       if (ERROR(err = mount_FAT121632(d, &fs))) {
         term_write(cout, "Failed to mount\n\r");
+        // term_write(cout, "Mount error is: ");
+        // term_write(cout, (int)err);
+        // term_write(cout, "\n");
         return err;
       }
 
@@ -359,11 +362,13 @@ static error_code mount_partition(disk* d, vfnode* parent) {
             CAST(fs_header*, fs);
         vfnode_add_child(parent, partition_mount_point);
       }
+    }
       break;
-    default:
+    default: {
       term_write(cout, "Unknown partition type: ");
       term_write(cout, d->partition_type);
       term_write(cout, "\n\r");
+    }
       break;
   }
 
@@ -371,17 +376,10 @@ static error_code mount_partition(disk* d, vfnode* parent) {
     if (fs_mod.nb_mounted_fs < MAX_NB_MOUNTED_FAT_FS) {
       fs_mod.mounted_fs[fs_mod.nb_mounted_fs++] = fs;
 
-      const char* kind;
-
       switch (fs->kind) {
         case FAT12_FS:
-          kind = "FAT12";
-          break;
         case FAT16_FS:
-          kind = "FAT16";
-          break;
         case FAT32_FS:
-          kind = "FAT32";
           break;
         default:
           panic(L"Unknown FAT FS");
@@ -1413,7 +1411,7 @@ static error_code fat_32_find_first_empty_cluster(fat_file_system* fs, uint32* r
 
     for (; i < entries_per_sector; ++i, ++clus) {
       uint32 entry = CAST(uint32*, cb->buf)[i];
-      if (found = (entry == 0)) {
+      if ((found = (entry == 0))) {
         break;
       }
     }
@@ -1893,9 +1891,11 @@ static error_code fat_mkdir(fs_header* ffs, native_string name, uint8 depth, fil
 
     // Overwrite the names of the entries
     for(uint8 i = 0; i < 11; ++i) {
-      file_de.DIR_Name[i] = DOT_NAME[i];
-      dot_dot_entry.DIR_Name[i] = DOT_DOT_NAME[i];
+      file_de.DIR_Name[i] = dot_dot_entry.DIR_Name[i] = ' '; 
     }
+
+    memcpy(file_de.DIR_Name, DOT_NAME, 1);
+    memcpy(dot_dot_entry.DIR_Name, DOT_DOT_NAME, 2);
 
     if(ERROR(err = file_write(folder, &file_de, sizeof(FAT_directory_entry)))) {
       // error
@@ -2217,8 +2217,7 @@ static error_code read_lfn(fs_header* fs, uint32 cluster, uint32 position,
       goto fat_read_lfn_end;
     }
 
-    uint32 position =
-        position - (sizeof(long_file_name_entry) * (lfn_entry_count + 1));
+    position = position - (sizeof(long_file_name_entry) * (lfn_entry_count + 1));
 
     fat_set_to_absolute_position(CAST(file*, reader), position);
 

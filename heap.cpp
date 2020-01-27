@@ -49,61 +49,61 @@ static inline void* get_data_ptr(mem_block* bk) {
     return CAST(void*, CAST(char*, bk) + mem_block_size);
 }
 
-static mem_block* get_block(heap* h, size_t sz) {
-  mem_block* bk = h->first_free;
+// static mem_block* get_block(heap* h, size_t sz) {
+//   mem_block* bk = h->first_free;
 
-  while (NULL != bk && bk->sz < sz) {
-    bk = bk->next_free;
-  }
+//   while (NULL != bk && bk->sz < sz) {
+//     bk = bk->next_free;
+//   }
 
-  if (NULL == bk) {
-    // It is usually expensive to call sbrk. Since we are only
-    // doing pointers arithmetics, it is cheap and we can afford
-    // extending by the block size we want
-    bk = CAST(mem_block*, heap_sbrk(h, sz + mem_block_size));
+//   if (NULL == bk) {
+//     // It is usually expensive to call sbrk. Since we are only
+//     // doing pointers arithmetics, it is cheap and we can afford
+//     // extending by the block size we want
+//     bk = CAST(mem_block*, heap_sbrk(h, sz + mem_block_size));
 
-    if (NULL == bk) return bk;
+//     if (NULL == bk) return bk;
 
-    if (NULL == h->first_block_in_chain) {
-      h->first_block_in_chain = bk;
-    }
+//     if (NULL == h->first_block_in_chain) {
+//       h->first_block_in_chain = bk;
+//     }
 
-    mem_block* last = h->last_block_in_chain;
+//     mem_block* last = h->last_block_in_chain;
 
-    if (NULL != last) {
-      last->next = bk;
-      bk->prev = last;
-    }
+//     if (NULL != last) {
+//       last->next = bk;
+//       bk->prev = last;
+//     }
 
-    h->last_block_in_chain = bk;
-  } else {
-    mem_block* prev_free = bk->prev_free;
-    mem_block* next_free = bk->next_free;
+//     h->last_block_in_chain = bk;
+//   } else {
+//     mem_block* prev_free = bk->prev_free;
+//     mem_block* next_free = bk->next_free;
 
-    if (NULL != prev_free) {
-      prev_free->next_free = next_free;
-    }
+//     if (NULL != prev_free) {
+//       prev_free->next_free = next_free;
+//     }
 
-    if (NULL != next_free) {
-      next_free->prev_free = prev_free;
-    }
-  }
+//     if (NULL != next_free) {
+//       next_free->prev_free = prev_free;
+//     }
+//   }
 
-  bk->next_free = bk->prev_free = NULL;
-  bk->used = 1;
+//   bk->next_free = bk->prev_free = NULL;
+//   bk->used = 1;
 
-#ifdef KIND_MALLOC
+// #ifdef KIND_MALLOC
 
-  uint8* data_ptr = CAST(uint8*, get_data_ptr(bk));
+//   uint8* data_ptr = CAST(uint8*, get_data_ptr(bk));
 
-  for (uint32 i = 0; i < sz; ++i) {
-    data_ptr[i] = 0;
-  }
+//   for (uint32 i = 0; i < sz; ++i) {
+//     data_ptr[i] = 0;
+//   }
 
-#endif
+// #endif
 
-  return bk;
-}
+//   return bk;
+// }
 
 void heap_free(heap* h, void* ptr) {
   // return;
