@@ -118,7 +118,7 @@ const uint32 GAMBIT_SHARED_MEM = 0xFFE00;
          addl  $8,%%esp         # Remove the third and fourth parameter    \n \
          popa" \
         :                                                                       \
-        : "g"(receiver), "g"(data)                                              \
+        : "i"(receiver), "g"(data)                                              \
         : "memory");                                                            \
   } while (0)
 

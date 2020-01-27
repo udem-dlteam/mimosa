@@ -34,6 +34,7 @@ int main() {
         debug_write("Child process");
     } else {
         debug_write("I don't know who I am.");
+        debug_write(pid);
     }
 
     while(1) {
@@ -41,7 +42,7 @@ int main() {
         /*
         if(1 == pid) {
             debug_write("C");
-        } else {
+        } else if(0 == pid) {
             debug_write("P");
         }
         */

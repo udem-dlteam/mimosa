@@ -933,21 +933,24 @@ void do_fork(uint32 cs, uint32 eflags, uint32* sp,
         current->_sp = sp;
 
         // PID of the child (1 here)
-        *(nt->_sp + 17) = 1;
+        *(nt->_sp + 21) = 1;
     }
 
     // PID of the parent
-    *(sp + 17) = (ERROR(err) ? -1 : 0);
+    *(sp + 21) = (ERROR(err) ? -1 : 0);
 
     restore_context(current->_sp); 
 }
 
-int fork_handler(int pid) {
+
+int fork_handler(volatile int pid) {
     disable_interrupts();
-    save_context(do_fork, NULL);
+    debug_write(pid);
+    save_context(do_fork, &pid);
     enable_interrupts();
     return pid;
 }
+
 
 int fork() {
     return fork_handler(0xFF << 24 | 0xAA);
