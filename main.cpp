@@ -38,7 +38,13 @@ int main() {
 
     while(1) {
         thread_yield();
-        NOP();
+        /*
+        if(1 == pid) {
+            debug_write("C");
+        } else {
+            debug_write("P");
+        }
+        */
     }
 
 
