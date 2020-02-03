@@ -342,12 +342,10 @@ static void process_keyboard_data(uint8 data) {
                     debug_write("Null fonction pointer!");
                 }
 
-                CAST(uint8*, GAMBIT_SHARED_MEM)[0] = i++;
-                term_write(cout, CAST(void*, ___BODY(GAMBIT_SHARED_MEM)));
-                term_writeline(cout);
-                term_write(cout, CAST(void*, (GAMBIT_SHARED_MEM)));
-                term_writeline(cout);
+                ((uint8*)(GAMBIT_SHARED_MEM_CMD))[0] = i++;
+
                 ___local_gstate->___raise_interrupt(5);
+
             }
             debug_write("Done sending the interrupt");
         } else if(EMERGENCY_REBOOT_CODE == code) {
