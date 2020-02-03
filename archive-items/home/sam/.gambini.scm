@@ -48,6 +48,6 @@
   (let ((read_val (read-i8 #f #x300000)))
     (display (string-append "Reading " (number->string read_val) "\n"))
     (write-i8 #f (+ #x300000 512) 1)
-    (write-i8 #f (+ #x300000 512 1) (fact read_val))))
+    (write-i32 #f (+ #x300000 512 1) (fact read_val))))
 
 (##interrupt-vector-set! 5 mimosa_interrupt_handler)

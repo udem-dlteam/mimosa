@@ -406,14 +406,15 @@ static void identify_cpu() {
  * block things that might be critical from running
  */
 void messenger_thread_run() {
-    volatile uint8* gambit_buffer = CAST(uint8*, GAMBIT_SHARED_MEM_RESPONSE);
+    volatile uint8* gambit_buffer_u8 = CAST(uint8*, GAMBIT_SHARED_MEM_RESPONSE);
     for(;;) {
         
-        if(1 == gambit_buffer[0]) {
+        if(1 == gambit_buffer_u8[0]) {
             debug_write("Has mail!");
-            debug_write(gambit_buffer[1]);
+            debug_write(*CAST(uint32*,gambit_buffer_u8 + 1));
+
             // Clear
-            gambit_buffer[0] = 0;
+            gambit_buffer_u8[0] = 0;
         }
 
         thread_yield();
