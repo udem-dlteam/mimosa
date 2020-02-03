@@ -436,7 +436,9 @@ extern void libc_init(void);
 
 void __rtlib_setup() {
   error_code err;
-  thread* the_idle;
+  thread* the_idle = NULL;
+  uint8* cmd = NULL;
+  uint8* response = NULL;
 #ifdef USE_CACHE_BLOCK_MAID
 
   thread *cache_block_maid_thread;
@@ -473,6 +475,15 @@ void __rtlib_setup() {
   
   if(ERROR(err = init_terms())) {
     goto setup_panic;
+  }
+
+  term_write(cout, "Cleaning up communication memory space\n");
+  // Clean the memory
+  cmd = CAST(uint8*, GAMBIT_SHARED_MEM_CMD);
+  response = CAST(uint8*, GAMBIT_SHARED_MEM_RESPONSE);
+
+  for(uint32 i = 0; i < 512; ++i) {
+      cmd[i] = response[i];
   }
   
   term_write(cout, "Loading up LIBC\n");
