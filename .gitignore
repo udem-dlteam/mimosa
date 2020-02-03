@@ -27,3 +27,5 @@ gambit
 \.ycm_extra_conf\.py
 
 tags
+
+libc/gambit-v4_9_3/
