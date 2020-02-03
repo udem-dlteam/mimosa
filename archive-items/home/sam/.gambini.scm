@@ -68,6 +68,19 @@
      (x86-ret   cgc)
      )))
 
+(define enable-interrupts
+ (asm
+  (lambda (cgc)
+   (x86-sti cgc))))
+
+(define disable_interrupts
+ (asm
+  (lambda (cgc)
+   (x86-cli cgc))))
+
+(define (bcd->binary byte)
+ (+ (* 10 (fxarithmetic-shift-right byte 4)) (fxand byte #x0F)))
+
 (define RTC_PORT_ADDR #x70)
 (define RTC_PORT_DATA #x71)
 
@@ -92,10 +105,12 @@
   (let ((read_val (read-i8 #f #x300000)))
     (display (string-append "Reading " (number->string read_val) "\n"))
     (write-i8 #f (+ #x300000 512) 1)
-    (write-i32 #f (+ #x300000 512 1) (fact read_val))))
-
+    (let ((bcd_secs (get-RTC_SEC)))
+      (write-i32 #f (+ #x300000 512 1) (bcd->binary bcd_secs)))))
 
 ;;;----------------------------------------------------
 ;;;                  INTERRUPT WIRING 
 ;;;----------------------------------------------------
+
+
 (##interrupt-vector-set! 5 mimosa_interrupt_handler)
