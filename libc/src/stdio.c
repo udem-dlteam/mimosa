@@ -626,14 +626,7 @@ void REDIRECT_NAME(set_gstate)(___global_state_struct *gs) {
 #else
     if(NULL == (___local_gstate = gs)) {
         panic(L"Gambit state is null...");
-    } else {
-        // Clean the memory
-        uint8* cmd = CAST(uint8*, GAMBIT_SHARED_MEM_CMD);
-        uint8* response = CAST(uint8*, GAMBIT_SHARED_MEM_RESPONSE);
-        for(uint32 i = 0; i < 512; ++i) {
-            cmd[i] = response[i];
-        }
-    }
+    } 
 #endif
 }
 
