@@ -73,7 +73,7 @@ error_code read_boot_block(FILE *archive, BPB **block) {
 
 void print_bpb(BPB *bpb) {
 #define nline() do {printf("\n");} while(0)
-    printf("--- Boot Block ----");
+    printf("--- Boot Block ----\n");
     printf("OEM Name: ");
     for (u8 i = 0; i < 8; ++i) {
         printf("%c", bpb->BS_OEMName[i]);
