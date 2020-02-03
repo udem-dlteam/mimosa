@@ -343,7 +343,6 @@ static void process_keyboard_data(uint8 data) {
                 }
 
                 ((uint8*)(GAMBIT_SHARED_MEM_CMD))[0] = i++;
-
                 ___local_gstate->___raise_interrupt(5);
 
             }

@@ -400,6 +400,26 @@ static void identify_cpu() {
 #endif
 }
 
+/**
+ * Takes care of running messages related tasks
+ * This thread needs to operate fast, as it will
+ * block things that might be critical from running
+ */
+void messenger_thread_run() {
+    volatile uint8* gambit_buffer = CAST(uint8*, GAMBIT_SHARED_MEM_RESPONSE);
+    for(;;) {
+        
+        if(1 == gambit_buffer[0]) {
+            debug_write("Has mail!");
+            debug_write(gambit_buffer[1]);
+            // Clear
+            gambit_buffer[0] = 0;
+        }
+
+        thread_yield();
+    }
+}
+
 void idle_thread_run() {
 #ifdef SHOW_HEARTBEAT  
 uint8 heartbeat_cycle = 0;
@@ -437,6 +457,7 @@ extern void libc_init(void);
 void __rtlib_setup() {
   error_code err;
   thread* the_idle = NULL;
+  thread* the_messenger = NULL;
   uint8* cmd = NULL;
   uint8* response = NULL;
 #ifdef USE_CACHE_BLOCK_MAID
@@ -485,6 +506,12 @@ void __rtlib_setup() {
   for(uint32 i = 0; i < 512; ++i) {
       cmd[i] = response[i];
   }
+
+  /* Make a messenger thread to take care of communications from gambit */
+  the_messenger = CAST(thread*, kmalloc(sizeof(thread)));
+  the_messenger = new_thread(the_messenger, messenger_thread_run, "Messenger thread");
+  the_messenger->_quantum = frequency_to_time(10000); // Temp path for issue #56
+  thread_start(the_messenger);
   
   term_write(cout, "Loading up LIBC\n");
   libc_init();
