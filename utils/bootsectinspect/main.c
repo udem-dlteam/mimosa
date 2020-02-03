@@ -8,14 +8,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define FAT_NAME_LENGTH 11
-#define FAT_EOC_TAG 0x0FFFFFF8
-#define FAT_DIR_ENTRY_SIZE 32
 #define HAS_NO_ERROR(err) ((err) >= 0)
 #define NO_ERR 0
-#define GENERAL_ERR -1
 #define OUT_OF_MEM -3
-#define RES_NOT_FOUND -4
 #define CAST(t, e) ((t) (e))
 #define as_uint16(x) \
 ((CAST(uint16,(x)[1])<<8U)+(x)[0])
@@ -23,9 +18,12 @@
 ((((((CAST(uint32,(x)[3])<<8U)+(x)[2])<<8U)+(x)[1])<<8U)+(x)[0])
 
 typedef unsigned char uint8;
-typedef uint8 bool;
 typedef unsigned short uint16;
 typedef unsigned int uint32;
+typedef uint8 u8;
+typedef uint8 bool;
+typedef uint16 u16;
+typedef uint32 u32;
 typedef int error_code;
 
 typedef struct BIOS_Parameter_Block_struct {
@@ -73,34 +71,114 @@ error_code read_boot_block(FILE *archive, BPB **block) {
     return NO_ERR;
 }
 
-int main(int argc, char *argv[]) {
+void print_bpb(BPB *bpb) {
+#define nline() do {printf("\n");} while(0)
+    printf("--- Boot Block ----");
+    printf("OEM Name: ");
+    for (u8 i = 0; i < 8; ++i) {
+        printf("%c", bpb->BS_OEMName[i]);
+    }
+    nline();
+    printf("Bytes per sector: %d", as_uint16(bpb->BPB_BytsPerSec));
+    nline();
+    printf("Sectors per cluster: %d", bpb->BPB_SecPerClus);
+    nline();
+    printf("Reserved sector count: %d", as_uint16(bpb->BPB_RsvdSecCnt));
+    nline();
+    printf("Number of fats: %d", bpb->BPB_NumFATs);
+    nline();
+    printf("Number of root entries: %d", as_uint16(bpb->BPB_RootEntCnt));
+    nline();
+    printf("Total sectors (16): %d", as_uint16(bpb->BPB_TotSec16));
+    nline();
+    printf("Media: %d", bpb->BPB_Media);
+    nline();
+    printf("FAT size 16: %d", as_uint16(bpb->BPB_FATSz16));
+    nline();
+    printf("Sectors per track: %d", as_uint16(bpb->BPB_SecPerTrk));
+    nline();
+    printf("Number of heads: %d", as_uint16(bpb->BPB_NumHeads));
+    nline();
+    printf("Hidden sectors: %d", as_uint32(bpb->BPB_HiddSec));
+    nline();
+    printf("--- FAT 32 section ---\n");
+    printf("Total sector (32): %d", as_uint32(bpb->BPB_TotSec32));
+    nline();
+    printf("Fat size (32): %d", as_uint32(bpb->BPB_FATSz32));
+    nline();
+    printf("Ext flags: %d", as_uint16(bpb->BPB_ExtFlags));
+    nline();
+    printf("FS version %d", as_uint16(bpb->BPB_FSVer));
+    nline();
+    printf("Root cluster %d", as_uint32(bpb->BPB_RootClus));
+    nline();
+    printf("FS Info: %d", as_uint16(bpb->BPB_FSInfo));
+    nline();
+    printf("Boot sector: %d", as_uint16(bpb->BPB_BkBootSec));
+    nline();
+    printf("Reserved: ");
 
-    char *output = NULL;
-    char *archive_path =
-            "../floppy.img";
-    FILE *archive = fopen(archive_path, "r");
-
-    char *path = "/home/sam/long.txt";
-    FAT_entry *entry;
-    BPB *block;
-    read_boot_block(archive, &block);
-    find_file_descriptor(archive, block, path, &entry);
-
-    if (NULL == entry) {
-        printf("Not found...");
-        return 0;
+    for (u8 i = 0; i < 12; ++i) {
+        printf("%c", bpb->BPB_Reserved[i]);
     }
 
-    char *content_of_long = malloc(sizeof(uint8) * as_uint32(entry->DIR_FileSize));
-    error_code read = read_file(archive, block, entry, content_of_long, 2048 * 2);
+    nline();
+    printf("Drive number: %d", bpb->BS_DrvNum);
+    nline();
+    printf("Reserved 1: %d", bpb->BS_Reserved1);
+    nline();
+    printf("Boot sig: %d", bpb->BS_BootSig);
+    nline();
+    printf("Vol ID: %d", as_uint32(bpb->BS_VolID));
+    nline();
+    printf("Volume label: ");
 
-    printf("\n%s\n", content_of_long);
+    for (u8 i = 0; i < 11; ++i) {
+        printf("%c", bpb->BS_VolLab[i]);
+    }
+
+    nline();
+    printf("FS type: ");
+
+    for (u8 i = 0; i < 8; ++i) {
+        printf("%c", bpb->BS_FilSysType[i]);
+    }
+    nline();
+#undef nline
+}
 
 
-    if (NULL != archive) fclose(archive);
-    free(entry);
-    free(block);
-    free(content_of_long);
+int main(int argc, char *argv[]) {
+
+    if (1 >= argc) {
+        printf("Error: expected a path.\n");
+    } else {
+        char *path = argv[1];
+        printf("Opening %s\n", path);
+        FILE *archive = fopen(path, "r");
+
+        if (NULL == archive) {
+            printf("Failed to open the archive. Check the path.\n");
+        } else {
+            BPB *bpb = NULL;
+            if (NULL == (bpb = malloc(sizeof(BPB)))) {
+                printf("Out of memory...\n");
+            } else {
+                if (HAS_NO_ERROR(read_boot_block(archive, &bpb))) {
+                    print_bpb(bpb);
+                } else {
+                    printf("Failed to parse the boot block...");
+                }
+            }
+
+            if (NULL != bpb) {
+                free(bpb);
+            }
+        }
+
+        fclose(archive);
+    }
+
 
     return 0;
 }
