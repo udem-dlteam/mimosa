@@ -272,7 +272,7 @@ code_end:
 .byte 0x0C                   # system flag (xFAT32, LBA access)
 .byte 0x00, 0x00, 0x00       # End of partition address CHS : 79 1 18
 .long 0x00                   # Start sector relative to disk
-.long 65536                # number of sectors in partition
+.long 102400 # number of sectors in partition
 
 # partition 2
 .byte 0x00                   # boot flag (0x00: inactive, 0x80: active)
