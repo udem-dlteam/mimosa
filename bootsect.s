@@ -56,16 +56,16 @@ old_nb_sectors_per_fat:
 nb_sectors_per_track:
   .word 0x012     # sectors per track (cylinder)
 nb_heads:
-  .word 0x02 # number of heads
+  .word 64 # number of heads
 nb_hidden_sectors:
   .long 0x00 # number of hidden sectors
 # --------------------------------------------------------------------------
 # FAT 32 EBP
 # --------------------------------------------------------------------------
 nb_logical_sectors:
-  .long 65536
+  .long 102400 
 nb_sectors_per_fat:
-  .long 504
+  .long 788 
 mirror_flags:
   .word 0x00                                                                   # TODO
 fs_version:
