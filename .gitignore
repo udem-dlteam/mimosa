@@ -28,8 +28,14 @@ gambit
 
 tags
 
+<<<<<<< HEAD
 utils/bootsectinspect/.idea/
 
 utils/bootsectinspector/.idea/
 
 utils/bootsectinspect/cmake-build-debug/
+=======
+libc/gambit-v4_9_3/
+
+libc/gambit-v4_9_3\.tgz
+>>>>>>> master

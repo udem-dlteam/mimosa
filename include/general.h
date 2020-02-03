@@ -151,7 +151,7 @@ typedef int32 error_code;
 #endif
 #endif
 
-// #define SHOW_HEARTBEAT
+/* #define SHOW_HEARTBEAT */
 // #define KIND_MALLOC
 
 #ifdef KIND_MALLOC

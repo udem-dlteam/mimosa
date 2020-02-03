@@ -5,7 +5,9 @@
 #ifdef USE_MIMOSA
 
 #include "../drivers/filesystem/include/vfs.h"
+#include "../drivers/filesystem/include/fat.h"
 #include "../drivers/filesystem/include/stdstream.h"
+#include "thread.h"
 #include "ps2.h"
 #include "term.h"
 #include "general.h"
@@ -45,45 +47,28 @@ FILE *REDIRECT_NAME(fopen)(const char *__restrict __filename,
 
 #else
 
-  debug_write("fopen");
-  debug_write(CAST(native_string, __filename));
-    
-  native_string unprefixed_fname = CAST(native_string, __filename); 
-  uint32 len = kstrlen(unprefixed_fname);
-
-  thread* gamb_thread = thread_self();
-
-  program_thread* t = CAST(program_thread*, gamb_thread);
-  native_string cwd = t->_cwd;
-  uint32 cwd_len = kstrlen(cwd);
-
-  native_string full_path = CAST(native_string, kmalloc(sizeof(native_char) * (len + cwd_len + 1)));
-  memcpy(full_path, cwd, cwd_len); 
-  memcpy(full_path + cwd_len - 2, unprefixed_fname, len);
-  full_path[len + cwd_len + 1] = '\0';
-
   // TODO: implement
   if (__filename[0] == '.' &&
       __filename[1] == '/' &&
       __filename[2] == '\0') {
+
+      debug_write("FILE ROOT DIR OPEN");
 
     // The file "./" is opened by Gambit by the path normalization
     // function and it must not return NULL.
 
     return &FILE_root_dir;
   } else {
-    error_code err;
-    file *f;
-    if (HAS_NO_ERROR(err = file_open(CAST(native_string, full_path),
-                                     CAST(native_string, __modes), &f))) {
-      FILE *gambit_file = CAST(FILE *, kmalloc(sizeof(FILE)));
-      gambit_file->f = f;
-      kfree(full_path);
-      return gambit_file;
-    } else {
-      kfree(full_path);
-      return NULL;
-    }
+      error_code err;
+      file *f;
+      if (HAS_NO_ERROR(err = file_open(CAST(native_string, __filename),
+                      CAST(native_string, __modes), &f))) {
+          FILE *gambit_file = CAST(FILE *, kmalloc(sizeof(FILE)));
+          gambit_file->f = f;
+          return gambit_file;
+      } else {
+          return NULL;
+      }
   }
 
 #endif
@@ -175,8 +160,17 @@ size_t REDIRECT_NAME(fwrite)(const void *__restrict __ptr, size_t __size,
       n--;
     }
   } else {
+      debug_write("Calling fwrite from Gambit");
     error_code err;
     file *f = __stream->f;
+
+    // The position is the end when opening. This is weird.
+    fat_file *ff = CAST(fat_file*, f);
+    
+    debug_write("The file is at ");
+    debug_write(ff->current_pos);
+
+
     uint32 count = __size * __n;
 
     if (ERROR(err = file_write(f, CAST(void *, __ptr), count))) {
@@ -260,6 +254,7 @@ int REDIRECT_NAME(fseek)(FILE *__restrict __stream, long __off, int __whence) {
 
 #ifdef USE_HOST_LIBC
 
+  debug_write("Gambit calling FSEEK");
   return fseek(__stream, __off, __whence);
 
 #else
@@ -646,7 +641,6 @@ void libc_init_stdio(void) {
   LIBC_LINK._stdout = stdout;
   LIBC_LINK._stderr = stderr;
 #else
-  
   error_code err;
   // Open STDIN has a non blocking stream in readonly mode.
   // This is a "gambit" particularity...

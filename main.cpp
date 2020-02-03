@@ -36,8 +36,8 @@ int main() {
 #ifdef GAMBIT_REPL
   {
     term_write(cout, "MIMOSA V.1.0.0\n");
-    native_string file_name = "/dsk1/gambit/bin/gsi.exe";
-    // native_string file_name = "/dsk1/gsi";
+    native_string file_name = "/dsk1/gambit/bin/gsc.exe";
+
     term_write(cout, "Starting ");
     term_write(cout, file_name);
     term_writeline(cout);
