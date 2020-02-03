@@ -40,19 +40,14 @@
   ;(outb RTC_SEC RTC_PORT_ADDR) ;; select seconds reg
   ;(inb RTC_PORT_DATA))         ;; read the register
 
+(display "Loaded Gambext\n")
+
 (define (fact n) (if (= n 1)
                      1
                      (* n (fact (- n 1)))))
 
 (define (mimosa_interrupt_handler)
-  (let ((memory_file (open-file (list path: MEMORY_FILE_NAME truncate: #f))))
-    (let ((ipt (char->integer (read-char memory_file))))
-      (display "Read ")
-      (display (number->string ipt))
-      (display " from tasks.")
-      (newline)
-      (write (fact ipt) memory_file)
-      (force-output output_file))))
-
+  (let ((read_val (read-i8 #f #xFFE00)))
+    (display (string-append "Reading " (number->string read_val) "\n"))))
 
 (##interrupt-vector-set! 5 mimosa_interrupt_handler)
