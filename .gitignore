@@ -27,3 +27,9 @@ gambit
 \.ycm_extra_conf\.py
 
 tags
+
+utils/bootsectinspect/.idea/
+
+utils/bootsectinspector/.idea/
+
+utils/bootsectinspect/cmake-build-debug/
