@@ -56,16 +56,16 @@ old_nb_sectors_per_fat:
 nb_sectors_per_track:
   .word 0x012     # sectors per track (cylinder)
 nb_heads:
-  .word 0x02 # number of heads
+  .word 64 # number of heads
 nb_hidden_sectors:
   .long 0x00 # number of hidden sectors
 # --------------------------------------------------------------------------
 # FAT 32 EBP
 # --------------------------------------------------------------------------
 nb_logical_sectors:
-  .long 65536
+  .long 102400 
 nb_sectors_per_fat:
-  .long 504
+  .long 788 
 mirror_flags:
   .word 0x00                                                                   # TODO
 fs_version:
@@ -272,7 +272,7 @@ code_end:
 .byte 0x0C                   # system flag (xFAT32, LBA access)
 .byte 0x00, 0x00, 0x00       # End of partition address CHS : 79 1 18
 .long 0x00                   # Start sector relative to disk
-.long 65536                # number of sectors in partition
+.long 102400 # number of sectors in partition
 
 # partition 2
 .byte 0x00                   # boot flag (0x00: inactive, 0x80: active)
