@@ -296,7 +296,7 @@
           ; Update the keypress
            (let* ((shifted (fxarithmetic-shift-right kbd-int 5))
                   (key (vector-ref keymap shifted))
-                  (mask (fxarithmetic-shift 1 (fxand #x1f kbd-int))))
+                  (mask (##fxarithmetic-shift 1 (fxand #x1f kbd-int))))
              (vector-set! keymap shifted (fxior (vector-ref keymap shifted)
                                                mask))
           ; If not dead, process it
