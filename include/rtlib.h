@@ -48,7 +48,6 @@ int16 kstrcmp(native_string a, native_string b);
 native_string kstrconcat(native_string a, native_string b);
 
 uint32 kstrlen(native_string a);
-
 //-----------------------------------------------------------------------------
 
 // Execution of global constructors and destructors.
@@ -64,6 +63,7 @@ extern "C"
 void __rtlib_entry ();
 
 void __rtlib_setup();
+
 
 int main ();
 

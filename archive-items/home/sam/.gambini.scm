@@ -3,8 +3,15 @@
 (include "/dsk1/gambit/lib/_asm#.scm")
 (include "/dsk1/gambit/lib/_x86#.scm")
 (include "/dsk1/gambit/lib/_codegen#.scm")
+(load "utils.scm")
+(load "os_types.scm")
+(load "keyboard.scm")
+(load "int_handle.scm")
 
-(define MEMORY_FILE_NAME "mem.txt")
+
+(define SHARED-MEMORY-AREA #x300000)
+(define EMPTY-BUFFER-ACTION #xAA)
+(define GAMBIT-INT-WITH-ARG #xAB)
 
 ;;;----------------------------------------------------
 
@@ -78,9 +85,6 @@
   (lambda (cgc)
    (x86-cli cgc))))
 
-(define (bcd->binary byte)
- (+ (* 10 (fxarithmetic-shift-right byte 4)) (fxand byte #x0F)))
-
 (define RTC_PORT_ADDR #x70)
 (define RTC_PORT_DATA #x71)
 
@@ -101,16 +105,27 @@
                      1
                      (* n (fact (- n 1)))))
 
-(define (mimosa_interrupt_handler)
-  (let ((read_val (read-i8 #f #x300000)))
-    (display (string-append "Reading " (number->string read_val) "\n"))
-    (write-i8 #f (+ #x300000 512) 1)
-    (let ((bcd_secs (get-RTC_SEC)))
-      (write-i32 #f (+ #x300000 512 1) (bcd->binary bcd_secs)))))
+(define interrupts (list))
+
+
+(define (mimosa-interrupt-handler)
+  (let ((interrupt-val (read-i8 #f SHARED-MEMORY-AREA))
+        (int (read-i8 #f (+ SHARED-MEMORY-AREA 1)))
+        (arg (read-i8 #f (+ SHARED-MEMORY-AREA 2))))
+    (handle-int-with-arg int arg)))
+    ; (cond ((fx= interrupt-val EMPTY-BUFFER-ACTION)
+    ;        (display "Hello"))
+    ;       ((fx= interrupt-val GAMBIT-INT-WITH-ARG)
+    ;        (let ((int (read-i8 #f (+ SHARED-MEMORY-AREA 1)))
+    ;              (arg (read-i8 #f (+ SHARED_MEMORY_AREA 2))))
+    ;          (handle_int_with_arg int arg)))
+    ;       (else
+    ;         (set! interrupts (cons interrupt_val interrupts))
+    ;         (display interrupts)))))
 
 ;;;----------------------------------------------------
 ;;;                  INTERRUPT WIRING 
 ;;;----------------------------------------------------
 
 
-(##interrupt-vector-set! 5 mimosa_interrupt_handler)
+(##interrupt-vector-set! 5 mimosa-interrupt-handler)

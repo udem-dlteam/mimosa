@@ -17,6 +17,8 @@
 
 //-----------------------------------------------------------------------------
 
+#define GAMBIT_COMM_INT 5
+#define GAMBIT_INT_WITH_ARG 0xAB
 const uint32 GAMBIT_START = 0x100000;
 const uint32 GAMBIT_SHARED_MEM_CMD = 0x300000;
 const uint32 GAMBIT_SHARED_MEM_RESPONSE = 0x300000 + 512;

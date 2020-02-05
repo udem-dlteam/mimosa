@@ -20,7 +20,54 @@
 #include "thread.h"
 #include "video.h"
 #include "libc/include/libc_header.h"
+
+#ifdef GAMBIT_GSTATE
+
 #include "gambit.h"
+/**
+ * Send a Gambit interrupt. If
+ * the gambit bridge is not configured,
+ * the function returns 0 and the interrupt
+ * must be handled locally
+*/
+uint8 send_gambit_int(uint8 int_no) { 
+    ASSERT_INTERRUPTS_DISABLED();
+
+    if(NULL != ___local_gstate) {
+        ((uint8*)(GAMBIT_SHARED_MEM_CMD))[0] = int_no;
+        ___local_gstate->___raise_interrupt(GAMBIT_COMM_INT);
+        return 1;
+    } else {
+        return 0;
+    }
+}
+
+uint8 send_gambit_int(uint8 int_no, uint8 arg) { 
+    ASSERT_INTERRUPTS_DISABLED();
+
+    if(NULL != ___local_gstate) {
+        ((uint8*)(GAMBIT_SHARED_MEM_CMD))[0] = GAMBIT_INT_WITH_ARG;
+        ((uint8*)(GAMBIT_SHARED_MEM_CMD))[1] = int_no;
+        ((uint8*)(GAMBIT_SHARED_MEM_CMD))[2] = arg;
+        ___local_gstate->___raise_interrupt(GAMBIT_COMM_INT);
+        return 1;
+    } else {
+        return 0;
+    }
+}
+
+#else
+#warning "Gambit interrupt handling does is not implemented"
+
+uint8 send_gambit_int(uint8 int_no) {
+    return 0;
+}
+
+uint8 send_gambit_int(uint8 int_no, uint8 arg) {
+    return 0;
+}
+
+#endif
 
 //-----------------------------------------------------------------------------
 
@@ -333,20 +380,11 @@ static void process_keyboard_data(uint8 data) {
         char* seq = keycode_table[data].seq;
 
         if (MANUAL_GAMBIT_INTERRUPT_CODE == code) {
-            debug_write("Sending an interrupt");
-            if(NULL == ___local_gstate) {
-                debug_write("Null local GSTATE!!");
+            if(send_gambit_int(i++)) {
+                debug_write("Done sending the interrupt");
             } else {
-
-                if(NULL == ___local_gstate->___raise_interrupt) {
-                    debug_write("Null fonction pointer!");
-                }
-
-                ((uint8*)(GAMBIT_SHARED_MEM_CMD))[0] = i++;
-                ___local_gstate->___raise_interrupt(5);
-
+                debug_write("Failed to send the interrupt");
             }
-            debug_write("Done sending the interrupt");
         } else if(EMERGENCY_REBOOT_CODE == code) {
             reboot();
         }  else if (seq == NULL) {
@@ -377,8 +415,11 @@ void irq1() {
 #endif
 
   ACKNOWLEDGE_IRQ(1);
-
-  process_keyboard_data(inb(PS2_PORT_A));
+    
+  if(!send_gambit_int(1, inb(PS2_PORT_A))) {
+      debug_write("Failed to process keypress");
+      process_keyboard_data(inb(PS2_PORT_A));
+  }
 }
 
 #endif
