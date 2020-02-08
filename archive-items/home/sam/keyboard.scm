@@ -1,5 +1,7 @@
 ;; The mimosa project
 
+(declare (not safe))
+
 (define DEAD 'DEAD)
 (define NULL 'NULL)
 
@@ -274,16 +276,17 @@
 (define (pressed? kbd-int)
   (let* ((shifted (fxarithmetic-shift-right kbd-int 5))
          (key (vector-ref keymap shifted))
-         (mask (fxarithmetic-shift 1 (fxand #x1f kbd-int))))
-    (fxand key mask)))
+         (mask (##fxarithmetic-shift 1 (fxand #x1f kbd-int))))
+    (not (eq? 0 (fxand key mask)))))
 
 (define (handle-kbd-int kbd-int)
   (cond ((and (<= kbd-int KBD-SCANCODE-F12) (>= kbd-int KBD-SCANCODE-ESC))
          (let* ((normal (kbd-int->scancode kbd-int key-modifier-normal))
-                (shift(kbd-int->scancode kbd-int key-modifier-normal))
-                (ctrl (kbd-int->scancode kbd-int key-modifier-normal))
-                (alt (kbd-int->scancode kbd-int key-modifier-normal))
-                (seq (kbd-int->scancode kbd-int key-modifier-normal))
+                (shift(kbd-int->scancode kbd-int key-modifier-with-shift))
+                (ctrl (kbd-int->scancode kbd-int key-modifier-with-ctrl))
+                (alt (kbd-int->scancode kbd-int key-modifier-with-alt))
+                (seq (kbd-int->scancode kbd-int key-modifier-seq))
+                (temp (pressed? KBD-SCANCODE-LSHIFT))
                 (code (cond ((or (pressed? KBD-SCANCODE-LSHIFT)
                                  (pressed? KBD-SCANCODE-RSHIFT))
                              shift)
@@ -293,24 +296,21 @@
                              alt)
                             (else
                               normal))))
-          ; Update the keypress
+           ; Update the keypress
            (let* ((shifted (fxarithmetic-shift-right kbd-int 5))
                   (key (vector-ref keymap shifted))
                   (mask (##fxarithmetic-shift 1 (fxand #x1f kbd-int))))
              (vector-set! keymap shifted (fxior (vector-ref keymap shifted)
-                                               mask))
-          ; If not dead, process it
+                                                mask))
+             ; If not dead, process it
              (if (not (eqv? code DEAD))
                  (display (integer->char (fxand code #x77)))))))
-        ((and (>= kbd-int (fxior KBD-SCANCODE-ESC #x80))
-              (<= kbd-int (fxior KBD-SCANCODE-F12 #x80)))
+        ((and (fx>= kbd-int (fxior KBD-SCANCODE-ESC #x80))
+              (fx<= kbd-int (fxior KBD-SCANCODE-F12 #x80)))
          (let ((kbd-int (fxand kbd-int #x7F)))
+           (display "unset")
            (let* ((shifted (fxarithmetic-shift-right kbd-int 5))
                   (key (vector-ref keymap shifted))
-                  (mask (fxarithmetic-shift 1 (fxand #x1f kbd-int))))
-             (vector-set! keymap shifted (fxnot (fxior (vector-ref keymap shifted)
-                                                      mask))))))))
-       
-
-        ; (display (integer->char (fxand normal #xff))))
-      ; (display "NOT OK")))
+                  (mask (##fxarithmetic-shift 1 (fxand #x1f kbd-int))))
+             (vector-set! keymap shifted (fxand (fxnot mask)
+                                                (vector-ref keymap shifted))))))))
