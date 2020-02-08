@@ -107,11 +107,10 @@
 
 (define interrupts (list))
 
-
 (define (mimosa-interrupt-handler)
-  (let ((interrupt-val (read-i8 #f SHARED-MEMORY-AREA))
-        (int (read-i8 #f (+ SHARED-MEMORY-AREA 1)))
-        (arg (read-i8 #f (+ SHARED-MEMORY-AREA 2))))
+  (let ((interrupt-val (read-iu8 #f SHARED-MEMORY-AREA))
+        (int (read-iu8 #f (+ SHARED-MEMORY-AREA 1)))
+        (arg (read-iu8 #f (+ SHARED-MEMORY-AREA 2))))
     (handle-int-with-arg int arg)))
     ; (cond ((fx= interrupt-val EMPTY-BUFFER-ACTION)
     ;        (display "Hello"))
