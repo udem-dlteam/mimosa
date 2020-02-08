@@ -14,7 +14,7 @@ GPP = g++ -m32 -Wno-write-strings -g -march=$(TARGET_ARCH)
 
 SPECIAL_OPTIONS =
 
-GCC_OPTIONS = $(SPECIAL_OPTIONS) $(DEFS) -DOS_NAME=$(OS_NAME) -DKERNEL_START=$(KERNEL_START) -fno-stack-protector -fomit-frame-pointer -fno-strict-aliasing -Wall -O3 -ffast-math -nostdinc -Iinclude -Ilibc -I/usr/include -I${HOME}/g4_9_3-devel/include -ffreestanding -nostdlib
+GCC_OPTIONS = $(SPECIAL_OPTIONS) $(DEFS) -DOS_NAME=$(OS_NAME) -DKERNEL_START=$(KERNEL_START) -fno-stack-protector -fomit-frame-pointer -fno-strict-aliasing -Wall -O3 -ffast-math -nostdinc -Iinclude -I/usr/local/Gambit/include -Ilibc -I/usr/include -I${HOME}/g4_9_3-devel/include -ffreestanding -nostdlib
 
 GPP_OPTIONS = $(GCC_OPTIONS) -fno-rtti -fno-builtin -fno-exceptions -nostdinc++
 
