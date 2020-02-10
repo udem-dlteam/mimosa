@@ -467,6 +467,7 @@ void __rtlib_setup() {
 
 #endif
 
+
   ASSERT_INTERRUPTS_ENABLED();
 
   term_write(cout, "Initializing ");
@@ -474,18 +475,26 @@ void __rtlib_setup() {
   term_write(cout, "Mimosa");
   term_write(cout, "\033[0m\n\n");
 
+  debug_write("B4 CPU");
   identify_cpu();
 
   the_idle = CAST(thread*, kmalloc(sizeof(thread)));
   the_idle = new_thread(the_idle, idle_thread_run, "Idle thread");
   // the_idle->_prio = null_priority;
   the_idle->_quantum = frequency_to_time(10000); // Temp path for issue #56
+
+  debug_write("B4 thread run");
   thread_start(the_idle);
 
+  debug_write("B4 disks");
   term_write(cout, "Loading up disks...\n");
   setup_disk();
+
+  debug_write("B4 ide");
   term_write(cout, "Loading up IDE controllers...\n");
   setup_ide ();
+
+  debug_write("B4 VFS");
   term_write(cout, "Loading up the virtual file system...\n");
 
   if(ERROR(err = init_vfs())) {

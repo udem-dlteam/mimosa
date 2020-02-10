@@ -8,13 +8,13 @@ KERNEL_OBJECTS = kernel.o libc/libc_os.o drivers/filesystem/vfs.o drivers/filesy
 #NETWORK_OBJECTS = eepro100.o tulip.o timer2.o misc.o pci.o config.o net.o
 DEFS = -DINCLUDE_EEPRO100 
 
-TARGET_ARCH = i686
+TARGET_ARCH=i386
 GCC = gcc -m32 -Wno-write-strings -g -march=$(TARGET_ARCH)
 GPP = g++ -m32 -Wno-write-strings -g -march=$(TARGET_ARCH)
 
 SPECIAL_OPTIONS =
 
-GCC_OPTIONS = $(SPECIAL_OPTIONS) $(DEFS) -DOS_NAME=$(OS_NAME) -DKERNEL_START=$(KERNEL_START) -fno-stack-protector -fomit-frame-pointer -fno-strict-aliasing -Wall -O3 -ffast-math -nostdinc -Iinclude -I/usr/local/Gambit/include -Ilibc -I/usr/include -I${HOME}/g4_9_3-devel/include -ffreestanding -nostdlib
+GCC_OPTIONS = $(SPECIAL_OPTIONS) $(DEFS) -DOS_NAME=$(OS_NAME) -DKERNEL_START=$(KERNEL_START) -fno-stack-protector -fomit-frame-pointer -fno-strict-aliasing -Wall -O3 -ffast-math -nostdinc -Iinclude -I/usr/local/Gambit/include -Ilibc -I/usr/include -I${HOME}/g4_9_3-devel/include -ffreestanding -nostdlib 
 
 GPP_OPTIONS = $(GCC_OPTIONS) -fno-rtti -fno-builtin -fno-exceptions -nostdinc++
 
@@ -60,7 +60,7 @@ mf:
 bin_files: bootsect.bin kernel.bin
 
 kernel.bin: $(KERNEL_OBJECTS)
-	ld --nostdlib --script=script.ld $(KERNEL_OBJECTS) -o $*.bin -Ttext $(KERNEL_START) --omagic --entry=kernel_entry --oformat elf32-i386 -Map kernel.map
+	ld -m elf_i386 --nostdlib --script=script.ld $(KERNEL_OBJECTS) -o $*.bin -Ttext $(KERNEL_START) --omagic --entry=kernel_entry --oformat elf32-i386 -Map kernel.map
 	cp kernel.bin kernel.elf
 	objcopy -O binary kernel.elf kernel.bin
 
@@ -86,7 +86,7 @@ bootsect.bin: bootsect.o
 	$(GCC) $(GCC_OPTIONS) -c -o $*.o $*.c
 
 .s.o: kernel.bin
-	as --defsym OS_NAME=$(OS_NAME) --defsym KERNEL_START=$(KERNEL_START) --defsym KERNEL_SIZE=`cat kernel.bin | wc --bytes | sed -e "s/ //g"` -o $*.o $*.s
+	as --32 --defsym OS_NAME=$(OS_NAME) --defsym KERNEL_START=$(KERNEL_START) --defsym KERNEL_SIZE=`cat kernel.bin | wc --bytes | sed -e "s/ //g"` -o $*.o $*.s
 
 clean-bin:
 	rm -f -- kernel.bin bootsect.bin kernel.elf

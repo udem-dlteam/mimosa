@@ -204,8 +204,11 @@ error_code ide_read_sectors(ide_device* dev, uint32 lba, void* buf,
     uint16 base = ide_controller_map[ctrl->id].base;
     ide_cmd_queue_entry* entry;
 
+    debug_write("Beofre disable ints");
     disable_interrupts();
+    debug_write("After disable ints");
     entry = ide_cmd_queue_alloc(dev);
+    debug_write("After cmd _queue allloc");
 
     if (count > 256) count = 256;
 
@@ -220,13 +223,16 @@ error_code ide_read_sectors(ide_device* dev, uint32 lba, void* buf,
     outb((lba >> 8), base + IDE_CYL_LO_REG);
     outb((lba >> 16), base + IDE_CYL_HI_REG);
     outb(IDE_READ_SECTORS_CMD, base + IDE_COMMAND_REG);
+    debug_write("After out fest");
 
     condvar_mutexless_wait(entry->done);
+    debug_write("After condvar mutexlxss wait");
 
     err = entry->_.read_sectors.err;
 
     ide_cmd_queue_free(entry);
 
+    debug_write("Before enable ints");
     enable_interrupts();
   }
 

@@ -2485,6 +2485,7 @@ static error_code fat_stat(fs_header* header, file* ff, stat_buff* buf) {
 }
 
 error_code mount_fat(vfnode* parent) {
+    debug_write("In mount fat");
   start_sentinel.next = &end_sentinel;
   start_sentinel.prev = NULL;
 
@@ -2507,7 +2508,9 @@ error_code mount_fat(vfnode* parent) {
   _fat_file_vtable._file_len = fat_file_len;
   _fat_file_vtable._readdir = fat_readdir;
 
+  debug_write("Before add all parts");
   disk_add_all_partitions();
+  debug_write("Before mount all parts");
   mount_all_partitions(parent);
 
   return NO_ERROR;

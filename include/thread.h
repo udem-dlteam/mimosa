@@ -108,22 +108,23 @@ const uint32 GAMBIT_SHARED_MEM_RESPONSE = 0x300000 + 512;
 #if 1
 
 #define save_context(receiver, data)                                            \
-  do {                                                                          \
-    ASSERT_INTERRUPTS_DISABLED();                                               \
-    __asm__ __volatile__(                                                       \
-        "pusha                                                             \n \
-         pushl %1               # The fourth parameter of the receiver fn  \n \
-         lea   -16(%%esp),%%eax # The third parameter of the receiver fn   \n \
-         pushl %%eax                                                       \n \
-         pushfl                 # Setup a stack frame with the same format \n \
-         pushl %%cs             #  as expected by the ``iret'' instruction \n \
-         call  %P0              #  so that ``iret'' can restore the context\n \
-         addl  $8,%%esp         # Remove the third and fourth parameter    \n \
-         popa" \
-        :                                                                       \
-        : "g"(receiver), "g"(data)                                              \
-        : "memory");                                                            \
-  } while (0)
+    do {                                                                          \
+        debug_write("CTX SW");                                                      \
+        ASSERT_INTERRUPTS_DISABLED();                                               \
+        __asm__ __volatile__(                                                       \
+                "pusha                                                             \n \
+                pushl %1               # The fourth parameter of the receiver fn  \n \
+                lea   -16(%%esp),%%eax # The third parameter of the receiver fn   \n \
+                pushl %%eax                                                       \n \
+                pushfl                 # Setup a stack frame with the same format \n \
+                pushl %%cs             #  as expected by the ``iret'' instruction \n \
+                call  *%P0              #  so that ``iret'' can restore the context\n \
+                addl  $8,%%esp         # Remove the third and fourth parameter    \n \
+                popa" \
+                :                                                                       \
+                : "ic"(receiver), "g"(data)                                              \
+                : "memory");                                                            \
+    } while (0)
 
 #else
 
@@ -327,6 +328,7 @@ typedef struct wait_mutex_node {
 } wait_mutex_node;
 
 typedef struct wait_queue {
+  int safety;
   wait_mutex_node super;
 
 #ifdef USE_DOUBLY_LINKED_LIST_FOR_WAIT_QUEUE

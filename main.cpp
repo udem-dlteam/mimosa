@@ -43,7 +43,8 @@ int main() {
     term_writeline(cout);
 
     file* prog = NULL;
-    if (NO_ERROR == file_open(file_name, "r", &prog)) {
+    error_code fopen_error = NO_ERROR;
+    if (NO_ERROR == (fopen_error = file_open(file_name, "r", &prog))) {
       uint32 len = file_len(prog);
       uint8* code = (uint8*)GAMBIT_START;
       term_write(cout, "The len of the gambit file is: ");
@@ -72,6 +73,9 @@ int main() {
 #endif
     } else {
       term_write(cout, "\r\n Failed to open Gambit.\r\n");
+      term_write(cout, "Error code is ");
+      term_write(cout, fopen_error);
+      term_writeline(cout);
     }
   }
 #endif
