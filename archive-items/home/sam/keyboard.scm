@@ -170,18 +170,18 @@
 
 (define scancodes
   (vector 
-    DEAD DEAD DEAD DEAD NULL  
-    #x011b #x011b #x011b #x0100 NULL  
-    #x0231 #x0221 DEAD #x7800 NULL  
-    #x0332 #x0340 #x0300 #x7900 NULL  
-    #x0433 #x0423 DEAD #x7a00 NULL  
-    #x0534 #x0524 DEAD #x7b00 NULL  
-    #x0635 #x0625 DEAD #x7c00 NULL  
-    #x0736 #x075e #x071e #x7d00 NULL  
-    #x0837 #x0826 DEAD #x7e00 NULL  
-    #x0938 #x092a DEAD #x7f00 NULL  
-    #x0a39 #x0a28 DEAD #x8000 NULL  
-    #x0b30 #x0b29 DEAD #x8100 NULL  
+    0 DEAD DEAD DEAD NULL  ; not a valid scan code
+    #x011b #x011b #x011b #x0100 NULL  ; ESC
+    #x0231 #x0221 DEAD #x7800 NULL   ; 1
+    #x0332 #x0340 #x0300 #x7900 NULL  ; 2
+    #x0433 #x0423 DEAD #x7a00 NULL  ; 3
+    #x0534 #x0524 DEAD #x7b00 NULL  ; 4
+    #x0635 #x0625 DEAD #x7c00 NULL  ; 5
+    #x0736 #x075e #x071e #x7d00 NULL  ; 6
+    #x0837 #x0826 DEAD #x7e00 NULL  ; 7
+    #x0938 #x092a DEAD #x7f00 NULL  ; 8
+    #x0a39 #x0a28 DEAD #x8000 NULL  ; 9
+    #x0b30 #x0b29 DEAD #x8100 NULL   ;0
     #x0c2d #x0c5f #x0c1f #x8200 NULL  
     #x0d3d #x0d2b DEAD #x8300 NULL  
     #x0e08 #x0e08 #x0e7f DEAD NULL  
@@ -279,14 +279,13 @@
          (mask (##fxarithmetic-shift 1 (fxand #x1f kbd-int))))
     (not (eq? 0 (fxand key mask)))))
 
-(define (handle-kbd-int kbd-int)
-  (cond ((and (<= kbd-int KBD-SCANCODE-F12) (>= kbd-int KBD-SCANCODE-ESC))
-         (let* ((normal (kbd-int->scancode kbd-int key-modifier-normal))
-                (shift(kbd-int->scancode kbd-int key-modifier-with-shift))
-                (ctrl (kbd-int->scancode kbd-int key-modifier-with-ctrl))
-                (alt (kbd-int->scancode kbd-int key-modifier-with-alt))
-                (seq (kbd-int->scancode kbd-int key-modifier-seq))
-                (temp (pressed? KBD-SCANCODE-LSHIFT))
+(define (handle-kbd-int data)
+  (cond ((and (<= data KBD-SCANCODE-F12) (>= data KBD-SCANCODE-ESC))
+         (let* ((normal (kbd-int->scancode data key-modifier-normal))
+                (shift (kbd-int->scancode data key-modifier-with-shift))
+                (ctrl (kbd-int->scancode data key-modifier-with-ctrl))
+                (alt (kbd-int->scancode data key-modifier-with-alt))
+                (seq (kbd-int->scancode data key-modifier-seq))
                 (code (cond ((or (pressed? KBD-SCANCODE-LSHIFT)
                                  (pressed? KBD-SCANCODE-RSHIFT))
                              shift)
@@ -297,20 +296,19 @@
                             (else
                               normal))))
            ; Update the keypress
-           (let* ((shifted (fxarithmetic-shift-right kbd-int 5))
+           (let* ((shifted (##fxarithmetic-shift-right data 5))
                   (key (vector-ref keymap shifted))
-                  (mask (##fxarithmetic-shift 1 (fxand #x1f kbd-int))))
-             (vector-set! keymap shifted (fxior (vector-ref keymap shifted)
+                  (mask (##fxarithmetic-shift-left 1 (fxand #x1f data))))
+             (vector-set! keymap shifted (##fxior (vector-ref keymap shifted)
                                                 mask))
              ; If not dead, process it
              (if (not (eqv? code DEAD))
-                 (display (integer->char (fxand code #x77)))))))
-        ((and (fx>= kbd-int (fxior KBD-SCANCODE-ESC #x80))
-              (fx<= kbd-int (fxior KBD-SCANCODE-F12 #x80)))
-         (let ((kbd-int (fxand kbd-int #x7F)))
-           (display "unset")
-           (let* ((shifted (fxarithmetic-shift-right kbd-int 5))
+                 (display (integer->char (fxand code #xFF)))))))
+        ((and (fx>= data (fxior KBD-SCANCODE-ESC #x80))
+              (fx<= data (fxior KBD-SCANCODE-F12 #x80)))
+         (let ((data (fxand data #x7F)))
+           (let* ((shifted (fxarithmetic-shift-right data 5))
                   (key (vector-ref keymap shifted))
-                  (mask (##fxarithmetic-shift 1 (fxand #x1f kbd-int))))
+                  (mask (##fxarithmetic-shift 1 (fxand #x1f data))))
              (vector-set! keymap shifted (fxand (fxnot mask)
                                                 (vector-ref keymap shifted))))))))
