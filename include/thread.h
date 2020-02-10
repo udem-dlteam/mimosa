@@ -109,7 +109,6 @@ const uint32 GAMBIT_SHARED_MEM_RESPONSE = 0x300000 + 512;
 
 #define save_context(receiver, data)                                            \
     do {                                                                          \
-        debug_write("CTX SW");                                                      \
         ASSERT_INTERRUPTS_DISABLED();                                               \
         __asm__ __volatile__(                                                       \
                 "pusha                                                             \n \

@@ -733,34 +733,19 @@ void _sched_switch_to_next_thread(uint32 cs, uint32 eflags, uint32* sp,
 
 void _sched_suspend_on_wait_queue(uint32 cs, uint32 eflags, uint32* sp,
         void* q) {
-    debug_write("In suspend on w8 q");
     ASSERT_INTERRUPTS_DISABLED();  // Interrupts should be disabled at this point
 
 
-    debug_write("B4 fetch");
     thread* current = sched_current_thread;
     current->_sp = sp;
-    debug_write("After fetch");
 
     wait_queue_remove(current);
     wait_queue_detach(current);
 
-    if (NULL == q) {
-        debug_write("Wrong argument got passed...");
-    }
-
     wait_queue* wq = CAST(wait_queue*, q);
-    debug_write("Safety aligned");
-    debug_write(wq->safety);
-    
-    /* while(1) { */
-    /*     NOP(); */
-    /* } */
 
-    debug_write("B4 W8Q Insert");
     wait_queue_insert(current, wq);
 
-    debug_write("Before resume");
     _sched_resume_next_thread();
 
     // ** NEVER REACHED ** (this function never returns)

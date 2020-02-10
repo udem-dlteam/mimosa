@@ -78,12 +78,10 @@ uint32 disk_max_BIOS_CHS_to_LBA(disk* d) {
 }
 
 error_code disk_read_sectors(disk* d, uint32 lba, void* buf, uint32 count) {
-    debug_write("In disk read sector");
   error_code err = NO_ERROR;
   if (lba < d->partition_length && lba + count <= d->partition_length) {
     switch (d->kind) {
       case DISK_IDE:
-          debug_write("Before IDE read sector");
         err = ide_read_sectors(d->_.ide.dev, d->partition_start + lba, buf,
                                count);
         break;
@@ -94,7 +92,6 @@ error_code disk_read_sectors(disk* d, uint32 lba, void* buf, uint32 count) {
   } else {
     err = ARG_ERROR;
   }
-  debug_write("out of disk read sector");
 
   return err;
 }
@@ -389,7 +386,6 @@ typedef struct Master_Boot_Record_struct {
 //-----------------------------------------------------------------------------
 
 void disk_add_all_partitions() {
-    debug_write("In disk add all parts");
   uint32 index = 0;
   disk* d;
 
@@ -402,9 +398,7 @@ void disk_add_all_partitions() {
       uint32 max_LBA_when_using_BIOS_CHS = disk_max_BIOS_CHS_to_LBA(d);
       disk* part;
 
-      debug_write("Read sectors");
       if (!ERROR(disk_read_sectors(d, 0, &mbr, 1))) {
-          debug_write("After read sector");
         for (i = 0; i < 4; i++) {
           partition_table_entry* p = &mbr.partition_table[i];
           uint8 type;

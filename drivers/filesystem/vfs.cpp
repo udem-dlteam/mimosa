@@ -519,7 +519,6 @@ error_code vfs_stat(fs_header* header, file* source, stat_buff* buf) {
 }
 
 error_code init_vfs() {
-  debug_write("in init vfs");
   error_code err = NO_ERROR;
   
   __vfs_vtable._file_open = vfs_open;
@@ -544,22 +543,17 @@ error_code init_vfs() {
 
   vfnode_add_child(&sys_root, &dev_mnt_pt);
 
-  debug_write("Before uarts");
   if (ERROR(err = setup_uarts(&dev_mnt_pt))) {
     return err;
   }
 
-  debug_write("Before mnt streams");
   if (ERROR(err = mount_streams(&sys_root))) {
     return err;
   }
 
-  debug_write("Before mount fat");
   if (ERROR(err = mount_fat(&sys_root))) {
     return err;
   }
-
-  debug_write("out vfs");
 
   return err;
 }
