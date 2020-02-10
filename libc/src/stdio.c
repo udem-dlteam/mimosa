@@ -626,7 +626,9 @@ void REDIRECT_NAME(set_gstate)(___global_state_struct *gs) {
 #else
     if(NULL == (___local_gstate = gs)) {
         panic(L"Gambit state is null...");
-    } 
+    } else if (NULL == ___local_gstate->___raise_interrupt) {
+        panic(L"Gambit interrupt handler function is null! Make sure compiling system has proper header.");
+    }
 #endif
 }
 
