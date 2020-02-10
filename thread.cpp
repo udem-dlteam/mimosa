@@ -265,12 +265,14 @@ void condvar_broadcast(condvar* self) {
     enable_interrupts();
 }
 
+volatile int garbage = 0;
+
 void condvar_mutexless_wait(condvar* self) {
     // Interrupts should be disabled at this point
     ASSERT_INTERRUPTS_DISABLED();  
 
-    debug_write("Condvar safety:");
-    debug_write((&self->super)->safety);
+    /* debug_write("Condvar safety:"); */
+    garbage = ((&self->super)->safety);
     save_context(_sched_suspend_on_wait_queue, &self->super);
 
     ASSERT_INTERRUPTS_DISABLED();
