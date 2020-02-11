@@ -20,6 +20,7 @@
 #include "term.h"
 #include "thread.h"
 #include "video.h"
+#include "libc/include/libc_header.h"
 
 void __rtlib_setup (); // forward declaration
 
@@ -400,25 +401,69 @@ static void identify_cpu() {
 #endif
 }
 
+#ifdef GAMBIT_GSTATE
+
+#include "gambit.h"
+/**
+ * Send a Gambit interrupt. If
+ * the gambit bridge is not configured,
+ * the function returns 0 and the interrupt
+ * must be handled locally
+*/
+uint8 send_gambit_int(uint8 int_no) { 
+    ASSERT_INTERRUPTS_DISABLED();
+
+    if(NULL != ___local_gstate) {
+        ((uint8*)(GAMBIT_SHARED_MEM_CMD))[0] = int_no;
+        ___local_gstate->___raise_interrupt(GAMBIT_COMM_INT);
+        return 1;
+    } else {
+        return 0;
+    }
+}
+
+uint8 send_gambit_int(uint8 int_no, uint8 arg) { 
+    ASSERT_INTERRUPTS_DISABLED();
+
+    if(NULL != ___local_gstate) {
+        ((uint8*)(GAMBIT_SHARED_MEM_CMD))[0] = GAMBIT_INT_WITH_ARG;
+        ((uint8*)(GAMBIT_SHARED_MEM_CMD))[1] = int_no;
+        ((uint8*)(GAMBIT_SHARED_MEM_CMD))[2] = arg;
+        ___local_gstate->___raise_interrupt(GAMBIT_COMM_INT);
+        return 1;
+    } else {
+        debug_write("___local_gstate is none");
+        return 0;
+    }
+}
+
+#else
+#warning "Gambit interrupt handling does is not implemented"
+
+uint8 send_gambit_int(uint8 int_no) {
+    panic(L"!TEMP!");
+    return 0;
+}
+
+uint8 send_gambit_int(uint8 int_no, uint8 arg) {
+    panic(L"!TEMP!");
+    return 0;
+}
+#endif
 /**
  * Takes care of running messages related tasks
  * This thread needs to operate fast, as it will
  * block things that might be critical from running
  */
-void messenger_thread_run() {
-    volatile uint8* gambit_buffer_u8 = CAST(uint8*, GAMBIT_SHARED_MEM_RESPONSE);
+void gambit_do_execute_interrupts() {
+    debug_write("Gambit do execute interrupts");
     for(;;) {
-        
-        if(1 == gambit_buffer_u8[0]) {
-            debug_write("Has mail!");
-            debug_write(*CAST(uint32*,gambit_buffer_u8 + 1));
-
-            // Clear
-            gambit_buffer_u8[0] = 0;
+        if(___local_gstate) {
+            ___local_gstate->___raise_interrupt(GAMBIT_SHARED_MEM_CMD);
+            thread_yield();
         }
-
-        thread_yield();
     }
+    debug_write("Gambit do execute interrupts done");
 }
 
 void idle_thread_run() {
@@ -458,7 +503,7 @@ extern void libc_init(void);
 void __rtlib_setup() {
   error_code err;
   thread* the_idle = NULL;
-  thread* the_messenger = NULL;
+  thread* gambit_execute_interrupts = NULL;
   uint8* cmd = NULL;
   uint8* response = NULL;
 #ifdef USE_CACHE_BLOCK_MAID
@@ -513,10 +558,10 @@ void __rtlib_setup() {
   }
 
   /* Make a messenger thread to take care of communications from gambit */
-  the_messenger = CAST(thread*, kmalloc(sizeof(thread)));
-  the_messenger = new_thread(the_messenger, messenger_thread_run, "Messenger thread");
-  the_messenger->_quantum = frequency_to_time(10000); // Temp path for issue #56
-  thread_start(the_messenger);
+  gambit_execute_interrupts = CAST(thread*, kmalloc(sizeof(thread)));
+  gambit_execute_interrupts = new_thread(gambit_execute_interrupts, gambit_do_execute_interrupts, "Gambit interrupt executer");
+  gambit_execute_interrupts->_quantum = frequency_to_time(10000); // Temp path for issue #56
+  thread_start(gambit_execute_interrupts);
   
   term_write(cout, "Loading up LIBC\n");
   libc_init();
