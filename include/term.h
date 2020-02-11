@@ -88,8 +88,6 @@ void debug_write(uint32 x);
 void debug_write(native_string x);
 void _debug_write(native_char x);
 
-void term_run(term* term);
-
 size_t strlen(char* str);
 
 unsigned char strcmpl(char* a, char* b, size_t sz);
