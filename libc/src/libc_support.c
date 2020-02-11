@@ -19,7 +19,7 @@ void libc_wr_string(int fd, const char *s) {
 }
 
 int libc_rd_char(int fd) {
-  return readline();
+    return -1;
 }
 
 #else
