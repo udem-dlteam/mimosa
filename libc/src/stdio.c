@@ -52,12 +52,11 @@ FILE *REDIRECT_NAME(fopen)(const char *__restrict __filename,
       __filename[1] == '/' &&
       __filename[2] == '\0') {
 
-      debug_write("FILE ROOT DIR OPEN");
-
     // The file "./" is opened by Gambit by the path normalization
     // function and it must not return NULL.
-
     return &FILE_root_dir;
+  } else if (0 == kstrcmp(STDIN_PATH, CAST(native_string, __filename))) {
+      return &FILE_stdin; 
   } else {
       error_code err;
       file *f;
@@ -149,37 +148,50 @@ size_t REDIRECT_NAME(fwrite)(const void *__restrict __ptr, size_t __size,
   return fwrite(__ptr, __size, __n, __stream);
 
 #else
-
+    
   // TODO: implement writing to files other than stdout/stderr
   if (__stream == &FILE_stdout || __stream == &FILE_stderr) {
-    unicode_char *p = CAST(unicode_char*,__ptr);
-    int n = __size * __n / sizeof(unicode_char);
+      unicode_char *p = CAST(unicode_char*,__ptr);
+      int n = __size * __n / sizeof(unicode_char);
 
-    while (n > 0) {
-      libc_wr_char(1, *p++);
-      n--;
-    }
+      while (n > 0) {
+          libc_wr_char(1, *p++);
+          n--;
+      }
+  } else if(__stream == &FILE_stdin) {
+      // TODO this is diry and should not be required
+      // Using the modes in gambit should have been sufficient?
+      // Should open STDIN at the start of stdio.c 
+      error_code err = NO_ERROR;
+      file* stdin = NULL;
+      if (ERROR(err = file_open(STDIN_PATH, "rw", &stdin))) {
+          return err;
+      } else {
+          uint8* buff = CAST(uint8*, __ptr);
+          for(uint32 i = 0; i < __n * __size; ++i) {
+              uint8 bt = buff[i];
+              int kpr = CAST(int, bt);
+
+              if (ERROR(err = file_write(stdin, &kpr, sizeof(int)))) {
+                  debug_write("WARN: failed to write to STDIN");
+              }
+          }
+      }
   } else {
       debug_write("Calling fwrite from Gambit");
-    error_code err;
-    file *f = __stream->f;
+      error_code err;
+      file *f = __stream->f;
 
-    // The position is the end when opening. This is weird.
-    fat_file *ff = CAST(fat_file*, f);
-    
-    debug_write("The file is at ");
-    debug_write(ff->current_pos);
+      // The position is the end when opening. This is weird.
+      uint32 count = __size * __n;
 
-
-    uint32 count = __size * __n;
-
-    if (ERROR(err = file_write(f, CAST(void *, __ptr), count))) {
-      __stream->err = err;
-      __n = 0;
-    } else {
-      // No of items returned
-      __n = err / __size;
-    }
+      if (ERROR(err = file_write(f, CAST(void *, __ptr), count))) {
+          __stream->err = err;
+          __n = 0;
+      } else {
+          // No of items returned
+          __n = err / __size;
+      }
   }
 
   return __n;

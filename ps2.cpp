@@ -52,6 +52,7 @@ uint8 send_gambit_int(uint8 int_no, uint8 arg) {
         ___local_gstate->___raise_interrupt(GAMBIT_COMM_INT);
         return 1;
     } else {
+        debug_write("___local_gstate is none");
         return 0;
     }
 }
@@ -60,10 +61,12 @@ uint8 send_gambit_int(uint8 int_no, uint8 arg) {
 #warning "Gambit interrupt handling does is not implemented"
 
 uint8 send_gambit_int(uint8 int_no) {
+    panic(L"!TEMP!");
     return 0;
 }
 
 uint8 send_gambit_int(uint8 int_no, uint8 arg) {
+    panic(L"!TEMP!");
     return 0;
 }
 
@@ -419,7 +422,7 @@ void irq1() {
   if(!send_gambit_int(1, inb(PS2_PORT_A))) {
       debug_write("Failed to process keypress");
       process_keyboard_data(inb(PS2_PORT_A));
-  }
+  } 
 }
 
 #endif
