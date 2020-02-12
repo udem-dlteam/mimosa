@@ -140,6 +140,23 @@ static error_code stream_write(file* ff, void* buff, uint32 count) {
   bool inter_disabled = ARE_INTERRUPTS_ENABLED();
 
   {
+      /*
+       * This implementation of standards streams is terrible. I'm allowed
+       * to say it, cause I wrote it. The idea behind it was that every
+       * reader would be able to read everything, sort of like a multiplexed
+       * stream. I had some concerns over duplicating the same bytes in every
+       * stream reader (as one should have) and so I made this fixed-size
+       * buffer with multiples readers. The buffer would wait until every
+       * read had caught up before moving the cursor backwards (it would move
+       * it forward as much as it needed / could). 
+       * It did what I wanted perfectly, but I did not want what I needed and 
+       * so it mostly is a mix between this broken dream of a multiplexed
+       * stream and a good ol' circular buffer. 
+       *
+       * I will not bother redoing it correctly unless it breaks because
+       * it's soon (TM) gonna be implemented in scheme.
+       *
+       */
     if (inter_disabled) disable_interrupts();
 
     // Loop like this and do not use mem copy because
@@ -160,7 +177,9 @@ static error_code stream_write(file* ff, void* buff, uint32 count) {
         // Resize
         panic(L"STD stream resize not implemented yet");
       } else {
-        panic(L"OOM");
+        // This ia a temp fix
+        rs->high = 0;
+        /* panic(L"OOM"); */
         err = MEM_ERROR;
         break;
       }
@@ -189,77 +208,33 @@ static error_code stream_read(file* ff, void* buff, uint32 count) {
   if (inter_disabled) disable_interrupts();
 
   if (f->header.mode & MODE_NONBLOCK_ACCESS) {
-    if (f->_reset != rs->_reset) {
-      f->_lo = 0;
-      f->_reset = rs->_reset;
-    }
+      if (f->_reset != rs->_reset) {
+          f->_lo = 0;
+          f->_reset = rs->_reset;
+      }
 
-    if (f->_lo < rs->high) {
       // Read as much as possible
-      uint32 len = (rs->high - f->_lo);
-      if (count < len) len = count;
-
-      for (uint32 i = 0; i < len; ++i) {
-        if (NULL != read_buff) read_buff[i] = stream_buff[f->_lo];
-        f->_lo++;
+      uint32 i = 0;
+      for (; f->_lo != rs->high && i < count; ++i) {
+          if (NULL != read_buff) read_buff[i] = stream_buff[f->_lo];
+          f->_lo = (f->_lo + 1) % rs->len;
       }
 
       if (f->_lo == rs->high) {
-        rs->late = rs->late - 1;
-        if (rs->late == 0) {
-          stream_reset(rs);
-        }
+          rs->late = rs->late - 1;
+          if (rs->late == 0) {
+              stream_reset(rs);
+          }
       }
 
-      err = len;
+      err = i;
       // Signal afterwards in non blocking mode
       // We want to read in one shot and stop
       // afterwards
-    } else if (f->_lo == rs->high) {
-      err = EOF_ERROR;
-    } else {
-      panic(L"Stream reader desynced");
-    }
   } else {
-    uint32 i;
-
-    for (i = 0; i < count; ++i) {
-
-      if (f->_reset != rs->_reset) {
-        f->_lo = 0;
-        f->_reset = rs->_reset;
-      }
-
-      if (f->_lo == rs->high) {
-        rs->late = rs->late - 1;
-        if (rs->late == 0) {
-          stream_reset(rs);
-        }
-      }
-
-      while (f->_lo == rs->high) {
-        condvar_mutexless_wait(streamcv);
-
-        if (f->_reset != rs->_reset) {
-          f->_lo = 0;
-          f->_reset = rs->_reset;
-        }
-      }
-
-      if (NULL != read_buff) read_buff[i] = stream_buff[f->_lo];
-
-      f->_lo = f->_lo + 1;
-    }
-
-    if (f->_lo == rs->high) {
-      rs->late = rs->late - 1;
-      if (rs->late == 0) {
-        stream_reset(rs);
-      }
-    }
-
-    err = count;
+      panic(L"!NOT IMPL");
   }
+
   if (inter_disabled) enable_interrupts();
 
   return err;
