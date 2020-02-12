@@ -450,21 +450,6 @@ uint8 send_gambit_int(uint8 int_no, uint8 arg) {
     return 0;
 }
 #endif
-/**
- * Takes care of running messages related tasks
- * This thread needs to operate fast, as it will
- * block things that might be critical from running
- */
-void gambit_do_execute_interrupts() {
-    debug_write("Gambit do execute interrupts");
-    for(;;) {
-        if(___local_gstate) {
-            ___local_gstate->___raise_interrupt(GAMBIT_SHARED_MEM_CMD);
-            thread_yield();
-        }
-    }
-    debug_write("Gambit do execute interrupts done");
-}
 
 void idle_thread_run() {
 #ifdef SHOW_HEARTBEAT  
@@ -503,7 +488,6 @@ extern void libc_init(void);
 void __rtlib_setup() {
   error_code err;
   thread* the_idle = NULL;
-  thread* gambit_execute_interrupts = NULL;
   uint8* cmd = NULL;
   uint8* response = NULL;
 #ifdef USE_CACHE_BLOCK_MAID
@@ -558,11 +542,6 @@ void __rtlib_setup() {
   }
 
   /* Make a messenger thread to take care of communications from gambit */
-  gambit_execute_interrupts = CAST(thread*, kmalloc(sizeof(thread)));
-  gambit_execute_interrupts = new_thread(gambit_execute_interrupts, gambit_do_execute_interrupts, "Gambit interrupt executer");
-  gambit_execute_interrupts->_quantum = frequency_to_time(10000); // Temp path for issue #56
-  thread_start(gambit_execute_interrupts);
-  
   term_write(cout, "Loading up LIBC\n");
   libc_init();
 

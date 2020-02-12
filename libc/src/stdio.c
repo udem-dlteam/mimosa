@@ -625,7 +625,7 @@ int REDIRECT_NAME(printf)(const char *__format, ...) {
 
 #include "gambit.h"
 
-struct ___global_state_struct *___local_gstate;
+volatile struct ___global_state_struct *___local_gstate;
 
 /**
  * Set the local gstate

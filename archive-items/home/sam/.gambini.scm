@@ -113,22 +113,9 @@
         (arg (read-iu8 #f (+ SHARED-MEMORY-AREA 2))))
     (handle-int-with-arg int arg)))
 
-(define (mimosa-execute-interrupts)
- (display "!"))
-    ; (cond ((fx= interrupt-val EMPTY-BUFFER-ACTION)
-    ;        (display "Hello"))
-    ;       ((fx= interrupt-val GAMBIT-INT-WITH-ARG)
-    ;        (let ((int (read-i8 #f (+ SHARED-MEMORY-AREA 1)))
-    ;              (arg (read-i8 #f (+ SHARED_MEMORY_AREA 2))))
-    ;          (handle_int_with_arg int arg)))
-    ;       (else
-    ;         (set! interrupts (cons interrupt_val interrupts))
-    ;         (display interrupts)))))
-
 ;;;----------------------------------------------------
 ;;;                  INTERRUPT WIRING 
 ;;;----------------------------------------------------
 
 
 (##interrupt-vector-set! 5 mimosa-interrupt-handler)
-(##interrupt-vector-set! 6 mimosa-execute-interrupts)
