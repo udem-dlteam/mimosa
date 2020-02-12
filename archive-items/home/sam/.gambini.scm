@@ -105,13 +105,16 @@
                      1
                      (* n (fact (- n 1)))))
 
-(define interrupts (list))
+
+(define unhandled-interrupts (list))
 
 (define (mimosa-interrupt-handler)
   (let ((interrupt-val (read-iu8 #f SHARED-MEMORY-AREA))
         (int (read-iu8 #f (+ SHARED-MEMORY-AREA 1)))
         (arg (read-iu8 #f (+ SHARED-MEMORY-AREA 2))))
-    (handle-int-with-arg int arg)))
+    (let ((packed (list int arg)))
+     (set! unhandled-interrupts (cons packed unhandled-interrupts)))))
+    ; (handle-int-with-arg int arg)))
 
 ;;;----------------------------------------------------
 ;;;                  INTERRUPT WIRING 
@@ -119,3 +122,23 @@
 
 
 (##interrupt-vector-set! 5 mimosa-interrupt-handler)
+
+
+;;;----------------------------------------------------
+;;;              INTERRUPT EXEC ROUTINE 
+;;;----------------------------------------------------
+
+(define (exec)
+ (if (pair? unhandled-interrupts)
+  ; Right now, interrupts are dealt with in a LIFO manner,
+  ; which is dumb. But its testing!
+ (let ((packed (car unhandled-interrupts))
+       (rest   (cdr unhandled-interrupts)))
+   (set! unhandled-interrupts rest)
+   (handle-int-with-arg (car packed) (cadr packed))
+   (exec))
+ ; Spin loop for now? Probably gonna be worth
+ ; using thread mecanisms
+ (exec)))
+
+(thread-start! (make-thread exec "int execution g-tread"))
