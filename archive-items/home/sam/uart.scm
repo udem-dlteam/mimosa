@@ -110,6 +110,10 @@
 (define COM_PORT_STATUS_WRITE_READY (fxarithmetic-shift 1 6))
 (define COM_PORT_STATUS_RESERVED1 (fxarithmetic-shift 1 7))
 
+(define (uart-read-rhr cpu-port)
+ (let* ((data (inb (+ cpu-port UART-8250-RHR))))
+  (write-char-stdin (integer->char data))))
+
 (define (uart-handle-cause cpu-port cause)
   (cond ((= cause UART-IIR-MODEM)
          (display "MODEM"))
@@ -118,7 +122,7 @@
         ((= cause UART-IIR-RCV-LINE)
          (display "RCV LINE"))
         ((= cause UART-IIR-DATA-AVAIL)
-         (display "Available data"))
+         (uart-read-rhr cpu-port))
         ((= cause UART-IIR-TIMEOUT)
          (display "Timeout"))
         (else

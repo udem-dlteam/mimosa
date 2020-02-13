@@ -2,8 +2,6 @@
 
 (declare (not safe))
 
-(define STDIN (open-output-file "/sys/stdin"))
-
 (define DEAD 'DEAD)
 (define NULL 'NULL)
 
@@ -281,11 +279,6 @@
          (mask (##fxarithmetic-shift 1 (fxand #x1f kbd-int))))
     (not (eq? 0 (fxand key mask)))))
 
-(define (write-char-stdin c)
- (begin
-  (write-char c STDIN)
-  (flush-output-port STDIN)
-  c))
 
 (define (handle-kbd-int data)
   (cond ((and (<= data KBD-SCANCODE-F12) (>= data KBD-SCANCODE-ESC))

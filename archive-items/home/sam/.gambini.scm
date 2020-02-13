@@ -6,6 +6,7 @@
 (include "queue.scm")
 
 (load "utils.scm")
+(load "mimosa_io.scm")
 (load "os_types.scm")
 (load "uart.scm")
 (load "keyboard.scm")
