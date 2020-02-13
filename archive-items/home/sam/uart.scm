@@ -1,6 +1,5 @@
 ;; The mimosa project
 ;; UART driver
-
 (define DEFAULT-BAUD-RATE 115200)
 
 ; /* COM1 */
@@ -35,7 +34,7 @@
 (define (DIV-DLL baud) (fxand (/ 115200 baud) #xFF))
 
 (define UART-8250-LSR-ERF (fxarithmetic-shift 1 7))
-(define UART-8250-LSR-TEMT (fxarithmetic-shift 6))
+(define UART-8250-LSR-TEMT (fxarithmetic-shift 1 6))
 (define UART-8250-LSR-THRE (fxarithmetic-shift 1 5))
 (define UART-8250-LSR-BI (fxarithmetic-shift 1 4))
 (define UART-8250-LSR-FE (fxarithmetic-shift 1 3))
@@ -91,3 +90,17 @@
 (define UART-IIR-FIFO-RESERVED 1)
 (define UART-IIR-FIFO-ENABLED-ERROR 2)
 (define UART-IIR-FIFO-ENABLED 3)
+
+(define COM_PORT_STATUS_EXISTS (fxarithmetic-shift 1 0))
+(define COM_PORT_STATUS_OPEN (fxarithmetic-shift 1 1))
+(define COM_PORT_STATUS_FULL (fxarithmetic-shift 1 2))
+(define COM_PORT_STATUS_WAITING (fxarithmetic-shift 1 3))
+(define COM_PORT_STATUS_FORCIBLY_CLOSED (fxarithmetic-shift 1 4))
+(define COM_PORT_STATUS_READ_READY (fxarithmetic-shift 1 5))
+(define COM_PORT_STATUS_WRITE_READY (fxarithmetic-shift 1 6))
+(define COM_PORT_STATUS_RESERVED1 (fxarithmetic-shift 1 7))
+
+(define (handle-uart-int port)
+ (begin
+   (display (string-append "UART on port" (string port)))
+   (newline)))

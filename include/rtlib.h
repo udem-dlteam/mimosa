@@ -75,6 +75,9 @@ int main ();
 // ----------------------------------------------------------------------------
 // Gambit communications
 
+#define GAMBIT_KEYBOARD_INT 0x1
+#define GAMBIT_UART_INT 0x2
+
 uint8 send_gambit_int(uint8 int_no);
 
 uint8 send_gambit_int(uint8 int_no, uint8 arg);

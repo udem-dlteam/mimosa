@@ -398,9 +398,7 @@ void irq3() {
   ACKNOWLEDGE_IRQ(3);
 
   // Interrupt 4 handles COM 2 and COM 4
-#ifdef SHOW_INTERRUPTS
   debug_write("\033[41m irq3 UART \033[0m");
-#endif
 
   uint8 com2_iir = inb(COM2_PORT_BASE + UART_8250_IIR);
   uint8 com4_iir = inb(COM4_PORT_BASE + UART_8250_IIR);
@@ -409,12 +407,14 @@ void irq3() {
 
   if (UART_IIR_PENDING(com2_iir)) {
     caught_something = TRUE;
-    _handle_interrupt(COM2_PORT_BASE, 2, com2_iir);
+    send_gambit_int(GAMBIT_UART_INT, 2);
   }
+
   if (UART_IIR_PENDING(com4_iir)) {
     caught_something = TRUE;
-    _handle_interrupt(COM4_PORT_BASE, 4, com4_iir);
+    send_gambit_int(GAMBIT_UART_INT, 4);
   }
+
   if (!(caught_something)) {
     panic(L"Misconfiguration of IRQ3.");
   }
@@ -425,9 +425,7 @@ void irq4() {
   ACKNOWLEDGE_IRQ(4);
 
   // Interrupt 4 handles COM 1 and COM 3
-#ifdef SHOW_INTERRUPTS
   debug_write("\033[41m irq4 UART \033[0m");
-#endif
 
   uint8 com1_iir = inb(COM1_PORT_BASE + UART_8250_IIR);
   uint8 com3_iir = inb(COM3_PORT_BASE + UART_8250_IIR);
@@ -436,12 +434,14 @@ void irq4() {
 
   if (UART_IIR_PENDING(com1_iir)) {
     caught_something = TRUE;
-    _handle_interrupt(COM1_PORT_BASE, 1, com1_iir);
+    send_gambit_int(GAMBIT_UART_INT, 1);
   }
+
   if (UART_IIR_PENDING(com3_iir)) {
     caught_something = TRUE;
-    _handle_interrupt(COM3_PORT_BASE, 3, com3_iir);
+    send_gambit_int(GAMBIT_UART_INT, 3);
   }
+
   if (!(caught_something)) {
     panic(L"Misconfiguration of IRQ4.");
   }
@@ -684,7 +684,8 @@ error_code setup_uarts(vfnode* parent_node) {
   error_code err = NO_ERROR;
 
   if (ERROR(err = detect_hardware())) {
-    return err;
+      debug_write("ERROR WHILE INITIATING UART");
+      return err;
   }
 
   __uart_vtable._file_close = uart_close_handle;
