@@ -29,6 +29,7 @@
 (define UART-8250-THR 0)
 (define UART-8250-IER 1)
 (define UART-8250-IIR 2)
+(define UART-8250-FCR 2)
 (define UART-8250-LCR 3)
 (define UART-8250-MCR 4)
 (define UART-8250-LSR 5)
@@ -110,6 +111,64 @@
 (define COM_PORT_STATUS_WRITE_READY (fxarithmetic-shift 1 6))
 (define COM_PORT_STATUS_RESERVED1 (fxarithmetic-shift 1 7))
 
+; Return the model number of the uart port
+(define (identify-material port)
+  (let* ((cpu-port (COM-PORT->CPU-PORT port))
+         (fcr-reg (+ cpu-port UART-8250-FCR))
+         (iir-reg (+ cpu-port UART-8250-IIR))
+         (scr-reg (+ cpu-port UART-8250-SCR)))
+    (outb #xE7 fcr-reg)
+    (let* ((iir-test (inb iir-reg)))
+      (cond ((fx> (fxand iir-test #x20) 0)
+             16750)
+            ((fx> (fxand iir-test #x80))
+             16550)
+            ((fx> (fxand iir-test #x40))
+             16550)
+            (else
+              (outb #x2A scr-reg)
+              (if (fx= (inb scr-reg) #x2A)
+                  16450
+                  8250))))))
+
+(define (uart-enable-dlab register)
+  (let ((current-val (inb register)))
+    (begin
+      (outb (fxior #x80 current-val))
+      #t)))
+
+(define (uart-disable-dlab register)
+  (let ((lcr-val (fxand (inb register) #x7F)))
+    (outb lcr-val register)))
+
+(define (uart-set-baud port baud)
+  (let* ((cpu-port (COM-PORT->CPU-PORT port))
+         (lcr-reg (+ cpu-port UART-8250-LCR))
+         (divisor-latch-low-reg (+ cpu-port UART-8250-DLL))
+         (divisor-latch-high-reg (+ cpu-port UART-8250-DLH)))
+    (uart-enable-dlab lcr-reg)
+    (outb (DIV-DLL baud) divisor-latch-low-reg)
+    (outb (DIV-DLH baud) divisor-latch-high-reg)
+    (uart-disable-dlab lcr-reg)
+    #t))
+
+(define (uart-get-baud port)
+ (let* ((cpu-port (COM-PORT->CPU-PORT))
+        (lcr-reg (+ cpu-port UART-8250-LCR))
+        (divisor-latch-low-reg (+ cpu-port UART-8250-DLL))
+        (divisor-latch-high-reg (+ cpu-port UART-8250-DLH))
+        (div-lo (inb divisor-latch-lo-reg))
+        (div-hi (inb divisor-latch-high-reg)))
+  (if (= 0 (+ div-lo div-hi))
+   0
+   (begin
+     (uart-enable-dlab lcr-reg)
+     (let* ((div-hi (fxarithmetic-shift div-hi 8))
+            (baud (/ 115200 (+ div-hi div-lo))))
+       (uart-disable-dlab lcr-reg)
+       baud)))))
+
+
 (define (uart-read-rhr cpu-port)
  (let* ((data (inb (+ cpu-port UART-8250-RHR))))
   (write-char-stdin (integer->char data))))
@@ -133,3 +192,7 @@
         (iir (inb (+ cpu-port UART-8250-IIR)))
         (cause (UART-IIR-GET-CAUSE iir)))
   (uart-handle-cause cpu-port cause)))
+
+
+(define (uart-init-port port)
+ (display "TODO"))

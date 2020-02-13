@@ -1,4 +1,3 @@
-
 #include "uart.h"
 #include "asm.h"
 #include "general.h"
@@ -110,70 +109,6 @@ error_code init_serial(int com_port) {
    }
 
    return err;
-}
-
-void set_baud_rate(uint8 port_num, uint32 baud_rate){
-
-  uint16 com_port = com_num_to_port(port_num);
-  outb(inb(com_port + UART_8250_LCR) | 0x80, com_port + UART_8250_LCR);  // Enable DLAB (set baud rate divisor)
-  outb(DIV_DLL(baud_rate), com_port + UART_8250_DLL); // set divisor of div latch lo
-  outb(DIV_DLH(baud_rate), com_port + UART_8250_DLH); // set div latch hi
-  uint16 LCR_val = inb(com_port + UART_8250_LCR) && 0x7F;
-  outb( LCR_val, com_port + UART_8250_LCR); // disable DLAB
-}
-
-// 
-uint32 get_baud_rate(uint8 port_num){
-  // see the baud rate diagram of
-  // https://en.wikibooks.org/wiki/Serial_Programming/8250_UART_Programming
-  uint32 baud_rate;
-  uint16 com_port = com_num_to_port(port_num);
-  outb(inb(com_port + UART_8250_LCR) | 0x80,
-       com_port + UART_8250_LCR);  // Enable DLAB (set baud rate divisor)
-  uint32 div_hi = inb(com_port + UART_8250_DLH);
-  uint32 div_lo = inb(com_port + UART_8250_DLL);
-
-  if(0 == (div_hi + div_lo)) {
-    baud_rate = 0;
-  } else {
-    div_hi = (div_hi << 8);
-    baud_rate = (115200 / (div_hi + div_lo));
-    uint16 LCR_val = inb(com_port + UART_8250_LCR) && 0x7F;
-    outb(LCR_val, com_port + UART_8250_LCR);  // disable DLAB
-  }
-
-  return baud_rate;
-}
-
-uint32 identify_material(uint8 port_num){
-  uint8 FCR = 2;
-  uint8 IIR = 2;
-  uint8 SCR = 7;
-  uint16 com_port = com_num_to_port(port_num);
-  // Set the value "0xE7" to the FCR to test the status of the FIFO flags.
-  outb(0xE7, com_port + FCR);
-  // Read the value of the IIR to test for what flags actually got set. 
-  uint8 test = inb(com_port + IIR);
-  uint32 material;
-  if((test & 0x40) > 0){
-    if((test & 0x80) > 0){
-      if((test & 0x20) > 0){
-        // UART is a 16750
-        material = 16750;
-      } else {
-        material = 16550;
-      }
-    } else {
-      material = 16550;
-    }
-  } else {
-    outb(0x2A, com_port + SCR);
-    if(inb(com_port + SCR) == 0x2A){
-      material = 16450;
-    } else {
-      material = 8250;
-    }}
-  return material;
 }
 
 // Modem Status Register read
