@@ -8,6 +8,7 @@
 (load "utils.scm")
 (load "os_types.scm")
 (load "keyboard.scm")
+(load "uart.scm")
 (load "int_handle.scm")
 
 

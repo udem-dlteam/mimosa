@@ -1,9 +1,8 @@
 ;; The mimosa project
 
 (define KEYBOARD-INT #x1)
-
-
-
+(define UART-INT-1 #x2)
+(define UART-INT-2 #x3)
 
 (define INT-WITH-ARG-TABLE
  (list (cons KEYBOARD-INT handle-kbd-int)))
