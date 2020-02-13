@@ -102,5 +102,5 @@
 
 (define (handle-uart-int port)
  (begin
-   (display (string-append "UART on port" (string port)))
+   (display (string-append "UART on port" (number->string port)))
    (newline)))

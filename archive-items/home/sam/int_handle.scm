@@ -7,14 +7,9 @@
   (list (cons KEYBOARD-INT handle-kbd-int)
         (cons UART-INT handle-uart-int)))
 
-
 (define (handle-int-without-arg int-no)
  (display "TODO"))
 
 (define (handle-int-with-arg int-no int-val)
  (begin
-  (display "Handling ")
-  (display (string-append ": " (string int-no) (string int-val)))
-  (newline)
-  (display "B4 call")
   ((assocv int-no INT-WITH-ARG-TABLE) int-val)))
