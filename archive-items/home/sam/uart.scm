@@ -25,6 +25,11 @@
        (else
         COM4-PORT-BASE)))
 
+(define (COM-PORT->IRQ-NO port)
+  (if (= (modulo port 2) 1)
+      4
+      3))
+
 (define UART-8250-RHR 0)
 (define UART-8250-THR 0)
 (define UART-8250-IER 1)
@@ -194,5 +199,23 @@
   (uart-handle-cause cpu-port cause)))
 
 
+(define (uart-do-init port)
+  (let* ((cpu-port (COM-PORT->CPU-PORT port))
+         (ier-reg (+ cpu-port UART-8250-IER))
+         (iir-reg (+ cpu-port UART-8250-IIR))
+         (mcr-reg (+ cpu-port UART-8250-MCR))
+         (lcr-reg (+ cpu-port UART-8250-LCR)))
+    (outb #x00 ier-reg)
+    (outb #x03 lcr-reg)
+    (uart-set-baud port DEFAULT-BAUD-RATE)
+    (outb #x0F ier-reg)
+    (outb #x8E iir-reg)
+    (outb #x08 mcr-reg)
+    (enable-irq (COM-PORT->IRQ-NO port))))
+    
+
 (define (uart-init-port port)
- (display "TODO"))
+ (if (and (fx>= port 1)
+          (fx<= port 4))
+    (uart-do-init port )
+    #f))

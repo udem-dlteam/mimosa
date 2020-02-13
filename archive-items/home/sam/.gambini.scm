@@ -5,14 +5,6 @@
 (include "/dsk1/gambit/lib/_codegen#.scm")
 (include "queue.scm")
 
-(load "utils.scm")
-(load "mimosa_io.scm")
-(load "os_types.scm")
-(load "uart.scm")
-(load "keyboard.scm")
-(load "int_handle.scm")
-
-
 (define SHARED-MEMORY-AREA #x300000)
 (define EMPTY-BUFFER-ACTION #xAA)
 (define GAMBIT-INT-WITH-ARG #xAB)
@@ -100,6 +92,23 @@
   (outb RTC_SEC RTC_PORT_ADDR) ;; select seconds reg
   (inb RTC_PORT_DATA))         ;; read the register
 
+;;;----------------------------------------------------
+;;;                      IMPORTs 
+;;;----------------------------------------------------
+
+(load "utils.scm")
+(load "mimosa_io.scm")
+(load "intr.scm")
+(load "os_types.scm")
+(load "uart.scm")
+(load "keyboard.scm")
+(load "int_handle.scm")
+
+;;;----------------------------------------------------
+;;;                    INIT SYS 
+;;;----------------------------------------------------
+
+(map (lambda (n) (uart-do-init (+ n 1))) (iota 4))
 
 ;;;----------------------------------------------------
 ;;;                 INTERRUPT HANDLING 
