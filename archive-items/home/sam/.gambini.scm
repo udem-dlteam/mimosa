@@ -3,6 +3,8 @@
 (include "/dsk1/gambit/lib/_asm#.scm")
 (include "/dsk1/gambit/lib/_x86#.scm")
 (include "/dsk1/gambit/lib/_codegen#.scm")
+(include "queue.scm")
+
 (load "utils.scm")
 (load "os_types.scm")
 (load "keyboard.scm")
@@ -106,15 +108,14 @@
                      (* n (fact (- n 1)))))
 
 
-(define unhandled-interrupts (list))
+(define unhandled-interrupts (make 255))
 
 (define (mimosa-interrupt-handler)
   (let ((interrupt-val (read-iu8 #f SHARED-MEMORY-AREA))
         (int (read-iu8 #f (+ SHARED-MEMORY-AREA 1)))
         (arg (read-iu8 #f (+ SHARED-MEMORY-AREA 2))))
     (let ((packed (list int arg)))
-     (set! unhandled-interrupts (cons packed unhandled-interrupts)))))
-    ; (handle-int-with-arg int arg)))
+     (push (cons packed unhandled-interrupts) unhandled-interrupts))))
 
 ;;;----------------------------------------------------
 ;;;                  INTERRUPT WIRING 
@@ -129,16 +130,13 @@
 ;;;----------------------------------------------------
 
 (define (exec)
- (if (pair? unhandled-interrupts)
-  ; Right now, interrupts are dealt with in a LIFO manner,
-  ; which is dumb. But its testing!
- (let ((packed (car unhandled-interrupts))
-       (rest   (cdr unhandled-interrupts)))
-   (set! unhandled-interrupts rest)
-   (handle-int-with-arg (car packed) (cadr packed))
-   (exec))
- ; Spin loop for now? Probably gonna be worth
- ; using thread mecanisms
- (exec)))
+  (if (not (empty? unhandled-interrupts))
+      (let ((packed (pop unhandled-interrupts)))
+        (display "a")
+        (handle-int-with-arg (car packed) (cadr packed))
+        (exec))
+      ; Spin loop for now? Probably gonna be worth
+      ; using thread mecanisms
+      (exec)))
 
 (thread-start! (make-thread exec "int execution g-tread"))
