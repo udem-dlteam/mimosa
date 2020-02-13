@@ -115,7 +115,7 @@
         (int (read-iu8 #f (+ SHARED-MEMORY-AREA 1)))
         (arg (read-iu8 #f (+ SHARED-MEMORY-AREA 2))))
     (let ((packed (list int arg)))
-     (push (cons packed unhandled-interrupts) unhandled-interrupts))))
+     (push packed unhandled-interrupts))))
 
 ;;;----------------------------------------------------
 ;;;                  INTERRUPT WIRING 
@@ -131,10 +131,10 @@
 
 (define (exec)
   (if (not (empty? unhandled-interrupts))
+   (begin
       (let ((packed (pop unhandled-interrupts)))
-        (display "a")
         (handle-int-with-arg (car packed) (cadr packed))
-        (exec))
+        (exec)))
       ; Spin loop for now? Probably gonna be worth
       ; using thread mecanisms
       (exec)))

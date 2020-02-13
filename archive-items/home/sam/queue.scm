@@ -73,7 +73,7 @@
          (hi (get-hi q))
          (lo (get-lo q))
          (sz (get-size q)))
-    (if (full? queue)
+    (if (= lo hi)
         #f
         (let ((e (__get-at lo q)))
           (__set-at! lo (list) q)
