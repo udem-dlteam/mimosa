@@ -15,6 +15,16 @@
 (define COM4-PORT-BASE #x2e8)
 (define COM4-IRQ 3)
 
+(define (COM-PORT->CPU-PORT n)
+ (cond ((= n 1)
+        COM1-PORT-BASE)
+       ((= n 2)
+        COM2-PORT-BASE)
+       ((= n 3)
+        COM3-PORT-BASE)
+       (else
+        COM4-PORT-BASE)))
+
 (define UART-8250-RHR 0)
 (define UART-8250-THR 0)
 (define UART-8250-IER 1)
@@ -100,7 +110,22 @@
 (define COM_PORT_STATUS_WRITE_READY (fxarithmetic-shift 1 6))
 (define COM_PORT_STATUS_RESERVED1 (fxarithmetic-shift 1 7))
 
+(define (uart-handle-cause cpu-port cause)
+  (cond ((= cause UART-IIR-MODEM)
+         (display "MODEM"))
+        ((= cause UART-IIR-TRANSMITTER-HOLDING-REG)
+         (display "HOLDING REG"))
+        ((= cause UART-IIR-RCV-LINE)
+         (display "RCV LINE"))
+        ((= cause UART-IIR-DATA-AVAIL)
+         (display "Available data"))
+        ((= cause UART-IIR-TIMEOUT)
+         (display "Timeout"))
+        (else
+          (display "Unknown IIR status"))))
+
 (define (handle-uart-int port)
- (begin
-   (display (string-append "UART on port" (number->string port)))
-   (newline)))
+ (let* ((cpu-port (COM-PORT->CPU-PORT port))
+        (iir (inb (+ cpu-port UART-8250-IIR)))
+        (cause (UART-IIR-GET-CAUSE iir)))
+  (uart-handle-cause cpu-port cause)))
