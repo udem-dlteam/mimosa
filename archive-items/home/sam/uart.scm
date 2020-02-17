@@ -297,7 +297,7 @@
            ; priority : next to lowest
            ; Reading interrupt indentification register(IIR)
            ; or writing to Transmit Holding Buffer (THR)
-           (uart-hande-thr cpu-port))
+           (uart-handle-thr cpu-port))
           ((= cause UART-IIR-RCV-LINE)
            ; Error or Break
            ; caused by : Overrun error, parity error, framing
