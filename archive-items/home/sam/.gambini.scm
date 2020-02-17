@@ -122,15 +122,15 @@
 
 (define unhandled-interrupts (make 255))
 
+
 (define (mimosa-interrupt-handler)
-  (let ((interrupt-val (read-iu8 #f SHARED-MEMORY-AREA))
-        (int (read-iu8 #f (+ SHARED-MEMORY-AREA 1)))
-        (arg1 (read-iu8 #f (+ SHARED-MEMORY-AREA 2)))
-        (arg2 (read-iu8 #f (+ SHARED-MEMORY-AREA 3))))
-  (let ((packed (if (= interrupt-val GAMBIT-INT-WITH-ARG)
-                    (list int arg1)
-                    (list int arg1 arg2))))
-     (push packed unhandled-interrupts))))
+  (let* ((int-no (read-iu8 #f SHARED-MEMORY-AREA))
+         (arr-len (read-iu8 #f (+ SHARED-MEMORY-AREA 1)))
+         (params (map (lambda (n)
+                        (read-iu8 #f (+ SHARED-MEMORY-AREA 2 n)))
+                      (iota arr-len))))
+    (let ((packed (list int-no params)))
+      (push packed unhandled-interrupts))))
 
 ;;;----------------------------------------------------
 ;;;                  INTERRUPT WIRING 
@@ -146,17 +146,10 @@
 
 (define (exec)
   (if (not (empty? unhandled-interrupts))
-   (begin
-     (let* ((packed (pop unhandled-interrupts))
-            (l (length packed)))
-       (cond ((= 2 l)
-              (handle-int-with-arg (car packed)
-                                   (cadr packed)))
-             ((= 3 l)
-              (handle-int-with-two-arg (car packed)
-                                       (cadr packed)
-                                       (caddr packed))))
-       (exec)))
+      (begin
+        (let* ((packed (pop unhandled-interrupts)))
+          (handle-int (car packed) (cadr packed))
+          (exec)))
       ; Spin loop for now? Probably gonna be worth
       ; using thread mecanisms
       (exec)))

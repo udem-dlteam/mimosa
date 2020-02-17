@@ -410,45 +410,20 @@ static void identify_cpu() {
  * the function returns 0 and the interrupt
  * must be handled locally
 */
-uint8 send_gambit_int(uint8 int_no) { 
+uint8 send_gambit_int(uint8 int_no, uint8* params, uint8 len) { 
     ASSERT_INTERRUPTS_DISABLED();
 
     if(NULL != ___local_gstate) {
         ((uint8*)(GAMBIT_SHARED_MEM_CMD))[0] = int_no;
+        ((uint8*)(GAMBIT_SHARED_MEM_CMD))[1] = len;
+
+        for(uint8 i = 0; i < len; ++i) {
+            ((uint8*)(GAMBIT_SHARED_MEM_CMD))[2 + i] = params[i];
+        }
+
         ___local_gstate->___raise_interrupt(GAMBIT_COMM_INT);
         return 1;
     } else {
-        return 0;
-    }
-}
-
-uint8 send_gambit_int(uint8 int_no, uint8 arg) { 
-    ASSERT_INTERRUPTS_DISABLED();
-
-    if(NULL != ___local_gstate) {
-        ((uint8*)(GAMBIT_SHARED_MEM_CMD))[0] = GAMBIT_INT_WITH_ARG;
-        ((uint8*)(GAMBIT_SHARED_MEM_CMD))[1] = int_no;
-        ((uint8*)(GAMBIT_SHARED_MEM_CMD))[2] = arg;
-        ___local_gstate->___raise_interrupt(GAMBIT_COMM_INT);
-        return 1;
-    } else {
-        debug_write("___local_gstate is none");
-        return 0;
-    }
-}
-
-uint8 send_gambit_int(uint8 int_no, uint8 arg1, uint8 arg2) { 
-    ASSERT_INTERRUPTS_DISABLED();
-
-    if(NULL != ___local_gstate) {
-        ((uint8*)(GAMBIT_SHARED_MEM_CMD))[0] = GAMBIT_INT_WITH_TWO_ARG;
-        ((uint8*)(GAMBIT_SHARED_MEM_CMD))[1] = int_no;
-        ((uint8*)(GAMBIT_SHARED_MEM_CMD))[2] = arg1;
-        ((uint8*)(GAMBIT_SHARED_MEM_CMD))[3] = arg2;
-        ___local_gstate->___raise_interrupt(GAMBIT_COMM_INT);
-        return 1;
-    } else {
-        debug_write("___local_gstate is none");
         return 0;
     }
 }
@@ -456,19 +431,11 @@ uint8 send_gambit_int(uint8 int_no, uint8 arg1, uint8 arg2) {
 #else
 #warning "Gambit interrupt handling does is not implemented"
 
-uint8 send_gambit_int(uint8 int_no) {
+uint8 send_gambit_int(uint8 int_no, uint8* params, uint8 len) {
     panic(L"!TEMP!");
     return 0;
 }
 
-uint8 send_gambit_int(uint8 int_no, uint8 arg) {
-    panic(L"!TEMP!");
-    return 0;
-}
-uint8 send_gambit_int(uint8 int_no, uint8 arg1, uint8 arg2) { 
-    panic(L"!TEMP!");
-    return 0;
-}
 #endif
 
 void idle_thread_run() {

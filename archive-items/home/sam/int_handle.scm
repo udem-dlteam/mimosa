@@ -7,13 +7,6 @@
   (list (cons KEYBOARD-INT handle-kbd-int)
         (cons UART-INT handle-uart-int)))
 
-(define (handle-int-without-arg int-no)
- (display "TODO"))
-
-(define (handle-int-with-arg int-no int-val)
- (begin
-  ((assocv int-no INT-WITH-ARG-TABLE) int-val)))
-
-(define (handle-int-with-two-arg int-no val1 val2)
- (begin
-  ((assocv int-no INT-WITH-ARG-TABLE) val1 val2)))
+(define (handle-int int-no args)
+    (let ((fn (assocv int-no INT-WITH-ARG-TABLE)))
+     (apply fn args)))

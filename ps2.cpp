@@ -64,7 +64,8 @@ void irq1() {
 
   ACKNOWLEDGE_IRQ(1);
     
-  if(!send_gambit_int(GAMBIT_KEYBOARD_INT, inb(PS2_PORT_A))) {
+  uint8 params[1] = {inb(PS2_PORT_A)};
+  if(!send_gambit_int(GAMBIT_KEYBOARD_INT, params, 1)) {
       debug_write("Failed to process keypress");
   } 
 }

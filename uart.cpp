@@ -304,12 +304,14 @@ void irq3() {
 
   if (UART_IIR_PENDING(com2_iir)) {
     caught_something = TRUE;
-    send_gambit_int(GAMBIT_UART_INT, 2);
+    uint8 params[2] = {2, com2_iir};
+    send_gambit_int(GAMBIT_UART_INT, params, 2);
   }
 
   if (UART_IIR_PENDING(com4_iir)) {
     caught_something = TRUE;
-    send_gambit_int(GAMBIT_UART_INT, 4);
+    uint8 params[2] = {4, com4_iir};
+    send_gambit_int(GAMBIT_UART_INT, params, 2);
   }
 
   if (!(caught_something)) {
@@ -362,12 +364,15 @@ void irq4() {
         show_debug(com1_iir);
 
 #endif
-        send_gambit_int(GAMBIT_UART_INT, 1, com1_iir);
+        uint8 params[2] = {1, com1_iir};
+        send_gambit_int(GAMBIT_UART_INT, params, 2);
     }
 
     if (UART_IIR_PENDING(com3_iir)) {
         caught_something = TRUE;
-        send_gambit_int(GAMBIT_UART_INT, 3, com3_iir);
+
+        uint8 params[2] = {3, com3_iir};
+        send_gambit_int(GAMBIT_UART_INT, params, 2);
     }
 
     if (!(caught_something)) {
