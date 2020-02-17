@@ -6,9 +6,6 @@
 (include "queue.scm")
 
 (define SHARED-MEMORY-AREA #x300000)
-(define EMPTY-BUFFER-ACTION #xAA)
-(define GAMBIT-INT-WITH-ARG #xAB)
-(define GAMBIT-INT-WITH-TWO-ARG #xAC)
 
 ;;;----------------------------------------------------
 
