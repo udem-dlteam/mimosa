@@ -25,6 +25,16 @@
        (else
         COM4-PORT-BASE)))
 
+(define (CPU-PORT->COM-PORT cpu-port)
+  (cond ((= cpu-port COM1-PORT-BASE)
+         1)
+        ((= cpu-port COM2-PORT-BASE)
+         2)
+        ((= cpu-port COM3-PORT-BASE)
+         3)
+        ((= cpu-port COM4-PORT-BASE)
+         4)))
+
 (define (COM-PORT->IRQ-NO port)
   (if (= (modulo port 2) 1)
       4
@@ -107,14 +117,63 @@
 (define UART-IIR-FIFO-ENABLED-ERROR 2)
 (define UART-IIR-FIFO-ENABLED 3)
 
-(define COM_PORT_STATUS_EXISTS (fxarithmetic-shift 1 0))
-(define COM_PORT_STATUS_OPEN (fxarithmetic-shift 1 1))
-(define COM_PORT_STATUS_FULL (fxarithmetic-shift 1 2))
-(define COM_PORT_STATUS_WAITING (fxarithmetic-shift 1 3))
-(define COM_PORT_STATUS_FORCIBLY_CLOSED (fxarithmetic-shift 1 4))
-(define COM_PORT_STATUS_READ_READY (fxarithmetic-shift 1 5))
-(define COM_PORT_STATUS_WRITE_READY (fxarithmetic-shift 1 6))
-(define COM_PORT_STATUS_RESERVED1 (fxarithmetic-shift 1 7))
+(define COM-PORT-STATUS-EXISTS (fxarithmetic-shift 1 0))
+(define COM-PORT-STATUS-OPEN (fxarithmetic-shift 1 1))
+(define COM-PORT-STATUS-FULL (fxarithmetic-shift 1 2))
+(define COM-PORT-STATUS-WAITING (fxarithmetic-shift 1 3))
+(define COM-PORT-STATUS-FORCIBLY-CLOSED (fxarithmetic-shift 1 4))
+(define COM-PORT-STATUS-READ-READY (fxarithmetic-shift 1 5))
+(define COM-PORT-STATUS-WRITE-READY (fxarithmetic-shift 1 6))
+(define COM-PORT-STATUS-RESERVED1 (fxarithmetic-shift 1 7))
+
+
+(define (##make-port n)
+  ; Port datastructure arrangement:
+  ; 0 : the COM port number
+  ; 1 : if the port is opened 
+  ; 2 : the write queue (goes out)
+  ; 3 : the read queue (comes in)
+  (vector n #f (make 4) (make 4)))
+
+(define port-data (vector (##make-port 1)
+                          (##make-port 2)
+                          (##make-port 3)
+                          (##make-port 4)))
+
+; Get the port data structure for the specified com port
+(define (get-port-data com-port)
+  (if (and (<= com-port 4) (>= com-port 1))
+      (vector-ref port-data (- com-port 1))
+      #f))
+
+; ---------------------------------------------
+;                 IN PORT 
+; ---------------------------------------------
+
+; Check if the uart port has been opened
+(define (uart-opened? port-data)
+ (vector-ref port-data 1))
+
+; Pop a character from the in buffer or #f if empty
+(define (uart-port-next-char port-data)
+ (pop (vector-ref port-data 2)))
+
+; ---------------------------------------------
+;                 OUT PORT 
+; ---------------------------------------------
+
+; Push a character in the in buffer
+(define (uart-port-push-char port-data char)
+  (push char (vector-ref port-data 3)))
+
+(define (uart-port-next-char-out port-data)
+ (pop (vector-ref port-data 3)))
+
+; ---------------------------------------------
+
+(define (open-port! port-data)
+ (vector-set! port-data 1 #t))
+
 
 ; Return the model number of the uart port
 (define (identify-material port)
@@ -178,19 +237,63 @@
  (let* ((data (inb (+ cpu-port UART-8250-RHR))))
   (write-char-stdin (integer->char data))))
 
+(define (uart-read-msr cpu-port)
+ (let ((msr-reg (+ cpu-port UART-8250-MSR)))
+  (inb msr-reg)))
+
+(define (handle-thr cpu-port)
+ (if (UART-THR-GET-ACTION (inb (+ cpu-port UART-8250-LSR)))
+  ; We can write to THR
+  (let* ((com-port (CPU-PORT->COM-PORT cpu-port))
+         (port-data (get-port-data com-port))
+         (next-char (uart-port-next-char-out port-data))
+         (thr-reg (+ cpu-port UART-8250-THR)))
+   (if next-char
+    (outb next-char thr-reg)
+    #f))
+  ; read from IIR
+  #f))
+
 (define (uart-handle-cause cpu-port cause)
   (cond ((= cause UART-IIR-MODEM)
-         (display "MODEM"))
+         ; Modem Status
+         ; Caused by : Change in clear to send, data set
+         ;             ready, ring indicator, or received
+         ;             line signal detect signals.
+         ; priority :lowest
+         ; Reading Modem Status Register (MSR)
+         (read-msr cpu-port))
         ((= cause UART-IIR-TRANSMITTER-HOLDING-REG)
-         (display "HOLDING REG"))
-        ((= cause UART-IIR-RCV-LINE)
-         (display "RCV LINE"))
-        ((= cause UART-IIR-DATA-AVAIL)
-         (uart-read-rhr cpu-port))
-        ((= cause UART-IIR-TIMEOUT)
-         (display "Timeout"))
-        (else
-          (display "Unknown IIR status"))))
+         ; Transmitter empty
+         ; Caused by : The transmitter finishes sending
+         ;             data and is ready to accept additional data.
+         ; priority : next to lowest
+         ; Reading interrupt indentification register(IIR)
+         ; or writing to Transmit Holding Buffer (THR)
+         (begin
+           (display "THR")
+           (handle-thr cpu-port))
+         ((= cause UART-IIR-RCV-LINE)
+          ; Error or Break
+          ; caused by : Overrun error, parity error, framing
+          ;             error, or break interrupt.
+          ; priority : highest
+          ; reading line status register
+          (display "RCV LINE"))
+         ((= cause UART-IIR-DATA-AVAIL)
+          ; Data Available
+          ; caused by : Data arriving from an external
+          ;             source in the Receive Register.
+          ; priority : next to highest
+          ; timeout is available on new model.
+          ; This means that we need to read data
+          ; before the connection timeouts
+          ; reading receive Buffer Register(RHR)
+          (uart-read-rhr cpu-port))
+         ((= cause UART-IIR-TIMEOUT)
+          (display "Timeout"))
+         (else
+           (display "Unknown IIR status"))))
 
 (define (handle-uart-int port)
  (let* ((cpu-port (COM-PORT->CPU-PORT port))
@@ -204,14 +307,16 @@
          (ier-reg (+ cpu-port UART-8250-IER))
          (iir-reg (+ cpu-port UART-8250-IIR))
          (mcr-reg (+ cpu-port UART-8250-MCR))
-         (lcr-reg (+ cpu-port UART-8250-LCR)))
+         (lcr-reg (+ cpu-port UART-8250-LCR))
+         (port-data (get-port-data port)))
     (outb #x00 ier-reg)
     (outb #x03 lcr-reg)
     (uart-set-baud port DEFAULT-BAUD-RATE)
     (outb #x0F ier-reg)
     (outb #x8E iir-reg)
     (outb #x08 mcr-reg)
-    (enable-irq (COM-PORT->IRQ-NO port))))
+    (enable-irq (COM-PORT->IRQ-NO port))
+    (open-port! port-data)))
     
 
 (define (uart-init-port port)
