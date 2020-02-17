@@ -8,6 +8,7 @@
 (define SHARED-MEMORY-AREA #x300000)
 (define EMPTY-BUFFER-ACTION #xAA)
 (define GAMBIT-INT-WITH-ARG #xAB)
+(define GAMBIT-INT-WITH-TWO-ARG #xAC)
 
 ;;;----------------------------------------------------
 
@@ -124,8 +125,11 @@
 (define (mimosa-interrupt-handler)
   (let ((interrupt-val (read-iu8 #f SHARED-MEMORY-AREA))
         (int (read-iu8 #f (+ SHARED-MEMORY-AREA 1)))
-        (arg (read-iu8 #f (+ SHARED-MEMORY-AREA 2))))
-    (let ((packed (list int arg)))
+        (arg1 (read-iu8 #f (+ SHARED-MEMORY-AREA 2)))
+        (arg2 (read-iu8 #f (+ SHARED-MEMORY-AREA 3))))
+  (let ((packed (if (= interrupt-val GAMBIT-INT-WITH-ARG)
+                    (list int arg1)
+                    (list int arg1 arg2))))
      (push packed unhandled-interrupts))))
 
 ;;;----------------------------------------------------
@@ -143,9 +147,16 @@
 (define (exec)
   (if (not (empty? unhandled-interrupts))
    (begin
-      (let ((packed (pop unhandled-interrupts)))
-        (handle-int-with-arg (car packed) (cadr packed))
-        (exec)))
+     (let* ((packed (pop unhandled-interrupts))
+            (l (length packed)))
+       (cond ((= 2 l)
+              (handle-int-with-arg (car packed)
+                                   (cadr packed)))
+             ((= 3 l)
+              (handle-int-with-two-arg (car packed)
+                                       (cadr packed)
+                                       (caddr packed))))
+       (exec)))
       ; Spin loop for now? Probably gonna be worth
       ; using thread mecanisms
       (exec)))

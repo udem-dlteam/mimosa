@@ -437,6 +437,22 @@ uint8 send_gambit_int(uint8 int_no, uint8 arg) {
     }
 }
 
+uint8 send_gambit_int(uint8 int_no, uint8 arg1, uint8 arg2) { 
+    ASSERT_INTERRUPTS_DISABLED();
+
+    if(NULL != ___local_gstate) {
+        ((uint8*)(GAMBIT_SHARED_MEM_CMD))[0] = GAMBIT_INT_WITH_TWO_ARG;
+        ((uint8*)(GAMBIT_SHARED_MEM_CMD))[1] = int_no;
+        ((uint8*)(GAMBIT_SHARED_MEM_CMD))[2] = arg1;
+        ((uint8*)(GAMBIT_SHARED_MEM_CMD))[3] = arg2;
+        ___local_gstate->___raise_interrupt(GAMBIT_COMM_INT);
+        return 1;
+    } else {
+        debug_write("___local_gstate is none");
+        return 0;
+    }
+}
+
 #else
 #warning "Gambit interrupt handling does is not implemented"
 
@@ -446,6 +462,10 @@ uint8 send_gambit_int(uint8 int_no) {
 }
 
 uint8 send_gambit_int(uint8 int_no, uint8 arg) {
+    panic(L"!TEMP!");
+    return 0;
+}
+uint8 send_gambit_int(uint8 int_no, uint8 arg1, uint8 arg2) { 
     panic(L"!TEMP!");
     return 0;
 }

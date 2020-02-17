@@ -13,3 +13,7 @@
 (define (handle-int-with-arg int-no int-val)
  (begin
   ((assocv int-no INT-WITH-ARG-TABLE) int-val)))
+
+(define (handle-int-with-two-arg int-no val1 val2)
+ (begin
+  ((assocv int-no INT-WITH-ARG-TABLE) val1 val2)))

@@ -211,13 +211,13 @@ static void read_lsr(uint16 port) {
 
 void _handle_interrupt(uint16 port_base, uint8 com_index, uint8 iir) {
 #ifdef SHOW_UART_MESSAGES
-    debug_write("interrupt code:");
-    debug_write(inb(port + UART_8250_IIR));
-    debug_write("IRQ4 fired and COM ");
-    debug_write(com_index);
-    debug_write(" on port ");
-    debug_write(port);
-    debug_write(" got data");
+    /* debug_write("interrupt code:"); */
+    /* debug_write(inb(port + UART_8250_IIR)); */
+    /* debug_write("IRQ4 fired and COM "); */
+    /* debug_write(com_index); */
+    /* debug_write(" on port "); */
+    /* debug_write(port); */
+    /* debug_write(" got data"); */
 #endif
   uint8 cause = UART_IIR_GET_CAUSE(iir);
   com_port* port = &ports[com_num(port_base)];
@@ -317,31 +317,62 @@ void irq3() {
   }
 }
 
+
+void show_debug(uint8 iir) {
+    uint8 cause = UART_IIR_GET_CAUSE(iir);
+    switch (cause) {
+        case UART_IIR_MODEM:
+            debug_write("UART_IIR_MODEM");
+            break;
+        case UART_IIR_TRANSMITTER_HOLDING_REG:
+            debug_write("UART_IIR_TRANSMITTER_HOLDING_REG");
+            break;
+        case UART_IIR_RCV_LINE:
+            debug_write("UART_IIR_RCV_LINE");
+            break;
+        case UART_IIR_DATA_AVAIL:
+            debug_write("UART_IIR_DATA_AVAIL");
+            break;
+        case UART_IIR_TIMEOUT:
+            debug_write("UART_IIR_TIMEOUT");
+            break;
+        default:
+            debug_write("Illegal UART interrupt cause");
+            break;
+    }
+}
+
 void irq4() {
-  ASSERT_INTERRUPTS_DISABLED();
-  ACKNOWLEDGE_IRQ(4);
+    ASSERT_INTERRUPTS_DISABLED();
+    ACKNOWLEDGE_IRQ(4);
 
-  // Interrupt 4 handles COM 1 and COM 3
-  debug_write("\033[41m irq4 UART \033[0m");
+    // Interrupt 4 handles COM 1 and COM 3
+    debug_write("\033[41m irq4 UART \033[0m");
 
-  uint8 com1_iir = inb(COM1_PORT_BASE + UART_8250_IIR);
-  uint8 com3_iir = inb(COM3_PORT_BASE + UART_8250_IIR);
+    uint8 com1_iir = inb(COM1_PORT_BASE + UART_8250_IIR);
+    uint8 com3_iir = inb(COM3_PORT_BASE + UART_8250_IIR);
 
-  bool caught_something = FALSE;
+    bool caught_something = FALSE;
 
-  if (UART_IIR_PENDING(com1_iir)) {
-    caught_something = TRUE;
-    send_gambit_int(GAMBIT_UART_INT, 1);
-  }
+    if (UART_IIR_PENDING(com1_iir)) {
+        caught_something = TRUE;
 
-  if (UART_IIR_PENDING(com3_iir)) {
-    caught_something = TRUE;
-    send_gambit_int(GAMBIT_UART_INT, 3);
-  }
+#ifdef SHOW_UART_MESSAGES
 
-  if (!(caught_something)) {
-    panic(L"Misconfiguration of IRQ4.");
-  }
+        show_debug(com1_iir);
+
+#endif
+        send_gambit_int(GAMBIT_UART_INT, 1, com1_iir);
+    }
+
+    if (UART_IIR_PENDING(com3_iir)) {
+        caught_something = TRUE;
+        send_gambit_int(GAMBIT_UART_INT, 3, com3_iir);
+    }
+
+    if (!(caught_something)) {
+        panic(L"Misconfiguration of IRQ4.");
+    }
 }
 #endif
 

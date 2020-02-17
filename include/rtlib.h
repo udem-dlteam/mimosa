@@ -82,6 +82,8 @@ uint8 send_gambit_int(uint8 int_no);
 
 uint8 send_gambit_int(uint8 int_no, uint8 arg);
 
+uint8 send_gambit_int(uint8 int_no, uint8 arg1, uint8 arg2);
+
 //-----------------------------------------------------------------------------
 
 #endif

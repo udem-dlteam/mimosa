@@ -259,18 +259,18 @@
  (let ((msr-reg (fx+ cpu-port UART-8250-MSR)))
   (inb msr-reg)))
 
-(define (handle-thr cpu-port)
- ; (if (UART-THR-GET-ACTION (inb (fx+ cpu-port UART-8250-LSR)))
-  ; We can write to THR
-  (let* ((com-port (CPU-PORT->COM-PORT cpu-port))
-         (port-data (get-port-data com-port))
-         (next-char (uart-port-next-char-out port-data))
-         (thr-reg (fx+ cpu-port UART-8250-THR)))
-   (if next-char
-    (outb next-char thr-reg)
-    #f)))
-  ; read from IIR
-  ; #f))
+(define (uart-handle-thr cpu-port)
+  (if (UART-THR-GET-ACTION (inb (fx+ cpu-port UART-8250-LSR)))
+      ; We can write to THR
+      (let* ((com-port (CPU-PORT->COM-PORT cpu-port))
+             (port-data (get-port-data com-port))
+             (next-char (uart-port-next-char-out port-data))
+             (thr-reg (fx+ cpu-port UART-8250-THR)))
+        (if next-char
+            (outb next-char thr-reg)
+            #f))
+      ; read from IIR
+      #f))
 
 (define (uart-read-lsr cpu-port)
   (let* ((lsr-reg (fx+ cpu-port UART-8250-LSR))
@@ -281,53 +281,55 @@
             e))))
 
 (define (uart-handle-cause cpu-port cause)
-  (cond ((= cause UART-IIR-MODEM)
-         ; Modem Status
-         ; Caused by : Change in clear to send, data set
-         ;             ready, ring indicator, or received
-         ;             line signal detect signals.
-         ; priority :lowest
-         ; Reading Modem Status Register (MSR)
-         (uart-read-msr cpu-port))
-        ((= cause UART-IIR-TRANSMITTER-HOLDING-REG)
-         ; Transmitter empty
-         ; Caused by : The transmitter finishes sending
-         ;             data and is ready to accept additional data.
-         ; priority : next to lowest
-         ; Reading interrupt indentification register(IIR)
-         ; or writing to Transmit Holding Buffer (THR)
-         (begin
-           (display "THR")
-           (handle-thr cpu-port)))
-         ((= cause UART-IIR-RCV-LINE)
-          ; Error or Break
-          ; caused by : Overrun error, parity error, framing
-          ;             error, or break interrupt.
-          ; priority : highest
-          ; reading line status register
-          (uart-read-lsr cpu-port))
-         ((= cause UART-IIR-DATA-AVAIL)
-          ; Data Available
-          ; caused by : Data arriving from an external
-          ;             source in the Receive Register.
-          ; priority : next to highest
-          ; timeout is available on new model.
-          ; This means that we need to read data
-          ; before the connection timeouts
-          ; reading receive Buffer Register(RHR)
-          (uart-read-rhr cpu-port))
-         ((= cause UART-IIR-TIMEOUT)
-          (display "Timeout"))
-         (else
-           (display "Unknown IIR status"))))
-
-(define (handle-uart-int port)
- (let* ((cpu-port (COM-PORT->CPU-PORT port))
-        (iir (inb (fx+ cpu-port UART-8250-IIR)))
-        (cause (UART-IIR-GET-CAUSE iir)))
-  (uart-handle-cause cpu-port cause)))
+  (begin
+    (cond ((= cause UART-IIR-MODEM)
+           ; Modem Status
+           ; Caused by : Change in clear to send, data set
+           ;             ready, ring indicator, or received
+           ;             line signal detect signals.
+           ; priority :lowest
+           ; Reading Modem Status Register (MSR)
+           (uart-read-msr cpu-port))
+          ((= cause UART-IIR-TRANSMITTER-HOLDING-REG)
+           ; Transmitter empty
+           ; Caused by : The transmitter finishes sending
+           ;             data and is ready to accept additional data.
+           ; priority : next to lowest
+           ; Reading interrupt indentification register(IIR)
+           ; or writing to Transmit Holding Buffer (THR)
+           (uart-hande-thr cpu-port))
+          ((= cause UART-IIR-RCV-LINE)
+           ; Error or Break
+           ; caused by : Overrun error, parity error, framing
+           ;             error, or break interrupt.
+           ; priority : highest
+           ; reading line status register
+           (uart-read-lsr cpu-port))
+          ((= cause UART-IIR-DATA-AVAIL)
+           ; Data Available
+           ; caused by : Data arriving from an external
+           ;             source in the Receive Register.
+           ; priority : next to highest
+           ; timeout is available on new model.
+           ; This means that we need to read data
+           ; before the connection timeouts
+           ; reading receive Buffer Register(RHR)
+           (uart-read-rhr cpu-port))
+          ((= cause UART-IIR-TIMEOUT)
+           (display "Timeout"))
+          (else
+            (display "Unknown IIR status")))))
 
 
+; Handle a UART interrupt
+; We know there is a pending interrupt for the port
+; We can start processing it immediately
+(define (handle-uart-int com-port iir)
+  (let* ((cpu-port (COM-PORT->CPU-PORT com-port))
+         (cause (UART-IIR-GET-CAUSE iir)))
+    (uart-handle-cause cpu-port cause)))
+
+; Perform the init sequence on a UART port
 (define (uart-do-init port)
   (let* ((cpu-port (COM-PORT->CPU-PORT port))
          (ier-reg (fx+ cpu-port UART-8250-IER))
