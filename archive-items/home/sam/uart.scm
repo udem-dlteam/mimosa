@@ -182,11 +182,9 @@
         (lsr-reg (fx+ com-port UART-8250-LSR))
         (action (inb lsr-reg)))
   (if (UART-THR-GET-ACTION action)
-   (let ((thr-reg (fx+ com-port UART-8250-THR)))
-     (display "OUT!")
+   (let ((thr-reg (fx+ cpu-port UART-8250-THR)))
      (outb char thr-reg))
    (let ((port-data (get-port-data com-port)))
-     (display "PUSH!")
      (push char (vector-ref port-data UART-PORT-DATA-WRITE-Q-IDX))))))
 
 ; ---------------------------------------------
