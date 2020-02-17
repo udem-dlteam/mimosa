@@ -35,3 +35,9 @@
 (define (o g f)
  (lambda (n)
    (g (f n))))
+
+(define (incn n)
+  (lambda (k)
+    (+ k n)))
+
+(define ++ (incn 1))
