@@ -2,6 +2,8 @@
 ;; UART driver
 (define DEFAULT-BAUD-RATE 115200)
 
+(define UART-BUF-SIZE 255)
+
 ; /* COM1 */
 (define COM1-PORT-BASE #x3f8)
 (define COM1-IRQ 4)
@@ -61,7 +63,7 @@
 
 (define UART-8250-LSR-ERF (fxarithmetic-shift 1 7))
 (define UART-8250-LSR-TEMT (fxarithmetic-shift 1 6))
-(define UART-8250-LSR-THRE (fxarithmetic-shift 1 5))
+(define UART-8250-LSR-THRE #x20)
 (define UART-8250-LSR-BI (fxarithmetic-shift 1 4))
 (define UART-8250-LSR-FE (fxarithmetic-shift 1 3))
 (define UART-8250-LSR-PE (fxarithmetic-shift 1 2))
@@ -126,14 +128,18 @@
 (define COM-PORT-STATUS-WRITE-READY (fxarithmetic-shift 1 6))
 (define COM-PORT-STATUS-RESERVED1 (fxarithmetic-shift 1 7))
 
+  ; 0 : the COM port number
+(define UART-PORT-DATA-COM-IDX 0)
+  ; 1 : if the port is opened 
+(define UART-PORT-DATA-STT-0)
+  ; 2 : the write queue (goes out)
+(define UART-PORT-DATA-WRITE-Q-IDX 2)
+  ; 3 : the read queue (comes in)
+(define UART-PORT-DATA-READ-Q-COM-IDX 3)
 
 (define (##make-port n)
-  ; Port datastructure arrangement:
-  ; 0 : the COM port number
-  ; 1 : if the port is opened 
-  ; 2 : the write queue (goes out)
-  ; 3 : the read queue (comes in)
-  (vector n #f (make 4) (make 4)))
+  ; Port datastructure arrangement: see previous definition
+  (vector n #f (make UART-BUF-SIZE) (make UART-BUF-SIZE)))
 
 (define port-data (vector (##make-port 1)
                           (##make-port 2)
@@ -146,6 +152,9 @@
       (vector-ref port-data (- com-port 1))
       #f))
 
+(define (port-data-get-com-port port-data)
+ (vector-ref port-data 0))
+
 ; ---------------------------------------------
 ;                 IN PORT 
 ; ---------------------------------------------
@@ -155,19 +164,30 @@
  (vector-ref port-data 1))
 
 ; Pop a character from the in buffer or #f if empty
-(define (uart-port-next-char port-data)
- (pop (vector-ref port-data 2)))
+; TODO!
 
 ; ---------------------------------------------
 ;                 OUT PORT 
 ; ---------------------------------------------
 
 ; Push a character in the in buffer
-(define (uart-port-push-char port-data char)
-  (push char (vector-ref port-data 3)))
-
 (define (uart-port-next-char-out port-data)
- (pop (vector-ref port-data 3)))
+ (pop (vector-ref port-data UART-PORT-DATA-WRITE-Q-IDX)))
+
+; Write a character to a com port
+; If the port is ready for writing, the char is sent through.
+; Otherwise, the char is put into a queue.
+(define (uart-write com-port char)
+ (let* ((cpu-port (COM-PORT->CPU-PORT com-port))
+        (lsr-reg (fx+ com-port UART-8250-LSR))
+        (action (inb lsr-reg)))
+  (if (UART-THR-GET-ACTION action)
+   (let ((thr-reg (fx+ com-port UART-8250-THR)))
+     (display "OUT!")
+     (outb char thr-reg))
+   (let ((port-data (get-port-data com-port)))
+     (display "PUSH!")
+     (push char (vector-ref port-data UART-PORT-DATA-WRITE-Q-IDX))))))
 
 ; ---------------------------------------------
 
@@ -178,9 +198,9 @@
 ; Return the model number of the uart port
 (define (identify-material port)
   (let* ((cpu-port (COM-PORT->CPU-PORT port))
-         (fcr-reg (+ cpu-port UART-8250-FCR))
-         (iir-reg (+ cpu-port UART-8250-IIR))
-         (scr-reg (+ cpu-port UART-8250-SCR)))
+         (fcr-reg (fx+ cpu-port UART-8250-FCR))
+         (iir-reg (fx+ cpu-port UART-8250-IIR))
+         (scr-reg (fx+ cpu-port UART-8250-SCR)))
     (outb #xE7 fcr-reg)
     (let* ((iir-test (inb iir-reg)))
       (cond ((fx> (fxand iir-test #x20) 0)
@@ -207,9 +227,9 @@
 
 (define (uart-set-baud port baud)
   (let* ((cpu-port (COM-PORT->CPU-PORT port))
-         (lcr-reg (+ cpu-port UART-8250-LCR))
-         (divisor-latch-low-reg (+ cpu-port UART-8250-DLL))
-         (divisor-latch-high-reg (+ cpu-port UART-8250-DLH)))
+         (lcr-reg (fx+ cpu-port UART-8250-LCR))
+         (divisor-latch-low-reg (fx+ cpu-port UART-8250-DLL))
+         (divisor-latch-high-reg (fx+ cpu-port UART-8250-DLH)))
     (uart-enable-dlab lcr-reg)
     (outb (DIV-DLL baud) divisor-latch-low-reg)
     (outb (DIV-DLH baud) divisor-latch-high-reg)
@@ -218,41 +238,49 @@
 
 (define (uart-get-baud port)
  (let* ((cpu-port (COM-PORT->CPU-PORT))
-        (lcr-reg (+ cpu-port UART-8250-LCR))
-        (divisor-latch-low-reg (+ cpu-port UART-8250-DLL))
-        (divisor-latch-high-reg (+ cpu-port UART-8250-DLH))
+        (lcr-reg (fx+ cpu-port UART-8250-LCR))
+        (divisor-latch-low-reg (fx+ cpu-port UART-8250-DLL))
+        (divisor-latch-high-reg (fx+ cpu-port UART-8250-DLH))
         (div-lo (inb divisor-latch-lo-reg))
         (div-hi (inb divisor-latch-high-reg)))
-  (if (= 0 (+ div-lo div-hi))
+  (if (= 0 (fx+ div-lo div-hi))
    0
    (begin
      (uart-enable-dlab lcr-reg)
      (let* ((div-hi (fxarithmetic-shift div-hi 8))
-            (baud (/ 115200 (+ div-hi div-lo))))
+            (baud (/ 115200 (fx+ div-hi div-lo))))
        (uart-disable-dlab lcr-reg)
        baud)))))
 
 
 (define (uart-read-rhr cpu-port)
- (let* ((data (inb (+ cpu-port UART-8250-RHR))))
+ (let* ((data (inb (fx+ cpu-port UART-8250-RHR))))
   (write-char-stdin (integer->char data))))
 
 (define (uart-read-msr cpu-port)
- (let ((msr-reg (+ cpu-port UART-8250-MSR)))
+ (let ((msr-reg (fx+ cpu-port UART-8250-MSR)))
   (inb msr-reg)))
 
 (define (handle-thr cpu-port)
- (if (UART-THR-GET-ACTION (inb (+ cpu-port UART-8250-LSR)))
+ ; (if (UART-THR-GET-ACTION (inb (fx+ cpu-port UART-8250-LSR)))
   ; We can write to THR
   (let* ((com-port (CPU-PORT->COM-PORT cpu-port))
          (port-data (get-port-data com-port))
          (next-char (uart-port-next-char-out port-data))
-         (thr-reg (+ cpu-port UART-8250-THR)))
+         (thr-reg (fx+ cpu-port UART-8250-THR)))
    (if next-char
     (outb next-char thr-reg)
-    #f))
+    #f)))
   ; read from IIR
-  #f))
+  ; #f))
+
+(define (uart-read-lsr cpu-port)
+  (let* ((lsr-reg (fx+ cpu-port UART-8250-LSR))
+         (e (inb lsr-reg)))
+    (cond ((UART-LSR-DATA-AVAILABLE e)
+           (uart-read-rhr cpu-port))
+          (else
+            e))))
 
 (define (uart-handle-cause cpu-port cause)
   (cond ((= cause UART-IIR-MODEM)
@@ -262,7 +290,7 @@
          ;             line signal detect signals.
          ; priority :lowest
          ; Reading Modem Status Register (MSR)
-         (read-msr cpu-port))
+         (uart-read-msr cpu-port))
         ((= cause UART-IIR-TRANSMITTER-HOLDING-REG)
          ; Transmitter empty
          ; Caused by : The transmitter finishes sending
@@ -272,14 +300,14 @@
          ; or writing to Transmit Holding Buffer (THR)
          (begin
            (display "THR")
-           (handle-thr cpu-port))
+           (handle-thr cpu-port)))
          ((= cause UART-IIR-RCV-LINE)
           ; Error or Break
           ; caused by : Overrun error, parity error, framing
           ;             error, or break interrupt.
           ; priority : highest
           ; reading line status register
-          (display "RCV LINE"))
+          (uart-read-lsr cpu-port))
          ((= cause UART-IIR-DATA-AVAIL)
           ; Data Available
           ; caused by : Data arriving from an external
@@ -297,17 +325,17 @@
 
 (define (handle-uart-int port)
  (let* ((cpu-port (COM-PORT->CPU-PORT port))
-        (iir (inb (+ cpu-port UART-8250-IIR)))
+        (iir (inb (fx+ cpu-port UART-8250-IIR)))
         (cause (UART-IIR-GET-CAUSE iir)))
   (uart-handle-cause cpu-port cause)))
 
 
 (define (uart-do-init port)
   (let* ((cpu-port (COM-PORT->CPU-PORT port))
-         (ier-reg (+ cpu-port UART-8250-IER))
-         (iir-reg (+ cpu-port UART-8250-IIR))
-         (mcr-reg (+ cpu-port UART-8250-MCR))
-         (lcr-reg (+ cpu-port UART-8250-LCR))
+         (ier-reg (fx+ cpu-port UART-8250-IER))
+         (iir-reg (fx+ cpu-port UART-8250-IIR))
+         (mcr-reg (fx+ cpu-port UART-8250-MCR))
+         (lcr-reg (fx+ cpu-port UART-8250-LCR))
          (port-data (get-port-data port)))
     (outb #x00 ier-reg)
     (outb #x03 lcr-reg)

@@ -20,6 +20,8 @@
 #include "thread.h"
 #include "uart.h"
 #include "bios.h"
+#include "intr.h"
+
 
 int main() {
 #ifdef BIOS_CALL_TEST
@@ -35,6 +37,13 @@ int main() {
 
 #ifdef GAMBIT_REPL
   {
+
+    term_write(cout, "Enabling UART IRQ(s)");
+    // Just in case?
+    ENABLE_IRQ(3);
+    ENABLE_IRQ(4);
+
+
     term_write(cout, "MIMOSA V.1.0.0\n");
     native_string file_name = "/dsk1/gambit/bin/gsc.exe";
 
