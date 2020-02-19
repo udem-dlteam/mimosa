@@ -106,11 +106,13 @@
 ;;;                    INIT SYS 
 ;;;----------------------------------------------------
 
+(define int-condvar (make-condition-variable))
 (map (lambda (n) (uart-do-init (+ n 1))) (iota 4))
 
 ;;;----------------------------------------------------
 ;;;                 INTERRUPT HANDLING 
 ;;;----------------------------------------------------
+
 
 (define (fact n) (if (= n 1)
                      1
@@ -127,7 +129,8 @@
                         (read-iu8 #f (+ SHARED-MEMORY-AREA 2 n)))
                       (iota arr-len))))
     (let ((packed (list int-no params)))
-      (push packed unhandled-interrupts))))
+      (push packed unhandled-interrupts))
+    (condition-variable-signal! int-condvar))) ; Wake int handler
 
 ;;;----------------------------------------------------
 ;;;                  INTERRUPT WIRING 
@@ -149,6 +152,10 @@
           (exec)))
       ; Spin loop for now? Probably gonna be worth
       ; using thread mecanisms
-      (exec)))
+      (begin
+        (debug-write "Unlock on condvar")
+        (mutex-unlock! int-condvar)
+        (debug-write "Condvar unlocked")
+        (exec))))
 
 (thread-start! (make-thread exec "int execution g-tread"))
