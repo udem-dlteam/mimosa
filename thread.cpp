@@ -480,9 +480,7 @@ void virtual_program_thread_run(thread* sself) {
     program_thread* self = CAST(program_thread*, sself);
     term_write(cout, "Running program thread");
     term_writeline(cout);
-    // -:dar for debug all thread, but there was a 'c' and I dont know what it does.
-    // Added the a for 'all_thread', well see what happens
-    static char* argv[] = {"app", "-:dac,t4,search=~~lib,search=~~userlib", NULL};
+    static char* argv[] = {"app", "-:darc,t4,search=~~lib,search=~~userlib", NULL};
     //static char* argv[] = {"app", "-:t1,f1,-1,search=~~lib,search=~~userlib", NULL};
     int argc = sizeof(argv) / sizeof(argv[0]) - 1;
     static char* env[] = {NULL};
