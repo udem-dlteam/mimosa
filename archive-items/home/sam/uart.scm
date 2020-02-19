@@ -1,9 +1,7 @@
 ;; The mimosa project
 ;; UART driver
-; 
 ; Source for writing 8250 UART drivers can be found at
 ; https://en.wikibooks.org/wiki/Serial-Programming/8250-UART-Programming
-;  
 (define DEFAULT-BAUD-RATE 115200)
 
 (define UART-BUF-SIZE 255)
@@ -103,12 +101,10 @@
 (define (UART-MSR-TRAILING-EDGE-RING-INDICATOR x) (fxand x UART-8250-MSR-TERI))
 (define (UART-MSR-DELTA-DATA-SET-READY x) (fxand x UART-8250-MSR-DDSR))
 (define (UART-MSR-DELTA-CLEAR-TO-SEND x) (fxand x UART-8250-MSR-DCTS))
-
 (define (UART-IIR-PENDING x) (fxnot (fxand x (fxarithmetic-shift 1 0))))
 (define (UART-IIR-IS-64-BIT-FIFO x) (fxand x (fxarithmetic-shift 1 5)))
 (define (UART-IIR-GET-CAUSE x) (fxarithmetic-shift-right (fxand x #xE) 1))
 (define (UART-IIR-GET-FIFO-STATE x) (fxarithmetic-shift-right (fxand x #xC0) 6))
-
 (define (UART-THR-GET-ACTION x) (fxand x UART-8250-LSR-THRE))
 
 ; Interrupt Identification Register (IIR) interrupt cause
@@ -146,16 +142,16 @@
 (define UART-PORT-READER-THREAD 5)
 
 (define-type uart-struct
- com-port
- opened?
- write-queue
- here-pipe
- there-pipe)
+             com-port
+             opened?
+             write-queue
+             here-pipe
+             there-pipe)
  
 (define (##make-port n)
   ; Port datastructure arrangement: see previous definition
   (let-values (((uart-input uart-output) (open-string-pipe (list permanent-close: #f buffering: #f))))
-   (make-uart-struct n #f (make UART-BUF-SIZE) uart-input uart-output)))
+    (make-uart-struct n #f (make UART-BUF-SIZE) uart-input uart-output)))
 
 (define uart-struct-vect (vector (##make-port 1)
                           (##make-port 2)
@@ -311,8 +307,7 @@
          (e (inb lsr-reg)))
     (cond ((UART-LSR-DATA-AVAILABLE e)
            (uart-read-rhr cpu-port))
-          (else
-            e))))
+          (else e))))
 
 (define (uart-handle-cause cpu-port cause)
   (begin
@@ -363,15 +358,15 @@
          (cause (UART-IIR-GET-CAUSE iir)))
     (uart-handle-cause cpu-port cause)))
 
-(define (make-reader-thread-body com-port endpoint)
+(define (make-pump-thread-body com-port endpoint)
   (lambda ()
     (let loop ()
       (let ((to-write (read-char endpoint)))
         (uart-write com-port to-write)
         (loop)))))
 
-(define (make-reader-thread com-port endpoint)
- (let ((body (make-reader-thread-body com-port endpoint))
+(define (make-pump-thread com-port endpoint)
+ (let ((body (make-pump-thread-body com-port endpoint))
        (name (string-append "UART pump thread " (number->string com-port))))
   (make-thread body name)))
 
@@ -409,10 +404,9 @@
          (mcr-reg (fx+ cpu-port UART-8250-MCR))
          (lcr-reg (fx+ cpu-port UART-8250-LCR))
          (port-data (get-port-data port))
-         ; Get the endpoint of the UART port and read that
          (endpoint (port-data-get-endpoint port-data))
          (repl-endpoint (port-data-get-repl-endpoint port-data))
-         (reader-thread (make-reader-thread port endpoint))
+         (pump-thread (make-pump-thread port endpoint))
          (repl-thread (make-repl-thread port repl-endpoint)))
     (outb #x00 ier-reg)
     (outb #x03 lcr-reg)
@@ -420,9 +414,9 @@
     (outb #x0F ier-reg)
     (outb #x8E iir-reg)
     (outb #x08 mcr-reg)
-    ; Make reader thread
     (enable-irq (COM-PORT->IRQ-NO port))
-    (thread-start! reader-thread)
+    ; Start the pump thread before the repl thread
+    (thread-start! pump-thread)
     (thread-start! repl-thread)))
 
 (define (uart-init-port port)
