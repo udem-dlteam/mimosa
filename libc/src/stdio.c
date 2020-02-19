@@ -178,7 +178,6 @@ size_t REDIRECT_NAME(fwrite)(const void *__restrict __ptr, size_t __size,
           }
       }
   } else {
-      debug_write("Calling fwrite from Gambit");
       error_code err;
       file *f = __stream->f;
 
@@ -266,7 +265,6 @@ int REDIRECT_NAME(fseek)(FILE *__restrict __stream, long __off, int __whence) {
 
 #ifdef USE_HOST_LIBC
 
-  debug_write("Gambit calling FSEEK");
   return fseek(__stream, __off, __whence);
 
 #else
