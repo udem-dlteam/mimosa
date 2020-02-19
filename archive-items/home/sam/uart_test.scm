@@ -16,3 +16,8 @@
   (let ((idx (map ++ (iota 4))))
     (map (lambda (i)
            (identify-material i)) idx)))
+
+(define (test-reader-thread com-port chr)
+ (let* ((port-data (get-port-data com-port))
+        (uart-endpoint (port-data-get-repl-endpoint port-data)))
+  (write-char chr uart-endpoint)))
