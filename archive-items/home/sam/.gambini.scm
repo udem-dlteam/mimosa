@@ -129,11 +129,11 @@
          (params (map (lambda (n)
                         (read-iu8 #f (+ SHARED-MEMORY-AREA 2 n)))
                       (iota arr-len))))
-    (mutex-lock! int-mutex)
+    ; (mutex-lock! int-mutex)
     (let ((packed (list int-no params)))
-      (push packed unhandled-interrupts))
-    (condition-variable-signal! int-condvar)
-    (mutex-unlock! int-mutex)))
+      (push packed unhandled-interrupts))))
+    ; (condition-variable-signal! int-condvar)
+    ; (mutex-unlock! int-mutex)))
 
 ;;;----------------------------------------------------
 ;;;                  INTERRUPT WIRING 
@@ -157,9 +157,13 @@
         ; Spin loop for now? Probably gonna be worth
         ; using thread mecanisms
         (begin
-          (debug-write "Unlock on condvar")
-          (mutex-unlock! int-mutex int-condvar) ;; This is the wait
-          (debug-write "Condvar unlocked")
+          ; (mutex-lock! int-mutex)
+          ; (debug-write "Unlock on condvar")
+          ; (mutex-unlock! int-mutex int-condvar) ;; This is the wait
+          ; (debug-write "Condvar unlocked")
           (exec)))))
 
 (thread-start! (make-thread exec "int execution g-tread"))
+
+
+(load "uart_test.scm")
