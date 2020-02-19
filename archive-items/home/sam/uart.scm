@@ -132,18 +132,23 @@
 (define COM-PORT-STATUS-WRITE-READY (fxarithmetic-shift 1 6))
 (define COM-PORT-STATUS-RESERVED1 (fxarithmetic-shift 1 7))
 
-  ; 0 : the COM port number
+; 0 : the COM port number
 (define UART-PORT-DATA-COM-IDX 0)
-  ; 1 : if the port is opened 
-(define UART-PORT-DATA-STT-0)
-  ; 2 : the write queue (goes out)
+; 1 : if the port is opened 
+(define UART-PORT-DATA-STT 1)
+; 2 : the write queue (goes out)
 (define UART-PORT-DATA-WRITE-Q-IDX 2)
-  ; 3 : the read queue (comes in)
-(define UART-PORT-DATA-READ-Q-COM-IDX 3)
+; 3: The endpoint of the pipe that the uart manages
+(define UART-PORT-DATA-UART-ENDPOINT 3)
+; 4: Then endpoint of the pipe that goes to a REPL
+(define UART-PORT-DATA-REPL-ENDPOINT 4)
+; 5: The reader thread of the uart endpoint
+(define UART-PORT-READER-THREAD 5)
 
 (define (##make-port n)
   ; Port datastructure arrangement: see previous definition
-  (vector n #f (make UART-BUF-SIZE) (make UART-BUF-SIZE)))
+  (let-values (((uart-input uart-output) (open-string-pipe (list permanent-close: #f buffering: #f))))
+               (vector n #f (make UART-BUF-SIZE) uart-input uart-output (list))))
 
 (define port-data (vector (##make-port 1)
                           (##make-port 2)
@@ -159,6 +164,14 @@
 (define (port-data-get-com-port port-data)
  (vector-ref port-data 0))
 
+; The endpoint for the UART
+(define (port-data-get-endpoint port-data)
+ (vector-ref port-data UART-PORT-DATA-UART-ENDPOINT))
+
+; The endpoint for the REPL
+(define (port-data-get-repl-endpoint port-data)
+ (vector-ref port-data UART-PORT-DATA-REPL-ENDPOINT))
+
 ; ---------------------------------------------
 ;                 IN PORT 
 ; ---------------------------------------------
@@ -166,9 +179,6 @@
 ; Check if the uart port has been opened
 (define (uart-opened? port-data)
  (vector-ref port-data 1))
-
-; Pop a character from the in buffer or #f if empty
-; TODO!
 
 ; ---------------------------------------------
 ;                 OUT PORT 
@@ -186,10 +196,16 @@
         (lsr-reg (fx+ com-port UART-8250-LSR))
         (action (inb lsr-reg)))
   (if (UART-THR-GET-ACTION action)
-   (let ((thr-reg (fx+ cpu-port UART-8250-THR)))
-     (outb char thr-reg))
-   (let ((port-data (get-port-data com-port)))
-     (push char (vector-ref port-data UART-PORT-DATA-WRITE-Q-IDX))))))
+   (begin
+    (debug-write "Writing out")
+    ; Write directly out
+    (let ((thr-reg (fx+ cpu-port UART-8250-THR)))
+      (outb char thr-reg)))
+   ; Push into the queue to be pushed later
+   (begin
+    (debug-write "Putting in Q")
+    (let ((port-data (get-port-data com-port)))
+      (push char (vector-ref port-data UART-PORT-DATA-WRITE-Q-IDX)))))))
 
 ; ---------------------------------------------
 
@@ -256,9 +272,12 @@
 
 
 (define (uart-read-rhr cpu-port)
- (let* ((data (inb (fx+ cpu-port UART-8250-RHR))))
-  (debug-write "RHR")
-  (write-char-stdin (integer->char data))))
+  (let* ((data (inb (fx+ cpu-port UART-8250-RHR)))
+         (cpu-port (CPU-PORT->COM-PORT cpu-port))
+         (port-data (get-port-data cpu-port))
+         (endpoint (port-data-get-endpoint port-data)))
+   (debug-write (string (integer->char data)))))
+    ; (write (integer->char data) endpoint))) ;; Write to the endpoint
 
 ; Check if a device is connected on the uart port
 (define (uart-device-connected? com-port)
@@ -345,6 +364,20 @@
          (cause (UART-IIR-GET-CAUSE iir)))
     (uart-handle-cause cpu-port cause)))
 
+(define (make-reader-thread-body com-port endpoint)
+  (lambda ()
+    (let loop ()
+      ; (debug-write (string-append (thread-name (current-thread)) " RUN"))
+      (let ((to_write (read-char endpoint)))
+        (debug-write (string to_write))
+        (uart-write com-port to_write)
+        (loop)))))
+
+(define (make-reader-thread com-port endpoint)
+ (let ((body (make-reader-thread-body com-port endpoint))
+       (name (string-append "UART reader thread " (number->string com-port))))
+  (make-thread body name)))
+
 ; Perform the init sequence on a UART port
 (define (uart-do-init port)
   (let* ((cpu-port (COM-PORT->CPU-PORT port))
@@ -352,14 +385,19 @@
          (iir-reg (fx+ cpu-port UART-8250-IIR))
          (mcr-reg (fx+ cpu-port UART-8250-MCR))
          (lcr-reg (fx+ cpu-port UART-8250-LCR))
-         (port-data (get-port-data port)))
+         (port-data (get-port-data port))
+         ; Get the endpoint of the UART port and read that
+         (endpoint (port-data-get-endpoint port-data))
+         (reader-thread (make-reader-thread port endpoint)))
     (outb #x00 ier-reg)
     (outb #x03 lcr-reg)
     (uart-set-baud port DEFAULT-BAUD-RATE)
     (outb #x0F ier-reg)
     (outb #x8E iir-reg)
     (outb #x08 mcr-reg)
-    (enable-irq (COM-PORT->IRQ-NO port))))
+    ; Make reader thread
+    (enable-irq (COM-PORT->IRQ-NO port))
+    (thread-start! reader-thread)))
     
 
 (define (uart-init-port port)
