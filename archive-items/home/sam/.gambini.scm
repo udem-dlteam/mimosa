@@ -108,6 +108,7 @@
 
 (define int-mutex (make-mutex))
 (define int-condvar (make-condition-variable))
+
 (map (lambda (n) (uart-do-init (+ n 1))) (iota 4))
 
 ;;;----------------------------------------------------
