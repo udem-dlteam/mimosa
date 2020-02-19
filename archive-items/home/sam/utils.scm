@@ -41,3 +41,12 @@
     (+ k n)))
 
 (define ++ (incn 1))
+
+(define CURRENT-THREAD-CHANNELS-ADDR 28)
+
+; Set the channels on the thread's current repl
+; it takes three channels (in, out, err)
+(define (gambit-set-repl-channels! chan1 chan2 chan3)
+  (##vector-set! (current-thread) CURRENT-THREAD-CHANNELS-ADDR 
+   (##make-repl-channel-ports endpoint endpoint endpoint)))
+

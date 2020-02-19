@@ -387,8 +387,7 @@
 (define (make-repl-thread-body com-port endpoint)
   (lambda ()
     (begin
-      ;; TODO: big hack
-      (##vector-set! (current-thread) 28 (##make-repl-channel-ports endpoint endpoint endpoint))
+      (gambit-set-repl-channels! endpoint endpoint endpoint) 
       (##repl-debug-main))))
 
 (define (make-repl-thread com-port repl-endpoint)
