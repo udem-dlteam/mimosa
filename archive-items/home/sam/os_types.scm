@@ -9,7 +9,7 @@
  (outb char DEBUG-WRITE-PORT))
 
 (define (debug-write str)
-  (let ((str (string-append "[SCM] " str)))
+  (let ((str (string-append "[SCM] " str "\n")))
     (begin
       (map (lambda (c)
              (if (char? c)

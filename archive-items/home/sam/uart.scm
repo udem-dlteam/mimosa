@@ -1,5 +1,9 @@
 ;; The mimosa project
 ;; UART driver
+; 
+; Source for writing 8250 UART drivers can be found at
+; https://en.wikibooks.org/wiki/Serial_Programming/8250_UART_Programming
+;  
 (define DEFAULT-BAUD-RATE 115200)
 
 (define UART-BUF-SIZE 255)
@@ -253,13 +257,24 @@
 
 (define (uart-read-rhr cpu-port)
  (let* ((data (inb (fx+ cpu-port UART-8250-RHR))))
+  (debug-write "RHR")
   (write-char-stdin (integer->char data))))
+
+; Check if a device is connected on the uart port
+(define (uart-device-connected? com-port)
+ (let* ((cpu-port (COM-PORT->CPU-PORT com-port))
+        (msr-reg (fx+ cpu-port UART-8250-MSR))
+        (msr-val (inb msr-reg)))
+  (fx>= (UART-MSR-CARRIER-DETECT msr-val) 0)))
 
 (define (uart-read-msr cpu-port)
  (let ((msr-reg (fx+ cpu-port UART-8250-MSR)))
+  (debug-write "MSR message")
   (inb msr-reg)))
 
 (define (uart-handle-thr cpu-port)
+ (begin
+  (debug-write "THR message")
   (if (UART-THR-GET-ACTION (inb (fx+ cpu-port UART-8250-LSR)))
       ; We can write to THR
       (let* ((com-port (CPU-PORT->COM-PORT cpu-port))
@@ -270,11 +285,12 @@
             (outb next-char thr-reg)
             #f))
       ; read from IIR
-      #f))
+      #f)))
 
 (define (uart-read-lsr cpu-port)
   (let* ((lsr-reg (fx+ cpu-port UART-8250-LSR))
          (e (inb lsr-reg)))
+    (debug-write "LSR")
     (cond ((UART-LSR-DATA-AVAILABLE e)
            (uart-read-rhr cpu-port))
           (else
@@ -343,8 +359,7 @@
     (outb #x0F ier-reg)
     (outb #x8E iir-reg)
     (outb #x08 mcr-reg)
-    (enable-irq (COM-PORT->IRQ-NO port))
-    (open-port! port-data)))
+    (enable-irq (COM-PORT->IRQ-NO port))))
     
 
 (define (uart-init-port port)
