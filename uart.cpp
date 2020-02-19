@@ -37,37 +37,33 @@ void irq3() {
   }
 }
 
-
-void show_debug(uint8 iir) {
-    uint8 cause = UART_IIR_GET_CAUSE(iir);
-    switch (cause) {
-        case UART_IIR_MODEM:
-            debug_write("UART_IIR_MODEM");
-            break;
-        case UART_IIR_TRANSMITTER_HOLDING_REG:
-            debug_write("UART_IIR_TRANSMITTER_HOLDING_REG");
-            break;
-        case UART_IIR_RCV_LINE:
-            debug_write("UART_IIR_RCV_LINE");
-            break;
-        case UART_IIR_DATA_AVAIL:
-            debug_write("UART_IIR_DATA_AVAIL");
-            break;
-        case UART_IIR_TIMEOUT:
-            debug_write("UART_IIR_TIMEOUT");
-            break;
-        default:
-            debug_write("Illegal UART interrupt cause");
-            break;
-    }
-}
+/* void show_debug(uint8 iir) { */
+/*     uint8 cause = UART_IIR_GET_CAUSE(iir); */
+/*     switch (cause) { */
+/*         case UART_IIR_MODEM: */
+/*             debug_write("UART_IIR_MODEM"); */
+/*             break; */
+/*         case UART_IIR_TRANSMITTER_HOLDING_REG: */
+/*             debug_write("UART_IIR_TRANSMITTER_HOLDING_REG"); */
+/*             break; */
+/*         case UART_IIR_RCV_LINE: */
+/*             debug_write("UART_IIR_RCV_LINE"); */
+/*             break; */
+/*         case UART_IIR_DATA_AVAIL: */
+/*             debug_write("UART_IIR_DATA_AVAIL"); */
+/*             break; */
+/*         case UART_IIR_TIMEOUT: */
+/*             debug_write("UART_IIR_TIMEOUT"); */
+/*             break; */
+/*         default: */
+/*             debug_write("Illegal UART interrupt cause"); */
+/*             break; */
+/*     } */
+/* } */
 
 void irq4() {
     ASSERT_INTERRUPTS_DISABLED();
     ACKNOWLEDGE_IRQ(4);
-
-    // Interrupt 4 handles COM 1 and COM 3
-    debug_write("\033[41m irq4 UART \033[0m");
 
     uint8 com1_iir = inb(COM1_PORT_BASE + UART_8250_IIR);
     uint8 com3_iir = inb(COM3_PORT_BASE + UART_8250_IIR);
@@ -76,12 +72,6 @@ void irq4() {
 
     if (UART_IIR_PENDING(com1_iir)) {
         caught_something = TRUE;
-
-#ifdef SHOW_UART_MESSAGES
-
-        show_debug(com1_iir);
-
-#endif
         uint8 params[2] = {1, com1_iir};
         send_gambit_int(GAMBIT_UART_INT, params, 2);
     }
