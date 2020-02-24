@@ -1,9 +1,9 @@
 ;; The mimosa project
 ;; Ide controller base code
 
-(define IDE-DEVICE-ABSENT 0)
-(define IDE-DEVICE-ATA    1)
-(define IDE-DEVICE-ATAPI  2)
+(define IDE-DEVICE-ABSENT 'IDE-DEVICE-ABSENT)
+(define IDE-DEVICE-ATA    'IDE-DEVICE-ATA)
+(define IDE-DEVICE-ATAPI  'IDE-DEVICE-ATAPI)
 
 (define IDE-CONTROLLERS 4)
 (define IDE-DEVICES-PER-CONTROLLER 2)
@@ -91,6 +91,12 @@
 (define IDE-CTRL-3 #x168)
 (define IDE-IRQ-3 10)
 
+(define (not-absent? status)
+ (let ((mask (fxior IDE-STATUS-BSY IDE-STATUS-RDY  IDE-STATUS-DF 
+                    IDE-STATUS-DSC  IDE-STATUS-DRQ)))
+  (not (fx= (fxand status mask) mask)))) 
+
+
 (define IDE-CTRL-VECT (vector (vector IDE-CTRL-0 IDE-IRQ-0)
                               (vector IDE-CTRL-1 IDE-IRQ-1)
                               (vector IDE-CTRL-2 IDE-IRQ-2)
@@ -116,17 +122,59 @@
              commands ; probably not necessary anymore
              commands-convdar)
 
+(define (ide-delay cpu-port)
+  (for-each (lambda (n)
+             ; We read the alternative status reg.
+             ; it doesnt erase it, and is the recommanded way of 
+             ; waiting on an ide device
+              (inb (fx+ cpu-port IDE-ALT-STATUS-REG)))
+            (iota 4)))
+
 (define (handle-ide-int ide-id)
  (debug-write (string-append "IDE int no " (number->string ide-id))))
 
+
+; Make a lambda to detect if a device is present on the ide
+; controller whoses CPU port is the cpu-port in parameters
+(define (ide-make-device-detection-lambda cpu-port)
+(lambda (dev-no)
+ (debug-write dev-no)
+ (let* ((device-reg (fx+ cpu-port IDE-DEV-HEAD-REG)))
+  ; Send detection info
+  (outb (fxior IDE-DEV-HEAD-IBM (IDE-DEV-HEAD-DEV dev-no)) device-reg)
+  (ide-delay cpu-port)
+  (let* ((status (inb (fx+ cpu-port IDE-STATUS-REG))))
+   (if (not-absent? status)
+    IDE-DEVICE-ATAPI
+    IDE-DEVICE-ABSENT)))))
+
+(define (ide-reset-controller cpu-port)
+ (display "RESET CONTROLLER"))
+
+
+; Setup an ide cotroller
 (define (ide-setup-controller no)
- (begin
- (debug-write (string-append "Setup controller " (number->string no)))
- (let* ((ctrl-info (vector-ref IDE-CTRL-VECT id))
-        (cpu-port (vector-ref ctrl-info 0))
-        (irq (vector-ref ctrl-info 1)))
-  (debug-write cpu-port)
-  (debug-write irq))))
+  (begin
+    (debug-write (string-append "Setup controller " (number->string no)))
+    (let* ((ctrl-info (vector-ref IDE-CTRL-VECT no))
+           (cpu-port (vector-ref ctrl-info 0))
+           (irq (vector-ref ctrl-info 1)))
+      (debug-write cpu-port)
+      (debug-write irq)
+      (debug-write "Detecting devices for this ide controller")
+      (let* ((ide-detect-device (ide-make-device-detection-lambda cpu-port))
+             (devices (map ide-detect-device (iota IDE-DEVICES-PER-CONTROLLER))))
+        (if (> (apply + (map (lambda (dev-status)
+                         (if (eq? dev-status IDE-DEVICE-ABSENT)
+                             0
+                             1))
+                       devices)) 0)
+         (begin
+           (ide-reset-controller cpu-port))
+         ; Nothing to do
+         #f)))))
+
+                
 
 
 (define (ide-setup)
