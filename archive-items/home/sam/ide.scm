@@ -91,16 +91,24 @@
 (define IDE-CTRL-3 #x168)
 (define IDE-IRQ-3 10)
 
+(define IDE-CONTROLLER-PORTS (list
+                               IDE-CTRL-0
+                               IDE-CTRL-1
+                               IDE-CTRL-2
+                               IDE-CTRL-3))
+
+(define IDE-CONTROLLER-IRQS (list
+                              IDE-IRQ-0
+                              IDE-IRQ-1
+                              IDE-IRQ-2
+                              IDE-IRQ-3
+                              ))
+
 (define (not-absent? status)
  (let ((mask (fxior IDE-STATUS-BSY IDE-STATUS-RDY  IDE-STATUS-DF 
                     IDE-STATUS-DSC  IDE-STATUS-DRQ)))
   (not (fx= (fxand status mask) mask)))) 
 
-
-(define IDE-CTRL-VECT (vector (vector IDE-CTRL-0 IDE-IRQ-0)
-                              (vector IDE-CTRL-1 IDE-IRQ-1)
-                              (vector IDE-CTRL-2 IDE-IRQ-2)
-                              (vector IDE-CTRL-3 IDE-IRQ-3)))
 
 (define-type ide-device
              id
@@ -118,9 +126,41 @@
 
 (define-type ide-controller
              controller-id
+             cpu-port
+             irq
              devices 
-             commands ; probably not necessary anymore
+             ; probably not necessary anymore commands
              commands-convdar)
+
+(define (ide-init-devices)
+ (make-list IDE-DEVICES-PER-CONTROLLER IDE-DEVICE-ABSENT))
+
+; Init the devices struct
+(define (ide-init-controllers)
+  (list->vector (map (lambda (i)
+                       (make-ide-controller
+                         i ; the id
+                         (list-ref IDE-CONTROLLER-PORTS i) ; the cpu-port
+                         (list-ref IDE-CONTROLLER-IRQS i) ; the irq
+                         (ide-init-devices)
+                         (make-condition-variable))) (iota IDE-CONTROLLERS))))
+
+; Set the device of the ide controller to the specified device
+(define (ide-controller-set-device controller dev-no device)
+ (let* ((dev-list (ide-controller-devices controller)))
+   (list-set! dev-list dev-no device)))
+
+; Execute `cont` on the device `dev-no` of the controller
+; if there is such a device. `cont` must be a lambda that 
+; accepts the device has a first parameter
+(define (ide-controller-if-device? controller dev-no cont)
+  (let* ((ctrls-devices (ide-controller-devices controller))
+         (wanted-device (list-ref ctrls-devices dev-no)))
+    (if (not (symbol? wanted-device))
+        (cont wanted-device)
+        #f)))
+
+(define IDE-CTRL-VECT (ide-init-controllers))
 
 (define (ide-delay cpu-port)
   (for-each (lambda (n)
@@ -145,11 +185,12 @@
  (debug-write (string-append "IDE int no " (number->string ide-id))))
 
 
-(define (ide-make-device-setup-lambda cpu-port devices)
+(define (ide-make-device-setup-lambda controller devices)
   (lambda (dev-no)
     ; Why is this necessarry???!
     (display "Setting up device")
-    (let ((head-reg (fx+ cpu-port IDE-DEV-HEAD-REG))
+    (let* ((cpu-port (ide-controller-cpu-port controller))
+          (head-reg (fx+ cpu-port IDE-DEV-HEAD-REG))
           (cmd-reg (fx+ cpu-port IDE-COMMAND-REG))
           (stt-reg (fx+ cpu-port IDE-STATUS-REG))
           (data-reg (fx+ cpu-port IDE-DATA-REG))
@@ -173,23 +214,45 @@
             ; Device is not absent, we can continue the work
             (if (> err 0)
                 (begin
-                  (debug-write "!DEVICE DISSAPEARED")
+                  (debug-write "!DEVICE DISSAPEARED"); this is log
                   (list-set! devices dev-no IDE-DEVICE-ABSENT))
                 (let* ((info-sz (fxarithmetic-shift 1 (- IDE-LOG2-SECTOR-SIZE 1)))
-                       (id-vect (build-vector info-sz (lambda (idx) (inw data-reg)))))
-
-
-
-
-
-                  (display (swap-and-trim id-vect 10 20))
-                  (newline)
-                  (display (swap-and-trim id-vect 23 8))
-                  (newline)
-                  (display (swap-and-trim id-vect 27 40))
-                  (newline)
-                  )))))))
-    ; (debug-write (string-append "Setting up device" (number->string dev-no)))))
+                       (id-vect (build-vector info-sz (lambda (idx) (inw data-reg))))
+                       (serial-num (swap-and-trim id-vect 10 20))
+                       (firmware-rev (swap-and-trim id-vect 23 8))
+                       (model-num (swap-and-trim id-vect 27 40))
+                       (has-extended (fx> (fxand (vector-ref id-vect 53) 1) 0))
+                       (cyl-per-dsk (if has-extended
+                                        (vector-ref id-vect 54)
+                                        (vector-ref id-vect 1)))
+                       (heads-per-cyl (if has-extended
+                                          (vector-ref id-vect 55)
+                                          (vector-ref id-vect 3)))
+                       (sect-per-trk (if has-extended 
+                                         (vector-ref id-vect 56)
+                                         (vector-ref id-vect 6)))
+                       (total-sectors (if (not has-extended)
+                                          (fx+ 
+                                            (fxarithmetic-shift (vector-ref id-vect 61) 16)
+                                            (vector-ref id-vect 60))
+                                          0))
+                       (total-sectors-chs (if has-extended
+                                              (fx+ 
+                                                (fxarithmetic-shift (vector-ref id-vect 58) 16)
+                                                (vector-ref id-vect 57)) 0))
+                       (device (make-ide-device
+                                 dev-no
+                                 (list-ref devices dev-no)
+                                 NULL
+                                 serial-num
+                                 firmware-rev
+                                 model-num
+                                 cyl-per-dsk
+                                 heads-per-cyl
+                                 sect-per-trk
+                                 total-sectors-chs
+                                 total-sectors)))
+                (ide-controller-set-device controller dev-no device))))))))
 
 ; Make a lambda to detect if a device is present on the ide
 ; controller whoses CPU port is the cpu-port in parameters
@@ -225,8 +288,9 @@
         #f)))
    
 
-(define (ide-reset-controller devices statuses cpu-port candidates)
-  (let* ((head-reg (fx+ cpu-port IDE-DEV-HEAD-REG))
+(define (ide-reset-controller controller devices statuses candidates)
+  (let* ((cpu-port (ide-controller-cpu-port controller))
+         (head-reg (fx+ cpu-port IDE-DEV-HEAD-REG))
          (ctrl-reg (fx+ cpu-port IDE-DEV-CTRL-REG))
          (stt-reg (fx+ cpu-port IDE-STATUS-REG))
          (err-reg (fx+ cpu-port IDE-ERROR-REG))
@@ -292,22 +356,20 @@
                                           (not (fx= #xA5 (inb cyl-lo-reg))))
                                       (list-set! devices dev IDE-DEVICE-ABSENT)))))))
                     (iota IDE-DEVICES-PER-CONTROLLER))))
-    (let ((setup-device (ide-make-device-setup-lambda cpu-port devices)))
-      (for-each setup-device (iota IDE-DEVICES-PER-CONTROLLER)))
-
+    (let ((setup-device (ide-make-device-setup-lambda controller devices)))
+      (for-each setup-device (iota IDE-DEVICES-PER-CONTROLLER))
+      (for-each (lambda (dev-no)
+                  (ide-controller-if-device? controller dev-no display) 
+                 ) (iota IDE-DEVICES-PER-CONTROLLER)))
     (debug-write "Done configuring devices")))
-
 
 ; Setup an ide controller
 (define (ide-setup-controller no)
   (begin
     (debug-write (string-append "Setup controller " (number->string no)))
-    (let* ((ctrl-info (vector-ref IDE-CTRL-VECT no))
-           (cpu-port (vector-ref ctrl-info 0))
-           (irq (vector-ref ctrl-info 1)))
-      (debug-write cpu-port)
-      (debug-write irq)
-      (debug-write "Detecting devices for this ide controller")
+    (let* ((controller (vector-ref IDE-CTRL-VECT no))
+           (cpu-port (ide-controller-cpu-port controller))
+           (irq (ide-controller-irq controller)))
       (let* ((statuses (make-vector IDE-DEVICES-PER-CONTROLLER 0))
              (ide-detect-device (ide-make-device-detection-lambda no statuses cpu-port))
              (devices (map ide-detect-device (iota IDE-DEVICES-PER-CONTROLLER)))
@@ -317,12 +379,8 @@
                                              1))
                                        devices))))
         (if (> candidates 0)
-         (begin
-           (debug-write "RESET CALL")
-           (ide-reset-controller devices statuses cpu-port candidates))
-         (begin
-           (debug-write "No candidates")
-           #f))))))
+            (ide-reset-controller controller devices statuses candidates)
+            #f)))))
 
                 
 (define (ide-setup)

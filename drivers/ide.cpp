@@ -346,19 +346,14 @@ static void setup_ide_device(ide_controller* ctrl, ide_device* dev, uint8 id) {
     return;
   }
 
-  debug_write("ARR");
   for (i = 0; i < (1 << (IDE_LOG2_SECTOR_SIZE - 1)); i++) {
     ident[i] = inw(base + IDE_DATA_REG);
-    debug_write(ident[i]);
   }
 
   swap_and_trim(dev->serial_num, ident + 10, 20);
   swap_and_trim(dev->firmware_rev, ident + 23, 8);
   swap_and_trim(dev->model_num, ident + 27, 40);
 
-  debug_write(dev->serial_num);
-  debug_write(dev->firmware_rev);
-  debug_write(dev->model_num);
 
   dev->cylinders_per_disk = 0;
   dev->heads_per_cylinder = 0;
@@ -367,21 +362,38 @@ static void setup_ide_device(ide_controller* ctrl, ide_device* dev, uint8 id) {
   dev->total_sectors = 0;
 
   if (dev->kind == IDE_DEVICE_ATA) {
-    dev->cylinders_per_disk = ident[1];
-    dev->heads_per_cylinder = ident[3];
-    dev->sectors_per_track = ident[6];
-    dev->total_sectors = (CAST(uint32, ident[61]) << 16) + ident[60];
+      dev->cylinders_per_disk = ident[1];
+      dev->heads_per_cylinder = ident[3];
+      dev->sectors_per_track = ident[6];
+      dev->total_sectors = (CAST(uint32, ident[61]) << 16) + ident[60];
+
+      if (ident[53] & (1 << 0)) {
+          dev->cylinders_per_disk = ident[54];
+          dev->heads_per_cylinder = ident[55];
+          dev->sectors_per_track = ident[56];
+          dev->total_sectors_when_using_CHS =
+              (CAST(uint32, ident[58]) << 16) + ident[57];
+      }
   }
 
-  if (dev->kind == IDE_DEVICE_ATA) {
-    if (ident[53] & (1 << 0)) {
-      dev->cylinders_per_disk = ident[54];
-      dev->heads_per_cylinder = ident[55];
-      dev->sectors_per_track = ident[56];
-      dev->total_sectors_when_using_CHS =
-          (CAST(uint32, ident[58]) << 16) + ident[57];
-    }
-  }
+#if 0
+  debug_write("dev->serial_num");
+  debug_write(dev->serial_num);
+  debug_write("dev->firmware_rev");
+  debug_write(dev->firmware_rev);
+  debug_write("dev->model_num");
+  debug_write(dev->model_num);
+  debug_write("dev->cylinders_per_disk");
+  debug_write(dev->cylinders_per_disk);
+  debug_write("dev->heads_per_cylinder");
+  debug_write(dev->heads_per_cylinder);
+  debug_write("dev->sectors_per_track");
+  debug_write(dev->sectors_per_track);
+  debug_write("dev->total_sectors_when_using_CHS");
+  debug_write(dev->total_sectors_when_using_CHS);
+  debug_write("dev->total_sectors");
+  debug_write(dev->total_sectors);
+#endif
 
   term_write(cout, "  word 47 hi (should be 128) = ");
   term_write(cout, (ident[47] >> 8));
