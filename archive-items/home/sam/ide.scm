@@ -231,11 +231,9 @@
                        (sect-per-trk (if has-extended 
                                          (vector-ref id-vect 56)
                                          (vector-ref id-vect 6)))
-                       (total-sectors (if (not has-extended)
-                                          (fx+ 
-                                            (fxarithmetic-shift (vector-ref id-vect 61) 16)
-                                            (vector-ref id-vect 60))
-                                          0))
+                       (total-sectors (fx+ 
+                                        (fxarithmetic-shift (vector-ref id-vect 61) 16)
+                                        (vector-ref id-vect 60)))
                        (total-sectors-chs (if has-extended
                                               (fx+ 
                                                 (fxarithmetic-shift (vector-ref id-vect 58) 16)
