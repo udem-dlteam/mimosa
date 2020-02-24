@@ -101,6 +101,7 @@
 (load "uart.scm")
 (load "keyboard.scm")
 (load "int_handle.scm")
+(load "ide.scm")
 
 ;;;----------------------------------------------------
 ;;;                    INIT SYS 
@@ -110,6 +111,7 @@
 (define int-condvar (make-condition-variable))
 
 (map (lambda (n) (uart-do-init (+ n 1))) (iota 4))
+(ide-setup)
 
 ;;;----------------------------------------------------
 ;;;                 INTERRUPT HANDLING 

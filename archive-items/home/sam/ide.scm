@@ -82,6 +82,22 @@
 (define IDE-LOG2-SECTOR-SIZE 9)
 (define MAX-NB-IDE-CMD-QUEUE-ENTRIES 1)
 
+(define IDE-CTRL-0 #x1f0)
+(define IDE-IRQ-0 14)
+(define IDE-CTRL-1 #x170)
+(define IDE-IRQ-1 15)
+(define IDE-CTRL-2 #x1e8)
+(define IDE-IRQ-2 12)
+(define IDE-CTRL-3 #x168)
+(define IDE-IRQ-3 10)
+
+(define IDE-CTRL-VECT (vector (vector IDE-CTRL-0 IDE-IRQ-0)
+                              (vector IDE-CTRL-1 IDE-IRQ-1)
+                              (vector IDE-CTRL-2 IDE-IRQ-2)
+                              (vector IDE-CTRL-3 IDE-IRQ-3)))
+
+                            
+
 (define-type ide-device
              id
              kind
