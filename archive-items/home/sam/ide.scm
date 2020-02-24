@@ -131,14 +131,15 @@
             (iota 4)))
 
 (define (swap-and-trim vect offset len)
- (let* ((idcs (iota len))
-        (extract-char (lambda (idx)
-                       (if (= 0 (% idx 2))
-                        (vector-ref vect (+ offset (fxarithmetic-shift-right idx 1)))
-                        (fxarithmetic-shift-right 
-                         (+ offset (fxarithmetic-shift-right idx 1))
-                         8)))))
-        (untrimmed (map (o integer->char extract-char) idcs))))
+  (let* ((idcs (iota len))
+         (extract-char (lambda (idx)
+                         (if (fx= 1 (fxand idx 1))
+                             (vector-ref vect (+ offset (fxarithmetic-shift-right idx 1)))
+                             (fxarithmetic-shift-right 
+                               (+ offset (fxarithmetic-shift-right idx 1))
+                               8))))
+         (untrimmed (map (o integer->char extract-char) idcs)))
+    untrimmed))
 
 (define (handle-ide-int ide-id)
  (debug-write (string-append "IDE int no " (number->string ide-id))))
@@ -146,6 +147,8 @@
 
 (define (ide-make-device-setup-lambda cpu-port devices)
   (lambda (dev-no)
+    ; Why is this necessarry???!
+    (display "Setting up device")
     (let ((head-reg (fx+ cpu-port IDE-DEV-HEAD-REG))
           (cmd-reg (fx+ cpu-port IDE-COMMAND-REG))
           (stt-reg (fx+ cpu-port IDE-STATUS-REG))
@@ -169,9 +172,13 @@
                       (wait-loop (+ j 1))))))
             ; Device is not absent, we can continue the work
             (if (> err 0)
-                (list-set! devices dev-no IDE-DEVICE-ABSENT)
+                (begin
+                 (debug-write "!DEVICE DISSAPEARED")
+                 (list-set! devices dev-no IDE-DEVICE-ABSENT))
                 (let* ((info-sz (fxarithmetic-shift 1 (- IDE-LOG2-SECTOR-SIZE 1)))
                        (id-vect (build-vector info-sz (lambda (idx) (inw data-reg)))))
+                  (display id-vect)
+                  (newline)
                   (display (swap-and-trim id-vect 10 20))
                   (newline)
                   (display (swap-and-trim id-vect 23 8))
