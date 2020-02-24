@@ -134,6 +134,10 @@
  (debug-write (string-append "IDE int no " (number->string ide-id))))
 
 
+(define (ide-make-device-setup-lambda cpu-port devices)
+  (lambda (dev-no)
+    (debug-write (string-append "Setting up device" (number->string dev-no)))))
+
 ; Make a lambda to detect if a device is present on the ide
 ; controller whoses CPU port is the cpu-port in parameters
 (define (ide-make-device-detection-lambda controller controller_statuses cpu-port)
@@ -176,39 +180,24 @@
          (cyl-lo-reg (fx+ cpu-port IDE-CYL-LO-REG))
          (cyl-hi-reg (fx+ cpu-port IDE-CYL-HI-REG))
          (short-sleep (microseconds->time 5)))
-    (debug-write "Reset IDE controller...")
     (outb (fxior IDE-DEV-HEAD-IBM (IDE-DEV-HEAD-DEV 0)) head-reg)
-    (debug-write 1)
     (ide-delay cpu-port)
-    (debug-write 2)
     (inb stt-reg)
-    (debug-write 3)
     (thread-sleep! short-sleep)
-    (debug-write 4)
     (outb IDE-DEV-CTRL-nIEN ctrl-reg)
-    (debug-write 5)
     (thread-sleep! short-sleep)
-    (debug-write 6)
     (outb (fxior IDE-DEV-CTRL-nIEN IDE-DEV-CTRL-SRST) ctrl-reg)
-    (debug-write 7)
     (thread-sleep! short-sleep)
-    (debug-write 8)
     (outb IDE-DEV-CTRL-nIEN ctrl-reg)
-    (debug-write 9)
     (thread-sleep! (milliseconds->time 1))
-    (debug-write 10)
     (inb err-reg)
-    (debug-write 11)
     (thread-sleep! short-sleep)
-    (debug-write 12)
     (for-each (lambda (j)
                 (begin
                   (if (> candidates 0)
                       (begin
                         (for-each (lambda (device-no)
                                     (let ((dev-type (list-ref devices device-no)))
-                                      (debug-write "DEV LOOP")
-                                      (debug-write candidates)
                                       ; add IDE device type
                                       (if (ide-reset-device dev-type cpu-port device-no)
                                           (begin
@@ -250,8 +239,10 @@
                                           (not (fx= #xA5 (inb cyl-lo-reg))))
                                       (list-set! devices dev IDE-DEVICE-ABSENT)))))))
                     (iota IDE-DEVICES-PER-CONTROLLER))))
-    (display devices)
-    (debug-write "Done Resetting")))
+    (let ((setup-device (ide-make-device-setup-lambda cpu-port devices)))
+      (for-each setup-device (iota IDE-DEVICES-PER-CONTROLLER)))
+
+    (debug-write "Done configuring devices")))
 
 
 ; Setup an ide controller
