@@ -77,6 +77,7 @@ int main ();
 
 #define GAMBIT_KEYBOARD_INT 0x1
 #define GAMBIT_UART_INT 0x2
+#define GAMBIT_IDE_INT 0x3
 
 uint8 send_gambit_int(uint8 int_no, uint8* params, uint8 len);
 

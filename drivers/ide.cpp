@@ -175,6 +175,8 @@ extern "C" void irq14() {
   ACKNOWLEDGE_IRQ(14);
 
   ide_irq(&ide_mod.ide[0]);
+  uint8 params[1] = {1};
+  send_gambit_int(GAMBIT_IDE_INT, params, 1);
 }
 
 #endif
@@ -189,6 +191,8 @@ extern "C" void irq15() {
   ACKNOWLEDGE_IRQ(15);
 
   ide_irq (&ide_mod.ide[1]);
+  uint8 params[1] = {1};
+  send_gambit_int(GAMBIT_IDE_INT, params, 1);
 }
 
 #endif
@@ -877,6 +881,7 @@ void setup_ide() {
   for (i = 0; i < IDE_CONTROLLERS; i++)
     setup_ide_controller(&ide_mod.ide[i], i);
 
+  /* Disk setup */
   for (i = 0; i < IDE_CONTROLLERS; i++)
     for (j = 0; j < IDE_DEVICES_PER_CONTROLLER; j++)
       if (ide_mod.ide[i].device[j].kind != IDE_DEVICE_ABSENT) {

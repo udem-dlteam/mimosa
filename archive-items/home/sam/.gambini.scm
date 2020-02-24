@@ -111,8 +111,8 @@
 (load "os_types.scm")
 (load "uart.scm")
 (load "keyboard.scm")
-(load "int_handle.scm")
 (load "ide.scm")
+(load "int_handle.scm") ; must be loaded after all drivers
 
 ;;;----------------------------------------------------
 ;;;                    INIT SYS 
@@ -121,8 +121,7 @@
 (define int-mutex (make-mutex))
 (define int-condvar (make-condition-variable))
 
-(map (lambda (n) (uart-do-init (+ n 1))) (iota 4))
-; (ide-setup)
+(for-each (o uart-do-init ++) (iota 4))
 
 ;;;----------------------------------------------------
 ;;;                 INTERRUPT HANDLING 

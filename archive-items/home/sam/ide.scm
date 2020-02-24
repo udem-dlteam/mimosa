@@ -259,8 +259,8 @@
  (debug-write "IDE device detect")
  (debug-write dev-no)
  (let* ((device-reg (fx+ cpu-port IDE-DEV-HEAD-REG)))
-  ; Send detection info
   (outb (fxior IDE-DEV-HEAD-IBM (IDE-DEV-HEAD-DEV dev-no)) device-reg)
+  ; Send detection info
   (ide-delay cpu-port)
   (let* ((status (inb (fx+ cpu-port IDE-STATUS-REG))))
    (begin
@@ -354,6 +354,7 @@
                                           (not (fx= #xA5 (inb cyl-lo-reg))))
                                       (list-set! devices dev IDE-DEVICE-ABSENT)))))))
                     (iota IDE-DEVICES-PER-CONTROLLER))))
+    ; Setup command q
     (let ((setup-device (ide-make-device-setup-lambda controller devices)))
       (for-each setup-device (iota IDE-DEVICES-PER-CONTROLLER))
       (for-each (lambda (dev-no)
