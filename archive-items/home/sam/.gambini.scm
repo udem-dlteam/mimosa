@@ -64,7 +64,7 @@
       (x86-sar   cgc (x86-edx) (x86-imm-int 2))       ; 
       (x86-mov   cgc (x86-eax) (x86-imm-int 0))
       (x86-in-dx cgc (x86-ax)) ; inw takes ax in arg
-      (x86-shl   cgc (x86-eax) (x86-imm-int 1))
+      (x86-shl   cgc (x86-eax) (x86-imm-int 2))
       (x86-ret   cgc)
       )))
 
