@@ -49,3 +49,14 @@
 (define (gambit-set-repl-channels! chan1 chan2 chan3)
   (##vector-set! (current-thread) CURRENT-THREAD-CHANNELS-ADDR 
    (##make-repl-channel-ports chan1 chan2 chan3)))
+
+(define (nanoseconds->time nsecs)
+ (let ((seconds (* nsecs 1e-9)))
+  (seconds->time seconds)))
+
+(define (microseconds->time usecs)
+ (nanoseconds->time (fx* 1000 usecs)))
+
+(define (milliseconds->time msecs)
+  (let ((seconds (/ msecs 1000)))
+    (seconds->time seconds)))
