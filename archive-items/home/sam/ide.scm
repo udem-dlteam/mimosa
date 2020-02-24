@@ -96,8 +96,6 @@
                               (vector IDE-CTRL-2 IDE-IRQ-2)
                               (vector IDE-CTRL-3 IDE-IRQ-3)))
 
-                            
-
 (define-type ide-device
              id
              kind
@@ -122,7 +120,14 @@
  (debug-write (string-append "IDE int no " (number->string ide-id))))
 
 (define (ide-setup-controller no)
- (debug-write (string-append "Setup controller " (number->string no))))
+ (begin
+ (debug-write (string-append "Setup controller " (number->string no)))
+ (let* ((ctrl-info (vector-ref IDE-CTRL-VECT id))
+        (cpu-port (vector-ref ctrl-info 0))
+        (irq (vector-ref ctrl-info 1)))
+  (debug-write cpu-port)
+  (debug-write irq))))
+
 
 (define (ide-setup)
  (begin
