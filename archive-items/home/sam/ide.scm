@@ -130,6 +130,16 @@
               (inb (fx+ cpu-port IDE-ALT-STATUS-REG)))
             (iota 4)))
 
+(define (swap-and-trim vect offset len)
+ (let* ((idcs (iota len))
+        (extract-char (lambda (idx)
+                       (if (= 0 (% idx 2))
+                        (vector-ref vect (+ offset (fxarithmetic-shift-right idx 1)))
+                        (fxarithmetic-shift-right 
+                         (+ offset (fxarithmetic-shift-right idx 1))
+                         8)))))
+        (untrimmed (map (o integer->char extract-char) idcs))))
+
 (define (handle-ide-int ide-id)
  (debug-write (string-append "IDE int no " (number->string ide-id))))
 
@@ -161,9 +171,14 @@
             (if (> err 0)
                 (list-set! devices dev-no IDE-DEVICE-ABSENT)
                 (let* ((info-sz (fxarithmetic-shift 1 (- IDE-LOG2-SECTOR-SIZE 1)))
-                       (id-vect (build-vector info-sz (lambda (idx) (inw data-reg))))
-                       )
-                  (display id-vect))))))))
+                       (id-vect (build-vector info-sz (lambda (idx) (inw data-reg)))))
+                  (display (swap-and-trim id-vect 10 20))
+                  (newline)
+                  (display (swap-and-trim id-vect 23 8))
+                  (newline)
+                  (display (swap-and-trim id-vect 27 40))
+                  (newline)
+                  )))))))
     ; (debug-write (string-append "Setting up device" (number->string dev-no)))))
 
 ; Make a lambda to detect if a device is present on the ide
