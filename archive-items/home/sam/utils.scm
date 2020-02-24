@@ -55,8 +55,8 @@
   (seconds->time seconds)))
 
 (define (microseconds->time usecs)
- (nanoseconds->time (fx* 1000 usecs)))
+ (nanoseconds->time (* 1000 usecs)))
 
 (define (milliseconds->time msecs)
-  (let ((seconds (/ msecs 1000)))
+  (let ((seconds (* msecs 1e-3)))
     (seconds->time seconds)))

@@ -136,17 +136,20 @@
 
 ; Make a lambda to detect if a device is present on the ide
 ; controller whoses CPU port is the cpu-port in parameters
-(define (ide-make-device-detection-lambda cpu-port)
+(define (ide-make-device-detection-lambda controller controller_statuses cpu-port)
 (lambda (dev-no)
+ (debug-write "IDE device detect")
  (debug-write dev-no)
  (let* ((device-reg (fx+ cpu-port IDE-DEV-HEAD-REG)))
   ; Send detection info
   (outb (fxior IDE-DEV-HEAD-IBM (IDE-DEV-HEAD-DEV dev-no)) device-reg)
   (ide-delay cpu-port)
   (let* ((status (inb (fx+ cpu-port IDE-STATUS-REG))))
-   (if (not-absent? status)
-    IDE-DEVICE-ATAPI
-    IDE-DEVICE-ABSENT)))))
+   (begin
+     (vector-set! controller_statuses dev-no status)
+     (if (not-absent? status)
+         IDE-DEVICE-ATAPI
+         IDE-DEVICE-ABSENT))))))
 
 ; Reset an ide device
 ; type: the type of the device
@@ -165,33 +168,90 @@
         #f)))
    
 
-(define (ide-reset-controller devices cpu-port candidates)
- (let* ((head-reg (fx+ cpu-port IDE-DEV-HEAD-REG))
-        (ctrl-reg (fx+ cpu-port IDE-DEV-CTRL-REG))
-        (stt-reg (fx+ cpu-port IDE-STATUS-REG))
-        (err-reg (fx+ cpu-port IDE-ERROR-REG))
-        (short-sleep (microseconds->time 5)))
-  (debug-write "Reset IDE controller...")
-  (outb (fxior IDE-DEV-HEAD-IBM (IDE-DEV-HEAD-IBM 0)) head-reg)
-  (ide-delay cpu-port)
-  (inb stt-reg)
-  (thread-sleep! short-sleep)
-  (outb IDE-DEV-CTRL-nIEN ctrl-reg)
-  (thread-sleep! short-sleep)
-  (outb (fxior IDE-DEV-CTRL-nIEN IDE-DEV-CTRL-SRST) ctrl-reg)
-  (thread-sleep! short-sleep)
-  (outb IDE-DEV-CTRL-nIEN ctrl-reg)
-  (thread-sleep! (milliseconds->time 2))
-  (inb err-reg)
-  (thread-sleep! short-sleep)
-  (for-each (lambda (j)
-              (begin
-                (for-each (lambda (device-no)
-                           ; add IDE device type
-                          ide-reset-device cpu-port device-no)
-                          (iota IDE-DEVICES-PER-CONTROLLER))
-                (thread-sleep! (milliseconds->time 1))))
-            (iota 30000))
+(define (ide-reset-controller devices statuses cpu-port candidates)
+  (let* ((head-reg (fx+ cpu-port IDE-DEV-HEAD-REG))
+         (ctrl-reg (fx+ cpu-port IDE-DEV-CTRL-REG))
+         (stt-reg (fx+ cpu-port IDE-STATUS-REG))
+         (err-reg (fx+ cpu-port IDE-ERROR-REG))
+         (cyl-lo-reg (fx+ cpu-port IDE-CYL-LO-REG))
+         (cyl-hi-reg (fx+ cpu-port IDE-CYL-HI-REG))
+         (short-sleep (microseconds->time 5)))
+    (debug-write "Reset IDE controller...")
+    (outb (fxior IDE-DEV-HEAD-IBM (IDE-DEV-HEAD-DEV 0)) head-reg)
+    (debug-write 1)
+    (ide-delay cpu-port)
+    (debug-write 2)
+    (inb stt-reg)
+    (debug-write 3)
+    (thread-sleep! short-sleep)
+    (debug-write 4)
+    (outb IDE-DEV-CTRL-nIEN ctrl-reg)
+    (debug-write 5)
+    (thread-sleep! short-sleep)
+    (debug-write 6)
+    (outb (fxior IDE-DEV-CTRL-nIEN IDE-DEV-CTRL-SRST) ctrl-reg)
+    (debug-write 7)
+    (thread-sleep! short-sleep)
+    (debug-write 8)
+    (outb IDE-DEV-CTRL-nIEN ctrl-reg)
+    (debug-write 9)
+    (thread-sleep! (milliseconds->time 1))
+    (debug-write 10)
+    (inb err-reg)
+    (debug-write 11)
+    (thread-sleep! short-sleep)
+    (debug-write 12)
+    (for-each (lambda (j)
+                (begin
+                  (if (> candidates 0)
+                      (begin
+                        (for-each (lambda (device-no)
+                                    (let ((dev-type (list-ref devices device-no)))
+                                      (debug-write "DEV LOOP")
+                                      (debug-write candidates)
+                                      ; add IDE device type
+                                      (if (ide-reset-device dev-type cpu-port device-no)
+                                          (begin
+                                            (set! candidates (- candidates 1))
+                                            (list-set! devices device-no IDE-DEVICE-ATA)))))
+                                  (iota IDE-DEVICES-PER-CONTROLLER))
+                        (thread-sleep! (milliseconds->time 1))))))
+              (iota 30000))
+    (if (> (apply + (map (lambda (dev) (if (eq? dev IDE-DEVICE-ATA) 1 0))
+                         devices))
+           0)
+        ; There are candidates
+        (begin
+          (for-each (lambda (dev)
+                      (begin
+                        (outb (fxior IDE-DEV-HEAD-IBM (IDE-DEV-HEAD-DEV dev)) head-reg)
+                        (ide-delay cpu-port)
+                        (if (and (fx= (inb cyl-lo-reg) #x14)
+                                 (fx= (inb cyl-hi-reg) #xeb)
+                                 (eq? (list-ref devices dev)
+                                      IDE-DEVICE-ATA))
+                            ; Update the list: this is an ATAPI device
+                            (list-set! devices dev IDE-DEVICE-ATAPI)))) 
+                    (iota IDE-DEVICES-PER-CONTROLLER))
+          (for-each (lambda (dev)
+                      (let ((dev-type (list-ref devices dev)))
+                        (if (eq? IDE-DEVICE-ATA dev-type)
+                            (if (fx= 0 (vector-ref statuses dev))
+                                ; A zero status ATA is absent
+                                (list-set! devices dev IDE-DEVICE-ABSENT)
+                                ; Make sure the device is present
+                                (begin
+                                  (outb (fxior IDE-DEV-HEAD-IBM (IDE-DEV-HEAD-DEV dev)) head-reg) 
+                                  (ide-delay cpu-port)
+                                  ; TODO: remove these magic numbers
+                                  (outb #x58 err-reg)
+                                  (outb #xA5 cyl-lo-reg)
+                                  (if (or (fx= #x58 (inb err-reg))
+                                          (not (fx= #xA5 (inb cyl-lo-reg))))
+                                      (list-set! devices dev IDE-DEVICE-ABSENT)))))))
+                    (iota IDE-DEVICES-PER-CONTROLLER))))
+    (display devices)
+    (debug-write "Done Resetting")))
 
 
 ; Setup an ide controller
@@ -204,22 +264,23 @@
       (debug-write cpu-port)
       (debug-write irq)
       (debug-write "Detecting devices for this ide controller")
-      (let* ((ide-detect-device (ide-make-device-detection-lambda cpu-port))
+      (let* ((statuses (make-vector IDE-DEVICES-PER-CONTROLLER 0))
+             (ide-detect-device (ide-make-device-detection-lambda no statuses cpu-port))
              (devices (map ide-detect-device (iota IDE-DEVICES-PER-CONTROLLER)))
-             (candidates (apply + (map (lambda (dev-status)
-                                         (if (eq? dev-status IDE-DEVICE-ABSENT)
+             (candidates (apply + (map (lambda (device)
+                                         (if (eq? device IDE-DEVICE-ABSENT)
                                              0
                                              1))
                                        devices))))
         (if (> candidates 0)
          (begin
-           (ide-reset-controller devices cpu-port candidates))
-         ; Nothing to do
-         #f)))))
+           (debug-write "RESET CALL")
+           (ide-reset-controller devices statuses cpu-port candidates))
+         (begin
+           (debug-write "No candidates")
+           #f))))))
 
                 
-
-
 (define (ide-setup)
  (begin
    (for-each ide-setup-controller (iota IDE-CONTROLLERS))

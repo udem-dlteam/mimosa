@@ -111,7 +111,7 @@
 (define int-condvar (make-condition-variable))
 
 (map (lambda (n) (uart-do-init (+ n 1))) (iota 4))
-(ide-setup)
+; (ide-setup)
 
 ;;;----------------------------------------------------
 ;;;                 INTERRUPT HANDLING 
