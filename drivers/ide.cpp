@@ -175,7 +175,7 @@ extern "C" void irq14() {
   ACKNOWLEDGE_IRQ(14);
 
   ide_irq(&ide_mod.ide[0]);
-  uint8 params[1] = {1};
+  uint8 params[1] = {0};
   send_gambit_int(GAMBIT_IDE_INT, params, 1);
 }
 
