@@ -173,12 +173,15 @@
             ; Device is not absent, we can continue the work
             (if (> err 0)
                 (begin
-                 (debug-write "!DEVICE DISSAPEARED")
-                 (list-set! devices dev-no IDE-DEVICE-ABSENT))
+                  (debug-write "!DEVICE DISSAPEARED")
+                  (list-set! devices dev-no IDE-DEVICE-ABSENT))
                 (let* ((info-sz (fxarithmetic-shift 1 (- IDE-LOG2-SECTOR-SIZE 1)))
                        (id-vect (build-vector info-sz (lambda (idx) (inw data-reg)))))
-                  (display id-vect)
-                  (newline)
+
+
+
+
+
                   (display (swap-and-trim id-vect 10 20))
                   (newline)
                   (display (swap-and-trim id-vect 23 8))
