@@ -136,11 +136,39 @@
 
 (define (ide-make-device-setup-lambda cpu-port devices)
   (lambda (dev-no)
-    (debug-write (string-append "Setting up device" (number->string dev-no)))))
+    (let ((head-reg (fx+ cpu-port IDE-DEV-HEAD-REG))
+          (cmd-reg (fx+ cpu-port IDE-COMMAND-REG))
+          (stt-reg (fx+ cpu-port IDE-STATUS-REG))
+          (data-reg (fx+ cpu-port IDE-DATA-REG))
+          (device-type (list-ref devices dev-no))
+          (err 0))
+      (if (not (eq? device-type IDE-DEVICE-ABSENT))
+          (begin
+            ; Identify device packet
+            (outb (fxior IDE-DEV-HEAD-IBM (IDE-DEV-HEAD-DEV dev-no)) head-reg)
+            (outb (if (eq? device-type IDE-DEVICE-ATA)
+                      IDE-IDENTIFY-DEVICE-CMD
+                      IDE-IDENTIFY-PACKET-DEVICE-CMD) cmd-reg)
+            (let wait-loop ((j 0))
+              (let ((status (inb stt-reg)))
+                (if (not (fx> (fxand status IDE-STATUS-BSY) 0))
+                    (if (fx> (fxand status IDE-STATUS-ERR) 0)
+                        (set! err 1))
+                    (begin
+                      (thread-sleep! (microseconds->time 1))
+                      (wait-loop (+ j 1))))))
+            ; Device is not absent, we can continue the work
+            (if (> err 0)
+                (list-set! devices dev-no IDE-DEVICE-ABSENT)
+                (let* ((info-sz (fxarithmetic-shift 1 (- IDE-LOG2-SECTOR-SIZE 1)))
+                       (id-vect (build-vector info-sz (lambda (idx) (inw data-reg))))
+                       )
+                  (display id-vect))))))))
+    ; (debug-write (string-append "Setting up device" (number->string dev-no)))))
 
 ; Make a lambda to detect if a device is present on the ide
 ; controller whoses CPU port is the cpu-port in parameters
-(define (ide-make-device-detection-lambda controller controller_statuses cpu-port)
+(define (ide-make-device-detection-lambda controller controller-statuses cpu-port)
 (lambda (dev-no)
  (debug-write "IDE device detect")
  (debug-write dev-no)
@@ -150,7 +178,7 @@
   (ide-delay cpu-port)
   (let* ((status (inb (fx+ cpu-port IDE-STATUS-REG))))
    (begin
-     (vector-set! controller_statuses dev-no status)
+     (vector-set! controller-statuses dev-no status)
      (if (not-absent? status)
          IDE-DEVICE-ATAPI
          IDE-DEVICE-ABSENT))))))

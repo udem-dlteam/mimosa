@@ -346,8 +346,11 @@ static void setup_ide_device(ide_controller* ctrl, ide_device* dev, uint8 id) {
     return;
   }
 
-  for (i = 0; i < (1 << (IDE_LOG2_SECTOR_SIZE - 1)); i++)
+  debug_write("IDE device id");
+  for (i = 0; i < (1 << (IDE_LOG2_SECTOR_SIZE - 1)); i++) {
     ident[i] = inw(base + IDE_DATA_REG);
+    debug_write(ident[i]);
+  }
 
   swap_and_trim(dev->serial_num, ident + 10, 20);
   swap_and_trim(dev->firmware_rev, ident + 23, 8);

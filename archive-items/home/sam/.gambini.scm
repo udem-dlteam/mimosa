@@ -49,13 +49,24 @@
 (define inb ;; parameter: port number
   (asm
    (lambda (cgc)
-     (x86-mov   cgc (x86-edx) (x86-mem 4 (x86-esp)))
-     (x86-sar   cgc (x86-edx) (x86-imm-int 2))
+     (x86-mov   cgc (x86-edx) (x86-mem 4 (x86-esp))) ; Fetch an int32 in mem
+     (x86-sar   cgc (x86-edx) (x86-imm-int 2))       ; 
      (x86-mov   cgc (x86-eax) (x86-imm-int 0))
      (x86-in-dx cgc (x86-al))
      (x86-shl   cgc (x86-eax) (x86-imm-int 2))
      (x86-ret   cgc)
      )))
+
+(define inw
+  (asm
+    (lambda (cgc)
+      (x86-mov   cgc (x86-edx) (x86-mem 4 (x86-esp))) ; Fetch an int32 in mem
+      (x86-sar   cgc (x86-edx) (x86-imm-int 2))       ; 
+      (x86-mov   cgc (x86-eax) (x86-imm-int 0))
+      (x86-in-dx cgc (x86-ax)) ; inw takes ax in arg
+      (x86-shl   cgc (x86-eax) (x86-imm-int 1))
+      (x86-ret   cgc)
+      )))
 
 (define outb ;; parameters: value and port number
   (asm

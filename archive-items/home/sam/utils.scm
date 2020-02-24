@@ -60,3 +60,7 @@
 (define (milliseconds->time msecs)
   (let ((seconds (* msecs 1e-3)))
     (seconds->time seconds)))
+
+; Build a vector according to a procedure
+(define (build-vector sz proc)
+ (list->vector (map proc (iota sz))))
