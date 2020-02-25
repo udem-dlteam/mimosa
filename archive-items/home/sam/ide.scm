@@ -356,10 +356,10 @@
                     (iota IDE-DEVICES-PER-CONTROLLER))))
     ; Setup command q
     (let ((setup-device (ide-make-device-setup-lambda controller devices)))
-      (for-each setup-device (iota IDE-DEVICES-PER-CONTROLLER))
-      (for-each (lambda (dev-no)
-                  (ide-controller-if-device? controller dev-no display) 
-                 ) (iota IDE-DEVICES-PER-CONTROLLER)))
+      (for-each setup-device (iota IDE-DEVICES-PER-CONTROLLER)))
+      ; (for-each (lambda (dev-no)
+      ;             (ide-controller-if-device? controller dev-no display) 
+      ;            ) (iota IDE-DEVICES-PER-CONTROLLER)))
     (debug-write "Done configuring devices")))
 
 ; Setup an ide controller
