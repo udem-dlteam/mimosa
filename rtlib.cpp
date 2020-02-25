@@ -405,7 +405,6 @@ static void identify_cpu() {
 
 #include "gambit.h"
 
-
 bool bridge_up() {
     return NULL != ___local_gstate;
 }
@@ -419,7 +418,7 @@ bool bridge_up() {
 uint8 send_gambit_int(uint8 int_no, uint8* params, uint8 len) { 
     ASSERT_INTERRUPTS_DISABLED();
 
-    if(NULL != ___local_gstate) {
+    if(bridge_up()) {
         ((uint8*)(GAMBIT_SHARED_MEM_CMD))[0] = int_no;
         ((uint8*)(GAMBIT_SHARED_MEM_CMD))[1] = len;
 
