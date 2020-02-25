@@ -136,14 +136,12 @@
 ; Creates a read command for the int
 (define (ide-make-sector-read-command cpu-port count cont)
   (lambda ()
-   (begin
-    (enable-interrupts)
-    (let* ((bytes (fxarithmetic-shift count (- IDE-LOG2-SECTOR-SIZE count)))
+    (let* 
+      ((bytes (fxarithmetic-shift count (- IDE-LOG2-SECTOR-SIZE count)))
            (data-reg (fx+ cpu-port IDE-DATA-REG))
            ; TODO: check for errors...
            (buff (build-vector bytes (lambda (i) (inw data-reg)))))
-      (debug-write "IN CONT: READ!")
-      (cont buff)))))
+      (cont buff))))
 
 ; Read `count` sectors from the ide device. 
 ; When the data is read, the continuation is called with
@@ -229,13 +227,10 @@
 
 (define (handle-ide-int controller-no)
   (begin 
-    (debug-write "IDE INT")
-    (debug-write controller-no)
+    (debug-write "RCV IDE INT")
     (let* ((ctrl (vector-ref IDE-CTRL-VECT controller-no))
            (q (ide-controller-continuations-queue ctrl))
            (cont (pop q)))
-     (enable-interrupts)
-     (debug-write "Done fetching data")
       (if cont
           (begin
             debug-write "HAS A CONT" 
