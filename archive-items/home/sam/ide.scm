@@ -220,10 +220,10 @@
                          (if (fx= 1 (fxand idx 1))
                              (vector-ref vect (+ offset (fxarithmetic-shift-right idx 1)))
                              (fxarithmetic-shift-right 
-                               (+ offset (fxarithmetic-shift-right idx 1))
+                               (vector-ref vect (+ offset (fxarithmetic-shift-right idx 1)))
                                8))))
-         (untrimmed (map (o integer->char extract-char) idcs)))
-    untrimmed))
+         (untrimmed (list->string (map (o integer->char extract-char) idcs))))
+    (string-trim untrimmed)))
 
 (define (handle-ide-int controller-no)
   (begin 
@@ -305,6 +305,12 @@
                                  sect-per-trk
                                  total-sectors-chs
                                  total-sectors)))
+                  (debug-write serial-num)
+                  (newline)
+                  (debug-write firmware-rev) 
+                  (newline)
+                  (debug-write model-num)
+                  (newline)
                   (ide-controller-set-device controller dev-no device))))))))
 
 ; Make a lambda to detect if a device is present on the ide
@@ -435,7 +441,6 @@
         (if (> candidates 0)
             (ide-reset-controller controller devices statuses candidates)
             #f)))))
-
                 
 (define (ide-setup)
  (begin

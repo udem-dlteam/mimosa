@@ -81,14 +81,10 @@
      )))
 
 (define enable-interrupts
- (asm
-  (lambda (cgc)
-   (x86-sti cgc))))
+ (asm (lambda (cgc) (x86-sti cgc))))
 
 (define disable-interrupts
- (asm
-  (lambda (cgc)
-   (x86-cli cgc))))
+ (asm (lambda (cgc) (x86-cli cgc))))
 
 (define disable_interrupts disable-interrupts)
 

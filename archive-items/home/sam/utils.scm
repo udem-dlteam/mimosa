@@ -31,9 +31,17 @@
 (define (assocv key tbl)
   (cdr (assoc key tbl)))
 
+; Combine two functions (\circ)
 (define (o g f)
  (lambda (n)
    (g (f n))))
+
+; Combine many functions (\circ with many parameters)
+(define (O fns)
+  (lambda (n)
+    (if (= (length fns) 0)
+        n
+        ((o (car fns) (O (cdr fns))) n))))
 
 (define (incn n)
   (lambda (k)
@@ -63,6 +71,19 @@
 ; Build a vector according to a procedure
 (define (build-vector sz proc)
  (list->vector (map proc (iota sz))))
+
+; Remove spaces out of a list
+(define (list-trim msg)
+  (if (= (length msg) 0)
+      (list)
+      (let ((f (car msg)))
+        (if (eq? f #\space)
+            (list-trim (cdr msg))
+            (cons f (list-trim (cdr msg)))))))
+
+; It's not trim, it's removing spaces
+(define (string-trim msg)
+  (list->string (list-trim (string->list msg))))
 
 ; Why does this not work...
 (define-macro (lwrap expr) 
