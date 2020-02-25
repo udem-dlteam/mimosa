@@ -174,9 +174,15 @@ extern "C" void irq14() {
 
   ACKNOWLEDGE_IRQ(14);
 
+  if(bridge_up()){ debug_write("IDE IRQ"); }
+
   ide_irq(&ide_mod.ide[0]);
-  uint8 params[1] = {0};
-  send_gambit_int(GAMBIT_IDE_INT, params, 1);
+
+  if(bridge_up()) {
+      debug_write("B4 Gambit call");
+      uint8 params[1] = {0};
+      send_gambit_int(GAMBIT_IDE_INT, params, 1);
+  }
 }
 
 #endif
@@ -191,8 +197,11 @@ extern "C" void irq15() {
   ACKNOWLEDGE_IRQ(15);
 
   ide_irq (&ide_mod.ide[1]);
-  uint8 params[1] = {1};
-  send_gambit_int(GAMBIT_IDE_INT, params, 1);
+
+  if(bridge_up()) {
+      uint8 params[1] = {1};
+      send_gambit_int(GAMBIT_IDE_INT, params, 1);
+  } 
 }
 
 #endif

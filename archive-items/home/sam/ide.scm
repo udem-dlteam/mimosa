@@ -160,6 +160,7 @@
              (cmd-reg (fx+ cpu-port IDE-COMMAND-REG))
              (q (ide-controller-continuations-queue ctrl))
              (count (min 256 count)))
+        (debug-write "Before disabling ints")
         (disable-interrupts)
         (debug-write "Creating a read lambda")
         (push (ide-make-sector-read-command cpu-port count cont) q)
@@ -226,20 +227,20 @@
 
 (define (handle-ide-int controller-no)
   (begin 
-    (enable-interrupts)
     (debug-write "IDE INT")
-    (debug-write controller-no)
-    (let* ((ctrl (vector-ref IDE-CTRL-VECT controller-no))
-           (q (ide-controller-continuations-queue ctrl))
-           (cont (pop q)))
-      (if cont
-          (begin
-            debug-write "HAS A CONT" 
-            (cont))
-          (begin
-            (debug-write "NO CONT")
-            #f
-            ))))) 
+    (debug-write controller-no)))
+    ; (let* ((ctrl (vector-ref IDE-CTRL-VECT controller-no))
+    ;        (q (ide-controller-continuations-queue ctrl))
+    ;        (cont (pop q)))
+    ;  (debug-write "Done fetching data"))))
+      ; (if cont
+      ;     (begin
+      ;       debug-write "HAS A CONT" 
+      ;       (cont))
+      ;     (begin
+      ;       (debug-write "NO CONT")
+      ;       #f
+      ;       ))))) 
 
 (define (ide-make-device-setup-lambda controller devices)
   (lambda (dev-no)
