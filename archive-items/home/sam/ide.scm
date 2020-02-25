@@ -181,21 +181,30 @@
          (untrimmed (map (o integer->char extract-char) idcs)))
     untrimmed))
 
-(define (handle-ide-int ide-id)
- (debug-write (string-append "IDE int no " (number->string ide-id))))
-
+(define (handle-ide-int controller-no)
+  (begin (debug-write "IDE INT")
+         (debug-write controller-no)
+         (let* ((ctrl (vector-ref IDE-CTRL-VECT controller-no))
+                (q (ide-controller-continuations-queue ctrl))
+                (cont (pop q)))
+           (if cont
+               (begin
+                 debug-write "HAS A CONT" 
+                 (cont))
+               (begin
+                 (debug-write "NO CONT")
+                 #f
+                 ))))) 
 
 (define (ide-make-device-setup-lambda controller devices)
   (lambda (dev-no)
-    ; Why is this necessarry???!
-    (display "Setting up device")
     (let* ((cpu-port (ide-controller-cpu-port controller))
-          (head-reg (fx+ cpu-port IDE-DEV-HEAD-REG))
-          (cmd-reg (fx+ cpu-port IDE-COMMAND-REG))
-          (stt-reg (fx+ cpu-port IDE-STATUS-REG))
-          (data-reg (fx+ cpu-port IDE-DATA-REG))
-          (device-type (list-ref devices dev-no))
-          (err 0))
+           (head-reg (fx+ cpu-port IDE-DEV-HEAD-REG))
+           (cmd-reg (fx+ cpu-port IDE-COMMAND-REG))
+           (stt-reg (fx+ cpu-port IDE-STATUS-REG))
+           (data-reg (fx+ cpu-port IDE-DATA-REG))
+           (device-type (list-ref devices dev-no))
+           (err 0))
       (if (not (eq? device-type IDE-DEVICE-ABSENT))
           (begin
             ; Identify device packet
