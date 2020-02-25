@@ -404,6 +404,12 @@ static void identify_cpu() {
 #ifdef GAMBIT_GSTATE
 
 #include "gambit.h"
+
+
+bool bridge_up() {
+    return NULL != ___local_gstate;
+}
+
 /**
  * Send a Gambit interrupt. If
  * the gambit bridge is not configured,
