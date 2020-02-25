@@ -160,7 +160,7 @@
              (cmd-reg (fx+ cpu-port IDE-COMMAND-REG))
              (q (ide-controller-continuations-queue ctrl))
              (count (min 256 count)))
-        ; Investigate if interrupt disabling is important 
+        (disable-interrupts)
         (debug-write "Creating a read lambda")
         (push (ide-make-sector-read-command cpu-port count cont) q)
         (outb (fxior IDE-DEV-HEAD-LBA 

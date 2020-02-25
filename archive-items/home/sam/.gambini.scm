@@ -85,10 +85,12 @@
   (lambda (cgc)
    (x86-sti cgc))))
 
-(define disable_interrupts
+(define disable-interrupts
  (asm
   (lambda (cgc)
    (x86-cli cgc))))
+
+(define disable_interrupts disable-interrupts)
 
 (define RTC_PORT_ADDR #x70)
 (define RTC_PORT_DATA #x71)
