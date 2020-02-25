@@ -113,6 +113,7 @@
 (load "keyboard.scm")
 (load "ide.scm")
 (load "int_handle.scm") ; must be loaded after all drivers
+(load "ide_tests.scm")
 
 ;;;----------------------------------------------------
 ;;;                    INIT SYS 
