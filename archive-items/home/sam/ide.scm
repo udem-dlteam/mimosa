@@ -241,7 +241,7 @@
                        (device (make-ide-device
                                  dev-no
                                  (list-ref devices dev-no)
-                                 NULL
+                                 controller
                                  serial-num
                                  firmware-rev
                                  model-num
@@ -250,7 +250,7 @@
                                  sect-per-trk
                                  total-sectors-chs
                                  total-sectors)))
-                (ide-controller-set-device controller dev-no device))))))))
+                  (ide-controller-set-device controller dev-no device))))))))
 
 ; Make a lambda to detect if a device is present on the ide
 ; controller whoses CPU port is the cpu-port in parameters
