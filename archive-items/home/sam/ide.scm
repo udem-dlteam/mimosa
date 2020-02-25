@@ -129,8 +129,50 @@
              cpu-port
              irq
              devices 
+             continuations-queue
              ; probably not necessary anymore commands
-             commands-convdar)
+             continuations-condvar)
+
+; Creates a read command for the int
+(define (ide-make-sector-read-command cpu-port count cont)
+  (lambda ()
+    (let* ((bytes (fxarithmetic-shift count (- IDE-LOG2-SECTOR-SIZE count)))
+           (data-reg (fx+ cpu-port IDE-DATA-REG))
+           ; TODO: check for errors...
+           (buff (build-vector bytes (lambda (i) (inw data-reg)))))
+      (debug-write "IN CONT: READ!")
+      (cont buff))))
+
+; Read `count` sectors from the ide device. 
+; When the data is read, the continuation is called with
+; a vector that corresponds to the data at `lba` (logical block addressing)
+; The continuation might be called from another thread
+(define (ide-read-sectors device lba count cont)
+  (if (fx> count 0)
+      (let* ((dev-id (ide-device-id device))
+             (ctrl ((ide-device-controller device)))
+             (cpu-port (ide-controller-cpu-port ctrl))
+             (head-reg (fx+ cpu-port IDE-DEV-HEAD-REG))
+             (sect-count-reg (fx+ cpu-port IDE-SECT-COUNT-REG))
+             (sect-num-reg (fx+ cpu-port IDE-SECT-NUM-REG))
+             (cyl-lo-reg (fx+ cpu-port IDE-CYL-LO-REG))
+             (cyl-hi-reg (fx+ cpu-port IDE-CYL-HI-REG))
+             (cmd-reg (fx+ cpu-port IDE-COMMAND-REG))
+             (q (ide-controller-continuations-queue ctrl))
+             (count (min 256 count)))
+        ; Investigate if interrupt disabling is important 
+        (debug-write "Creating a read lambda")
+        (push (ide-make-sector-read-command cpu-port count cont) q)
+        (outb (fxior IDE-DEV-HEAD-LBA 
+                     (IDE-DEV-HEAD-DEV dev-id)
+                     (fxarithmetic-shift-right lba 24)) head-reg)
+        (outb count sect-count-reg)
+        (outb lba sect-num-reg)
+        (outb (fxarithmetic-shift-right lba 8) cyl-lo-reg)
+        (outb (fxarithmetic-shift-right lba 16) cyl-hi-reg)
+        (debug-write "B4 sending the cmd int")
+        (outb IDE-READ-SECTORS-CMD cmd-reg)) 
+      (cont (make-vector 0 0))))
 
 (define (ide-init-devices)
  (make-list IDE-DEVICES-PER-CONTROLLER IDE-DEVICE-ABSENT))
@@ -143,6 +185,7 @@
                          (list-ref IDE-CONTROLLER-PORTS i) ; the cpu-port
                          (list-ref IDE-CONTROLLER-IRQS i) ; the irq
                          (ide-init-devices)
+                         (make 10) ; make a 10 item queue
                          (make-condition-variable))) (iota IDE-CONTROLLERS))))
 
 ; Set the device of the ide controller to the specified device
@@ -250,7 +293,7 @@
                        (device (make-ide-device
                                  dev-no
                                  (list-ref devices dev-no)
-                                 controller
+                                 (lambda () controller)
                                  serial-num
                                  firmware-rev
                                  model-num

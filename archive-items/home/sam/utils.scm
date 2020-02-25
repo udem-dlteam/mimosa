@@ -1,5 +1,4 @@
 ;; The mimosa project
-
 ; (define LOG_FILE (open-output-file (list path: "mimosa.log" truncate: #f append: #t)))
 
 (define LOG_WARN 'LOG_WARN)
@@ -64,3 +63,7 @@
 ; Build a vector according to a procedure
 (define (build-vector sz proc)
  (list->vector (map proc (iota sz))))
+
+; Why does this not work...
+(define-macro (lwrap expr) 
+              `(lambda () ,expr))
