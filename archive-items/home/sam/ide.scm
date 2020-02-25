@@ -225,19 +225,20 @@
     untrimmed))
 
 (define (handle-ide-int controller-no)
-  (begin (debug-write "IDE INT")
-         (debug-write controller-no)
-         (let* ((ctrl (vector-ref IDE-CTRL-VECT controller-no))
-                (q (ide-controller-continuations-queue ctrl))
-                (cont (pop q)))
-           (if cont
-               (begin
-                 debug-write "HAS A CONT" 
-                 (cont))
-               (begin
-                 (debug-write "NO CONT")
-                 #f
-                 ))))) 
+ (debug-write "!"))
+  ; (begin (debug-write "IDE INT")
+  ;        (debug-write controller-no)
+  ;        (let* ((ctrl (vector-ref IDE-CTRL-VECT controller-no))
+  ;               (q (ide-controller-continuations-queue ctrl))
+  ;               (cont (pop q)))
+  ;          (if cont
+  ;              (begin
+  ;                debug-write "HAS A CONT" 
+  ;                (cont))
+  ;              (begin
+  ;                (debug-write "NO CONT")
+  ;                #f
+  ;                ))))) 
 
 (define (ide-make-device-setup-lambda controller devices)
   (lambda (dev-no)
