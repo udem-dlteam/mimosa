@@ -172,7 +172,8 @@
         (outb (fxarithmetic-shift-right lba 8) cyl-lo-reg)
         (outb (fxarithmetic-shift-right lba 16) cyl-hi-reg)
         (debug-write "B4 sending the cmd int")
-        (outb IDE-READ-SECTORS-CMD cmd-reg)) 
+        (outb IDE-READ-SECTORS-CMD cmd-reg)
+        (enable-interrupts)) 
       (cont (make-vector 0 0))))
 
 (define (ide-init-devices)

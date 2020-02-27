@@ -222,9 +222,9 @@
     (let* ((iir-test (inb iir-reg)))
       (cond ((fx> (fxand iir-test #x20) 0)
              16750)
-            ((fx> (fxand iir-test #x80))
+            ((fx> (fxand iir-test #x80) 0)
              16550)
-            ((fx> (fxand iir-test #x40))
+            ((fx> (fxand iir-test #x40) 0)
              16550)
             (else
               (outb #x2A scr-reg)

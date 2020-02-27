@@ -352,9 +352,9 @@ int gettimeofday(struct timeval* tv, struct timezone* tz) {
   if (tv != NULL) {
 #ifdef USE_IRQ8_FOR_TIME
 
-    disable_interrupts();
+    /* disable_interrupts(); */
     uint64 n = _irq8_counter;
-    enable_interrupts();
+    /* enable_interrupts(); */
 
       tv->tv_sec = secs_since_epoch_at_refpoint + (n / IRQ8_COUNTS_PER_SEC);
       tv->tv_usec = (n % IRQ8_COUNTS_PER_SEC) * (1000000/2)
