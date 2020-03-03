@@ -133,15 +133,62 @@
              ; probably not necessary anymore commands
              continuations-condvar)
 
+(define (ide-handle-read-err cpu-port)
+  (let* ((err-reg (fx+ cpu-port IDE-ERROR-REG))
+         (error (inb err-reg)))
+    (if (mask error IDE-ERROR-BBK)
+        (debug-write "Bad block mark detected in sector's ID field"))
+
+    (if (mask error IDE-ERROR-UNC)
+        (debug-write "Uncorrectable data error encountered"))
+
+    (if (mask error IDE-ERROR-IDNF)
+        (debug-write "Requested sector's ID field not found"))
+
+    (if (mask error IDE-ERROR-ABRT)
+        (debug-write "Command aborted (status error or invalid cmdnn"))
+
+    (if (mask error IDE-ERROR-TK0NF)
+        (debug-write "Track 0 not found during recalibrate command"))
+
+    (if (mask error IDE-ERROR-AMNF)
+        (debug-write "Data address mark not found after ID field"))))
+
 ; Creates a read command for the int
 (define (ide-make-sector-read-command cpu-port count cont)
   (lambda ()
-    (let* 
-      ((bytes (fxarithmetic-shift count (- IDE-LOG2-SECTOR-SIZE count)))
-           (data-reg (fx+ cpu-port IDE-DATA-REG))
-           ; TODO: check for errors...
-           (buff (build-vector bytes (lambda (i) (inw data-reg)))))
-      (cont buff))))
+    (let* ((data-reg (fx+ cpu-port IDE-DATA-REG))
+           (stt-reg (fx+ cpu-port IDE-STATUS-REG))
+           (alt-reg (fx+ cpu-port IDE-ALT-STATUS-REG))
+           (status (inb stt-reg)))
+      (debug-write "Actually reading")
+      (debug-write "Actually reading")
+      (debug-write "Actually reading")
+      (debug-write "Actually reading")
+      (debug-write "CPU port:")
+      (debug-write cpu-port)
+      (if (mask status IDE-STATUS-ERR)
+          (ide-handle-read-err cpu-port)
+          (let* 
+            ((bytes (fxarithmetic-shift count (- IDE-LOG2-SECTOR-SIZE count)))
+             ; TODO: check for errors...
+             (buff (build-vector bytes (lambda (i) (inw data-reg)))))
+            (if (mask IDE-STATUS-DRQ (inb alt-reg))
+             (debug-write "Unknown error while reading..."))
+
+            (debug-write (string-append "Read " (number->string bytes) "bytes"))
+            (display buff)
+            (cont buff))))))
+
+; Flush the command cache of an ide device
+(define (ide-flush-cache device)
+  (let* ((dev-id (ide-device-id device))
+        (ctrl ((ide-device-controller device)))
+        (cpu-port (ide-controller-cpu-port ctrl))
+        (cmd-reg (fx+ cpu-port IDE-COMMAND-REG)))
+   (disable-interrupts)
+   (outb IDE-FLUSH-CACHE-CMD cmd-reg)
+   (enable-interrupts)))
 
 ; Read `count` sectors from the ide device. 
 ; When the data is read, the continuation is called with
@@ -158,11 +205,19 @@
              (cyl-lo-reg (fx+ cpu-port IDE-CYL-LO-REG))
              (cyl-hi-reg (fx+ cpu-port IDE-CYL-HI-REG))
              (cmd-reg (fx+ cpu-port IDE-COMMAND-REG))
+             (stt-reg (fx+ cpu-port IDE-STATUS-REG))
              (q (ide-controller-continuations-queue ctrl))
              (count (min 256 count)))
         (debug-write "Before disabling ints")
         (disable-interrupts)
+        (debug-write (string-append "Device ID: " (number->string dev-id)))
         (debug-write "Creating a read lambda")
+        (debug-write "Count is")
+        (debug-write count)
+        (debug-write "LBA IS")
+        (debug-write lba)
+        (debug-write "CPU PORT is")
+        (debug-write cpu-port)
         (push (ide-make-sector-read-command cpu-port count cont) q)
         (outb (fxior IDE-DEV-HEAD-LBA 
                      (IDE-DEV-HEAD-DEV dev-id)
@@ -173,9 +228,22 @@
         (outb (fxarithmetic-shift-right lba 16) cyl-hi-reg)
         (debug-write "B4 sending the cmd int")
         (outb IDE-READ-SECTORS-CMD cmd-reg)
-        (thread-sleep! (until-has-elapsed 10 TIME-UNIT-SECONDS))
-        (debug-write "After sleeping")
-        (enable-interrupts))
+        (enable-interrupts)
+        ; (let wait-loop ((j 0))
+        ;   (let ((status (inb stt-reg)))
+        ;     (if (not (fx> (fxand status IDE-STATUS-BSY) 0))
+        ;         (if (fx> (fxand status IDE-STATUS-ERR) 0)
+        ;             (set! err 1))
+        ;         (begin
+        ;           (thread-sleep! (until-has-elapsed 1 TIME-UNIT-MICROSECS))
+        ;           (wait-loop (+ j 1))))))
+        ; (let bsy-loop ()
+        ;   (let* ((stt (inb stt-reg)))
+        ;     (debug-write "BSY LOOP")
+        ;     (if (not (fx= stt 0))
+        ;         (bsy-loop))))
+        (debug-write "Done reading") 
+        )
       (cont (make-vector 0 0))))
 
 (define (ide-init-devices)
@@ -220,7 +288,7 @@
 (define (swap-and-trim vect offset len)
   (let* ((idcs (iota len))
          (extract-char (lambda (idx)
-                         (if (fx= 1 (fxand idx 1))
+                         (if (mask idx 1) 
                              (vector-ref vect (+ offset (fxarithmetic-shift-right idx 1)))
                              (fxarithmetic-shift-right 
                                (vector-ref vect (+ offset (fxarithmetic-shift-right idx 1)))
@@ -230,7 +298,11 @@
 
 (define (handle-ide-int controller-no)
   (begin 
+    (debug-write "-----------")
+    (debug-write "-----------")
     (debug-write "RCV IDE INT")
+    (debug-write "-----------")
+    (debug-write "-----------")
     (let* ((ctrl (vector-ref IDE-CTRL-VECT controller-no))
            (q (ide-controller-continuations-queue ctrl))
            (cont (pop q)))
@@ -240,8 +312,7 @@
             (cont))
           (begin
             (debug-write "NO CONT")
-            #f
-            ))))) 
+            #f))))) 
 
 (define (ide-make-device-setup-lambda controller devices)
   (lambda (dev-no)
@@ -261,8 +332,8 @@
                       IDE-IDENTIFY-PACKET-DEVICE-CMD) cmd-reg)
             (let wait-loop ((j 0))
               (let ((status (inb stt-reg)))
-                (if (not (fx> (fxand status IDE-STATUS-BSY) 0))
-                    (if (fx> (fxand status IDE-STATUS-ERR) 0)
+                (if (not (mask status IDE-STATUS-BSY))
+                    (if (mask status IDE-STATUS-ERR)
                         (set! err 1))
                     (begin
                       (thread-sleep! (until-has-elapsed 1 TIME-UNIT-MICROSECS))
@@ -277,7 +348,7 @@
                        (serial-num (swap-and-trim id-vect 10 20))
                        (firmware-rev (swap-and-trim id-vect 23 8))
                        (model-num (swap-and-trim id-vect 27 40))
-                       (has-extended (fx> (fxand (vector-ref id-vect 53) 1) 0))
+                       (has-extended (mask (vector-ref id-vect 53) 1))
                        (cyl-per-dsk (if has-extended
                                         (vector-ref id-vect 54)
                                         (vector-ref id-vect 1)))

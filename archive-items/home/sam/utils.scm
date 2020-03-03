@@ -98,3 +98,6 @@
   (let ((now (time->seconds (current-time)))
         (unit-secs (time->seconds (unit n))))
     (seconds->time (+ now unit-secs))))
+
+(define (mask val mask)
+  (fx> (fxand val mask) 0))
