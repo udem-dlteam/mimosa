@@ -99,5 +99,5 @@
         (unit-secs (time->seconds (unit n))))
     (seconds->time (+ now unit-secs))))
 
-(define (mask val mask)
-  (fx> (fxand val mask) 0))
+(define (mask v m)
+  (fx> (fxand v m) 0))
