@@ -88,3 +88,13 @@
 ; Why does this not work...
 (define-macro (lwrap expr) 
               `(lambda () ,expr))
+
+(define TIME-UNIT-SECONDS seconds->time)
+(define TIME-UNIT-NSECS nanoseconds->time)
+(define TIME-UNIT-MICROSECS microseconds->time)
+(define TIME-UNIT-MS milliseconds->time)
+
+(define (until-has-elapsed n unit)
+  (let ((now (time->seconds (current-time)))
+        (unit-secs (time->seconds (unit n))))
+    (seconds->time (+ now unit-secs))))
