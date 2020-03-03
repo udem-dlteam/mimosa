@@ -79,3 +79,13 @@
           (__set-at! lo (list) q)
           (__set-lo! (modulo (+ 1 lo) sz) q)
           e))))
+
+(define (peek queue)
+  (let* ((q queue)
+         (hi (get-hi q))
+         (lo (get-lo q))
+         (sz (get-size q)))
+    (if (= lo hi)
+        #f
+        (let ((e (__get-at lo q)))
+          e))))

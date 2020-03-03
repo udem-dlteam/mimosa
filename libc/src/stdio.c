@@ -46,6 +46,17 @@ FILE *REDIRECT_NAME(fopen)(const char *__restrict __filename,
   return fopen(__filename, __modes);
 
 #else
+  /* debug_write("-------------FOPEN-----------"); */
+  /* debug_write(CAST(native_string, __filename)); */
+
+  native_string fname = CAST(native_string, __filename);
+
+  if(0 == kstrcmp(fname, "/cut")) {
+      debug_write("CUT!");
+      cut_ide_support();
+      return &FILE_root_dir;
+  }
+
 
   // TODO: implement
   if (__filename[0] == '.' &&

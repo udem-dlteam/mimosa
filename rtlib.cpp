@@ -405,6 +405,17 @@ static void identify_cpu() {
 
 #include "gambit.h"
 
+bool cut = 0;
+
+void cut_ide_support() {
+    cut = 1;
+}
+
+bool has_cut_ide_support() {
+    return cut;
+}
+
+
 bool bridge_up() {
     return NULL != ___local_gstate;
 }

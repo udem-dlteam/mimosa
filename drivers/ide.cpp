@@ -174,16 +174,13 @@ extern "C" void irq14() {
 
   ACKNOWLEDGE_IRQ(14);
 
-  if(bridge_up()){ debug_write("IDE IRQ"); }
-
-
-  if(bridge_up()) {
+  if(has_cut_ide_support()) {
       debug_write("B4 Gambit call");
       uint8 params[1] = {0};
       send_gambit_int(GAMBIT_IDE_INT, params, 1);
+  } else {
+      ide_irq(&ide_mod.ide[0]);
   }
-
-  ide_irq(&ide_mod.ide[0]);
 }
 
 #endif
@@ -779,6 +776,7 @@ static void setup_ide_controller(ide_controller* ctrl, uint8 id) {
         term_write(cout, "Reset of device ");
         term_write(cout, i);
         term_writeline(cout);
+
         outb(IDE_DEV_HEAD_IBM | IDE_DEV_HEAD_DEV(i), base + IDE_DEV_HEAD_REG);
         ide_delay(base); // 400 nsecs
         if (((inb(base + IDE_STATUS_REG) & IDE_STATUS_BSY) == 0) &&

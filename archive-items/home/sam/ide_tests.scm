@@ -1,8 +1,11 @@
 ;; The mimosa project
 
+(define (cut)
+ (open-input-file "/cut"))
 
 (define (test-ide lba cont)
   (begin
+    (cut)
     (ide-setup)
     (let* ((ctrl (vector-ref IDE-CTRL-VECT 0))
            (devices (ide-controller-devices ctrl))

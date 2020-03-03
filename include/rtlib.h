@@ -79,6 +79,10 @@ int main ();
 #define GAMBIT_UART_INT 0x2
 #define GAMBIT_IDE_INT 0x3
 
+void cut_ide_support();
+
+bool has_cut_ide_support();
+
 bool bridge_up();
 
 uint8 send_gambit_int(uint8 int_no, uint8* params, uint8 len);

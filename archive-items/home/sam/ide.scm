@@ -30,7 +30,7 @@
 (define IDE-STATUS-DRQ (fxarithmetic-shift 1 3))  ; Data request bit
 (define IDE-STATUS-CORR (fxarithmetic-shift 1 2))  ; Corrected data bit
 (define IDE-STATUS-INDEX (fxarithmetic-shift 1 1))  ; Index bit
-(define IDE-STATUS-ERR (fxarithmetic-shift 1 0))    ; Error bit
+(define IDE-STATUS-ERR 1)    ; Error bit
 
 (define IDE-ERROR-BBK   (fxarithmetic-shift 1 7)) ; Bad block mark detected in sector's ID field
 
@@ -146,7 +146,7 @@
         (debug-write "Requested sector's ID field not found"))
 
     (if (mask error IDE-ERROR-ABRT)
-        (debug-write "Command aborted (status error or invalid cmdnn"))
+        (debug-write "Command aborted (status error or invalid command)"))
 
     (if (mask error IDE-ERROR-TK0NF)
         (debug-write "Track 0 not found during recalibrate command"))
@@ -167,6 +167,8 @@
       (debug-write "Actually reading")
       (debug-write "CPU port:")
       (debug-write cpu-port)
+      (debug-write "Status:")
+      (debug-write status)
       (if (mask status IDE-STATUS-ERR)
           (ide-handle-read-err cpu-port)
           (let* 
@@ -175,9 +177,8 @@
              (buff (build-vector bytes (lambda (i) (inw data-reg)))))
             (if (mask IDE-STATUS-DRQ (inb alt-reg))
              (debug-write "Unknown error while reading..."))
-
             (debug-write (string-append "Read " (number->string bytes) "bytes"))
-            (display buff)
+            (debug-write buff)
             (cont buff))))))
 
 ; Flush the command cache of an ide device
@@ -209,7 +210,6 @@
              (q (ide-controller-continuations-queue ctrl))
              (count (min 256 count)))
         (debug-write "Before disabling ints")
-        (disable-interrupts)
         (debug-write (string-append "Device ID: " (number->string dev-id)))
         (debug-write "Creating a read lambda")
         (debug-write "Count is")
@@ -219,16 +219,14 @@
         (debug-write "CPU PORT is")
         (debug-write cpu-port)
         (push (ide-make-sector-read-command cpu-port count cont) q)
-        (outb (fxior IDE-DEV-HEAD-LBA 
-                     (IDE-DEV-HEAD-DEV dev-id)
-                     (fxarithmetic-shift-right lba 24)) head-reg)
-        (outb count sect-count-reg)
-        (outb lba sect-num-reg)
-        (outb (fxarithmetic-shift-right lba 8) cyl-lo-reg)
-        (outb (fxarithmetic-shift-right lba 16) cyl-hi-reg)
-        (debug-write "B4 sending the cmd int")
-        (outb IDE-READ-SECTORS-CMD cmd-reg)
-        (enable-interrupts)
+        (outb (b-chop (fxior IDE-DEV-HEAD-LBA 
+                       (IDE-DEV-HEAD-DEV dev-id)
+                       (fxarithmetic-shift-right lba 24))) head-reg)
+        (outb (b-chop count) sect-count-reg)
+        (outb (b-chop lba) sect-num-reg)
+        (outb (b-chop (fxarithmetic-shift-right lba 8)) cyl-lo-reg)
+        (outb (b-chop (fxarithmetic-shift-right lba 16)) cyl-hi-reg)
+        (outb (b-chop IDE-READ-SECTORS-CMD) cmd-reg)
         ; (let wait-loop ((j 0))
         ;   (let ((status (inb stt-reg)))
         ;     (if (not (fx> (fxand status IDE-STATUS-BSY) 0))
@@ -242,8 +240,7 @@
         ;     (debug-write "BSY LOOP")
         ;     (if (not (fx= stt 0))
         ;         (bsy-loop))))
-        (debug-write "Done reading") 
-        )
+        (debug-write "Done reading"))
       (cont (make-vector 0 0))))
 
 (define (ide-init-devices)
