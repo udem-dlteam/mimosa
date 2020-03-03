@@ -422,6 +422,8 @@
       ; (for-each (lambda (dev-no)
       ;             (ide-controller-if-device? controller dev-no display) 
       ;            ) (iota IDE-DEVICES-PER-CONTROLLER)))
+    ; Enable ints on the controller
+    (outb 0 ctrl-reg)
     (debug-write "Done configuring devices")))
 
 ; Setup an ide controller
