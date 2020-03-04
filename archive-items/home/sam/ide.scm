@@ -1,6 +1,5 @@
 ;; The mimosa project
 ;; Ide controller base code
-
 (define IDE-DEVICE-ABSENT 'IDE-DEVICE-ABSENT)
 (define IDE-DEVICE-ATA    'IDE-DEVICE-ATA)
 (define IDE-DEVICE-ATAPI  'IDE-DEVICE-ATAPI)
@@ -194,7 +193,9 @@
             ; At this point, the vector is made out of shorts and not bytes
             ; We need to make it wider
             (let ((wide-vector (expand-wvect buff)))
-              (display wide-vector)
+              (for-each (o debug-write integer->char)
+                        (vector->list wide-vector))
+              ; (display wide-vector)
               (cont wide-vector)))))))
 
 ; Flush the command cache of an ide device
@@ -236,15 +237,51 @@
         (outb (b-chop IDE-READ-SECTORS-CMD) cmd-reg))
       (cont (make-vector 0 0))))
 
-; (define (ide-write-sectors lba buffer count)
-;  (let* ((count (min count 256))
-
-;         ))
-
-;  )
-
 (define (ide-init-devices)
  (make-list IDE-DEVICES-PER-CONTROLLER IDE-DEVICE-ABSENT))
+
+(define (ide-write-sectors device lba buffer count)
+  (let* ((count (min count 256))
+         (compressed-vector (compress-bvect buffer))
+         (dev-id (ide-device-id device))
+         (ctrl ((ide-device-controller device)))
+         (cpu-port (ide-controller-cpu-port ctrl))
+         (data-reg (fx+ cpu-port IDE-DATA-REG))
+         (head-reg (fx+ cpu-port IDE-DEV-HEAD-REG))
+         (sect-count-reg (fx+ cpu-port IDE-SECT-COUNT-REG))
+         (sect-num-reg (fx+ cpu-port IDE-SECT-NUM-REG))
+         (cyl-lo-reg (fx+ cpu-port IDE-CYL-LO-REG))
+         (cyl-hi-reg (fx+ cpu-port IDE-CYL-HI-REG))
+         (cmd-reg (fx+ cpu-port IDE-COMMAND-REG))
+         (stt-reg (fx+ cpu-port IDE-STATUS-REG))
+         (q (ide-controller-continuations-queue ctrl))
+         (write-lambda (lambda ()
+                         (for-each (lambda (i)
+                                            (outw (vector-ref compressed-vector i)  data-reg))
+                                          (iota (fxarithmetic-shift 1 (- IDE-LOG2-SECTOR-SIZE 1))))))
+         (count (min 256 count)))
+    ; (push write-lambda q)
+    (outb (b-chop (fxior IDE-DEV-HEAD-LBA 
+                         (IDE-DEV-HEAD-DEV dev-id)
+                         (fxarithmetic-shift-right lba 24)))
+          head-reg)
+    (outb (b-chop count) sect-count-reg)
+    (outb (b-chop lba) sect-num-reg)
+    (outb (b-chop (fxarithmetic-shift-right lba 8)) cyl-lo-reg)
+    (outb (b-chop (fxarithmetic-shift-right lba 16)) cyl-hi-reg)
+    (outb (b-chop IDE-WRITE-SECTORS-CMD) cmd-reg)
+    ; Wait until the disk is ready
+    ; There should be an interrupt sent but somehow
+    ; it never comes for the first sector
+    (let spin-loop ()
+      (if (or (mask (inb stt-reg) IDE-STATUS-BSY) 
+              (not (mask (inb stt-reg) IDE-STATUS-DRQ)))
+          (begin
+            (ide-delay cpu-port)
+            (spin-loop))))
+    (write-lambda)
+    ; Send a flush command
+    (ide-flush-cache device)))
 
 ; Init the devices struct
 (define (ide-init-controllers)
