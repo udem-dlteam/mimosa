@@ -54,8 +54,7 @@
      (x86-mov   cgc (x86-eax) (x86-imm-int 0))
      (x86-in-dx cgc (x86-al))
      (x86-shl   cgc (x86-eax) (x86-imm-int 2))
-     (x86-ret   cgc)
-     )))
+     (x86-ret   cgc))))
 
 (define inw
   (asm
@@ -65,8 +64,7 @@
       (x86-mov   cgc (x86-eax) (x86-imm-int 0))
       (x86-in-dx cgc (x86-ax)) ; inw takes ax in arg
       (x86-shl   cgc (x86-eax) (x86-imm-int 2))
-      (x86-ret   cgc)
-      )))
+      (x86-ret   cgc))))
 
 (define outb ;; parameters: value and port number
   (asm
@@ -77,8 +75,18 @@
      (x86-sar   cgc (x86-eax) (x86-imm-int 2))
      (x86-out-dx cgc (x86-al))
      (x86-shl   cgc (x86-eax) (x86-imm-int 2))
-     (x86-ret   cgc)
-     )))
+     (x86-ret   cgc))))
+
+(define outw ;; parameters: value and port number
+  (asm
+   (lambda (cgc)
+     (x86-mov   cgc (x86-edx) (x86-mem 8 (x86-esp))) ; load the port number
+     (x86-sar   cgc (x86-edx) (x86-imm-int 2))
+     (x86-mov   cgc (x86-eax) (x86-mem 4 (x86-esp))) ; load the value
+     (x86-sar   cgc (x86-eax) (x86-imm-int 2)) ; unpack
+     (x86-out-dx cgc (x86-ax))
+     (x86-shl   cgc (x86-eax) (x86-imm-int 2))
+     (x86-ret   cgc))))
 
 (define enable-interrupts
   (asm (lambda (cgc) (x86-sti cgc) (x86-ret cgc))))
