@@ -104,3 +104,6 @@
 
 (define (b-chop v)
  (fxand 255 v))
+
+(define (fxhalf n)
+  (fxarithmetic-shift-right n 1))

@@ -163,14 +163,25 @@
            (status (inb stt-reg)))
       (if (mask status IDE-STATUS-ERR)
           (ide-handle-read-err cpu-port)
-          (let* 
-            ((bytes (fxarithmetic-shift count (- IDE-LOG2-SECTOR-SIZE count)))
-             ; TODO: check for errors...
-             (buff (build-vector bytes (lambda (i) (inw data-reg)))))
+          (let* ((double-bytes (fxarithmetic-shift count (- IDE-LOG2-SECTOR-SIZE 1)))
+                 (buff (build-vector double-bytes (lambda (i) (inw data-reg))))
+                 (get-byte (lambda (i)
+                             (let* ((even (fxeven? i))
+                                    (half-pos (if even 
+                                                  (fxhalf i)
+                                                  (fxhalf (- i 1))))
+                                    (val (vector-ref buff half-pos)))
+                               (b-chop (if (not even)
+                                           (fxarithmetic-shift-right val 8)
+                                           val))))))
             (if (mask IDE-STATUS-DRQ (inb alt-reg))
-             (debug-write "Unknown error while reading..."))
-            (debug-write buff)
-            (cont buff))))))
+                (debug-write "Unknown error while reading..."))
+            ; At this point, the vector is made out of shorts and not bytes
+            ; We need to make it wider
+            (let ((wide-vector (build-vector (* 2 double-bytes) get-byte)))
+              ; (for-each (lambda (c) (debug-write c)) (vector->list (vector-map integer->char wide-vector)))
+              (display wide-vector)
+              (cont wide-vector)))))))
 
 ; Flush the command cache of an ide device
 (define (ide-flush-cache device)
@@ -202,8 +213,8 @@
              (count (min 256 count)))
         (push (ide-make-sector-read-command cpu-port count cont) q)
         (outb (b-chop (fxior IDE-DEV-HEAD-LBA 
-                       (IDE-DEV-HEAD-DEV dev-id)
-                       (fxarithmetic-shift-right lba 24))) head-reg)
+                             (IDE-DEV-HEAD-DEV dev-id)
+                             (fxarithmetic-shift-right lba 24))) head-reg)
         (outb (b-chop count) sect-count-reg)
         (outb (b-chop lba) sect-num-reg)
         (outb (b-chop (fxarithmetic-shift-right lba 8)) cyl-lo-reg)
