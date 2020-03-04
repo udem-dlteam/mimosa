@@ -161,14 +161,6 @@
            (stt-reg (fx+ cpu-port IDE-STATUS-REG))
            (alt-reg (fx+ cpu-port IDE-ALT-STATUS-REG))
            (status (inb stt-reg)))
-      (debug-write "Actually reading")
-      (debug-write "Actually reading")
-      (debug-write "Actually reading")
-      (debug-write "Actually reading")
-      (debug-write "CPU port:")
-      (debug-write cpu-port)
-      (debug-write "Status:")
-      (debug-write status)
       (if (mask status IDE-STATUS-ERR)
           (ide-handle-read-err cpu-port)
           (let* 
@@ -177,7 +169,6 @@
              (buff (build-vector bytes (lambda (i) (inw data-reg)))))
             (if (mask IDE-STATUS-DRQ (inb alt-reg))
              (debug-write "Unknown error while reading..."))
-            (debug-write (string-append "Read " (number->string bytes) "bytes"))
             (debug-write buff)
             (cont buff))))))
 
@@ -209,15 +200,6 @@
              (stt-reg (fx+ cpu-port IDE-STATUS-REG))
              (q (ide-controller-continuations-queue ctrl))
              (count (min 256 count)))
-        (debug-write "Before disabling ints")
-        (debug-write (string-append "Device ID: " (number->string dev-id)))
-        (debug-write "Creating a read lambda")
-        (debug-write "Count is")
-        (debug-write count)
-        (debug-write "LBA IS")
-        (debug-write lba)
-        (debug-write "CPU PORT is")
-        (debug-write cpu-port)
         (push (ide-make-sector-read-command cpu-port count cont) q)
         (outb (b-chop (fxior IDE-DEV-HEAD-LBA 
                        (IDE-DEV-HEAD-DEV dev-id)
@@ -226,21 +208,7 @@
         (outb (b-chop lba) sect-num-reg)
         (outb (b-chop (fxarithmetic-shift-right lba 8)) cyl-lo-reg)
         (outb (b-chop (fxarithmetic-shift-right lba 16)) cyl-hi-reg)
-        (outb (b-chop IDE-READ-SECTORS-CMD) cmd-reg)
-        ; (let wait-loop ((j 0))
-        ;   (let ((status (inb stt-reg)))
-        ;     (if (not (fx> (fxand status IDE-STATUS-BSY) 0))
-        ;         (if (fx> (fxand status IDE-STATUS-ERR) 0)
-        ;             (set! err 1))
-        ;         (begin
-        ;           (thread-sleep! (until-has-elapsed 1 TIME-UNIT-MICROSECS))
-        ;           (wait-loop (+ j 1))))))
-        ; (let bsy-loop ()
-        ;   (let* ((stt (inb stt-reg)))
-        ;     (debug-write "BSY LOOP")
-        ;     (if (not (fx= stt 0))
-        ;         (bsy-loop))))
-        (debug-write "Done reading"))
+        (outb (b-chop IDE-READ-SECTORS-CMD) cmd-reg))
       (cont (make-vector 0 0))))
 
 (define (ide-init-devices)
@@ -295,21 +263,12 @@
 
 (define (handle-ide-int controller-no)
   (begin 
-    (debug-write "-----------")
-    (debug-write "-----------")
-    (debug-write "RCV IDE INT")
-    (debug-write "-----------")
-    (debug-write "-----------")
     (let* ((ctrl (vector-ref IDE-CTRL-VECT controller-no))
            (q (ide-controller-continuations-queue ctrl))
            (cont (pop q)))
       (if cont
-          (begin
-            debug-write "HAS A CONT" 
-            (cont))
-          (begin
-            (debug-write "NO CONT")
-            #f))))) 
+          (cont)
+          #f)))) 
 
 (define (ide-make-device-setup-lambda controller devices)
   (lambda (dev-no)
@@ -337,9 +296,7 @@
                       (wait-loop (+ j 1))))))
             ; Device is not absent, we can continue the work
             (if (> err 0)
-                (begin
-                  (debug-write "!DEVICE DISSAPEARED"); this is log
-                  (list-set! devices dev-no IDE-DEVICE-ABSENT))
+                (list-set! devices dev-no IDE-DEVICE-ABSENT)
                 (let* ((info-sz (fxarithmetic-shift 1 (- IDE-LOG2-SECTOR-SIZE 1)))
                        (id-vect (build-vector info-sz (lambda (idx) (inw data-reg))))
                        (serial-num (swap-and-trim id-vect 10 20))
@@ -374,20 +331,12 @@
                                  sect-per-trk
                                  total-sectors-chs
                                  total-sectors)))
-                  (debug-write serial-num)
-                  (newline)
-                  (debug-write firmware-rev) 
-                  (newline)
-                  (debug-write model-num)
-                  (newline)
                   (ide-controller-set-device controller dev-no device))))))))
 
 ; Make a lambda to detect if a device is present on the ide
 ; controller whoses CPU port is the cpu-port in parameters
 (define (ide-make-device-detection-lambda controller controller-statuses cpu-port)
 (lambda (dev-no)
- (debug-write "IDE device detect")
- (debug-write dev-no)
  (let* ((device-reg (fx+ cpu-port IDE-DEV-HEAD-REG)))
   (outb (fxior IDE-DEV-HEAD-IBM (IDE-DEV-HEAD-DEV dev-no)) device-reg)
   ; Send detection info
@@ -407,7 +356,6 @@
 (define (ide-reset-device type ctrl-cpu-port device-no)
  (let ((head-reg (fx+ ctrl-cpu-port IDE-DEV-HEAD-REG))
        (stt-reg (fx+ ctrl-cpu-port IDE-STATUS-REG)))
-   (debug-write (string-append "Resetting device..." (number->string device-no)))
    (outb (fxior IDE-DEV-HEAD-IBM (IDE-DEV-HEAD-DEV device-no)) head-reg)
    (ide-delay ctrl-cpu-port)
    (if (and (fx= (fxand (inb stt-reg) IDE-STATUS-BSY) 0)
@@ -491,13 +439,11 @@
       ;             (ide-controller-if-device? controller dev-no display) 
       ;            ) (iota IDE-DEVICES-PER-CONTROLLER)))
     ; Enable ints on the controller
-    (outb 0 ctrl-reg)
-    (debug-write "Done configuring devices")))
+    (outb 0 ctrl-reg)))
 
 ; Setup an ide controller
 (define (ide-setup-controller no)
   (begin
-    (debug-write (string-append "Setup controller " (number->string no)))
     (let* ((controller (vector-ref IDE-CTRL-VECT no))
            (cpu-port (ide-controller-cpu-port controller))
            (irq (ide-controller-irq controller)))
