@@ -16,18 +16,6 @@
        (else
         (str-debug-write (string obj)))))
 
-(define (debug-write str)
-  (let ((str (if (not (string? str))
-                 (number->string str)
-                 str)))
-    (let ((str (string-append "[SCM] " str "\n")))
-      (begin
-        (map (lambda (c)
-               (if (char? c)
-                   (char-debug-write c)))
-             (string->list str))
-        str))))
-
 (define (str-debug-write str)
   (let ((str (string-append "[SCM] " str "\n")))
     (begin
@@ -41,11 +29,10 @@
     (str-debug-write (number->string nbr)))
 
 (define (vector-debug-write vect)
- (let ((l (vector-length vect))
-       (lst-rpr (vector->list vect)))
-  (debug-write (vector-ref vect 0))
-  (debug-write (vector-ref vect 1))
-  (debug-write (vector-ref vect 2))))
+  (str-debug-write (fold-right (lambda (cur rest)
+                (string-append (number->string cur) " " rest))
+              ""
+              (vector->list vect))))
 
 (define (char-debug-write char)
  (outb char DEBUG-WRITE-PORT))
