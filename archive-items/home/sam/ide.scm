@@ -154,6 +154,30 @@
     (if (mask error IDE-ERROR-AMNF)
         (debug-write "Data address mark not found after ID field"))))
 
+; Take a vector made of shorts and return a vector made
+; of bytes (system endianness)
+(define (expand-wvect wvector)
+  (let ((get-byte (lambda (i)
+                     (let* ((even (fxeven? i))
+                            (half-pos (if even 
+                                          (fxhalve i)
+                                          (fxhalve (- i 1))))
+                            (val (vector-ref wvector half-pos)))
+                       (b-chop (if (not even)
+                                   (fxarithmetic-shift-right val 8)
+                                   val))))))
+    (build-vector (* 2 (vector-length wvector)) get-byte)))
+
+; Take a vector of bytes and compresses it into a vector
+; of shorts (system endianness)
+(define (compress-bvect b-vect)
+  (let ((l (vector-length b-vect)))
+    (build-vector (fxhalve l)
+                  (lambda (idx)
+                    (let ((b-idx (fxarithmetic-shift idx 1)))
+                      (fxior (fxarithmetic-shift (vector-ref b-vect  (+ b-idx 1)) 8)
+                             (vector-ref b-vect b-idx))))))) 
+
 ; Creates a read command for the int
 (define (ide-make-sector-read-command cpu-port count cont)
   (lambda ()
@@ -164,22 +188,12 @@
       (if (mask status IDE-STATUS-ERR)
           (ide-handle-read-err cpu-port)
           (let* ((double-bytes (fxarithmetic-shift count (- IDE-LOG2-SECTOR-SIZE 1)))
-                 (buff (build-vector double-bytes (lambda (i) (inw data-reg))))
-                 (get-byte (lambda (i)
-                             (let* ((even (fxeven? i))
-                                    (half-pos (if even 
-                                                  (fxhalf i)
-                                                  (fxhalf (- i 1))))
-                                    (val (vector-ref buff half-pos)))
-                               (b-chop (if (not even)
-                                           (fxarithmetic-shift-right val 8)
-                                           val))))))
+                 (buff (build-vector double-bytes (lambda (i) (inw data-reg)))))
             (if (mask IDE-STATUS-DRQ (inb alt-reg))
                 (debug-write "Unknown error while reading..."))
             ; At this point, the vector is made out of shorts and not bytes
             ; We need to make it wider
-            (let ((wide-vector (build-vector (* 2 double-bytes) get-byte)))
-              ; (for-each (lambda (c) (debug-write c)) (vector->list (vector-map integer->char wide-vector)))
+            (let ((wide-vector (expand-wvect buff)))
               (display wide-vector)
               (cont wide-vector)))))))
 
@@ -221,6 +235,13 @@
         (outb (b-chop (fxarithmetic-shift-right lba 16)) cyl-hi-reg)
         (outb (b-chop IDE-READ-SECTORS-CMD) cmd-reg))
       (cont (make-vector 0 0))))
+
+; (define (ide-write-sectors lba buffer count)
+;  (let* ((count (min count 256))
+
+;         ))
+
+;  )
 
 (define (ide-init-devices)
  (make-list IDE-DEVICES-PER-CONTROLLER IDE-DEVICE-ABSENT))

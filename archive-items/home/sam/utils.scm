@@ -105,5 +105,5 @@
 (define (b-chop v)
  (fxand 255 v))
 
-(define (fxhalf n)
+(define (fxhalve n)
   (fxarithmetic-shift-right n 1))
