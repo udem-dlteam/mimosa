@@ -35,3 +35,9 @@
 
 (define (char-debug-write char)
  (outb char DEBUG-WRITE-PORT))
+
+(define (<< n shl)
+ (fxarithmetic-shift n shl))
+
+(define (>> n shr)
+ (fxarithmetic-shift-right n shr))
