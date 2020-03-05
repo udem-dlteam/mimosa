@@ -118,6 +118,7 @@
 (load "uart.scm")
 (load "keyboard.scm")
 (load "ide.scm")
+(load "disk.scm")
 (load "int_handle.scm") ; must be loaded after all drivers
 (load "ide_tests.scm")
 
@@ -134,14 +135,7 @@
 ;;;                 INTERRUPT HANDLING 
 ;;;----------------------------------------------------
 
-
-(define (fact n) (if (= n 1)
-                     1
-                     (* n (fact (- n 1)))))
-
-
 (define unhandled-interrupts (make 255))
-
 
 (define (mimosa-interrupt-handler)
   (let* ((int-no (read-iu8 #f SHARED-MEMORY-AREA))
