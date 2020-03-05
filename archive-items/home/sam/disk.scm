@@ -2,7 +2,6 @@
 ; TODO: I do not know if a table is sync safe
 ; Ill assume yes for now
 
-
 (define DISK-CACHE-MAX-SZ 4098)
 (define DISK-IDE 0)
 (define MAX-NB-DISKS 32)
@@ -16,6 +15,8 @@
              dirty?
              mut
              vect
+             ref-count
+             disk-l
              )
 
 (define-type disk
@@ -37,7 +38,7 @@
     (mutex-lock! mut)
     (debug-write "After lock")
     (let* ((raw-vect (ide-read-sectors dev lba 1))
-           (sect (create-sector raw-vect lba))) 
+           (sect (create-sector raw-vect lba disk))) 
       (table-set! cache lba sect)
       (disk-cache-used-set! disk (++ used))
       (mutex-unlock! mut)     
@@ -61,11 +62,17 @@
      (mutex-lock! dmut)
      (ide-write-sectors dev lba v 1)
      (mutex-unlock! dmut)
-     (mutex-unlock! smut)
+     (mutex-unlock! smut); todo not sure if necessary
      #t))
 
-(define (create-sector v lba)
-  (make-sector lba #f (make-mutex) v)) 
+(define (create-sector v lba disk)
+  (make-sector 
+    lba
+    #f
+    (make-mutex)
+    v 
+    0
+    (lambda () disk))) 
 
 (define (create-disk dev type)
  (make-disk 
@@ -74,6 +81,28 @@
   (make-table size: DISK-CACHE-MAX-SZ)
   0
   type))
+
+(define (disk-acquire-block disk lba)
+  (let* ((sector (disk-read-sector disk lba))
+         (refs (sector-ref-count sector))
+         (mut (sector-mut sector)))
+    (mutex-lock! mut)
+    (begin
+      (sector-ref-count-set! sector (++ refs))
+      (mutex-unlock! mut)
+      sector)))
+
+(define (disk-release-block sect)
+ (let* ((lba (sector-lba sect))
+        (mut (sector-mut sect))
+        (disk ((sector-disk-l sect)))
+        (refs (sector-ref-count sect)))
+    (mutex-lock! mut)
+    (begin
+      (sector-ref-count-set! sect (- refs 1))
+      (mutex-unlock! mut)
+      (if (= refs 1) (flush-block disk sect))
+      #t)))
 
 (define (init-disks)
   (let ((disk-idx 0)) 
@@ -87,3 +116,10 @@
                           (o not device-absent?))))
       (vector->list IDE-CTRL-VECT))
     disk-list))
+
+; For a disk, a block address, apply function 
+; fn on the sector vector
+(define (disk-apply-sector dsk lba fn)
+  (let ((sect (dsk-acquire-block dsk lba)))
+    (fn (sector-vect sect))
+    (disk-release-block sect)))
