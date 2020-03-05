@@ -20,22 +20,26 @@
 
 (define-type disk
              ide-device
-             disk-mut
+             mut
              cache
              cache-used
              type
              )
+
+(define disk-list (make-list MAX-NB-DISKS 'NO-DISK))
 
 (define (disk-fetch-and-set! disk lba)
   (let ((mut (disk-mut disk))
         (cache (disk-cache disk))
         (used (disk-cache-used disk));; todo: check overflow
         (dev (disk-ide-device disk)))
+    (debug-write "B4 lock")
     (mutex-lock! mut)
+    (debug-write "After lock")
     (let* ((raw-vect (ide-read-sectors dev lba 1))
            (sect (create-sector raw-vect lba))) 
       (table-set! cache lba sect)
-      (disk-cached-used-set! disk (++ used))
+      (disk-cache-used-set! disk (++ used))
       (mutex-unlock! mut)     
       sect)))
 
@@ -68,4 +72,18 @@
   dev
   (make-mutex)
   (make-table size: DISK-CACHE-MAX-SZ)
+  0
   type))
+
+(define (init-disks)
+  (let ((disk-idx 0)) 
+    (for-each
+      (lambda (ctrl)
+        (for-each (lambda (dev)
+                    (begin 
+                      (list-set! disk-list disk-idx (create-disk dev DISK-TYPE-IDE))   
+                      (set! disk-idx (++ disk-idx))))
+                  (filter (ide-controller-devices ctrl)
+                          (o not device-absent?))))
+      (vector->list IDE-CTRL-VECT))
+    disk-list))

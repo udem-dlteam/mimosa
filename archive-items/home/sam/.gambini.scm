@@ -111,6 +111,7 @@
 ;;;                      IMPORTs 
 ;;;----------------------------------------------------
 
+(load "edit.scm")
 (load "utils.scm")
 (load "mimosa_io.scm")
 (load "intr.scm")
@@ -130,6 +131,12 @@
 (define int-condvar (make-condition-variable))
 
 (for-each (o uart-do-init ++) (iota 4))
+
+(ide-setup)
+(ide-switch-over-driver)
+(init-disks)
+(define main-disk (car disk-list))
+(define main-dev (disk-ide-device main-disk))
 
 ;;;----------------------------------------------------
 ;;;                 INTERRUPT HANDLING 
@@ -178,6 +185,3 @@
           (exec)))))
 
 (thread-start! (make-thread exec "int execution g-tread"))
-
-
-(load "uart_test.scm")

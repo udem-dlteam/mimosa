@@ -231,7 +231,9 @@
              (count (min 256 count))
              (sz (fxarithmetic-shift count (- IDE-LOG2-SECTOR-SIZE 1)))
              (word-vector (make-vector sz 0)))
+        (debug-write "IDE mutex L")
         (mutex-lock! mut)
+        (debug-write "After IDE mutex L")
         (push (ide-make-sector-read-command cpu-port word-vector cv mut) q)
         (outb (b-chop (fxior IDE-DEV-HEAD-LBA 
                              (IDE-DEV-HEAD-DEV dev-id)
@@ -242,6 +244,7 @@
         (outb (b-chop (fxarithmetic-shift-right lba 16)) cyl-hi-reg)
         (outb (b-chop IDE-READ-SECTORS-CMD) cmd-reg)
         ; Wait on condvar
+        (debug-write "Wait on CV")
         (mutex-unlock! mut cv)
         ; this is the resulting vector
         (expand-wvect word-vector))
@@ -250,6 +253,9 @@
 
 (define (ide-init-devices)
  (make-list IDE-DEVICES-PER-CONTROLLER IDE-DEVICE-ABSENT))
+
+(define (device-absent? dev)
+ (eq? dev IDE-DEVICE-ABSENT))
 
 (define (ide-write-sectors device lba buffer count)
   (let* ((count (min count 256))
@@ -344,6 +350,7 @@
 
 (define (handle-ide-int controller-no)
   (begin 
+    (debug-write "IDE INT")
     (let* ((ctrl (vector-ref IDE-CTRL-VECT controller-no))
            (q (ide-controller-continuations-queue ctrl))
            (cont (pop q)))
@@ -538,6 +545,10 @@
             (ide-reset-controller controller devices statuses candidates)
             #f)))))
                 
+; Switch the IDE management from the C kernel to the scheme kernel
+(define (ide-switch-over-driver)
+ (open-input-file "/cut"))
+
 (define (ide-setup)
  (begin
    (for-each ide-setup-controller (iota IDE-CONTROLLERS))

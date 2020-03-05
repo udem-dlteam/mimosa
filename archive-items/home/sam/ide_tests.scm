@@ -3,20 +3,20 @@
 (define (cut)
  (open-input-file "/cut"))
 
-(define (test-ide lba)
-  (begin
-    (cut)
-    (ide-setup)
-    (let* ((ctrl (vector-ref IDE-CTRL-VECT 0))
-           (devices (ide-controller-devices ctrl))
-           (device (car devices)))
-      (ide-read-sectors device lba 1))))
+; (define (test-ide lba)
+;   (begin
+;     (cut)
+;     (ide-setup)
+;     (let* ((ctrl (vector-ref IDE-CTRL-VECT 0))
+;            (devices (ide-controller-devices ctrl))
+;            (device (car devices)))
+;       (ide-read-sectors device lba 1))))
 
-(define (t-ide-read lba)
-  (let* ((ctrl (vector-ref IDE-CTRL-VECT 0))
-         (devices (ide-controller-devices ctrl))
-         (device (car devices)))
-    (ide-read-sectors device lba 1)))
+; (define (t-ide-read lba)
+;   (let* ((ctrl (vector-ref IDE-CTRL-VECT 0))
+;          (devices (ide-controller-devices ctrl))
+;          (device (car devices)))
+;     (ide-read-sectors device lba 1)))
 
 (define (dsk1)
   (let* ((ctrl (vector-ref IDE-CTRL-VECT 0))

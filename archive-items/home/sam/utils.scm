@@ -107,3 +107,12 @@
 
 (define (fxhalve n)
   (fxarithmetic-shift-right n 1))
+
+(define (filter lst predicate)
+  (fold-right (lambda (e r)
+                (if (predicate e)
+                    (cons e r)
+                    r))
+              (list) ; base
+              lst
+              ))
