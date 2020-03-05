@@ -129,8 +129,9 @@
              irq
              devices 
              continuations-queue
-             ; probably not necessary anymore commands
-             continuations-condvar)
+             mut; condvar mutex
+             cv ; condvar itself
+             )
 
 (define (ide-handle-read-err cpu-port)
   (let* ((err-reg (fx+ cpu-port IDE-ERROR-REG))
@@ -178,7 +179,7 @@
                              (vector-ref b-vect b-idx))))))) 
 
 ; Creates a read command for the int
-(define (ide-make-sector-read-command cpu-port count cont)
+(define (ide-make-sector-read-command cpu-port target-vector cv mut)
   (lambda ()
     (let* ((data-reg (fx+ cpu-port IDE-DATA-REG))
            (stt-reg (fx+ cpu-port IDE-STATUS-REG))
@@ -186,17 +187,16 @@
            (status (inb stt-reg)))
       (if (mask status IDE-STATUS-ERR)
           (ide-handle-read-err cpu-port)
-          (let* ((double-bytes (fxarithmetic-shift count (- IDE-LOG2-SECTOR-SIZE 1)))
-                 (buff (build-vector double-bytes (lambda (i) (inw data-reg)))))
+          (begin 
+            (mutex-lock! mut)
+            (for-each (lambda (i)
+                        (vector-set! target-vector i (inw data-reg)))
+                      (iota (vector-length target-vector)))
             (if (mask IDE-STATUS-DRQ (inb alt-reg))
                 (debug-write "Unknown error while reading..."))
-            ; At this point, the vector is made out of shorts and not bytes
-            ; We need to make it wider
-            (let ((wide-vector (expand-wvect buff)))
-              (for-each (o debug-write integer->char)
-                        (vector->list wide-vector))
-              ; (display wide-vector)
-              (cont wide-vector)))))))
+            ; Signal we are ready
+            (condition-variable-signal! cv)
+            (mutex-unlock! mut))))))
 
 ; Flush the command cache of an ide device
 (define (ide-flush-cache device)
@@ -207,15 +207,18 @@
    (disable-interrupts)
    (outb IDE-FLUSH-CACHE-CMD cmd-reg)
    (enable-interrupts)))
+    
 
 ; Read `count` sectors from the ide device. 
 ; When the data is read, the continuation is called with
 ; a vector that corresponds to the data at `lba` (logical block addressing)
 ; The continuation might be called from another thread
-(define (ide-read-sectors device lba count cont)
+(define (ide-read-sectors device lba count)
   (if (fx> count 0)
       (let* ((dev-id (ide-device-id device))
              (ctrl ((ide-device-controller device)))
+             (mut (ide-controller-mut ctrl))
+             (cv (ide-controller-cv ctrl))
              (cpu-port (ide-controller-cpu-port ctrl))
              (head-reg (fx+ cpu-port IDE-DEV-HEAD-REG))
              (sect-count-reg (fx+ cpu-port IDE-SECT-COUNT-REG))
@@ -225,8 +228,11 @@
              (cmd-reg (fx+ cpu-port IDE-COMMAND-REG))
              (stt-reg (fx+ cpu-port IDE-STATUS-REG))
              (q (ide-controller-continuations-queue ctrl))
-             (count (min 256 count)))
-        (push (ide-make-sector-read-command cpu-port count cont) q)
+             (count (min 256 count))
+             (sz (fxarithmetic-shift count (- IDE-LOG2-SECTOR-SIZE 1)))
+             (word-vector (make-vector sz 0)))
+        (mutex-lock! mut)
+        (push (ide-make-sector-read-command cpu-port word-vector cv mut) q)
         (outb (b-chop (fxior IDE-DEV-HEAD-LBA 
                              (IDE-DEV-HEAD-DEV dev-id)
                              (fxarithmetic-shift-right lba 24))) head-reg)
@@ -234,7 +240,12 @@
         (outb (b-chop lba) sect-num-reg)
         (outb (b-chop (fxarithmetic-shift-right lba 8)) cyl-lo-reg)
         (outb (b-chop (fxarithmetic-shift-right lba 16)) cyl-hi-reg)
-        (outb (b-chop IDE-READ-SECTORS-CMD) cmd-reg))
+        (outb (b-chop IDE-READ-SECTORS-CMD) cmd-reg)
+        ; Wait on condvar
+        (mutex-unlock! mut cv)
+        ; this is the resulting vector
+        (expand-wvect word-vector))
+
       (cont (make-vector 0 0))))
 
 (define (ide-init-devices)
@@ -292,6 +303,7 @@
                          (list-ref IDE-CONTROLLER-IRQS i) ; the irq
                          (ide-init-devices)
                          (make 10) ; make a 10 item queue
+                         (make-mutex)
                          (make-condition-variable))) (iota IDE-CONTROLLERS))))
 
 ; Set the device of the ide controller to the specified device
@@ -423,14 +435,12 @@
 ; device-no: the device number
 ; returns true if the device was successfully reset, false otherwise
 (define (ide-reset-device type ctrl-cpu-port device-no)
- (let ((head-reg (fx+ ctrl-cpu-port IDE-DEV-HEAD-REG))
-       (stt-reg (fx+ ctrl-cpu-port IDE-STATUS-REG)))
-   (outb (fxior IDE-DEV-HEAD-IBM (IDE-DEV-HEAD-DEV device-no)) head-reg)
-   (ide-delay ctrl-cpu-port)
-   (if (and (fx= (fxand (inb stt-reg) IDE-STATUS-BSY) 0)
-            (eq? type IDE-DEVICE-ATAPI))
-        #t
-        #f)))
+  (let ((head-reg (fx+ ctrl-cpu-port IDE-DEV-HEAD-REG))
+        (stt-reg (fx+ ctrl-cpu-port IDE-STATUS-REG)))
+    (outb (fxior IDE-DEV-HEAD-IBM (IDE-DEV-HEAD-DEV device-no)) head-reg)
+    (ide-delay ctrl-cpu-port)
+    (and (fx= (fxand (inb stt-reg) IDE-STATUS-BSY) 0)
+         (eq? type IDE-DEVICE-ATAPI))))
    
 
 (define (ide-reset-controller controller devices statuses candidates)
