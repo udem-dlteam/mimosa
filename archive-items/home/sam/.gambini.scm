@@ -1,7 +1,7 @@
 ; The MIMOSA project
 ; Scheme executor bridge
 (include "queue.scm")
-(import (low-level))
+(import (utils) (low-level))
 
 (define SHARED-MEMORY-AREA #x300000)
 
@@ -20,7 +20,6 @@
 ;;;                      IMPORTs 
 ;;;----------------------------------------------------
 
-(load "edit.scm")
 (load "utils.scm")
 (load "mimosa_io.scm")
 (load "intr.scm")
