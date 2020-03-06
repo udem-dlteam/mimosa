@@ -8,7 +8,7 @@
 
 ;;; Character operations.
 
-(##include "~~lib/_prim-char-r4rs#.scm")
-(##include "~~lib/_prim-char-r7rs#.scm")
+(##include "_prim-char-r4rs#.scm")
+(##include "_prim-char-r7rs#.scm")
 
 ;;;============================================================================

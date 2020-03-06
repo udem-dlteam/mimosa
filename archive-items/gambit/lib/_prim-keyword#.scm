@@ -8,6 +8,6 @@
 
 ;;; Keyword operations.
 
-(##include "~~lib/_prim-keyword-gambit#.scm")
+(##include "_prim-keyword-gambit#.scm")
 
 ;;;============================================================================

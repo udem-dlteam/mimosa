@@ -12,20 +12,20 @@
 ;;;----------------------------------------------------------------------------
 
 ;; needed by expansion of syntax-case and syntax forms
-(include "~~lib/_syntax-pattern.scm")
-(include "~~lib/_syntax-template.scm")
-(include "~~lib/_syntax-common.scm")
+(include "_syntax-pattern.scm")
+(include "_syntax-template.scm")
+(include "_syntax-common.scm")
 
 ;;;----------------------------------------------------------------------------
 
 (##define-syntax syntax-case
   (lambda (src)
-    (##include "~~lib/_syntax-case-xform-boot.scm")
+    (##include "_syntax-case-xform-boot.scm")
     (syn#syntax-case-form-transformer src)))
 
 (##define-syntax syntax
   (lambda (src)
-    (##include "~~lib/_syntax-xform-boot.scm")
+    (##include "_syntax-xform-boot.scm")
     (syn#syntax-form-transformer src '())))
 
 ;;;============================================================================

@@ -16,7 +16,7 @@
   (define-macro (syntax-case-cpattern)
 
     ;; get definition of syn#compile-pattern
-    (include "~~lib/_syntax-pattern.scm")
+    (include "_syntax-pattern.scm")
 
     (syn#compile-pattern
      (##make-source '(_ input (literal ...) (pattern guard expr ...) ...) #f)
@@ -25,8 +25,8 @@
        `',cpattern)))
 
                                         ;; get definitions of
-  (include "~~lib/_syntax-pattern.scm") ;; syn#match-pattern, etc
-  (include "~~lib/_syntax-common.scm")  ;; syn#pvar-id
+  (include "_syntax-pattern.scm") ;; syn#match-pattern, etc
+  (include "_syntax-common.scm")  ;; syn#pvar-id
 
   (let ((bs (syn#match-pattern (syntax-case-cpattern) src)))
     (if (syn#match-success? bs)

@@ -14,8 +14,8 @@
 (define (syn#syntax-case-form-transformer src)
 
                                           ;; get bootstrap versions of
-  (include "~~lib/_syntax-boot.scm")      ;; syntax-case and syntax forms
-  (include "~~lib/_with-syntax-boot.scm") ;; with-syntax
+  (include "_syntax-boot.scm")      ;; syntax-case and syntax forms
+  (include "_with-syntax-boot.scm") ;; with-syntax
 
   (syntax-case src ()
 

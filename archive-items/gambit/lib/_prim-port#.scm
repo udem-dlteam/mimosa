@@ -8,8 +8,8 @@
 
 ;;; Port operations.
 
-(##include "~~lib/_prim-port-r4rs#.scm")
-(##include "~~lib/_prim-port-r7rs#.scm")
-(##include "~~lib/_prim-port-gambit#.scm")
+(##include "_prim-port-r4rs#.scm")
+(##include "_prim-port-r7rs#.scm")
+(##include "_prim-port-gambit#.scm")
 
 ;;;============================================================================

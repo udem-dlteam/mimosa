@@ -14,8 +14,8 @@
 (define (syn#syntax-form-transformer src inherited-pvars)
 
                                          ;; get definition of
-  (include "~~lib/_syntax-template.scm") ;; syn#compile-template
-  (include "~~lib/_syntax-common.scm")   ;; syn#pvar-id
+  (include "_syntax-template.scm") ;; syn#compile-template
+  (include "_syntax-common.scm")   ;; syn#pvar-id
 
   (let ((code (##source-code src)))
     (if (and (= (length code) 4)
@@ -41,7 +41,7 @@
 
              (##define-syntax syntax
                (##lambda (##src)
-                 (##include "~~lib/_syntax-xform-boot.scm")
+                 (##include "_syntax-xform-boot.scm")
                  (syn#syntax-form-transformer ##src ',new-pvars)))
 
              ,expr))

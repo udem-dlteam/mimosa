@@ -8,8 +8,8 @@
 
 ;;; Numeric operations.
 
-(##include "~~lib/_prim-number-r4rs#.scm")
-(##include "~~lib/_prim-number-r7rs#.scm")
-(##include "~~lib/_prim-number-gambit#.scm")
+(##include "_prim-number-r4rs#.scm")
+(##include "_prim-number-r7rs#.scm")
+(##include "_prim-number-gambit#.scm")
 
 ;;;============================================================================

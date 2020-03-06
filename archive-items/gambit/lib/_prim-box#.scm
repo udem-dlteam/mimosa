@@ -8,6 +8,6 @@
 
 ;;; Box operations.
 
-(##include "~~lib/_prim-box-gambit#.scm")
+(##include "_prim-box-gambit#.scm")
 
 ;;;============================================================================

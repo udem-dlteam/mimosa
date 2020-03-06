@@ -8,6 +8,6 @@
 
 ;;; S16vector operations.
 
-(##include "~~lib/_prim-s16vector-gambit#.scm")
+(##include "_prim-s16vector-gambit#.scm")
 
 ;;;============================================================================

@@ -8,7 +8,7 @@
 
 ;;; Boolean operations.
 
-(##include "~~lib/_prim-boolean-r4rs#.scm")
-(##include "~~lib/_prim-boolean-r7rs#.scm")
+(##include "_prim-boolean-r4rs#.scm")
+(##include "_prim-boolean-r7rs#.scm")
 
 ;;;============================================================================

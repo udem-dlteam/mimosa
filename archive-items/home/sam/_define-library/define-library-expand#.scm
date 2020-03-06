@@ -1,15 +1,16 @@
 ;;;============================================================================
 
-;;; File: "_prim-symbol#.scm"
+;;; File: "_define-library-expand#.scm"
 
-;;; Copyright (c) 1994-2019 by Marc Feeley, All Rights Reserved.
+;;; Copyright (c) 2014-2019 by Marc Feeley and Frédéric Hamel, All Rights Reserved.
 
 ;;;============================================================================
 
-;;; Symbol operations.
+(##namespace ("_define-library/define-library-expand#"
 
-(##include "_prim-symbol-r4rs#.scm")
-(##include "_prim-symbol-r7rs#.scm")
-(##include "_prim-symbol-gambit#.scm")
+import-expand
+define-library-expand
+
+))
 
 ;;;============================================================================

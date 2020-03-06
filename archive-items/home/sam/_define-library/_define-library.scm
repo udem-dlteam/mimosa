@@ -1,15 +1,11 @@
 ;;;============================================================================
 
-;;; File: "_prim-symbol#.scm"
+;;; File: "_define-library.scm"
 
-;;; Copyright (c) 1994-2019 by Marc Feeley, All Rights Reserved.
+;;; Copyright (c) 2014-2019 by Marc Feeley and Frédéric Hamel, All Rights Reserved.
 
 ;;;============================================================================
 
-;;; Symbol operations.
-
-(##include "_prim-symbol-r4rs#.scm")
-(##include "_prim-symbol-r7rs#.scm")
-(##include "_prim-symbol-gambit#.scm")
+(##supply-module _define-library)
 
 ;;;============================================================================

@@ -8,6 +8,6 @@
 
 ;;; Flonum operations.
 
-(##include "~~lib/_prim-flonum-gambit#.scm")
+(##include "_prim-flonum-gambit#.scm")
 
 ;;;============================================================================

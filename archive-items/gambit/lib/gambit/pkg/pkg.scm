@@ -33,8 +33,8 @@
   (extended-bindings))
 
 (##namespace ("gambit/pkg#"))
-(##include "~~lib/gambit#.scm")
-(##include "~~lib/_module#.scm")
+(##include "gambit#.scm")
+(##include "_module#.scm")
 
 (##supply-module gambit/pkg)
 

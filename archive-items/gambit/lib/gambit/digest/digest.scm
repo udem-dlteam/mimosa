@@ -11,8 +11,8 @@
 (##supply-module gambit/digest)
 
 (##namespace ("gambit/digest#")) ;; in gambit/digest#
-(##include "~~lib/_prim#.scm")   ;; map fx+ to ##fx+, etc
-(##include "~~lib/_gambit#.scm") ;; for macro-check-string,
+(##include "_prim#.scm")   ;; map fx+ to ##fx+, etc
+(##include "_gambit#.scm") ;; for macro-check-string,
                                  ;; macro-absent-obj, etc
 
 (declare (extended-bindings)) ;; ##fx+ is bound to fixnum addition, etc

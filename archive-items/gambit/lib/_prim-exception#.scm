@@ -8,6 +8,6 @@
 
 ;;; Exception operations.
 
-(##include "~~lib/_prim-exception-gambit#.scm")
+(##include "_prim-exception-gambit#.scm")
 
 ;;;============================================================================

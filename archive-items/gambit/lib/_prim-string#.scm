@@ -8,8 +8,8 @@
 
 ;;; String operations.
 
-(##include "~~lib/_prim-string-r4rs#.scm")
-(##include "~~lib/_prim-string-r7rs#.scm")
-(##include "~~lib/_prim-string-gambit#.scm")
+(##include "_prim-string-r4rs#.scm")
+(##include "_prim-string-r7rs#.scm")
+(##include "_prim-string-gambit#.scm")
 
 ;;;============================================================================

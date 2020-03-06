@@ -13,8 +13,8 @@
 (define (syn#syntax-form-transformer src inherited-pvars)
 
                                           ;; get bootstrap versions of
-  (include "~~lib/_syntax-boot.scm")      ;; syntax-case and syntax forms
-  (include "~~lib/_with-syntax-boot.scm") ;; with-syntax
+  (include "_syntax-boot.scm")      ;; syntax-case and syntax forms
+  (include "_with-syntax-boot.scm") ;; with-syntax
 
   (syntax-case src (##let-pattern-variables)
 
@@ -41,7 +41,7 @@
                (if (##unbound? (##global-var-ref
                                 (##make-global-var 'syn#syntax-form-transformer)))
                    (##eval '(lambda (src)
-                              (##include "~~lib/_syntax-xform.scm")
+                              (##include "_syntax-xform.scm")
                               (syn#syntax-form-transformer src 'new-pvars)))
                    (lambda (src) (syn#syntax-form-transformer src 'new-pvars)))
 ;|#            (lambda (src) (syn#syntax-form-transformer src 'new-pvars))
@@ -50,7 +50,7 @@
              #;
              (##define-syntax syntax
                (##lambda (##src)
-                 (##include "~~lib/_syntax-xform.scm")
+                 (##include "_syntax-xform.scm")
                  (syn#syntax-form-transformer ##src 'new-pvars)))
 
              expr))))

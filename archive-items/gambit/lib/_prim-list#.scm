@@ -8,8 +8,8 @@
 
 ;;; List operations.
 
-(##include "~~lib/_prim-list-r4rs#.scm")
-(##include "~~lib/_prim-list-r7rs#.scm")
-(##include "~~lib/_prim-list-gambit#.scm")
+(##include "_prim-list-r4rs#.scm")
+(##include "_prim-list-r7rs#.scm")
+(##include "_prim-list-gambit#.scm")
 
 ;;;============================================================================

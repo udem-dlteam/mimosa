@@ -8,6 +8,6 @@
 
 ;;; Bytevector operations.
 
-(##include "~~lib/_prim-bytevector-r7rs#.scm")
+(##include "_prim-bytevector-r7rs#.scm")
 
 ;;;============================================================================

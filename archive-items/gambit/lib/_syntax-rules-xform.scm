@@ -14,7 +14,7 @@
 (define (syn#syntax-rules->crules src)
 
   ;; get bootstrap versions of syntax-case and syntax forms
-  (include "~~lib/_syntax-boot.scm")
+  (include "_syntax-boot.scm")
 
   (syntax-case src ()
 
@@ -44,8 +44,8 @@
 (define (syn#syntax-rules-form-transformer src)
 
                                           ;; get bootstrap versions of
-  (include "~~lib/_syntax-boot.scm")      ;; syntax-case and syntax forms
-  (include "~~lib/_with-syntax-boot.scm") ;; with-syntax
+  (include "_syntax-boot.scm")      ;; syntax-case and syntax forms
+  (include "_with-syntax-boot.scm") ;; with-syntax
 
   (let ((crules (syn#syntax-rules->crules src)))
     (with-syntax ((crules (datum->syntax src crules)))

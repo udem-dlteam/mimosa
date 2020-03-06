@@ -17,12 +17,12 @@
   (if (##unbound? (##global-var-ref
                    (##make-global-var 'syn#define-syntax-form-transformer)))
       (##eval '(lambda (src)
-                 (##include "~~lib/_syntax.scm")
+                 (##include "_syntax.scm")
                  (syntax-case src ()
                    ((_ id fn)
                     #'(##define-syntax id
                         (##lambda (##src)
-                          (##include "~~lib/_syntax.scm")
+                          (##include "_syntax.scm")
                           (fn ##src)))))))
       syn#define-syntax-form-transformer)
 ;|# syn#define-syntax-form-transformer

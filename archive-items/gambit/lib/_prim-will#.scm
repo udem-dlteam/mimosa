@@ -8,6 +8,6 @@
 
 ;;; Will operations.
 
-(##include "~~lib/_prim-will-gambit#.scm")
+(##include "_prim-will-gambit#.scm")
 
 ;;;============================================================================
