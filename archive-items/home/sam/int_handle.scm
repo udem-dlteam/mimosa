@@ -1,5 +1,7 @@
 ;; The mimosa project
 
+(import (ide) (uart) (keyboard))
+
 (define KEYBOARD-INT #x1)
 (define UART-INT #x2)
 (define IDE-INT #x3)

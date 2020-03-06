@@ -1,11 +1,10 @@
 ;; The mimosa project
 ;; UART driver
+(import (utils) (debug) (queue))
 ; Source for writing 8250 UART drivers can be found at
 ; https://en.wikibooks.org/wiki/Serial-Programming/8250-UART-Programming
 (define DEFAULT-BAUD-RATE 115200)
-
 (define UART-BUF-SIZE 255)
-
 ; /* COM1 */
 (define COM1-PORT-BASE #x3f8)
 (define COM1-IRQ 4)
@@ -18,7 +17,6 @@
  ; /* COM4 */
 (define COM4-PORT-BASE #x2e8)
 (define COM4-IRQ 3)
-
 (define (COM-PORT->CPU-PORT n)
  (cond ((= n 1)
         COM1-PORT-BASE)
@@ -28,7 +26,6 @@
         COM3-PORT-BASE)
        (else
         COM4-PORT-BASE)))
-
 (define (CPU-PORT->COM-PORT cpu-port)
   (cond ((= cpu-port COM1-PORT-BASE)
          1)
@@ -38,12 +35,10 @@
          3)
         ((= cpu-port COM4-PORT-BASE)
          4)))
-
 (define (COM-PORT->IRQ-NO port)
   (if (= (modulo port 2) 1)
       4
       3))
-
 (define UART-8250-RHR 0)
 (define UART-8250-THR 0)
 (define UART-8250-IER 1)
@@ -178,7 +173,6 @@
 ; ---------------------------------------------
 ;                 IN PORT 
 ; ---------------------------------------------
-
 ; Check if the uart port has been opened
 (define (uart-opened? port-data)
  (uart-struct-opened? port-data))
@@ -186,7 +180,6 @@
 ; ---------------------------------------------
 ;                 OUT PORT 
 ; ---------------------------------------------
-
 ; Push a character in the in buffer
 (define (uart-port-next-char-out port-data)
  (pop (uart-struct-write-queue port-data)))
@@ -205,13 +198,9 @@
    ; Push into the queue to be pushed later
     (let ((port-data (get-port-data com-port)))
       (push char (uart-struct-write-queue port-data))))))
-
 ; ---------------------------------------------
-
 (define (open-port! port-data) #t)
  ; (vector-set! port-data 1 #t))
-
-
 ; Return the model number of the uart port
 (define (identify-material port)
   (let* ((cpu-port (COM-PORT->CPU-PORT port))
@@ -231,17 +220,14 @@
               (if (fx= (inb scr-reg) #x2A)
                   16450
                   8250))))))
-
 (define (uart-enable-dlab register)
   (let ((current-val (inb register)))
     (begin
       (outb (fxior #x80 current-val))
       #t)))
-
 (define (uart-disable-dlab register)
   (let ((lcr-val (fxand (inb register) #x7F)))
     (outb lcr-val register)))
-
 (define (uart-set-baud port baud)
   (let* ((cpu-port (COM-PORT->CPU-PORT port))
          (lcr-reg (fx+ cpu-port UART-8250-LCR))
@@ -252,7 +238,6 @@
     (outb (DIV-DLH baud) divisor-latch-high-reg)
     (uart-disable-dlab lcr-reg)
     #t))
-
 (define (uart-get-baud port)
  (let* ((cpu-port (COM-PORT->CPU-PORT))
         (lcr-reg (fx+ cpu-port UART-8250-LCR))
@@ -268,26 +253,21 @@
             (baud (/ 115200 (fx+ div-hi div-lo))))
        (uart-disable-dlab lcr-reg)
        baud)))))
-
-
 (define (uart-read-rhr cpu-port)
   (let* ((data (inb (fx+ cpu-port UART-8250-RHR)))
          (cpu-port (CPU-PORT->COM-PORT cpu-port))
          (port-data (get-port-data cpu-port))
          (endpoint (port-data-get-endpoint port-data)))
     (write-char (integer->char data) endpoint))) ;; Write to the endpoint
-
 ; Check if a device is connected on the uart port
 (define (uart-device-connected? com-port)
  (let* ((cpu-port (COM-PORT->CPU-PORT com-port))
         (msr-reg (fx+ cpu-port UART-8250-MSR))
         (msr-val (inb msr-reg)))
   (fx>= (UART-MSR-CARRIER-DETECT msr-val) 0)))
-
 (define (uart-read-msr cpu-port)
  (let ((msr-reg (fx+ cpu-port UART-8250-MSR)))
   (inb msr-reg)))
-
 (define (uart-handle-thr cpu-port)
  (begin
   (if (UART-THR-GET-ACTION (inb (fx+ cpu-port UART-8250-LSR)))
@@ -301,14 +281,12 @@
             #f))
       ; read from IIR
       #f)))
-
 (define (uart-read-lsr cpu-port)
   (let* ((lsr-reg (fx+ cpu-port UART-8250-LSR))
          (e (inb lsr-reg)))
     (cond ((UART-LSR-DATA-AVAILABLE e)
            (uart-read-rhr cpu-port))
           (else e))))
-
 (define (uart-handle-cause cpu-port cause)
   (begin
     (cond ((= cause UART-IIR-MODEM)
@@ -348,8 +326,6 @@
            (debug-write "Timeout"))
           (else
             (debug-write "Unknown IIR status")))))
-
-
 ; Handle a UART interrupt
 ; We know there is a pending interrupt for the port
 ; We can start processing it immediately
@@ -357,44 +333,35 @@
   (let* ((cpu-port (COM-PORT->CPU-PORT com-port))
          (cause (UART-IIR-GET-CAUSE iir)))
     (uart-handle-cause cpu-port cause)))
-
 (define (make-pump-thread-body com-port endpoint)
   (lambda ()
     (let loop ()
       (let ((to-write (read-char endpoint)))
         (uart-write com-port to-write)
         (loop)))))
-
 (define (make-pump-thread com-port endpoint)
  (let ((body (make-pump-thread-body com-port endpoint))
        (name (string-append "UART pump thread " (number->string com-port))))
   (make-thread body name)))
-
 ;;; Procedures to operate on REPL channels.
 ;;; From Marc Feeley
 (define-macro (macro-repl-channel-input-port channel)
               `(##vector-ref ,channel 3))
-
 (define-macro (macro-repl-channel-input-port-set! channel port)
               `(##vector-set! ,channel 3 ,port))
-
 (define-macro (macro-repl-channel-output-port channel)
               `(##vector-ref ,channel 4))
-
 (define-macro (macro-repl-channel-output-port-set! channel port)
               `(##vector-set! ,channel 4 ,port))
-
 (define (make-repl-thread-body com-port endpoint)
   (lambda ()
     (begin
       (gambit-set-repl-channels! endpoint endpoint endpoint) 
       (##repl-debug-main))))
-
 (define (make-repl-thread com-port repl-endpoint)
   (let ((body (make-repl-thread-body com-port repl-endpoint))
         (name (string-append "UART repl thread " (number->string com-port))))
     (make-thread body name)))
-
 ; Perform the init sequence on a UART port
 (define (uart-do-init port)
   (let* ((cpu-port (COM-PORT->CPU-PORT port))
@@ -417,7 +384,6 @@
     ; Start the pump thread before the repl thread
     (thread-start! pump-thread)
     (thread-start! repl-thread)))
-
 (define (uart-init-port port)
  (if (and (fx>= port 1)
           (fx<= port 4))

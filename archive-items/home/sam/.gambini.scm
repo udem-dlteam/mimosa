@@ -1,7 +1,6 @@
 ; The MIMOSA project
 ; Scheme executor bridge
-(include "queue.scm")
-(import (utils) (low-level))
+(import (ide) (disk) (utils) (low-level) (debug) (queue))
 
 (define SHARED-MEMORY-AREA #x300000)
 
@@ -20,16 +19,10 @@
 ;;;                      IMPORTs 
 ;;;----------------------------------------------------
 
-(load "utils.scm")
 (load "mimosa_io.scm")
 (load "intr.scm")
 (load "os_types.scm")
-(load "uart.scm")
-(load "keyboard.scm")
-(load "ide.scm")
-(load "disk.scm")
 (load "int_handle.scm") ; must be loaded after all drivers
-(load "ide_tests.scm")
 
 ;;;----------------------------------------------------
 ;;;                    INIT SYS 
@@ -40,11 +33,11 @@
 
 (for-each (o uart-do-init ++) (iota 4))
 
-(ide-setup)
-(ide-switch-over-driver)
+(ide#setup)
+(ide#switch-over-driver)
+
 (init-disks)
 (define main-disk (car disk-list))
-(define main-dev (disk-ide-device main-disk))
 
 ;;;----------------------------------------------------
 ;;;                 INTERRUPT HANDLING 

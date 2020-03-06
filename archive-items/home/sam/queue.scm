@@ -1,8 +1,8 @@
 ; The mimosa project
 ; A scheme fixed size queue
 (define-library (queue)
- (import (gambit))
- (export get-size make pop peek push empty?)
+ (import (gambit) (utils))
+ (export make-queue get-size make pop peek push empty?)
  (begin
    (define (__get-backing-vector q)
      (vector-ref q 3))
@@ -25,6 +25,10 @@
    (define (__get-at idx q)
      (let ((b (__get-backing-vector q)))
        (vector-ref b idx)))
+
+   (define (make-queue size)
+     ; A queue contains a lo position, a hi position, a size and the vector itself
+     (vector 0 0 (+ size 1) (make-vector (+ size 1) (list))))
 
    (define (make size)
      ; A queue contains a lo position, a hi position, a size and the vector itself

@@ -22,6 +22,8 @@
                   o
                   string-trim
                   until-has-elapsed
+                  zip
+                  flatten
                   )
     (begin
       (define (<< n shl)
@@ -121,5 +123,27 @@
                     (list) ; base
                     lst
                     ))
-      ))
 
+      (define (zip a b)
+        (if (null? a)
+            (list)
+            (if (null? b)
+                (cons (car a) (zip (cdr a) b))
+                (let ((ea (car a))
+                      (eb (car b))
+                      (ra (cdr a))
+                      (rb (cdr b)))
+                  (cons (list ea eb) (zip ra rb))
+                  ))))
+
+      (define flatten
+        (lambda (ipt)
+          (if (null? ipt)
+              '()
+              (let ((c (car ipt)))
+                (if (pair? c)
+                    (flatten c)
+                    (cons c (flatten (cdr ipt))))))))
+
+
+      )) 
