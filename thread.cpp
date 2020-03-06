@@ -7,7 +7,6 @@
 // 23 Oct 01  initial version (Marc Feeley)
 
 //-----------------------------------------------------------------------------
-
 #include "thread.h"
 #include "asm.h"
 #include "pic.h"
