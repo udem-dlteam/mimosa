@@ -1,5 +1,6 @@
 ;; The mimosa project
 
+(import (low-level))
 (declare (not safe))
 
 (define DEAD 'DEAD)

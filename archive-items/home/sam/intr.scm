@@ -1,6 +1,8 @@
 ;; The mimosa project
 ;; Interrupt utils
 
+(import (low-level))
+
 (define PIC-PORT-MASTER-ICW1 #x20)
 (define PIC-PORT-SLAVE-ICW1 #xa0)
 (define PIC-PORT-MASTER-ICW2 #x21)
