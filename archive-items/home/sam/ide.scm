@@ -1,7 +1,7 @@
 ;; The mimosa project
 ;; Ide controller base code
 (define-library (ide)
-(import (gambit) (utils) (low-level) (queue) (debug)) 
+(import (gambit) (utils) (low-level) (debug)) 
 (export
   setup
   switch-over-driver
@@ -215,7 +215,8 @@
           (debug-write "IDE mutex L")
           (mutex-lock! mut)
           (debug-write "After IDE mutex L")
-          (push (ide-make-sector-read-command cpu-port word-vector cv mut) q)
+          (write (ide-make-sector-read-command cpu-port word-vector cv mut) q)
+          (force-output q)
           (outb (b-chop (fxior IDE-DEV-HEAD-LBA 
                                (IDE-DEV-HEAD-DEV dev-id)
                                (>> lba 24))) head-reg)
@@ -289,7 +290,7 @@
                            (list-ref IDE-CONTROLLER-PORTS i) ; the cpu-port
                            (list-ref IDE-CONTROLLER-IRQS i) ; the irq
                            (ide-init-devices)
-                           (make-queue 10) ; make a 10 item queue
+                           (open-vector) ; make a 10 item queue
                            (make-mutex)
                            (make-condition-variable))) (iota IDE-CONTROLLERS))))
 
@@ -334,7 +335,7 @@
       (debug-write "IDE INT")
       (let* ((ctrl (vector-ref IDE-CTRL-VECT controller-no))
              (q (ide-controller-continuations-queue ctrl))
-             (cont (pop q)))
+             (cont (read q)))
         (if cont
             (cont)
             #f)))) 
