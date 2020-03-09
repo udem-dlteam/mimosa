@@ -99,6 +99,11 @@
                         entry-pos
                         type
                         )
+      (define-macro (folder? ff)
+       `(eq? (fat-file-type ff) TYPE-FOLDER))
+
+      (define-macro (file? ff)
+       `(eq? (fat-file-type ff) TYPE-FILE))
 
       (define-structure BPB
                         jmp-boot
