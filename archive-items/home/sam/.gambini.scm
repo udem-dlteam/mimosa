@@ -1,6 +1,11 @@
 ; The MIMOSA project
 ; Scheme executor bridge
-(import (ide) (disk) (utils) (fat32) (low-level) (debug))
+(import (ide)
+        (disk)
+        (utils)
+        (fat32)
+        (low-level)
+        (debug))
 
 (define SHARED-MEMORY-AREA #x300000)
 
@@ -40,9 +45,6 @@
 (define main-disk (car disk-list))
 
 (define (t)
-  (f-tests main-disk))
-
-(define (a)
   (f-tests main-disk))
 
 ;;;----------------------------------------------------
