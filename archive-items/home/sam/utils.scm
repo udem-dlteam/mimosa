@@ -28,6 +28,7 @@
                   flatten
                   TODO
                   ilog2
+                  fields
                   ; define-struct-fill
                   )
     (begin
@@ -41,12 +42,12 @@
         (arithmetic-shift n shl))
 
       (define (s>> n shr)
-        (arithmetic-shift-right n shr))
+        (arithmetic-shift n (- shr)))
 
       (define (TODO)
-       (begin
-         (display "STUB")
-         #t))
+        (begin
+          (display "STUB")
+          #t))
 
 
       (define (assock key tbl)
@@ -161,15 +162,19 @@
                 (if (pair? c)
                     (flatten c)
                     (cons c (flatten (cdr ipt))))))))
-      
+
       (define (ilog2aux n tot)
-       (if (= n 1) tot (ilog2aux (floor (/ n 2)) (++ tot))))
+        (if (= n 1) tot (ilog2aux (floor (/ n 2)) (++ tot))))
 
       (define (ilog2 n)
-       (ilog2aux n 0))
+        (ilog2aux n 0))
 
       (define (bcd->binary byte)
         (+ (* 10 (fxarithmetic-shift-right byte 4)) (fxand byte #x0F)))
+
+      (define (fields obj)
+        (let ((x (##type-all-fields (##structure-type obj))))
+          (map (lambda (i) (list-ref x (* i 3))) (iota (quotient (length x) 3)))))
 
       ; (define-macro (define-struct-fill name fields)
       ;               (let ((fill-struct (string-append "fill-" (symbol->string name)))
@@ -198,7 +203,7 @@
       ;                                                                  (list 'vector-ref 'vec (+ offset i))
       ;                                                                  (* i 8)
       ;                                                                  )) (iota extract)))
-                                             
+
       ;                                        (list 'build-vector extract  
       ;                                              (list 'lambda (list 'i) (list 'vector-ref 'vec 'i)))
       ;                                        )))

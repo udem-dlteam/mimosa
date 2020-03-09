@@ -85,3 +85,6 @@
           (exec)))))
 
 (thread-start! (make-thread exec "int execution g-tread"))
+
+(define (t)
+ (fat32-tests main-disk))

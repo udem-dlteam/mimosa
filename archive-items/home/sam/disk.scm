@@ -135,7 +135,7 @@
   ; For a disk, a block address, apply function 
   ; fn on the sector vector
   (define (disk-apply-sector dsk lba fn)
-    (let* ((sect (dsk-acquire-block dsk lba))
+    (let* ((sect (disk-acquire-block dsk lba))
            (rslt (fn (sector-vect sect))))
       (disk-release-block sect)
       rslt))

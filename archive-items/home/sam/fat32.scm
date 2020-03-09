@@ -3,7 +3,7 @@
     (import (disk) (gambit) (utils))
     (export 
       fat32-tests
-      fill-BPB
+      pack-BPB
       read-file
       file-exists?
       list-directory
@@ -82,8 +82,11 @@
                FAT-ATTR-VOLUME-ID))
       (define FAT-NAME-LENGTH 11)
       (define FAT-DIR-ENTRY-SIZE 32)
+      (define TYPE-FOLDER 'FOLDER)
+      (define TYPE-FILE 'FILE)
 
-      (define-struct fat-file
+      (define-structure fat-file
+                     fs
                      first-clus
                      curr-clus
                      curr-section-start
@@ -92,6 +95,7 @@
                      len
                      parent-first-clus
                      entry-pos
+                     type
                      )
 
       (define-structure BPB
@@ -101,7 +105,7 @@
                         sec-per-cluster
                         reserved-sector-count
                         fats
-                        root-entry-cluster
+                        root-entry-count
                         total-sectors-16
                         media
                         fat-size-16
@@ -124,6 +128,17 @@
                         fs-type
                         )
 
+      (define-macro (BPB-first-data-sector bpb)
+       `(let* ((root-entry-count (BPB-root-entry-count ,bpb))
+               (bps (BPB-bps ,bpb))
+               (lg2-bps (ilog2 bps))
+               (fatsz (BPB-fat-size-32 ,bpb))
+               (fats (BPB-fats ,bpb))
+               (rzvd (BPB-reserved-sector-count ,bpb))
+               (root-dir-sectors (s>> (- (+ (* root-entry-count FAT-DIR-ENTRY-SIZE) (s<< 1 lg2-bps)) 1) lg2-bps))
+               )
+           (+ root-dir-sectors rzvd (* fatsz fats))))
+
       (define-structure entry
                         name
                         attr
@@ -137,7 +152,7 @@
                         cluster-lo
                         file-size)
 
-      (define-struct lfn
+      (define-structure lfn
                      ord
                      name1
                      attr
@@ -147,7 +162,7 @@
                      cluster-lo
                      name3)
 
-      ; Create the function fill-BPB that takes a vector and 
+      ; Create the function pack-BPB that takes a vector and 
       ; initialises the BPB as you would in C (map the memory to the structure)
       (define-struct-pack BPB
                           (3 8 2 1 2 1 2 2 1 2 2 2 4 4 4 2 2 4 2 2 12 1 1 1 4 11 8)) 
@@ -157,26 +172,38 @@
 
       (define-struct-pack lfn (1 10 1 1 1 12 2 4))
 
-      (define-structure fs
+      (define-structure filesystem
                         disk
                         bpb
                         )
-        
+
       (define fs-vector (make-vector 32 'NO-FS))
 
       (define (build-fs disk)
-       (let ((bpb (disk-apply-sector fill-BPB)))
-         (make-fs disk bpb)
-         ))
+        (let ((bpb (disk-apply-sector disk 0 pack-BPB)))
+          (make-filesystem disk bpb)
+          ))
 
       (define (open-root-dir fs)
-        TODO 
+        (let*
+         ((bpb (filesystem-bpb fs))
+          (bps (BPB-bps bpb))
+          (root-clus (BPB-root-cluster bpb))
+          (sec-per-cluster (BPB-sec-per-cluster bpb)))
+         (make-fat-file
+               fs
+               root-clus
+               root-clus
+               (BPB-first-data-sector bpb)
+               (* bps sec-per-cluster)
+               0
+               0
+               0
+               0
+               TYPE-FOLDER
+               )))
 
-       
-       
-       
-       
-       )
+      
 
       (define (make-fat-time hours minute seconds)
         ; According to the FAT specification, the FAT time is set that way:
@@ -227,6 +254,6 @@
       (define (fat32-tests disk)
         (let ((fs (build-fs disk)))
           (begin
-           (open-root-dir fs)
+            (open-root-dir fs)
             )))
       ))
