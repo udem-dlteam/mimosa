@@ -24,11 +24,17 @@
                   until-has-elapsed
                   zip
                   flatten
+                  TODO
                   ; define-struct-fill
                   )
     (begin
       (define (<< n shl)
         (fxarithmetic-shift n shl))
+
+      (define (TODO)
+       (begin
+         (display "STUB")
+         #t))
 
       (define (>> n shr)
         (fxarithmetic-shift-right n shr))

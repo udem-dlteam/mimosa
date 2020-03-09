@@ -1,47 +1,62 @@
 ; The mimosa project
-
-
 (define-library (fat32)
     (import (disk) (gambit) (utils))
     (export 
+      fat32-tests
       fill-BPB
       read-file
       file-exists?
       list-directory
       write-file)
     (begin 
-    (define-macro (define-struct-fill name fields)
-                  (let ((fill-struct (string-append "fill-" (symbol->string name)))
-                        (make-struct (string-append "make-" (symbol->string name)))
-                        (vect-idx 0))
-                    (begin
-                      (define flatten
-                        (lambda (ipt)
-                          (if (null? ipt)
-                              '()
-                              (let ((c (car ipt)))
-                                (if (pair? c)
-                                    c
-                                    (cons c (flatten (cdr ipt))))))))
 
-                      (list 'define (list (string->symbol fill-struct) 'vec)
-                            (cons 
-                              (string->symbol make-struct)
-                              (map (lambda (extract)
-                                     (let ((offset vect-idx)
-                                           (next-offset (+ vect-idx extract)))
-                                       (set! vect-idx next-offset) 
-                                       (if (<= extract 4)
-                                           (cons '+ (map (lambda (i)
-                                                               (list 'arithmetic-shift
-                                                                     (list 'vector-ref 'vec (+ offset i))
-                                                                     (* i 8)
-                                                                     )) (iota extract)))
+      ; (define-macro (define-struct-unpack name fields)
+      ;               (let ((fill-struct (string-append "unpack-" (symbol->string name)))
+      ;                     (make-struct (string-append "make-" (symbol->string name)))
+      ;                     (vect-idx 0))
+      ;                 (begin
+      ;                   (list 'define (list (string->symbol fill-struct) 'vec)
+      ;                         (cons 
+      ;                           (string->symbol make-struct)
+      ;                           (map (lambda (extract)
+      ;                                  (let ((offset vect-idx)
+      ;                                        (next-offset (+ vect-idx extract)))
+      ;                                    (set! vect-idx next-offset) 
+      ;                                    (if (<= extract 4)
+      ;                                        (cons '+ (map (lambda (i)
+      ;                                                        (list 'arithmetic-shift
+      ;                                                              (list 'vector-ref 'vec (+ offset i))
+      ;                                                              (* i 8)
+      ;                                                              )) (iota extract)))
 
-                                           (list 'build-vector extract  
-                                                 (list 'lambda (list 'i) (list 'vector-ref 'vec (list '+ offset 'i))))
-                                           )))
-                                   fields))))))
+      ;                                        (list 'build-vector extract  
+      ;                                              (list 'lambda (list 'i) (list 'vector-ref 'vec (list '+ offset 'i))))
+      ;                                        )))
+      ;                                fields))))))
+
+      (define-macro (define-struct-pack name fields)
+                    (let ((fill-struct (string-append "pack-" (symbol->string name)))
+                          (make-struct (string-append "make-" (symbol->string name)))
+                          (vect-idx 0))
+                      (begin
+                        (list 'define (list (string->symbol fill-struct) 'vec)
+                              (cons 
+                                (string->symbol make-struct)
+                                (map (lambda (extract)
+                                       (let ((offset vect-idx)
+                                             (next-offset (+ vect-idx extract)))
+                                         (set! vect-idx next-offset) 
+                                         (if (<= extract 4)
+                                             (cons '+ (map (lambda (i)
+                                                             (list 'arithmetic-shift
+                                                                   (list 'vector-ref 'vec (+ offset i))
+                                                                   (* i 8)
+                                                                   )) (iota extract)))
+
+                                             (list 'build-vector extract  
+                                                   (list 'lambda (list 'i) (list 'vector-ref 'vec (list '+ offset 'i))))
+                                             )))
+                                     fields))))))
       (define FAT12-FS 0)
       (define FAT16-FS 1)
       (define FAT32-FS 2)
@@ -67,6 +82,17 @@
                FAT-ATTR-VOLUME-ID))
       (define FAT-NAME-LENGTH 11)
       (define FAT-DIR-ENTRY-SIZE 32)
+
+      (define-struct fat-file
+                     first-clus
+                     curr-clus
+                     curr-section-start
+                     curr-section-length
+                     curr-section-pos
+                     len
+                     parent-first-clus
+                     entry-pos
+                     )
 
       (define-structure BPB
                         jmp-boot
@@ -96,12 +122,61 @@
                         vol-id
                         vol-lab
                         fs-type
-       )
+                        )
 
-       ; Create the function fill-BPB that takes a vector and 
-       ; initialises the BPB as you would in C (map the memory to the structure)
-       (define-struct-fill BPB
-        (3 8 2 1 2 1 2 2 1 2 2 2 4 4 4 2 2 4 2 2 12 1 1 1 4 11 8)) 
+      (define-structure entry
+                        name
+                        attr
+                        ntres
+                        create-time
+                        create-date
+                        last-access-date
+                        cluster-hi
+                        last-write-time
+                        last-write-date
+                        cluster-lo
+                        file-size)
+
+      (define-struct lfn
+                     ord
+                     name1
+                     attr
+                     type
+                     checksum
+                     name2
+                     cluster-lo
+                     name3)
+
+      ; Create the function fill-BPB that takes a vector and 
+      ; initialises the BPB as you would in C (map the memory to the structure)
+      (define-struct-pack BPB
+                          (3 8 2 1 2 1 2 2 1 2 2 2 4 4 4 2 2 4 2 2 12 1 1 1 4 11 8)) 
+
+      (define-struct-pack entry
+                          (11 1 1 1 2 2 2 2 2 2 2 4))
+
+      (define-struct-pack lfn (1 10 1 1 1 12 2 4))
+
+      (define-structure fs
+                        disk
+                        bpb
+                        )
+        
+      (define fs-vector (make-vector 32 'NO-FS))
+
+      (define (build-fs disk)
+       (let ((bpb (disk-apply-sector fill-BPB)))
+         (make-fs disk bpb)
+         ))
+
+      (define (open-root-dir fs)
+        TODO 
+
+       
+       
+       
+       
+       )
 
       (define (make-fat-time hours minute seconds)
         ; According to the FAT specification, the FAT time is set that way:
@@ -149,4 +224,9 @@
           (fxand #x1F fat-date)))
 
 
+      (define (fat32-tests disk)
+        (let ((fs (build-fs disk)))
+          (begin
+           (open-root-dir fs)
+            )))
       ))
