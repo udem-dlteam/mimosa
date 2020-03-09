@@ -1,6 +1,6 @@
 ;; The mimosa project
 ;; UART driver
-(import (utils) (debug) (queue))
+(import (utils) (debug))
 ; Source for writing 8250 UART drivers can be found at
 ; https://en.wikibooks.org/wiki/Serial-Programming/8250-UART-Programming
 (define DEFAULT-BAUD-RATE 115200)
@@ -146,7 +146,7 @@
 (define (##make-port n)
   ; Port datastructure arrangement: see previous definition
   (let-values (((uart-input uart-output) (open-string-pipe (list permanent-close: #f buffering: #f))))
-    (make-uart-struct n #f (make UART-BUF-SIZE) uart-input uart-output)))
+    (make-uart-struct n #f (open-vector) uart-input uart-output)))
 
 (define uart-struct-vect (vector (##make-port 1)
                           (##make-port 2)
@@ -182,7 +182,7 @@
 ; ---------------------------------------------
 ; Push a character in the in buffer
 (define (uart-port-next-char-out port-data)
- (pop (uart-struct-write-queue port-data)))
+ (read (uart-struct-write-queue port-data)))
 
 ; Write a character to a com port
 ; If the port is ready for writing, the char is sent through.
@@ -197,7 +197,8 @@
       (outb char thr-reg))
    ; Push into the queue to be pushed later
     (let ((port-data (get-port-data com-port)))
-      (push char (uart-struct-write-queue port-data))))))
+      (write char (uart-struct-write-queue port-data))
+      (force-output (uart-struct-write-queue port-data))))))
 ; ---------------------------------------------
 (define (open-port! port-data) #t)
  ; (vector-set! port-data 1 #t))
