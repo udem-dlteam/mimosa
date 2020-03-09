@@ -57,6 +57,8 @@
                                                    (list 'lambda (list 'i) (list 'vector-ref 'vec (list '+ offset 'i))))
                                              )))
                                      fields))))))
+
+      (define EOF 'EOF)
       (define FAT12-FS 0)
       (define FAT16-FS 1)
       (define FAT32-FS 2)
@@ -86,17 +88,17 @@
       (define TYPE-FILE 'FILE)
 
       (define-structure fat-file
-                     fs
-                     first-clus
-                     curr-clus
-                     curr-section-start
-                     curr-section-length
-                     curr-section-pos
-                     len
-                     parent-first-clus
-                     entry-pos
-                     type
-                     )
+                        fs
+                        first-clus
+                        curr-clus
+                        curr-section-start
+                        curr-section-length
+                        curr-section-pos
+                        len
+                        parent-first-clus
+                        entry-pos
+                        type
+                        )
 
       (define-structure BPB
                         jmp-boot
@@ -129,15 +131,15 @@
                         )
 
       (define-macro (BPB-first-data-sector bpb)
-       `(let* ((root-entry-count (BPB-root-entry-count ,bpb))
-               (bps (BPB-bps ,bpb))
-               (lg2-bps (ilog2 bps))
-               (fatsz (BPB-fat-size-32 ,bpb))
-               (fats (BPB-fats ,bpb))
-               (rzvd (BPB-reserved-sector-count ,bpb))
-               (root-dir-sectors (s>> (- (+ (* root-entry-count FAT-DIR-ENTRY-SIZE) (s<< 1 lg2-bps)) 1) lg2-bps))
-               )
-           (+ root-dir-sectors rzvd (* fatsz fats))))
+                    `(let* ((root-entry-count (BPB-root-entry-count ,bpb))
+                            (bps (BPB-bps ,bpb))
+                            (lg2-bps (ilog2 bps))
+                            (fatsz (BPB-fat-size-32 ,bpb))
+                            (fats (BPB-fats ,bpb))
+                            (rzvd (BPB-reserved-sector-count ,bpb))
+                            (root-dir-sectors (s>> (- (+ (* root-entry-count FAT-DIR-ENTRY-SIZE) (s<< 1 lg2-bps)) 1) lg2-bps))
+                            )
+                       (+ root-dir-sectors rzvd (* fatsz fats))))
 
       (define-structure entry
                         name
@@ -153,14 +155,14 @@
                         file-size)
 
       (define-structure lfn
-                     ord
-                     name1
-                     attr
-                     type
-                     checksum
-                     name2
-                     cluster-lo
-                     name3)
+                        ord
+                        name1
+                        attr
+                        type
+                        checksum
+                        name2
+                        cluster-lo
+                        name3)
 
       ; Create the function pack-BPB that takes a vector and 
       ; initialises the BPB as you would in C (map the memory to the structure)
@@ -175,35 +177,78 @@
       (define-structure filesystem
                         disk
                         bpb
+                        lg2bps
+                        lg2spc
+                        first-data-sector
                         )
 
       (define fs-vector (make-vector 32 'NO-FS))
 
       (define (build-fs disk)
         (let ((bpb (disk-apply-sector disk 0 pack-BPB)))
-          (make-filesystem disk bpb)
-          ))
+          (make-filesystem
+           disk
+           bpb
+           (ilog2 (BPB-bps bpb))
+           (ilog2 (BPB-sec-per-cluster bpb))
+           (BPB-first-data-sector bpb)
+           )))
 
       (define (open-root-dir fs)
         (let*
-         ((bpb (filesystem-bpb fs))
-          (bps (BPB-bps bpb))
-          (root-clus (BPB-root-cluster bpb))
-          (sec-per-cluster (BPB-sec-per-cluster bpb)))
-         (make-fat-file
-               fs
-               root-clus
-               root-clus
-               (BPB-first-data-sector bpb)
-               (* bps sec-per-cluster)
-               0
-               0
-               0
-               0
-               TYPE-FOLDER
-               )))
+          ((bpb (filesystem-bpb fs))
+           (bps (BPB-bps bpb))
+           (root-clus (BPB-root-cluster bpb))
+           (sec-per-cluster (BPB-sec-per-cluster bpb)))
+          (make-fat-file
+            fs
+            root-clus
+            root-clus
+            (BPB-first-data-sector bpb)
+            (* bps sec-per-cluster)
+            0
+            0
+            0
+            0
+            TYPE-FOLDER
+            )))
 
-      
+      (define (next-cluster file)
+        (let* ((fs (fat-file-fs file))
+               (disk (filesystem-disk fs))
+               (bpb (filesystem-bpb fs))
+               (curr-clus (fat-file-curr-clus file))
+               (offset (<< curr-clus 2))
+               (rsvd (BPB-reserved-sector-count bpb))
+               (lg2bps (filesystem-lg2bps fs))
+               (lba (fx+ rsvd (>> offset lg2bps)))
+               (offset (fxand offset (fxnot (<< (fxnot 0) lg2bps)))))
+          (disk-apply-sector disk lba
+                             (lambda (vect)
+                               (let ((cluster (and #x0fffffff (uint32 vect offset))))
+                                 (if (>= cluster FAT-32-EOF)
+                                     EOF
+                                     cluster))))))
+
+        (define (set-next-cluster! file next-clus)
+          (if (eq? next-clus EOF)
+              #f
+              (let ((fs (fat-file-fs file))
+                    (lg2spc (filesystem-lg2spec fs))
+                    (fst-data-sect (filesystem-first-data-sector fs))
+                    (lg2bps (filesystem-lg2bps fs)))
+                (fat-file-curr-clus-set! file next-clus)
+                (fat-file-curr-section-length-set! (s<< 1 (+ lg2bps lg2spc)))
+                (fat-file-curr-section-start-set! (+ (s<< (- next-cluster 2)
+                                                          lg2bps ) fst-data-sect))
+                (fat-file-curr-section-pos-set! 0)
+                #t
+                )))
+
+      (define (read-bytes! file count)
+        (let ((fs (fat-file-fs file))
+              (buff (make-vector count #x0)))
+          TODO)) 
 
       (define (make-fat-time hours minute seconds)
         ; According to the FAT specification, the FAT time is set that way:
@@ -254,6 +299,6 @@
       (define (fat32-tests disk)
         (let ((fs (build-fs disk)))
           (begin
-            (open-root-dir fs)
+            (next-cluster (open-root-dir fs))
             )))
       ))

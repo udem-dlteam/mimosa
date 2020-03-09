@@ -29,6 +29,9 @@
                   TODO
                   ilog2
                   fields
+                  uint32
+                  uint16
+                  uint8
                   ; define-struct-fill
                   )
     (begin
@@ -175,6 +178,22 @@
       (define (fields obj)
         (let ((x (##type-all-fields (##structure-type obj))))
           (map (lambda (i) (list-ref x (* i 3))) (iota (quotient (length x) 3)))))
+
+
+      (define-macro (extract-uint vec offset w)
+                     (cons '+ (map (lambda (i)
+                                     (list 'arithmetic-shift
+                                           (list 'vector-ref 'vec (list '+ 'offset i))
+                                           (* i 8))) (iota w))))
+      (define (uint32 vec offset)
+        (extract-uint vec offset 4))
+     
+      (define (uint16 vec offset)
+        (extract-uint vec offset 2))
+
+      (define (uint8 vec offset)
+        (extract-uint vec offset 1))
+
 
       ; (define-macro (define-struct-fill name fields)
       ;               (let ((fill-struct (string-append "fill-" (symbol->string name)))
