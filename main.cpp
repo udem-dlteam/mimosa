@@ -20,6 +20,8 @@
 #include "thread.h"
 #include "uart.h"
 #include "bios.h"
+#include "intr.h"
+
 
 int main() {
 #ifdef BIOS_CALL_TEST
@@ -35,6 +37,13 @@ int main() {
 
 #ifdef GAMBIT_REPL
   {
+
+    term_write(cout, "Enabling UART IRQ(s)");
+    // Just in case?
+    ENABLE_IRQ(3);
+    ENABLE_IRQ(4);
+
+
     term_write(cout, "MIMOSA V.1.0.0\n");
     native_string file_name = "/dsk1/gambit/bin/gsc.exe";
 
@@ -43,7 +52,8 @@ int main() {
     term_writeline(cout);
 
     file* prog = NULL;
-    if (NO_ERROR == file_open(file_name, "r", &prog)) {
+    error_code fopen_error = NO_ERROR;
+    if (NO_ERROR == (fopen_error = file_open(file_name, "r", &prog))) {
       uint32 len = file_len(prog);
       uint8* code = (uint8*)GAMBIT_START;
       term_write(cout, "The len of the gambit file is: ");
@@ -72,6 +82,9 @@ int main() {
 #endif
     } else {
       term_write(cout, "\r\n Failed to open Gambit.\r\n");
+      term_write(cout, "Error code is ");
+      term_write(cout, fopen_error);
+      term_writeline(cout);
     }
   }
 #endif

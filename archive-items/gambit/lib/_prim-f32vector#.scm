@@ -8,6 +8,6 @@
 
 ;;; F32vector operations.
 
-(##include "~~lib/_prim-f32vector-gambit#.scm")
+(##include "_prim-f32vector-gambit#.scm")
 
 ;;;============================================================================

@@ -8,6 +8,6 @@
 
 ;;; Fixnum operations.
 
-(##include "~~lib/_prim-fixnum-gambit#.scm")
+(##include "_prim-fixnum-gambit#.scm")
 
 ;;;============================================================================

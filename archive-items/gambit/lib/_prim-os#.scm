@@ -8,7 +8,7 @@
 
 ;;; OS operations.
 
-(##include "~~lib/_prim-os-r7rs#.scm")
-(##include "~~lib/_prim-os-gambit#.scm")
+(##include "_prim-os-r7rs#.scm")
+(##include "_prim-os-gambit#.scm")
 
 ;;;============================================================================

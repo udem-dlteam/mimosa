@@ -8,6 +8,6 @@
 
 ;;; S8vector operations.
 
-(##include "~~lib/_prim-s8vector-gambit#.scm")
+(##include "_prim-s8vector-gambit#.scm")
 
 ;;;============================================================================

@@ -8,8 +8,8 @@
 
 ;;; Special-forms.
 
-(##include "~~lib/_prim-special-forms-r4rs#.scm")
-(##include "~~lib/_prim-special-forms-r7rs#.scm")
-(##include "~~lib/_prim-special-forms-gambit#.scm")
+(##include "_prim-special-forms-r4rs#.scm")
+(##include "_prim-special-forms-r7rs#.scm")
+(##include "_prim-special-forms-gambit#.scm")
 
 ;;;============================================================================

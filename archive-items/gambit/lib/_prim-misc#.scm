@@ -8,9 +8,9 @@
 
 ;;; Miscellaneous operations.
 
-(##include "~~lib/_prim-misc-r4rs#.scm")
-(##include "~~lib/_prim-misc-r5rs#.scm")
-(##include "~~lib/_prim-misc-r7rs#.scm")
-(##include "~~lib/_prim-misc-gambit#.scm")
+(##include "_prim-misc-r4rs#.scm")
+(##include "_prim-misc-r5rs#.scm")
+(##include "_prim-misc-r7rs#.scm")
+(##include "_prim-misc-gambit#.scm")
 
 ;;;============================================================================

@@ -8,8 +8,8 @@
 
 ;;; Symbol operations.
 
-(##include "~~lib/_prim-symbol-r4rs#.scm")
-(##include "~~lib/_prim-symbol-r7rs#.scm")
-(##include "~~lib/_prim-symbol-gambit#.scm")
+(##include "_prim-symbol-r4rs#.scm")
+(##include "_prim-symbol-r7rs#.scm")
+(##include "_prim-symbol-gambit#.scm")
 
 ;;;============================================================================

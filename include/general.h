@@ -177,7 +177,7 @@ typedef int32 error_code;
 // #define PRINT_ASSERTIONS
 // #define USE_CACHE_BLOCK_MAID
 #define USE_BLOCK_REF_COUNTER_FREE
-// #define SHOW_UART_MESSAGES
+#define SHOW_UART_MESSAGES
 #define RED_PANIC_SCREEN
 // #define ENABLE_DEBUG_WRITE
 #define ENABLE_DEBUG_MARKER

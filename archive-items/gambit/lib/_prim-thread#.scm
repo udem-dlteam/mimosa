@@ -8,6 +8,6 @@
 
 ;;; Thread operations.
 
-(##include "~~lib/_prim-thread-gambit#.scm")
+(##include "_prim-thread-gambit#.scm")
 
 ;;;============================================================================

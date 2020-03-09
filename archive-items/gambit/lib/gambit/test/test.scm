@@ -9,8 +9,8 @@
 (##supply-module gambit/test)
 
 (##namespace ("gambit/test#"))   ;; in gambit/test#
-(##include "~~lib/_prim#.scm")   ;; map fx+ to ##fx+, etc
-(##include "~~lib/_gambit#.scm") ;; for macro-check-procedure,
+(##include "_prim#.scm")   ;; map fx+ to ##fx+, etc
+(##include "_gambit#.scm") ;; for macro-check-procedure,
                                  ;; macro-absent-obj, etc
 
 (##include "test#.scm")          ;; correctly map test ops

@@ -7,7 +7,6 @@
 // 23 Oct 01  initial version (Marc Feeley)
 
 //-----------------------------------------------------------------------------
-
 #include "thread.h"
 #include "asm.h"
 #include "pic.h"
@@ -265,10 +264,14 @@ void condvar_broadcast(condvar* self) {
     enable_interrupts();
 }
 
+volatile int garbage = 0;
+
 void condvar_mutexless_wait(condvar* self) {
     // Interrupts should be disabled at this point
     ASSERT_INTERRUPTS_DISABLED();  
 
+    /* debug_write("Condvar safety:"); */
+    garbage = ((&self->super)->safety);
     save_context(_sched_suspend_on_wait_queue, &self->super);
 
     ASSERT_INTERRUPTS_DISABLED();
@@ -308,8 +311,6 @@ native_string program_thread_cwd(program_thread* self) { return self->_cwd; }
 
 native_string program_thread_chdir(program_thread* self,
         native_string new_cwd) {
-    debug_write("CHDIR");
-    debug_write(new_cwd);
     native_string old = self->_cwd;
     uint32 len = kstrlen(new_cwd);
 
@@ -476,11 +477,11 @@ void virtual_program_thread_run(thread* sself) {
     program_thread* self = CAST(program_thread*, sself);
     term_write(cout, "Running program thread");
     term_writeline(cout);
-    static char* argv[] = {"app", "-:dc,t4,search=~~lib,search=~~userlib", NULL};
-    //static char* argv[] = {"app", "-:t1,f1,-1,search=~~lib,search=~~userlib", NULL};
+    static char* argv[] = {"app", "-:darc,~~=/dsk1/gambit,t4,search=/dsk1/gambit/lib,search=/dsk1/home/sam", NULL};
     int argc = sizeof(argv) / sizeof(argv[0]) - 1;
     static char* env[] = {NULL};
     self->_code(argc, argv, env);
+    sself->_prio = high_priority; 
     term_write(cout, "Program thread terminating\n");
 }
 
@@ -556,6 +557,7 @@ void sched_setup(void_fn continuation) {
     ASSERT_INTERRUPTS_DISABLED (); // Interrupts should be disabled at this point
 
     readyq = CAST(wait_queue*, kmalloc(sizeof(wait_queue)));
+    readyq->safety = 0xAA;
     wait_queue_init (readyq);
 
     sleepq = CAST(sleep_queue*, kmalloc(sizeof(sleep_queue)));
@@ -731,6 +733,7 @@ void _sched_switch_to_next_thread(uint32 cs, uint32 eflags, uint32* sp,
 void _sched_suspend_on_wait_queue(uint32 cs, uint32 eflags, uint32* sp,
         void* q) {
     ASSERT_INTERRUPTS_DISABLED();  // Interrupts should be disabled at this point
+
 
     thread* current = sched_current_thread;
     current->_sp = sp;

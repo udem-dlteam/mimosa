@@ -8,14 +8,14 @@
 
 ;; Define macro-define-syntax.
 
-(##include "~~lib/_define-syntax.scm")
+(##include "_define-syntax.scm")
 
 ;;;----------------------------------------------------------------------------
 
 ;; General object representation.
 
 ;; IMPORTANT: These definitions need to be consistent with the
-;; definitions in the files "lib/gambit.h.in" (macros ___t... and
+;; definitions in the files "gambit.h.in" (macros ___t... and
 ;; ___s...) and "gsc/_t-c-3.scm" (procedure targ-obj-subtype-integer).
 
 ;; Type tags.

@@ -8,6 +8,6 @@
 
 ;;; SIX operations.
 
-(##include "~~lib/_prim-six-gambit#.scm")
+(##include "_prim-six-gambit#.scm")
 
 ;;;============================================================================

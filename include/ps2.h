@@ -205,16 +205,6 @@
 error_code setup_ps2();
 unicode_char getchar();
 int getchar0(bool blocking);
-char readline();
-
-// ----------------------------------------------------------------------------
-// Gambit communications
-
-uint8 send_gambit_int(uint8 int_no);
-
-uint8 send_gambit_int(uint8 int_no, uint8 arg);
-
-//-----------------------------------------------------------------------------
 
 #endif
 

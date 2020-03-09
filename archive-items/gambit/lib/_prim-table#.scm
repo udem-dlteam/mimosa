@@ -8,6 +8,6 @@
 
 ;;; Table operations.
 
-(##include "~~lib/_prim-table-gambit#.scm")
+(##include "_prim-table-gambit#.scm")
 
 ;;;============================================================================

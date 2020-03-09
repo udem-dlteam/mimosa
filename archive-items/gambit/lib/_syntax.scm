@@ -12,9 +12,9 @@
 ;;;----------------------------------------------------------------------------
 
 ;; needed by expansion of syntax-case and syntax forms
-(include "~~lib/_syntax-pattern.scm")
-(include "~~lib/_syntax-template.scm")
-(include "~~lib/_syntax-common.scm")
+(include "_syntax-pattern.scm")
+(include "_syntax-template.scm")
+(include "_syntax-common.scm")
 
 ;;;----------------------------------------------------------------------------
 
@@ -33,7 +33,7 @@
   (if (##unbound? (##global-var-ref
                    (##make-global-var 'syn#syntax-case-form-transformer)))
       (##eval '(lambda (src)
-                 (##include "~~lib/_syntax-case-xform.scm")
+                 (##include "_syntax-case-xform.scm")
                  (syn#syntax-case-form-transformer src)))
       syn#syntax-case-form-transformer)
 ;|# syn#syntax-case-form-transformer
@@ -44,7 +44,7 @@
   (if (##unbound? (##global-var-ref
                    (##make-global-var 'syn#syntax-form-transformer)))
       (##eval '(lambda (src)
-                 (##include "~~lib/_syntax-xform.scm")
+                 (##include "_syntax-xform.scm")
                  (syn#syntax-form-transformer src '())))
       (lambda (src) (syn#syntax-form-transformer src '())))
 ;|# (lambda (src) (syn#syntax-form-transformer src '())))
@@ -57,7 +57,7 @@
   (if (##unbound? (##global-var-ref
                    (##make-global-var 'syn#syntax-rules-form-transformer)))
       (##eval '(lambda (src)
-                 (##include "~~lib/_syntax-rules-xform.scm")
+                 (##include "_syntax-rules-xform.scm")
                  (syn#syntax-rules-form-transformer src)))
       syn#syntax-rules-form-transformer)
 ;|# syn#syntax-rules-form-transformer

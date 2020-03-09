@@ -1,125 +1,10 @@
-;;;----------------------------------------------------------------------------
+;;;============================================================================
 
-(define (startup-repl-on-port port) ;; compatible with old _repl.scm
-  (let ((t
-         (make-thread
-          (lambda ()
-            (let ((repl-channel (##make-repl-channel-ports port port #;port)))
-               (##vector-set! (current-thread) 28 repl-channel))
-            (##repl-debug-main)))))
-    (thread-start! t)))
+;;; File: "_x86#.scm"
 
-(define (startup-repl-on-port2 port) ;; compatible with new _repl.scm
-  (let ((t
-         (make-thread
-          (lambda ()
-            (let ((repl-channel (##make-repl-channel-ports port port port)))
-               (##vector-set! (current-thread) 28 repl-channel))
-            (##repl-debug-main)))))
-    (thread-start! t)))
+;;; Copyright (c) 2010-2019 by Marc Feeley, All Rights Reserved.
 
-;;;----------------------------------------------------------------------------
-
-;; Convert a u8vector containing machine code into a Scheme procedure
-;; taking 0 to 3 arguments.  Calling the Scheme procedure will execute
-;; the machine code using the C calling convention.
-
-(define (u8vector->procedure
-         code
-         #!optional
-         (fixup-locs '#u8(0))
-         (fixup-objs '#()))
-  (machine-code-block->procedure
-   (u8vector->machine-code-block code fixup-locs fixup-objs)))
-
-(define (machine-code-block->procedure mcb)
-  (lambda (#!optional (arg1 0) (arg2 0) (arg3 0))
-    (##machine-code-block-exec mcb arg1 arg2 arg3)))
-
-;; Convert a u8vector containing machine code into an executable
-;; machine code block.
-
-(define (u8vector->machine-code-block
-         code
-         #!optional
-         (fixup-locs '#u8(0))
-         (fixup-objs '#()))
-  (let ((mcb (##make-machine-code-block code)))
-    (##machine-code-fixup mcb fixup-locs fixup-objs)
-    mcb))
-
-;; Execute the machine code passing it 0 to 3 arguments (using the C
-;; parameter passing convention).
-
-(define (exec-machine-code
-         code
-         #!optional
-         (fixup-locs '#u8(0))
-         (fixup-objs '#())
-         (arg1 0)
-         (arg2 0)
-         (arg3 0))
-  ((u8vector->procedure code fixup-locs fixup-objs) arg1 arg2 arg3))
-
-;;;----------------------------------------------------------------------------
-
-;; Return the architecture of the processor by executing some binary
-;; machine code that behaves differently on x86-32, x86-64 and ARM.
-;;
-;;   x86-32 for Intel x86-32
-;;   x86-64 for Intel x86-64
-;;   arm    for ARM
-
-(define (auto-detect-arch)
-
-  (define auto-detect-arch-code '#u8(
-                    ;;       ARM              X86-32            X86-64
-                    ;;
-#xEB #x0A #xA0 #xE3 ;;      mov r0,#962560    jmp x86           jmp x86
-#x03 #x00 #xE0 #xE3 ;;      mov r0,#-4        ...               ...
-#x1E #xFF #x2F #xE1 ;;      bx  lr            ...               ...
-                    ;; x86:
-#x48                ;;                        dec eax           xor rax,rax
-#x31 #xC0           ;;                        xor eax,eax
-#x48                ;;                        dec eax           inc rax
-#xFF #xC0           ;;                        inc eax
-#xC1 #xE0 #x02      ;;                        shl eax,0x2       shl eax,0x2
-#xC3                ;;                        ret               ret
-                    ;;
-                    ;;      returns -4        returns 0         returns 4
-))
-
-  (case (exec-machine-code auto-detect-arch-code)
-    ((-1) 'arm)
-    ((0)  'x86-32)
-    ((1)  'x86-64)
-    (else #f)))
-
-;;;----------------------------------------------------------------------------
-
-(define arch (auto-detect-arch))
-(define endianness 'le)
-
-;;;----------------------------------------------------------------------------
-
-;; Import compiler's codegen, asm and x86 modules.
-
-(namespace ("_codegen#"
-
-make-codegen-context
-codegen-context-listing-format-set!
-codegen-context-fixup-locs->vector
-codegen-context-fixup-objs->vector
-
-))
-
-(namespace ("_asm#"
-
-asm-init-code-block
-asm-assemble-to-u8vector
-asm-display-listing
-
-))
+;;;============================================================================
 
 (namespace ("_x86#"
 
@@ -433,7 +318,14 @@ x86-cmovz
 x86-popcnt
 x86-lzcnt
 
+x86-in-imm
+x86-in-dx
+x86-out-imm
+x86-out-dx
+
 ))
+
+;;;============================================================================
 
 ;; Define x86 register classes.
 
@@ -641,104 +533,4 @@ x86-lzcnt
 
 )
 
-;;;----------------------------------------------------------------------------
-
-;; Create a new code generation context.  The format of the resulting
-;; assembly code listing can also be specified, either 'nasm, 'gnu, or
-;; #f (no listing, which is the default).
-
-(define (make-cgc #!optional (listing-format #f))
-  (let ((cgc (make-codegen-context)))
-    (asm-init-code-block cgc 0 endianness)
-    (codegen-context-listing-format-set! cgc listing-format)
-    (x86-arch-set! cgc arch)
-    cgc))
-
-(define (asm gen #!optional (listing-format 'nasm))
-  (let ((cgc (make-cgc listing-format)))
-
-    (gen cgc)
-
-    (let* ((code (asm-assemble-to-u8vector cgc))
-           (fixup-locs (codegen-context-fixup-locs->vector cgc))
-           (fixup-objs (codegen-context-fixup-objs->vector cgc)))
-      (if listing-format
-          (asm-display-listing cgc (current-error-port) #t))
-      (u8vector->procedure code fixup-locs fixup-objs))))
-
-;;;----------------------------------------------------------------------------
-
-(define (test)
-
-  (define add
-    (asm
-     (lambda (cgc)
-
-       ;; x86-32 C parameter passing convention:
-       ;;
-       ;;  0(esp) is return address
-       ;;  4(esp) is arg1
-       ;;  8(esp) is arg2
-       ;; 12(esp) is arg3
-       ;;     eax is used to return the result
-
-       ;; x86-64 C parameter passing convention:
-       ;;
-       ;;  0(rsp) is return address
-       ;;     rdi is arg1
-       ;;     rsi is arg2
-       ;;     rdx is arg3
-       ;;     rax is used to return the result
-
-       (case arch
-
-         ((x86-32)
-          (x86-mov cgc (x86-eax) (x86-mem 4 (x86-esp))) ;; move arg1 to eax
-          (x86-add cgc (x86-eax) (x86-mem 8 (x86-esp))) ;; add arg2 to eax
-          )
-
-         ((x86-64)
-          (x86-mov cgc (x86-rax) (x86-rdi)) ;; move arg1 to rax
-          (x86-add cgc (x86-rax) (x86-rsi)) ;; add arg2 to rax
-          ))
-
-       (x86-ret cgc))
-
-     'nasm))
-
-  (println "CPU architecture is " arch)
-  (println)
-
-  (println "(add 1 2) = " (add 1 2)))
-
-;;;----------------------------------------------------------------------------
-
-;; Redefine compile-file-to-target so that it immediately executes the
-;; compiled code instead of generating a .oN file.
-
-(define (compile-file-to-target
-         filename
-         #!key
-         (options '())
-         (output "")
-         (expression #f))
-
-  ;; The CPU backend will call compile-file-to-target with an
-  ;; expression parameter of the form:
-  ;;
-  ;;   ((##machine-code-fixup <code>         ;; u8vector
-  ;;                          <fixup-locs>   ;; u8vector
-  ;;                          <fixup-objs>)) ;; vector
-
-  (if (pair? expression)
-      (eval expression)
-      (##compile-file-to-target filename options output)))
-
-(define (compile-and-load path)
-  (compile-file-to-target path
-                          options: '((target x86)
-                                     ;;(expansion)
-                                     ;;(verbose)
-                                     )))
-
-;;;----------------------------------------------------------------------------
+;;;============================================================================

@@ -174,7 +174,13 @@ extern "C" void irq14() {
 
   ACKNOWLEDGE_IRQ(14);
 
-  ide_irq(&ide_mod.ide[0]);
+  if(has_cut_ide_support()) {
+      debug_write("B4 Gambit call");
+      uint8 params[1] = {0};
+      send_gambit_int(GAMBIT_IDE_INT, params, 1);
+  } else {
+      ide_irq(&ide_mod.ide[0]);
+  }
 }
 
 #endif
@@ -187,6 +193,11 @@ extern "C" void irq15() {
 #endif
 
   ACKNOWLEDGE_IRQ(15);
+
+  if(bridge_up()) {
+      uint8 params[1] = {1};
+      send_gambit_int(GAMBIT_IDE_INT, params, 1);
+  } 
 
   ide_irq (&ide_mod.ide[1]);
 }
@@ -346,12 +357,14 @@ static void setup_ide_device(ide_controller* ctrl, ide_device* dev, uint8 id) {
     return;
   }
 
-  for (i = 0; i < (1 << (IDE_LOG2_SECTOR_SIZE - 1)); i++)
+  for (i = 0; i < (1 << (IDE_LOG2_SECTOR_SIZE - 1)); i++) {
     ident[i] = inw(base + IDE_DATA_REG);
+  }
 
   swap_and_trim(dev->serial_num, ident + 10, 20);
   swap_and_trim(dev->firmware_rev, ident + 23, 8);
   swap_and_trim(dev->model_num, ident + 27, 40);
+
 
   dev->cylinders_per_disk = 0;
   dev->heads_per_cylinder = 0;
@@ -360,21 +373,38 @@ static void setup_ide_device(ide_controller* ctrl, ide_device* dev, uint8 id) {
   dev->total_sectors = 0;
 
   if (dev->kind == IDE_DEVICE_ATA) {
-    dev->cylinders_per_disk = ident[1];
-    dev->heads_per_cylinder = ident[3];
-    dev->sectors_per_track = ident[6];
-    dev->total_sectors = (CAST(uint32, ident[61]) << 16) + ident[60];
+      dev->cylinders_per_disk = ident[1];
+      dev->heads_per_cylinder = ident[3];
+      dev->sectors_per_track = ident[6];
+      dev->total_sectors = (CAST(uint32, ident[61]) << 16) + ident[60];
+
+      if (ident[53] & (1 << 0)) {
+          dev->cylinders_per_disk = ident[54];
+          dev->heads_per_cylinder = ident[55];
+          dev->sectors_per_track = ident[56];
+          dev->total_sectors_when_using_CHS =
+              (CAST(uint32, ident[58]) << 16) + ident[57];
+      }
   }
 
-  if (dev->kind == IDE_DEVICE_ATA) {
-    if (ident[53] & (1 << 0)) {
-      dev->cylinders_per_disk = ident[54];
-      dev->heads_per_cylinder = ident[55];
-      dev->sectors_per_track = ident[56];
-      dev->total_sectors_when_using_CHS =
-          (CAST(uint32, ident[58]) << 16) + ident[57];
-    }
-  }
+#if 0
+  debug_write("dev->serial_num");
+  debug_write(dev->serial_num);
+  debug_write("dev->firmware_rev");
+  debug_write(dev->firmware_rev);
+  debug_write("dev->model_num");
+  debug_write(dev->model_num);
+  debug_write("dev->cylinders_per_disk");
+  debug_write(dev->cylinders_per_disk);
+  debug_write("dev->heads_per_cylinder");
+  debug_write(dev->heads_per_cylinder);
+  debug_write("dev->sectors_per_track");
+  debug_write(dev->sectors_per_track);
+  debug_write("dev->total_sectors_when_using_CHS");
+  debug_write(dev->total_sectors_when_using_CHS);
+  debug_write("dev->total_sectors");
+  debug_write(dev->total_sectors);
+#endif
 
   term_write(cout, "  word 47 hi (should be 128) = ");
   term_write(cout, (ident[47] >> 8));
@@ -746,6 +776,7 @@ static void setup_ide_controller(ide_controller* ctrl, uint8 id) {
         term_write(cout, "Reset of device ");
         term_write(cout, i);
         term_writeline(cout);
+
         outb(IDE_DEV_HEAD_IBM | IDE_DEV_HEAD_DEV(i), base + IDE_DEV_HEAD_REG);
         ide_delay(base); // 400 nsecs
         if (((inb(base + IDE_STATUS_REG) & IDE_STATUS_BSY) == 0) &&
@@ -858,6 +889,7 @@ void setup_ide() {
   for (i = 0; i < IDE_CONTROLLERS; i++)
     setup_ide_controller(&ide_mod.ide[i], i);
 
+  /* Disk setup */
   for (i = 0; i < IDE_CONTROLLERS; i++)
     for (j = 0; j < IDE_DEVICES_PER_CONTROLLER; j++)
       if (ide_mod.ide[i].device[j].kind != IDE_DEVICE_ABSENT) {

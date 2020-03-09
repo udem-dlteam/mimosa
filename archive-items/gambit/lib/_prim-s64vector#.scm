@@ -8,6 +8,6 @@
 
 ;;; S64vector operations.
 
-(##include "~~lib/_prim-s64vector-gambit#.scm")
+(##include "_prim-s64vector-gambit#.scm")
 
 ;;;============================================================================

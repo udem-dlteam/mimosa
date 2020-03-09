@@ -46,18 +46,27 @@ FILE *REDIRECT_NAME(fopen)(const char *__restrict __filename,
   return fopen(__filename, __modes);
 
 #else
+  /* debug_write("-------------FOPEN-----------"); */
+  /* debug_write(CAST(native_string, __filename)); */
+
+  native_string fname = CAST(native_string, __filename);
+
+  /* This could be better, like a config file you write to line by line */
+  if(0 == kstrcmp(fname, "/cut")) {
+      cut_ide_support();
+      return &FILE_root_dir;
+  }
 
   // TODO: implement
   if (__filename[0] == '.' &&
       __filename[1] == '/' &&
       __filename[2] == '\0') {
 
-      debug_write("FILE ROOT DIR OPEN");
-
     // The file "./" is opened by Gambit by the path normalization
     // function and it must not return NULL.
-
     return &FILE_root_dir;
+  } else if (0 == kstrcmp(STDIN_PATH, CAST(native_string, __filename))) {
+      return &FILE_stdin; 
   } else {
       error_code err;
       file *f;
@@ -149,37 +158,49 @@ size_t REDIRECT_NAME(fwrite)(const void *__restrict __ptr, size_t __size,
   return fwrite(__ptr, __size, __n, __stream);
 
 #else
-
+    
   // TODO: implement writing to files other than stdout/stderr
   if (__stream == &FILE_stdout || __stream == &FILE_stderr) {
-    unicode_char *p = CAST(unicode_char*,__ptr);
-    int n = __size * __n / sizeof(unicode_char);
+      unicode_char *p = CAST(unicode_char*,__ptr);
+      int n = __size * __n / sizeof(unicode_char);
 
-    while (n > 0) {
-      libc_wr_char(1, *p++);
-      n--;
-    }
+      while (n > 0) {
+          libc_wr_char(1, *p++);
+          n--;
+      }
+  } else if(__stream == &FILE_stdin) {
+      // TODO this is diry and should not be required
+      // Using the modes in gambit should have been sufficient?
+      // Should open STDIN at the start of stdio.c 
+      error_code err = NO_ERROR;
+      file* stdin = NULL;
+      if (ERROR(err = file_open(STDIN_PATH, "rw", &stdin))) {
+          return err;
+      } else {
+          uint8* buff = CAST(uint8*, __ptr);
+          for(uint32 i = 0; i < __n * __size; ++i) {
+              uint8 bt = buff[i];
+              int kpr = CAST(int, bt);
+
+              if (ERROR(err = file_write(stdin, &kpr, sizeof(int)))) {
+                  debug_write("WARN: failed to write to STDIN");
+              }
+          }
+      }
   } else {
-      debug_write("Calling fwrite from Gambit");
-    error_code err;
-    file *f = __stream->f;
+      error_code err;
+      file *f = __stream->f;
 
-    // The position is the end when opening. This is weird.
-    fat_file *ff = CAST(fat_file*, f);
-    
-    debug_write("The file is at ");
-    debug_write(ff->current_pos);
+      // The position is the end when opening. This is weird.
+      uint32 count = __size * __n;
 
-
-    uint32 count = __size * __n;
-
-    if (ERROR(err = file_write(f, CAST(void *, __ptr), count))) {
-      __stream->err = err;
-      __n = 0;
-    } else {
-      // No of items returned
-      __n = err / __size;
-    }
+      if (ERROR(err = file_write(f, CAST(void *, __ptr), count))) {
+          __stream->err = err;
+          __n = 0;
+      } else {
+          // No of items returned
+          __n = err / __size;
+      }
   }
 
   return __n;
@@ -254,7 +275,6 @@ int REDIRECT_NAME(fseek)(FILE *__restrict __stream, long __off, int __whence) {
 
 #ifdef USE_HOST_LIBC
 
-  debug_write("Gambit calling FSEEK");
   return fseek(__stream, __off, __whence);
 
 #else
@@ -613,7 +633,7 @@ int REDIRECT_NAME(printf)(const char *__format, ...) {
 
 #include "gambit.h"
 
-struct ___global_state_struct *___local_gstate;
+volatile struct ___global_state_struct *___local_gstate;
 
 /**
  * Set the local gstate
@@ -626,7 +646,9 @@ void REDIRECT_NAME(set_gstate)(___global_state_struct *gs) {
 #else
     if(NULL == (___local_gstate = gs)) {
         panic(L"Gambit state is null...");
-    } 
+    } else if (NULL == ___local_gstate->___raise_interrupt) {
+        panic(L"Gambit interrupt handler function is null! Make sure compiling system has proper header.");
+    }
 #endif
 }
 

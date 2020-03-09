@@ -8,6 +8,6 @@
 
 ;;; Foreign operations.
 
-(##include "~~lib/_prim-foreign-gambit#.scm")
+(##include "_prim-foreign-gambit#.scm")
 
 ;;;============================================================================

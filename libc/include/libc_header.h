@@ -35,7 +35,7 @@
 
 //#undef ___GSTATE
 //#define ___GSTATE ___local_gstate
-extern struct ___global_state_struct *___local_gstate;
+volatile extern struct ___global_state_struct *___local_gstate;
 
 #endif
 

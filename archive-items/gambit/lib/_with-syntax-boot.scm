@@ -13,7 +13,7 @@
 
 (##define-syntax with-syntax
   (lambda (src)
-    (include "~~lib/_syntax-boot.scm")
+    (include "_syntax-boot.scm")
     (syntax-case src ()
       ((_ ((pattern expr1)) expr2)
        #'(syntax-case expr1 ()

@@ -14,7 +14,7 @@
 ;; - a syntax template expander
 
 ;; This file is typically used inside a macro definition body using an
-;; (include "~~lib/_syntax-template.scm") so the toplevel definitions
+;; (include "_syntax-template.scm") so the toplevel definitions
 ;; in this file are actually local definitions of the enclosing macro
 ;; definition.  Nevertheless, all toplevel definitions define identifiers
 ;; that are prefixed with the "syn#" namespace.

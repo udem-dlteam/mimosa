@@ -8,7 +8,7 @@
 
 ;;; Filesystem operations.
 
-(##include "~~lib/_prim-filesystem-r7rs#.scm")
-(##include "~~lib/_prim-filesystem-gambit#.scm")
+(##include "_prim-filesystem-r7rs#.scm")
+(##include "_prim-filesystem-gambit#.scm")
 
 ;;;============================================================================
