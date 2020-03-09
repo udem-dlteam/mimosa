@@ -5,6 +5,8 @@
                   ++
                   >>
                   <<
+                  s>>
+                  s<<
                   O
                   TIME-UNIT-MICROSECS
                   TIME-UNIT-MS
@@ -25,19 +27,27 @@
                   zip
                   flatten
                   TODO
+                  ilog2
                   ; define-struct-fill
                   )
     (begin
       (define (<< n shl)
         (fxarithmetic-shift n shl))
 
+      (define (>> n shr)
+        (fxarithmetic-shift-right n shr))
+
+      (define (s<< n shl)
+        (arithmetic-shift n shl))
+
+      (define (s>> n shr)
+        (arithmetic-shift-right n shr))
+
       (define (TODO)
        (begin
          (display "STUB")
          #t))
 
-      (define (>> n shr)
-        (fxarithmetic-shift-right n shr))
 
       (define (assock key tbl)
         (car (assoc key tbl)))
@@ -151,6 +161,12 @@
                 (if (pair? c)
                     (flatten c)
                     (cons c (flatten (cdr ipt))))))))
+      
+      (define (ilog2aux n tot)
+       (if (= n 1) tot (ilog2aux (floor (/ n 2)) (++ tot))))
+
+      (define (ilog2 n)
+       (ilog2aux n 0))
 
       (define (bcd->binary byte)
         (+ (* 10 (fxarithmetic-shift-right byte 4)) (fxand byte #x0F)))
