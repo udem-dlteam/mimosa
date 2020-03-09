@@ -42,7 +42,7 @@
 ;;;                 INTERRUPT HANDLING 
 ;;;----------------------------------------------------
 
-(define unhandled-interrupts (make 255))
+(define unhandled-interrupts (open-vector))
 
 (define (mimosa-interrupt-handler)
   (let* ((int-no (read-iu8 #f SHARED-MEMORY-AREA))
@@ -50,11 +50,9 @@
          (params (map (lambda (n)
                         (read-iu8 #f (+ SHARED-MEMORY-AREA 2 n)))
                       (iota arr-len))))
-    ; (mutex-lock! int-mutex)
     (let ((packed (list int-no params)))
-      (push packed unhandled-interrupts))))
-    ; (condition-variable-signal! int-condvar)
-    ; (mutex-unlock! int-mutex)))
+      (write packed unhandled-interrupts)
+      (force-output unhandled-interrupts))))
 
 ;;;----------------------------------------------------
 ;;;                  INTERRUPT WIRING 
@@ -69,20 +67,10 @@
 ;;;----------------------------------------------------
 
 (define (exec)
-  (begin
-    (if (not (empty? unhandled-interrupts))
-        (begin
-          (let* ((packed (pop unhandled-interrupts)))
-            (handle-int (car packed) (cadr packed))
-            (exec)))
-        ; Spin loop for now? Probably gonna be worth
-        ; using thread mecanisms
-        (begin
-          ; (mutex-lock! int-mutex)
-          ; (debug-write "Unlock on condvar")
-          ; (mutex-unlock! int-mutex int-condvar) ;; This is the wait
-          ; (debug-write "Condvar unlocked")
-          (exec)))))
+    ; sleep if nothing
+    (let* ((packed (read unhandled-interrupts)))
+      (handle-int (car packed) (cadr packed))
+      (exec)))
 
 (thread-start! (make-thread exec "int execution g-tread"))
 
