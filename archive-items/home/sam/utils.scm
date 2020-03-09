@@ -2,6 +2,7 @@
 (define-library (utils)
                 (import (gambit))
                 (export 
+                  //
                   ++
                   >>
                   <<
@@ -35,6 +36,9 @@
                   ; define-struct-fill
                   )
     (begin
+      (define (// a b)
+       (floor (/ a b)))
+
       (define (<< n shl)
         (fxarithmetic-shift n shl))
 
