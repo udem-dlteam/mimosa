@@ -24,6 +24,7 @@
                   until-has-elapsed
                   zip
                   flatten
+                  ; define-struct-fill
                   )
     (begin
       (define (<< n shl)
@@ -148,4 +149,36 @@
       (define (bcd->binary byte)
         (+ (* 10 (fxarithmetic-shift-right byte 4)) (fxand byte #x0F)))
 
+      ; (define-macro (define-struct-fill name fields)
+      ;               (let ((fill-struct (string-append "fill-" (symbol->string name)))
+      ;                     (make-struct (string-append "make-" (symbol->string name)))
+      ;                     (vect-idx 0))
+      ;                 (begin
+      ;                   (define flatten
+      ;                     (lambda (ipt)
+      ;                       (if (null? ipt)
+      ;                           '()
+      ;                           (let ((c (car ipt)))
+      ;                             (if (pair? c)
+      ;                                 c
+      ;                                 (cons c (flatten (cdr ipt))))))))
+
+      ;                   (list 'define (list (string->symbol fill-struct) 'vec)
+      ;                         (cons 
+      ;                           (string->symbol make-struct)
+      ;                           (map (lambda (extract)
+      ;                                  (let ((offset vect-idx)
+      ;                                        (next-offset (+ vect-idx extract)))
+      ;                                    (set! vect-idx next-offset) 
+      ;                                    (if (<= extract 4)
+      ;                                        (cons 'fxior (map (lambda (i)
+      ;                                                            (list 'fxarithmetic-shift
+      ;                                                                  (list 'vector-ref 'vec (+ offset i))
+      ;                                                                  (* i 8)
+      ;                                                                  )) (iota extract)))
+                                             
+      ;                                        (list 'build-vector extract  
+      ;                                              (list 'lambda (list 'i) (list 'vector-ref 'vec 'i)))
+      ;                                        )))
+      ;                                fields))))))
       )) 

@@ -1,6 +1,6 @@
 ; The MIMOSA project
 ; Scheme executor bridge
-(import (ide) (disk) (utils) (low-level) (debug) (queue))
+(import (ide) (disk) (utils) (fat32) (low-level) (debug) (queue))
 
 (define SHARED-MEMORY-AREA #x300000)
 
@@ -21,7 +21,6 @@
 
 (load "mimosa_io.scm")
 (load "intr.scm")
-(load "os_types.scm")
 (load "int_handle.scm") ; must be loaded after all drivers
 
 ;;;----------------------------------------------------
