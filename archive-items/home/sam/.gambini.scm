@@ -21,6 +21,7 @@
 
 (load "mimosa_io.scm")
 (load "intr.scm")
+; (load "edit.scm")
 (load "int_handle.scm") ; must be loaded after all drivers
 
 ;;;----------------------------------------------------
@@ -37,6 +38,12 @@
 
 (init-disks)
 (define main-disk (car disk-list))
+
+(define (t)
+  (f-tests main-disk))
+
+(define (a)
+  (f-tests main-disk))
 
 ;;;----------------------------------------------------
 ;;;                 INTERRUPT HANDLING 
@@ -74,5 +81,3 @@
 
 (thread-start! (make-thread exec "int execution g-tread"))
 
-(define (t)
- (fat32-tests main-disk))

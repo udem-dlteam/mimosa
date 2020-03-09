@@ -280,6 +280,8 @@
               (spin-loop))))
       (write-lambda)
       ; Send a flush command
+      (write (lambda () #t) q) ; nothing really to do, maybe add a signal later?
+      (force-output q)
       (ide-flush-cache device)))
 
   ; Init the devices struct
