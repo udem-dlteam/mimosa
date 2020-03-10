@@ -308,14 +308,19 @@
            (write-char-stdin (integer->char (fxand code #xFF))))
           ))))
 
+(define count 0)
+
 (define (handle-kbd-int data)
-  (cond ((and (<= data KBD-SCANCODE-F12) (>= data KBD-SCANCODE-ESC))
-         (handle-visible-key data))
-        ((and (fx>= data (fxior KBD-SCANCODE-ESC #x80))
-              (fx<= data (fxior KBD-SCANCODE-F12 #x80)))
-         ;; TODO maybe the not is not working properly
-         (begin
-           (debug-write "unshift")
-           (update-active-modifier (fxand data #x7F) (lambda (mask key) (fxand (##fxnot mask) key)))))
-        (else
-         (debug-write "else"))))
+  (begin 
+    (set! count (++ count))
+    (debug-write count)
+    (cond ((and (<= data KBD-SCANCODE-F12) (>= data KBD-SCANCODE-ESC))
+           (handle-visible-key data))
+          ((and (fx>= data (fxior KBD-SCANCODE-ESC #x80))
+                (fx<= data (fxior KBD-SCANCODE-F12 #x80)))
+           ;; TODO maybe the not is not working properly
+           (begin
+             (debug-write "unshift")
+             (update-active-modifier (fxand data #x7F) (lambda (mask key) (fxand (##fxnot mask) key)))))
+          (else
+            (debug-write "else")))))
