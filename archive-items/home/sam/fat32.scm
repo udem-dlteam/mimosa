@@ -352,5 +352,5 @@
 
       (define (f-tests disk)
         (let ((fs (build-fs disk)))
-            (read-bytes! (open-root-dir fs) 100)))
+            (read-bytes! (open-root-dir fs) 512)))
 ))

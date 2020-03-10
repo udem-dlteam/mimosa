@@ -33,11 +33,12 @@
                   uint32
                   uint16
                   uint8
+                  both
                   ; define-struct-fill
                   )
     (begin
       (define (// a b)
-       (floor (/ a b)))
+        (floor (/ a b)))
 
       (define (<< n shl)
         (fxarithmetic-shift n shl))
@@ -185,18 +186,23 @@
 
 
       (define-macro (extract-uint vec offset w)
-                     (cons '+ (map (lambda (i)
-                                     (list 'arithmetic-shift
-                                           (list 'vector-ref 'vec (list '+ 'offset i))
-                                           (* i 8))) (iota w))))
+                    (cons '+ (map (lambda (i)
+                                    (list 'arithmetic-shift
+                                          (list 'vector-ref 'vec (list '+ 'offset i))
+                                          (* i 8))) (iota w))))
       (define (uint32 vec offset)
         (extract-uint vec offset 4))
-     
+
       (define (uint16 vec offset)
         (extract-uint vec offset 2))
 
       (define (uint8 vec offset)
         (extract-uint vec offset 1))
+
+      (define (both) a b (lambda (n)
+                           (begin
+                             (a n)
+                             (b n))))
 
 
       ; (define-macro (define-struct-fill name fields)
