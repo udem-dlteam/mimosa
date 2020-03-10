@@ -69,6 +69,13 @@ void irq1() {
   if(!send_gambit_int(GAMBIT_KEYBOARD_INT, params, 1)) {
       // figure something out
   } 
+    
+    
+  for(uint32 i = 0; i < 999999999; ++i) {
+      debug_write("w...");
+  }
+
+
 }
 
 #endif
