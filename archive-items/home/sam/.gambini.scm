@@ -51,17 +51,21 @@
 ;;;                 INTERRUPT HANDLING 
 ;;;----------------------------------------------------
 
-(define unhandled-interrupts (open-vector))
-
 (define (mimosa-interrupt-handler)
-  (let* ((int-no (read-iu8 #f SHARED-MEMORY-AREA))
-         (arr-len (read-iu8 #f (+ SHARED-MEMORY-AREA 1)))
-         (params (map (lambda (n)
-                        (read-iu8 #f (+ SHARED-MEMORY-AREA 2 n)))
-                      (iota arr-len))))
-    (let ((packed (list int-no params)))
-      (write packed unhandled-interrupts)
-      (force-output unhandled-interrupts))))
+  (begin
+    (debug-write "INT!")
+    (let* ((int-no (read-iu8 #f SHARED-MEMORY-AREA))
+           (arr-len (read-iu8 #f (+ SHARED-MEMORY-AREA 1)))
+           (params (map (lambda (n)
+                          (read-iu8 #f (+ SHARED-MEMORY-AREA 2 n)))
+                        (iota arr-len))))
+      (let ((packed (list int-no params)))
+        (debug-write int-no)
+        (write packed unhandled-interrupts)
+        (force-output unhandled-interrupts)
+        (enable-interrupts)))))
+
+(define unhandled-interrupts (open-vector))
 
 ;;;----------------------------------------------------
 ;;;                  INTERRUPT WIRING 
