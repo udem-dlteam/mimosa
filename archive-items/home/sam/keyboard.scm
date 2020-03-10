@@ -305,7 +305,8 @@
                                                 mask))
              ; If not dead, process it
              (if (not (eqv? code DEAD))
-                 (write-char-stdin (integer->char (fxand code #xFF)))))))
+                 (write-char-stdin (integer->char (fxand code #xFF)))
+                 (debug-write "DEAD!")))))
         ((and (fx>= data (fxior KBD-SCANCODE-ESC #x80))
               (fx<= data (fxior KBD-SCANCODE-F12 #x80)))
          (let ((data (fxand data #x7F)))

@@ -4,6 +4,8 @@
     (export 
       f-tests
       pack-BPB
+      pack-entry
+      entry-name
       read-file
       file-exists?
       list-directory
@@ -91,14 +93,21 @@
                         fs
                         first-clus
                         curr-clus
-                        curr-section-start
-                        curr-section-length
-                        curr-section-pos
+                        curr-section-start ; cluster of the current section
+                        curr-section-length ; length of the current section
+                        curr-section-pos ; position inside the section
+                        pos
                         len
                         parent-first-clus
                         entry-pos
                         type
                         )
+
+      (define-macro (folder? ff)
+       `(eq? (fat-file-type ,ff) TYPE-FOLDER))
+
+      (define-macro (file? ff)
+       `(eq? (fat-file-type ,ff) TYPE-FILE))
 
       (define-structure BPB
                         jmp-boot
@@ -106,7 +115,8 @@
                         bps
                         sec-per-cluster
                         reserved-sector-count
-                        fats root-entry-count
+                        fats
+                        root-entry-count
                         total-sectors-16
                         media
                         fat-size-16
@@ -144,6 +154,7 @@
                         name
                         attr
                         ntres
+                        create-time-tenth
                         create-time
                         create-date
                         last-access-date
@@ -186,34 +197,32 @@
       (define (build-fs disk)
         (let ((bpb (disk-apply-sector disk 0 pack-BPB)))
           (make-filesystem
-            disk
-            bpb
-            (ilog2 (BPB-bps bpb))
-            (ilog2 (BPB-sec-per-cluster bpb))
-            (BPB-first-data-sector bpb)
-            )))
+           disk
+           bpb
+           (ilog2 (BPB-bps bpb))
+           (ilog2 (BPB-sec-per-cluster bpb))
+           (BPB-first-data-sector bpb)
+           )))
 
       (define (open-root-dir fs)
-        (begin 
-          (debug-write "B4 let ORD")
-         (let*
-           ((bpb (filesystem-bpb fs))
-            (bps (BPB-bps bpb))
-            (root-clus (BPB-root-cluster bpb))
-            (sec-per-cluster (BPB-sec-per-cluster bpb)))
-           (debug-write "OPEN-ROOT-DIR")
-           (make-fat-file
-             fs
-             root-clus
-             root-clus
-             (BPB-first-data-sector bpb)
-             (* bps sec-per-cluster)
-             0
-             0
-             0
-             0
-             TYPE-FOLDER
-             ))))
+        (let*
+          ((bpb (filesystem-bpb fs))
+           (bps (BPB-bps bpb))
+           (root-clus (BPB-root-cluster bpb))
+           (sec-per-cluster (BPB-sec-per-cluster bpb)))
+          (make-fat-file
+            fs               ; fs
+            root-clus        ; first cluster
+            root-clus        ; curr cluster
+            (BPB-first-data-sector bpb) ; section start
+            (* bps sec-per-cluster) ; section len
+            0 ; section pos
+            0 ; abs pos
+            0 ; len
+            0 ; parent first clsu
+            0 ; entry pos in parent entry
+            TYPE-FOLDER ; type
+            )))
 
       (define (next-cluster file)
         (let* ((fs (fat-file-fs file))
@@ -232,25 +241,69 @@
                                      EOF
                                      cluster))))))
 
-        (define (set-next-cluster! file next-clus)
+        ; Set the next cluster and call the proper continuation (success or fail)
+        ; with the file as an argument
+        (define (set-next-cluster! file next-clus succ fail)
           (if (eq? next-clus EOF)
-              #f
+              (fail file)
               (let ((fs (fat-file-fs file))
                     (lg2spc (filesystem-lg2spec fs))
                     (fst-data-sect (filesystem-first-data-sector fs))
                     (lg2bps (filesystem-lg2bps fs)))
                 (fat-file-curr-clus-set! file next-clus)
-                (fat-file-curr-section-length-set! (s<< 1 (+ lg2bps lg2spc)))
-                (fat-file-curr-section-start-set! (+ (s<< (- next-cluster 2)
+                (fat-file-curr-section-length-set! file (s<< 1 (+ lg2bps lg2spc)))
+                (fat-file-curr-section-start-set! file (+ (s<< (- next-cluster 2)
                                                           lg2bps ) fst-data-sect))
-                (fat-file-curr-section-pos-set! 0)
-                #t
-                )))
+                (fat-file-curr-section-pos-set! file 0)
+                (succ file))))
+
+      (define (read-bytes-aux! file fs buff idx count)
+        (if (= 0 count) ; read all
+            buff
+            (let* ; fetch
+              ; TODO deal with cluster boundary
+              ; (if (>= (fat-file-curr-section-pos) (fat-file-curr-section-length file))
+              ;  ( ((next-clus (next-cluster file)))
+              ;   )
+              ; Careful! A section is NOT a sector!
+              ((cluster-start (fat-file-curr-section-start file))
+               (disk (filesystem-disk fs))
+               (cluster-pos (fat-file-curr-section-pos file))
+               (pos (fat-file-pos file))
+               (cluster-len (fat-file-curr-section-length file))
+               (lg2spc (filesystem-lg2spc fs))
+               (lg2bps (filesystem-lg2bps fs))
+               (bps (s<< 1 lg2bps))
+               (spc (s<< 1 lg2spc))
+               (bpc (s<< 1 (+ lg2bps lg2spc))) ; bytes per cluster
+               ; How many bytes left in cluster?
+               (left-in-cluster (- cluster-len cluster-pos))
+               ; How many bytes left in sector?
+               (left-in-sector (- bps (modulo cluster-pos bps)))
+               (sz (min count left-in-cluster left-in-sector))
+               (lba (+ cluster-start (// cluster-pos bps)))
+               (offset (modulo cluster-pos bps)))
+              ; (debug-write sz)
+              ; (debug-write left-in-cluster)
+              ; (debug-write left-in-sector)
+              (disk-apply-sector disk lba (lambda (vect)
+                                            (for-each (lambda (i) (vector-set! 
+                                                                    buff
+                                                                    (+ i idx)
+                                                                    (vector-ref 
+                                                                      vect 
+                                                                      (+ i offset)))) 
+                                                      (iota sz))))
+              (fat-file-curr-section-pos-set! file (+ sz cluster-pos))
+              (fat-file-pos-set! file (+ sz pos))
+              (read-bytes-aux! file fs buff (+ idx sz) (- count sz)))))
 
       (define (read-bytes! file count)
         (let ((fs (fat-file-fs file))
               (buff (make-vector count #x0)))
-          TODO)) 
+         (read-bytes-aux! file fs buff 0 (if (not (folder? file))
+                                             (min count (- (fat-file-len file) (fat-file-pos file)))
+                                             count)))) 
 
       (define (make-fat-time hours minute seconds)
         ; According to the FAT specification, the FAT time is set that way:
@@ -298,9 +351,6 @@
           (fxand #x1F fat-date)))
 
       (define (f-tests disk)
-        (begin
-          (let ((fs (build-fs disk)))
-            (begin
-              (next-cluster (open-root-dir fs))
-              ))))
+        (let ((fs (build-fs disk)))
+            (read-bytes! (open-root-dir fs) 100)))
 ))
