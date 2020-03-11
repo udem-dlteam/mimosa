@@ -258,45 +258,59 @@
                 (succ file))))
 
       (define (read-bytes-aux! file fs buff idx count)
-        (if (= 0 count) ; read all
-            buff
-            (let* ; fetch
-              ; TODO deal with cluster boundary
-              ; (if (>= (fat-file-curr-section-pos) (fat-file-curr-section-length file))
-              ;  ( ((next-clus (next-cluster file)))
-              ;   )
-              ; Careful! A section is NOT a sector!
-              ((cluster-start (fat-file-curr-section-start file))
-               (disk (filesystem-disk fs))
-               (cluster-pos (fat-file-curr-section-pos file))
-               (pos (fat-file-pos file))
-               (cluster-len (fat-file-curr-section-length file))
-               (lg2spc (filesystem-lg2spc fs))
-               (lg2bps (filesystem-lg2bps fs))
-               (bps (s<< 1 lg2bps))
-               (spc (s<< 1 lg2spc))
-               (bpc (s<< 1 (+ lg2bps lg2spc))) ; bytes per cluster
-               ; How many bytes left in cluster?
-               (left-in-cluster (- cluster-len cluster-pos))
-               ; How many bytes left in sector?
-               (left-in-sector (- bps (modulo cluster-pos bps)))
-               (sz (min count left-in-cluster left-in-sector))
-               (lba (+ cluster-start (// cluster-pos bps)))
-               (offset (modulo cluster-pos bps)))
-              ; (debug-write sz)
-              ; (debug-write left-in-cluster)
-              ; (debug-write left-in-sector)
-              (disk-apply-sector disk lba (lambda (vect)
-                                            (for-each (lambda (i) (vector-set! 
-                                                                    buff
-                                                                    (+ i idx)
-                                                                    (vector-ref 
-                                                                      vect 
-                                                                      (+ i offset)))) 
-                                                      (iota sz))))
-              (fat-file-curr-section-pos-set! file (+ sz cluster-pos))
-              (fat-file-pos-set! file (+ sz pos))
-              (read-bytes-aux! file fs buff (+ idx sz) (- count sz)))))
+        (if (> count 0) ; read all
+            (let* ((succ (lambda (file)
+                           (let* ; fetch
+                             ; TODO deal with cluster boundary
+                             ; (if (>= (fat-file-curr-section-pos) (fat-file-curr-section-length file))
+                             ;  ( ((next-clus (next-cluster file)))
+                             ;   )
+                             ; Careful! A section is NOT a sector!
+                             ((cluster-start (fat-file-curr-section-start file))
+                              (disk (filesystem-disk fs))
+                              (cluster-pos (fat-file-curr-section-pos file))
+                              (pos (fat-file-pos file))
+                              (cluster-len (fat-file-curr-section-length file))
+                              (lg2spc (filesystem-lg2spc fs))
+                              (lg2bps (filesystem-lg2bps fs))
+                              (bps (s<< 1 lg2bps))
+                              (spc (s<< 1 lg2spc))
+                              (bpc (s<< 1 (+ lg2bps lg2spc))) ; bytes per cluster
+                              ; How many bytes left in cluster?
+                              (left-in-cluster (- cluster-len cluster-pos))
+                              ; How many bytes left in sector?
+                              (left-in-sector (- bps (modulo cluster-pos bps)))
+                              (sz (min count left-in-cluster left-in-sector))
+                              (lba (+ cluster-start (// cluster-pos bps)))
+                              (offset (modulo cluster-pos bps)))
+                             ; (debug-write sz)
+                             ; (debug-write left-in-cluster)
+                             ; (debug-write left-in-sector)
+                             (disk-apply-sector disk lba (lambda (vect)
+                                                           (for-each (lambda (i) (vector-set! 
+                                                                                   buff
+                                                                                   (+ i idx)
+                                                                                   (vector-ref 
+                                                                                     vect 
+                                                                                     (+ i offset)))) 
+                                                                     (iota sz))))
+                             (fat-file-curr-section-pos-set! file (+ sz cluster-pos))
+                             (fat-file-pos-set! file (+ sz pos))
+                             (read-bytes-aux! file fs buff (+ idx sz) (- count sz)))
+                           ))
+                   (fail (lambda (file) 0)) ; find a better error, add the fail to the signature?
+                   (cluster-pos (fat-file-curr-section-pos file))
+                   (cluster-len (fat-file-curr-section-length file)))
+              (if (>= cluster-pos cluster-len)
+                  ; out of bounds of the sector, go fetch the next one
+                  (begin
+                   (debug-write "Set next cluster")
+                   (set-next-cluster! file (next-cluster file) succ fail))
+                  (begin 
+                   (debug-write "Call the succ")
+                   (succ file))))
+            (begin
+              (debug-write "OUT") buff)))
 
       (define (read-bytes! file count)
         (let ((fs (fat-file-fs file))
@@ -352,5 +366,5 @@
 
       (define (f-tests disk)
         (let ((fs (build-fs disk)))
-            (read-bytes! (open-root-dir fs) 512)))
+            (read-bytes! (open-root-dir fs) 1024)))
 ))
