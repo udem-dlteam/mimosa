@@ -333,14 +333,10 @@
       (string-trim untrimmed)))
 
   (define (handle-ide-int controller-no)
-    (begin 
-      (debug-write "IDE INT")
-      (let* ((ctrl (vector-ref IDE-CTRL-VECT controller-no))
-             (q (ide-controller-continuations-queue ctrl))
-             (cont (read q)))
-        (if cont
-            (cont)
-            #f)))) 
+    (let* ((ctrl (vector-ref IDE-CTRL-VECT controller-no))
+           (q (ide-controller-continuations-queue ctrl))
+           (cont (read q)))
+      (if cont (cont) #f))) 
 
   (define (ide-make-device-setup-lambda controller devices)
     (lambda (dev-no)

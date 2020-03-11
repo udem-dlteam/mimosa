@@ -44,7 +44,7 @@
 
 (define (PIC-OCW1-MASK n) (fxarithmetic-shift 1 n))
 (define PIC-OCW2-NONSPECIFIC-EOI (fxarithmetic-shift 1 5))
-(define (PIC-OCW2-SPECIFIC-EOI level) (+ (fxarithmetic-shift 3 5) level))
+(define (PIC-OCW2-SPECIFIC-EOI level) (+ 96 level))
 
 ; For Interrupt Mask Register
 
@@ -103,5 +103,5 @@
  (if (fx< n 8)
      (outb (PIC-OCW2-SPECIFIC-EOI n) PIC-PORT-MASTER-OCW2)
      (begin
-         (outb (PIC-OCW2-SPECIFIC-EOI (-n 8)) PIC-PORT-SLAVE-OCW2)
+         (outb (PIC-OCW2-SPECIFIC-EOI (- n 8)) PIC-PORT-SLAVE-OCW2)
          (outb (PIC-OCW2-SPECIFIC-EOI PIC-MASTER-IRQ2) PIC-PORT-MASTER-OCW2))))

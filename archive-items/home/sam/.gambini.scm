@@ -52,18 +52,12 @@
 ;;;----------------------------------------------------
 
 (define (mimosa-interrupt-handler)
-  (begin
-    (debug-write "INT!")
-    (let* ((int-no (read-iu8 #f SHARED-MEMORY-AREA))
-           (arr-len (read-iu8 #f (+ SHARED-MEMORY-AREA 1)))
-           (params (map (lambda (n)
-                          (read-iu8 #f (+ SHARED-MEMORY-AREA 2 n)))
-                        (iota arr-len))))
-      (let ((packed (list int-no params)))
-        (debug-write int-no)
-        (write packed unhandled-interrupts)
-        (force-output unhandled-interrupts)
-        (enable-interrupts)))))
+  (let* ((int-no (read-iu8 #f SHARED-MEMORY-AREA))
+         (arr-len (read-iu8 #f (+ SHARED-MEMORY-AREA 1)))
+         (params (map (lambda (n) (read-iu8 #f (+ SHARED-MEMORY-AREA 2 n))) (iota arr-len))))
+    (let ((packed (list int-no params)))
+      (write packed unhandled-interrupts)
+      (force-output unhandled-interrupts))))
 
 (define unhandled-interrupts (open-vector))
 
@@ -86,4 +80,3 @@
       (exec)))
 
 (thread-start! (make-thread exec "int execution g-tread"))
-
