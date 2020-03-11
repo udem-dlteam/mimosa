@@ -415,9 +415,10 @@ bool has_cut_ide_support() {
     return cut;
 }
 
+#define BU (NULL != ___local_gstate)
 
 bool bridge_up() {
-    return NULL != ___local_gstate;
+    return BU;
 }
 
 /**
@@ -429,14 +430,21 @@ bool bridge_up() {
 uint8 send_gambit_int(uint8 int_no, uint8* params, uint8 len) { 
     ASSERT_INTERRUPTS_DISABLED();
 
-    if(bridge_up()) {
+    if(BU) {
+        /**
+         * Interrupts arguments are sent to gambit in the following way:
+        *  |                   |              |
+        *  |  INTERRUPT NUMBER | SZ OF PARAMS | PARAM 0 | PARAM 1 | ...
+        *  |                   |              |
+         *
+         */
         ((uint8*)(GAMBIT_SHARED_MEM_CMD))[0] = int_no;
         ((uint8*)(GAMBIT_SHARED_MEM_CMD))[1] = len;
 
         for(uint8 i = 0; i < len; ++i) {
             ((uint8*)(GAMBIT_SHARED_MEM_CMD))[2 + i] = params[i];
         }
-
+        // Notice gambit something is ready
         ___local_gstate->___raise_interrupt(GAMBIT_COMM_INT);
         return 1;
     } else {
