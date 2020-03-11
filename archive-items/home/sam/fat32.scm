@@ -11,6 +11,8 @@
       list-directory
       write-file)
     (begin 
+      (define ERR-EOF 'ERR-EOF)
+      (define ERR-NO-MORE-ENTRIES 'ERR-NO-MORE-ENTRIES)
 
       ; (define-macro (define-struct-unpack name fields)
       ;               (let ((fill-struct (string-append "unpack-" (symbol->string name)))
@@ -89,6 +91,17 @@
       (define TYPE-FOLDER 'FOLDER)
       (define TYPE-FILE 'FILE)
 
+      (define-macro (folder? ff)
+       `(eq? (fat-file-type ,ff) TYPE-FOLDER))
+
+      (define-macro (file? ff)
+       `(eq? (fat-file-type ,ff) TYPE-FILE))
+
+      (define-macro (valid-entry? entry)
+                    (let ((signal (gensym)))
+                      `(let ((,signal (vector-ref (entry-name ,entry) 0)))
+                         (or (fx= #x00 ,signal) (fx= #xE5 ,signal)))))
+
       (define-structure fat-file
                         fs
                         first-clus
@@ -103,11 +116,6 @@
                         type
                         )
 
-      (define-macro (folder? ff)
-       `(eq? (fat-file-type ,ff) TYPE-FOLDER))
-
-      (define-macro (file? ff)
-       `(eq? (fat-file-type ,ff) TYPE-FILE))
 
       (define-structure BPB
                         jmp-boot
@@ -150,6 +158,7 @@
                             )
                        (+ root-dir-sectors rzvd (* fatsz fats))))
 
+      ; A FAT directory entry as defined by the FAT 32 spec
       (define-structure entry
                         name
                         attr
@@ -164,6 +173,7 @@
                         cluster-lo
                         file-size)
 
+      ; A LFN structure as defined by the FAT 32 spec
       (define-structure lfn
                         ord
                         name1
@@ -174,10 +184,29 @@
                         cluster-lo
                         name3)
 
+      ; A logical directory entry. The name is a string, and it abstracts
+      ; away the fact that it comes from a long file name
+      (define-structure logical-entry
+                        name
+                        attr
+                        ntres
+                        create-time-tenth
+                        create-time
+                        create-date
+                        last-access-date
+                        cluster-hi
+                        last-write-time
+                        last-write-date
+                        cluster-lo
+                        file-size
+       )
+
       ; Create the function pack-BPB that takes a vector and 
       ; initialises the BPB as you would in C (map the memory to the structure)
       (define-struct-pack BPB
                           (3 8 2 1 2 1 2 2 1 2 2 2 4 4 4 2 2 4 2 2 12 1 1 1 4 11 8)) 
+
+      (define entry-width (+ 11 1 1 1 2 2 2 2 2 2 2 4))
 
       (define-struct-pack entry
                           (11 1 1 1 2 2 2 2 2 2 2 4))
@@ -245,7 +274,7 @@
         ; with the file as an argument
         (define (set-next-cluster! file next-clus succ fail)
           (if (eq? next-clus EOF)
-              (fail file)
+              (fail ERR-EOF)
               (let ((fs (fat-file-fs file))
                     (lg2spc (filesystem-lg2spec fs))
                     (fst-data-sect (filesystem-first-data-sector fs))
@@ -257,67 +286,82 @@
                 (fat-file-curr-section-pos-set! file 0)
                 (succ file))))
 
-      (define (read-bytes-aux! file fs buff idx count)
-        (if (> count 0) ; read all
+
+      ; Read entries as if the file is a FAT directory. 
+      ; Takes the argument cont, a lambda that receives the entry and a function
+      ; to read the next entry and fail a function that is called in case of failure
+      (define (read-entries file succ fail)
+        (let* ((vect (read-bytes! file entry-width fail))
+               (entry (pack-entry vect)))
+          (if (valid-entry? entry)
+              (fail ERR-NO-MORE-ENTRIES)
+              (succ entry (lambda () (read-entries file succ fail))))))
+
+      (define (read-all-entries file)
+        (read-entries
+          file
+          (lambda (entry next) (cons entry (next)))
+          (lambda (err) (list))))
+
+      (define (entry-list->logical-entries entry-list)
+        TODO)
+
+      (define (read-bytes-aux! file fs buff idx count fail)
+        (if (> count 0) 
             (let* ((succ (lambda (file)
-                           (let* ; fetch
-                             ; TODO deal with cluster boundary
-                             ; (if (>= (fat-file-curr-section-pos) (fat-file-curr-section-length file))
-                             ;  ( ((next-clus (next-cluster file)))
-                             ;   )
-                             ; Careful! A section is NOT a sector!
-                             ((cluster-start (fat-file-curr-section-start file))
-                              (disk (filesystem-disk fs))
-                              (cluster-pos (fat-file-curr-section-pos file))
-                              (pos (fat-file-pos file))
-                              (cluster-len (fat-file-curr-section-length file))
-                              (lg2spc (filesystem-lg2spc fs))
-                              (lg2bps (filesystem-lg2bps fs))
-                              (bps (s<< 1 lg2bps))
-                              (spc (s<< 1 lg2spc))
-                              (bpc (s<< 1 (+ lg2bps lg2spc))) ; bytes per cluster
-                              ; How many bytes left in cluster?
-                              (left-in-cluster (- cluster-len cluster-pos))
-                              ; How many bytes left in sector?
-                              (left-in-sector (- bps (modulo cluster-pos bps)))
-                              (sz (min count left-in-cluster left-in-sector))
-                              (lba (+ cluster-start (// cluster-pos bps)))
-                              (offset (modulo cluster-pos bps)))
-                             ; (debug-write sz)
-                             ; (debug-write left-in-cluster)
-                             ; (debug-write left-in-sector)
-                             (disk-apply-sector disk lba (lambda (vect)
-                                                           (for-each (lambda (i) (vector-set! 
-                                                                                   buff
-                                                                                   (+ i idx)
-                                                                                   (vector-ref 
-                                                                                     vect 
-                                                                                     (+ i offset)))) 
-                                                                     (iota sz))))
+                           (let* ((cluster-start (fat-file-curr-section-start file))
+                                  (disk (filesystem-disk fs))
+                                  (cluster-pos (fat-file-curr-section-pos file))
+                                  (pos (fat-file-pos file))
+                                  (cluster-len (fat-file-curr-section-length file))
+                                  (lg2spc (filesystem-lg2spc fs))
+                                  (lg2bps (filesystem-lg2bps fs))
+                                  (bps (s<< 1 lg2bps))
+                                  (spc (s<< 1 lg2spc))
+                                  (bpc (s<< 1 (+ lg2bps lg2spc))) ; bytes per cluster
+                                  ; How many bytes left in cluster?
+                                  (left-in-cluster (- cluster-len cluster-pos))
+                                  ; How many bytes left in sector?
+                                  (left-in-sector (- bps (modulo cluster-pos bps)))
+                                  (sz (min count left-in-cluster left-in-sector))
+                                  (lba (+ cluster-start (// cluster-pos bps)))
+                                  (offset (modulo cluster-pos bps)))
+                             (disk-apply-sector
+                               disk
+                               lba
+                               (lambda (vect)
+                                 (for-each (lambda (i) (vector-set! buff
+                                                                    (+ i idx)
+                                                                    (vector-ref vect 
+                                                                                (+ i offset)))) (iota sz))))
                              (fat-file-curr-section-pos-set! file (+ sz cluster-pos))
                              (fat-file-pos-set! file (+ sz pos))
-                             (read-bytes-aux! file fs buff (+ idx sz) (- count sz)))
-                           ))
-                   (fail (lambda (file) 0)) ; find a better error, add the fail to the signature?
+                             (read-bytes-aux! file
+                                              fs
+                                              buff
+                                              (+ idx sz)
+                                              (- count sz)
+                                              fail))))
                    (cluster-pos (fat-file-curr-section-pos file))
                    (cluster-len (fat-file-curr-section-length file)))
               (if (>= cluster-pos cluster-len)
                   ; out of bounds of the sector, go fetch the next one
-                  (begin
-                   (debug-write "Set next cluster")
-                   (set-next-cluster! file (next-cluster file) succ fail))
-                  (begin 
-                   (debug-write "Call the succ")
-                   (succ file))))
-            (begin
-              (debug-write "OUT") buff)))
+                  (set-next-cluster! file (next-cluster file) succ fail)
+                  (succ file)))
+            buff))
 
-      (define (read-bytes! file count)
+      (define (read-bytes! file count fail)
         (let ((fs (fat-file-fs file))
               (buff (make-vector count #x0)))
-         (read-bytes-aux! file fs buff 0 (if (not (folder? file))
-                                             (min count (- (fat-file-len file) (fat-file-pos file)))
-                                             count)))) 
+          (read-bytes-aux! file
+                           fs
+                           buff
+                           0
+                           (if (not (folder? file))
+                               (min count (- (fat-file-len file) (fat-file-pos file)))
+                               count)
+                           fail 
+                           ))) 
 
       (define (make-fat-time hours minute seconds)
         ; According to the FAT specification, the FAT time is set that way:
@@ -339,7 +383,6 @@
               (minutes (fxand #x3F (>> fat-time 5)))
               (seconds (fxand #x1F fat-time)))
           (fn hours minutes seconds)))
-
 
       (define (make-fat-date year month day)
         ; According to the FAT specification, the FAT date is set that way:
@@ -363,8 +406,8 @@
           (fx+ 1980 (fxand #x7F (>> fat-date 9)))
           (fxand #xF (>> fat-date 5))
           (fxand #x1F fat-date)))
-
+      
       (define (f-tests disk)
         (let ((fs (build-fs disk)))
-            (read-bytes! (open-root-dir fs) 1024)))
+          (read-all-entries (open-root-dir fs))))
 ))
