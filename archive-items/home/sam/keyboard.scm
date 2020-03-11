@@ -277,51 +277,34 @@
 (define (pressed? code)
   (let* ((shifted (>> code 5))
          (key (vector-ref keymap shifted))
-         (mask (##fxarithmetic-shift 1 (fxand #x1F code))))
-    (> (fxand key mask) 0)))
+         (mask (##fxarithmetic-shift 1 (##fxand code #x1F))))
+    (not (= (fxand key mask) 0))))
 
-(define (update-active-modifier data action)
- (let* ((shifted (>> data 5))
+(define (update-active-modifier code action)
+ (let* ((shifted (>> code 5))
         (key (vector-ref keymap shifted))
-        (mask (##fxarithmetic-shift 1 (fxand data #x1F))))
+        (mask (##fxarithmetic-shift 1 (##fxand code #x1F))))
    ;; TODO maybe the not is not working properly
    (vector-set! keymap shifted (action mask key))))
 
-; (seq (kbd-int->scancode data key-modifier-seq))
 (define (handle-visible-key data)
-  (begin
-    (let ((code (cond ((or (pressed? KBD-SCANCODE-LSHIFT) (pressed? KBD-SCANCODE-RSHIFT))
-                       (kbd-int->scancode data key-modifier-with-shift))
-                      ((pressed? KBD-SCANCODE-CTRL)
-                       (kbd-int->scancode data key-modifier-with-ctrl))
-                      ((pressed? KBD-SCANCODE-ALT)
-                       (kbd-int->scancode data key-modifier-with-alt))
-                      (else
-                        (kbd-int->scancode data key-modifier-normal)))))
-      (update-active-modifier data ##fxior)
-      ; Update the keypress
-      ; If not dead, process it
-      (if (eq? code DEAD)
-          (debug-write "DEAD!")
-          (begin
-           (debug-write (integer->char (fxand code #xFF)))
-           (write-char-stdin (integer->char (fxand code #xFF))))
-          ))))
-
-(define count 0)
+  (let ((code (cond ((or (pressed? KBD-SCANCODE-LSHIFT) (pressed? KBD-SCANCODE-RSHIFT))
+                     (kbd-int->scancode data key-modifier-with-shift))
+                    ((pressed? KBD-SCANCODE-CTRL)
+                     (kbd-int->scancode data key-modifier-with-ctrl))
+                    ((pressed? KBD-SCANCODE-ALT)
+                     (kbd-int->scancode data key-modifier-with-alt))
+                    (else
+                      (kbd-int->scancode data key-modifier-normal)))))
+    ; Update the keypress; if not dead, process it
+    (update-active-modifier data ##fxior)
+    (if (eq? code DEAD)
+        (write-char-stdin (integer->char (fxand code #xFF))))))
 
 (define (handle-kbd-int data)
-  (begin 
-    (debug-write "@@@@@@IRQ1@@@@@@")
-    ; (set! count (++ count))
-    ; (debug-write count)
-    (cond ((and (<= data KBD-SCANCODE-F12) (>= data KBD-SCANCODE-ESC))
-           (handle-visible-key data))
-          ((and (fx>= data (fxior KBD-SCANCODE-ESC #x80))
-                (fx<= data (fxior KBD-SCANCODE-F12 #x80)))
-           ;; TODO maybe the not is not working properly
-           (begin
-             ; (debug-write "unshift")
-             (update-active-modifier (fxand data #x7F) (lambda (mask key) (fxand (##fxnot mask) key)))))
-          (else
-            (debug-write "else")))))
+  (cond ((fx<= KBD-SCANCODE-ESC data KBD-SCANCODE-F12) 
+         (handle-visible-key data))
+        ((fx>= (fxior KBD-SCANCODE-F12 #x80) data (fxior KBD-SCANCODE-ESC #x80))
+         (update-active-modifier (fxand data #x7F) (lambda (mask key)
+                                                     (##fxand (##fxnot mask) key))))
+        (else (debug-write "else"))))
