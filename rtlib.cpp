@@ -444,8 +444,8 @@ uint8 send_gambit_int(uint8 int_no, uint8* params, uint8 len) {
         for(uint8 i = 0; i < len; ++i) {
             ((uint8*)(GAMBIT_SHARED_MEM_CMD))[2 + i] = params[i];
         }
-        // Notice gambit something is ready
-        ___local_gstate->___raise_interrupt(GAMBIT_COMM_INT);
+        // Tell Gambit something is ready
+        ___local_gstate->___raise_interrupt(GAMBIT_COMM_INT + 0);
         return 1;
     } else {
         return 0;

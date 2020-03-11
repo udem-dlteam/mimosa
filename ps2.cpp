@@ -57,6 +57,9 @@ extern void send_signal(int sig);  // from libc/src/signal.c
 
 #ifdef USE_IRQ1_FOR_KEYBOARD
 
+uint32 k = 0;
+
+
 void irq1() {
 #ifdef SHOW_INTERRUPTS
   term_write(cout, "\033[41m irq1 \033[0m");
@@ -64,11 +67,17 @@ void irq1() {
 
   ACKNOWLEDGE_IRQ(1);
     
-  uint8 params[1] = {inb(PS2_PORT_A)};
-  if(!send_gambit_int(GAMBIT_KEYBOARD_INT, params, 1)) {
-      // figure something out
-  } 
+  uint8 b = inb(PS2_PORT_A);
 
+  for(uint32 i = 0; i < 10; ++i) {
+      uint8 params[1] = {b};
+      if(!send_gambit_int(GAMBIT_KEYBOARD_INT, params, 1)) {
+          break;
+          // figure something out
+      } 
+      k++;
+  }
+  debug_write(k);
 }
 
 #endif
