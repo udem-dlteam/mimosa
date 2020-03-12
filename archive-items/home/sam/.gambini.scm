@@ -44,8 +44,7 @@
 (init-disks)
 (define main-disk (car disk-list))
 
-(define (t)
-  (f-tests main-disk))
+(define (t) (f-tests main-disk))
 
 ;;;----------------------------------------------------
 ;;;                 INTERRUPT HANDLING 

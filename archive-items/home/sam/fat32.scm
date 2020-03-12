@@ -50,15 +50,17 @@
                                        (let ((offset vect-idx)
                                              (next-offset (+ vect-idx extract)))
                                          (set! vect-idx next-offset) 
-                                         (if (<= extract 4)
+                                         (if (<= 0 extract 4)
                                              (cons '+ (map (lambda (i)
                                                              (list 'arithmetic-shift
                                                                    (list 'vector-ref 'vec (+ offset i))
                                                                    (* i 8)
                                                                    )) (iota extract)))
 
-                                             (list 'build-vector extract  
-                                                   (list 'lambda (list 'i) (list 'vector-ref 'vec (list '+ offset 'i))))
+                                             (list 'build-vector (abs extract)  
+                                                   (list 'lambda
+                                                         (list 'i)
+                                                         (list 'vector-ref 'vec (list '+ offset 'i))))
                                              )))
                                      fields))))))
 
@@ -100,7 +102,7 @@
       (define-macro (valid-entry? entry)
                     (let ((signal (gensym)))
                       `(let ((,signal (vector-ref (entry-name ,entry) 0)))
-                         (or (fx= #x00 ,signal) (fx= #xE5 ,signal)))))
+                         (not (or (fx= #x00 ,signal) (fx= #xE5 ,signal))))))
 
       (define-structure fat-file
                         fs
@@ -173,6 +175,11 @@
                         cluster-lo
                         file-size)
 
+      (define-macro (is-lfn? entry)
+       (let ((attr (gensym)))
+        `(let ((,attr (entry-attr ,entry)))
+            (fx= FAT-ATTR-LONG-NAME ,attr))))
+
       ; A LFN structure as defined by the FAT 32 spec
       (define-structure lfn
                         ord
@@ -199,6 +206,7 @@
                         last-write-date
                         cluster-lo
                         file-size
+                        lfn?
        )
 
       ; Create the function pack-BPB that takes a vector and 
@@ -211,7 +219,7 @@
       (define-struct-pack entry
                           (11 1 1 1 2 2 2 2 2 2 2 4))
 
-      (define-struct-pack lfn (1 10 1 1 1 12 2 4))
+      (define-struct-pack lfn (1 10 1 1 1 12 2 -4))
 
       (define-structure filesystem
                         disk
@@ -291,11 +299,16 @@
       ; Takes the argument cont, a lambda that receives the entry and a function
       ; to read the next entry and fail a function that is called in case of failure
       (define (read-entries file succ fail)
-        (let* ((vect (read-bytes! file entry-width fail))
-               (entry (pack-entry vect)))
-          (if (valid-entry? entry)
-              (fail ERR-NO-MORE-ENTRIES)
-              (succ entry (lambda () (read-entries file succ fail))))))
+        (let* ((cont (lambda () (read-entries file succ fail)))
+               (vect (read-bytes! file entry-width fail))
+               (e (pack-entry vect)) ; TODO only do one of them for efficiency
+               (l (pack-lfn vect)))
+          (cond ((is-lfn? e)
+                 (succ l cont))
+                ((valid-entry? e)
+                 (succ e cont))
+                (else
+                  (fail ERR-NO-MORE-ENTRIES)))))
 
       (define (read-all-entries file)
         (read-entries
@@ -303,8 +316,54 @@
           (lambda (entry next) (cons entry (next)))
           (lambda (err) (list))))
 
+      (define (entry->logical-entry entry)
+       (make-logical-entry
+         (vector->string (vector-map integer->char (entry-name entry)))
+         (entry-attr entry)
+         (entry-ntres entry)
+         (entry-create-time-tenth entry)
+         (entry-create-time entry)
+         (entry-create-date entry)
+         (entry-last-access-date entry)
+         (entry-cluster-hi entry)
+         (entry-last-write-time entry)
+         (entry-last-write-date entry)
+         (entry-cluster-lo entry)
+         (entry-file-size entry)
+         #f))
+
+      (define (extract-lfn-data lfn)
+       (let ((text (list
+                    (lfn-name1 lfn)
+                    (lfn-name2 lfn)
+                    (lfn-name3 lfn))))
+        (fold-right
+         string-append "" (map vector->string
+                            (map (lambda (v) (vector-map integer->char v)) text)))))
+      
       (define (entry-list->logical-entries entry-list)
-        TODO)
+       ; The fat spec garantess this structure:
+       ; nth LFN
+       ; nth-1 LFN
+       ; ....
+       ; 1st LFN
+       ; entry
+       (begin
+        (display entry-list)
+        (fold-right (lambda (entry rest)
+                            (if (lfn? entry)
+                                (let* ((underlying-entry (car rest))
+                                       (next-part (extract-lfn-data entry))
+                                       (name (logical-entry-name underlying-entry)))
+                                  (logical-entry-name-set!
+                                    underlying-entry
+                                    (if (logical-entry-lfn? underlying-entry)
+                                        (string-append name next-part)
+                                        next-part))
+                                  rest)
+                                ; not LFN, leave it as is
+                                (cons (entry->logical-entry entry) rest))) 
+                          (list) entry-list)))
 
       (define (read-bytes-aux! file fs buff idx count fail)
         (if (> count 0) 
@@ -409,5 +468,6 @@
       
       (define (f-tests disk)
         (let ((fs (build-fs disk)))
-          (read-all-entries (open-root-dir fs))))
+          (entry-list->logical-entries
+            (read-all-entries (open-root-dir fs)))))
 ))
