@@ -34,6 +34,7 @@
                   uint16
                   uint8
                   both
+                  ID
                   ; define-struct-fill
                   )
     (begin
@@ -204,6 +205,7 @@
                              (a n)
                              (b n))))
 
+      (define (ID i) i)
 
       ; (define-macro (define-struct-fill name fields)
       ;               (let ((fill-struct (string-append "fill-" (symbol->string name)))
