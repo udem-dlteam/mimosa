@@ -332,13 +332,21 @@
          (entry-file-size entry)
          #f))
 
+      (define (lfn-name->string vect)
+        (list->string
+          (fold-right (lambda (c r)
+                        (if (= #x0 c)
+                            r
+                            (cons c r)))
+                      (list) (vector->list vect))))
+
       (define (extract-lfn-data lfn)
        (let ((text (list
                     (lfn-name1 lfn)
                     (lfn-name2 lfn)
                     (lfn-name3 lfn))))
         (fold-right
-         string-append "" (map vector->string
+         string-append "" (map vector->string lfn-name->string
                             (map (lambda (v) (vector-map integer->char v)) text)))))
       
       (define (entry-list->logical-entries entry-list)
