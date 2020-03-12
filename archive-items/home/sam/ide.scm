@@ -174,10 +174,11 @@
                           (vector-set! target-vector i (inw data-reg)))
                         (iota (vector-length target-vector)))
               (if (mask IDE-STATUS-DRQ (inb alt-reg))
-                  (debug-write "Unknown error while reading..."))
-              ; Signal we are ready
-              (condition-variable-signal! cv)
-              (mutex-unlock! mut))))))
+                  (debug-write "Unknown error while reading..."))))
+        ; Signal we are ready
+        (condition-variable-signal! cv)
+        (mutex-unlock! mut)
+        )))
 
   ; Flush the command cache of an ide device
   (define (ide-flush-cache device)
