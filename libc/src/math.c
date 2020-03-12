@@ -173,13 +173,8 @@ double REDIRECT_NAME(ceil)(double __x) {
   libc_trace("ceil");
 
 #ifdef USE_HOST_LIBC
-
-  return ceil(__x);
-
+  return __x; // no ceil right now
 #else
-
-  // return ceil(__x);
-  return 0;
 
 #endif
 #endif
@@ -292,9 +287,10 @@ double REDIRECT_NAME(fabs)(double __x) {
   return fabs(__x);
 
 #else
-
-  // return fabs(__x);
-  return 0;
+  // https://stackoverflow.com/a/18327611
+  double x = __x;
+  *(((int *) &x) + 1) &= 0x7fffffff;
+  return x;
 
 #endif
 #endif
@@ -315,9 +311,14 @@ double REDIRECT_NAME(floor)(double __x) {
   return floor(__x);
 
 #else
+  debug_write("FLOOR");
+  debug_write(__x);
+  debug_write(CAST(int, __x));
 
-  // return floor(__x);
-  return 0;
+  // very naive implementation
+  uint32 i = (int)__x;
+  
+  return CAST(double, i);
 
 #endif
 #endif
@@ -451,6 +452,7 @@ double REDIRECT_NAME(log1p)(double __x) {
   return log1p(__x);
 
 #else
+  debug_write("Log1p");
 
   // TODO: implement
   return 0.0;
@@ -478,11 +480,11 @@ double REDIRECT_NAME(modf)(double __x, double *__iptr) {
   if (__x == 0.0) {
     return *__iptr = __x;
   } else if (__x < 0.0) {
-    // return __x - (*__iptr = ceil(__x));
-    return __x - (*__iptr = 0);
+      return __x - (*__iptr = REDIRECT_NAME(ceil)(__x));
+    /* return __x - (*__iptr = 0); */
   } else {
-    // return __x - (*__iptr = floor(__x));
-    return __x - (*__iptr = 0);
+      return __x - (*__iptr = REDIRECT_NAME(floor)(__x));
+    /* return __x - (*__iptr = 0); */
   }
 
 #endif
