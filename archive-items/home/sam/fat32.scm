@@ -3,6 +3,7 @@
     (import (disk) (gambit) (utils) (debug))
     (export 
       f-tests
+      f-test
       pack-BPB
       pack-entry
       entry-name
@@ -76,7 +77,7 @@
       (define FAT-NAME-MAX 1024)
       (define DT-UNKNOWN 0)
       (define DT-DIR 1)
-      (define DT-REG 2)
+      (define DT-REG 3)
       (define FAT-ATTR-READ-ONLY #x01)
       (define FAT-ATTR-HIDDEN #x02)
       (define FAT-ATTR-SYSTEM #x04)
@@ -265,34 +266,36 @@
         (let* ((fs (fat-file-fs file))
                (disk (filesystem-disk fs))
                (bpb (filesystem-bpb fs))
-               (curr-clus (fat-file-curr-clus file))
-               (offset (<< curr-clus 2))
-               (rsvd (BPB-reserved-sector-count bpb))
                (lg2bps (filesystem-lg2bps fs))
-               (lba (fx+ rsvd (>> offset lg2bps)))
-               (offset (fxand offset (fxnot (<< (fxnot 0) lg2bps)))))
-          (disk-apply-sector disk lba
-                             (lambda (vect)
-                               (let ((cluster (and #x0fffffff (uint32 vect offset))))
-                                 (if (>= cluster FAT-32-EOF)
-                                     EOF
-                                     cluster))))))
-
+               (entries-per-sector (>> (<< 1 lg2bps) 2))
+               (rsvd (BPB-reserved-sector-count bpb))
+               (cluster (fat-file-curr-clus file))
+               (lba (+ (// cluster entries-per-sector) rsvd))
+               (offset (modulo cluster entries-per-sector)))
+          (disk-apply-sector disk lba (lambda (vect)
+                                        (let ((cluster (fxand #x0FFFFFFF (uint32 vect (<< offset 2)))))
+                                          (if (>= cluster FAT-32-EOF)
+                                              EOF
+                                              cluster))))))
+      
       ; Set the next cluster and call the proper continuation (success or fail)
       ; with the file as an argument
       (define (set-next-cluster! file next-clus succ fail)
-        (if (eq? next-clus EOF)
-            (fail ERR-EOF)
-            (let ((fs (fat-file-fs file))
-                  (lg2spc (filesystem-lg2spec fs))
-                  (fst-data-sect (filesystem-first-data-sector fs))
-                  (lg2bps (filesystem-lg2bps fs)))
-              (fat-file-curr-clus-set! file next-clus)
-              (fat-file-curr-section-length-set! file (s<< 1 (+ lg2bps lg2spc)))
-              (fat-file-curr-section-start-set! file (+ (s<< (- next-cluster 2)
-                                                             lg2bps ) fst-data-sect))
-              (fat-file-curr-section-pos-set! file 0)
-              (succ file))))
+          (if (eq? next-clus EOF)
+              (fail ERR-EOF)
+              (let* ((fs (fat-file-fs file))
+                     (lg2spc (filesystem-lg2spc fs))
+                     (fst-data-sect (filesystem-first-data-sector fs))
+                     (lg2bps (filesystem-lg2bps fs)))
+                (debug-write next-clus)
+                (fat-file-curr-clus-set! file next-clus)
+                (fat-file-curr-section-start-set!  file
+                                                   (+ (s<< (- next-clus 2) lg2spc) fst-data-sect))
+                (fat-file-curr-section-length-set! file (s<< 1 (+ lg2bps lg2spc)))
+                (fat-file-curr-section-pos-set! file 0)
+                (debug-write "SET NEXT CLUS CLUS POS")
+                (debug-write (fat-file-curr-section-pos file))
+                (succ file))))
 
 
       ; Search the entry with the file name name, and call
@@ -300,7 +303,7 @@
       ; entry does not seem to exist.
       (define (search-entry file name succ fail)
         (search-entry-aux file name (list) succ (lambda (err-no) ;; todo create FNF
-                                                 (fail 'FNF-ERR))))
+                                                  (fail 'FNF-ERR))))
 
       (define (search-entry-aux file name lfns succ fail)
         (read-entries file (lambda (e next)
@@ -373,6 +376,63 @@
                                   (list)
                                   (vector->list vect))))
 
+      (define-macro (build-cluster logical)
+                    `(fxior (<< (logical-entry-cluster-hi ,logical) 16)
+                            (logical-entry-cluster-lo ,logical)))
+
+      (define-macro (entry-type entry)
+                    `(if (mask (entry-attr ,entry) FAT-ATTR-DIRECTORY)
+                         TYPE-FOLDER
+                         TYPE-FILE))
+
+      (define-macro (logical-entry-type logical)
+                    `(if (mask (logical-entry-attr ,logical) FAT-ATTR-DIRECTORY)
+                         TYPE-FOLDER
+                         TYPE-FILE))
+
+      (define (logical-entry->file parent pos logical)
+        (let* ((fs (fat-file-fs parent))
+               (fds (filesystem-first-data-sector fs))
+               (cluster (build-cluster logical))
+               (lg2bps (filesystem-lg2bps fs))
+               (lg2spc (filesystem-lg2spc fs)))
+          (debug-write "Build")
+          (debug-write cluster)
+          (make-fat-file
+            fs
+            cluster
+            cluster
+            (+ fds (<< (- cluster 2) lg2spc)) 
+            (<< 1 (+ lg2spc lg2bps))
+            0
+            0
+            (logical-entry-file-size logical)
+            (fat-file-first-clus parent)
+            pos
+            (logical-entry-type logical)
+            )))
+
+      (define (list-dir folder)
+        (map logical-entry-name
+             (entry-list->logical-entries (read-all-entries folder))))
+
+      ; Follow a path (folder list) and return the last part
+      ; described by the path
+      (define (follow-path from to)
+        (let ((l (length to)))
+          (if (= l 0)
+              from
+              (search-entry
+                from
+                (car to)
+                (lambda (f) 
+                  (follow-path 
+                    (logical-entry->file
+                      from
+                      (- (fat-file-pos from) entry-width)
+                      f)
+                    (cdr to)))
+                (lambda (err) 'FNF-ERR)))))
 
       (define (extract-lfn-data lfn)
         (let ((text (list
@@ -509,8 +569,14 @@
           (fxand #xF (>> fat-date 5))
           (fxand #x1F fat-date)))
 
+      (define p (list "home" "sam"))
+
+      (define (f-test disk)
+        (open-root-dir (build-fs disk)))
+
       (define (f-tests disk)
         (let ((fs (build-fs disk)))
-          (search-entry (open-root-dir fs) "BOOT.SYS" ID ID)))
-    
-))
+          ; (search-entry (open-root-dir fs) "BOOT.SYS" ID ID)
+          (list-dir (follow-path (open-root-dir fs) p))))
+
+      ))
