@@ -334,12 +334,13 @@
 
       (define (lfn-name->string vect)
         (list->string (fold-right (lambda (c r)
-                                    (if (eq? #\null c)
+                                    (if (or (eq? #\null c) (eq? #xFF c))
                                         r
                                         (cons c r)))
                                   (list)
                                   (vector->list vect))))
 
+      
       (define (extract-lfn-data lfn)
        (let ((text (list
                     (lfn-name1 lfn)
