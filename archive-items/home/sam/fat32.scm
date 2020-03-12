@@ -333,12 +333,12 @@
          #f))
 
       (define (lfn-name->string vect)
-        (list->string
-          (fold-right (lambda (c r)
-                        (if (= #x0 c)
-                            r
-                            (cons c r)))
-                      (list) (vector->list vect))))
+        (list->string (fold-right (lambda (c r)
+                                    (if (eq? #\null c)
+                                        r
+                                        (cons c r)))
+                                  (list)
+                                  (vector->list vect))))
 
       (define (extract-lfn-data lfn)
        (let ((text (list
@@ -346,32 +346,34 @@
                     (lfn-name2 lfn)
                     (lfn-name3 lfn))))
         (fold-right
-         string-append "" (map vector->string lfn-name->string
+         string-append "" (map lfn-name->string
                             (map (lambda (v) (vector-map integer->char v)) text)))))
       
       (define (entry-list->logical-entries entry-list)
-       ; The fat spec garantess this structure:
-       ; nth LFN
-       ; nth-1 LFN
-       ; ....
-       ; 1st LFN
-       ; entry
-       (begin
-        (display entry-list)
-        (fold-right (lambda (entry rest)
-                            (if (lfn? entry)
-                                (let* ((underlying-entry (car rest))
-                                       (next-part (extract-lfn-data entry))
-                                       (name (logical-entry-name underlying-entry)))
-                                  (logical-entry-name-set!
-                                    underlying-entry
-                                    (if (logical-entry-lfn? underlying-entry)
-                                        (string-append name next-part)
-                                        next-part))
-                                  rest)
-                                ; not LFN, leave it as is
-                                (cons (entry->logical-entry entry) rest))) 
-                          (list) entry-list)))
+        ; The fat spec garantess this structure:
+        ; nth LFN
+        ; nth-1 LFN
+        ; ....
+        ; 1st LFN
+        ; entry
+        (begin
+          (display entry-list)
+          (fold-right (lambda (entry rest)
+                        (if (lfn? entry)
+                            (let* ((underlying-entry (car rest))
+                                   (next-part (extract-lfn-data entry))
+                                   (name (logical-entry-name underlying-entry)))
+                              (logical-entry-name-set!
+                                underlying-entry
+                                (if (logical-entry-lfn? underlying-entry)
+                                    (begin
+                                      (logical-entry-lfn-set! underlying-entry #t)
+                                      (string-append name next-part))
+                                    next-part))
+                              rest)
+                            ; not LFN, leave it as is
+                            (cons (entry->logical-entry entry) rest))) 
+                      (list) entry-list)))
 
       (define (read-bytes-aux! file fs buff idx count fail)
         (if (> count 0) 
