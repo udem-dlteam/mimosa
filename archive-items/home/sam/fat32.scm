@@ -39,31 +39,41 @@
       ;                                        )))
       ;                                fields))))))
 
-      (define-macro (define-struct-pack name fields)
-                    (let ((fill-struct (string-append "pack-" (symbol->string name)))
-                          (make-struct (string-append "make-" (symbol->string name)))
-                          (vect-idx 0))
-                      (begin
-                        (list 'define (list (string->symbol fill-struct) 'vec)
-                              (cons 
-                                (string->symbol make-struct)
-                                (map (lambda (extract)
-                                       (let ((offset vect-idx)
-                                             (next-offset (+ vect-idx extract)))
-                                         (set! vect-idx next-offset) 
-                                         (if (<= 0 extract 4)
-                                             (cons '+ (map (lambda (i)
-                                                             (list 'arithmetic-shift
-                                                                   (list 'vector-ref 'vec (+ offset i))
-                                                                   (* i 8)
-                                                                   )) (iota extract)))
+    (define-macro (define-c-struct name . fields)
+                  (let* ((symbol-name (symbol->string name))
+                         (fill-struct
+                           (string->symbol (string-append "pack-" symbol-name)))
+                         (make-struct
+                           (string->symbol (string-append "make-" symbol-name)))
+                         (width-struct
+                           (string->symbol (string-append symbol-name "-width")))
+                         (vect-idx 0)
+                         (field-names (map car fields))
+                         (field-width (map cadr fields))
+                         )
+                    `(begin
+                       (define-structure ,name 
+                                         ,@field-names)
+                       (define (,width-struct) (+ ,@field-width))
+                       (define (,fill-struct vec)
+                         `(,make-struct
+                            ;; TODO: map does not guarantee left-to-right calls to function
+                            ,@(map (lambda (extract)
+                                     (let ((offset vect-idx)
+                                           (next-offset (+ vect-idx extract)))
+                                       (set! vect-idx next-offset)
+                                       (if (<= 0 extract 4)
+                                           `(+ ,@(map (lambda (i)
+                                                        `(arithmetic-shift
+                                                           (vector-ref vec ,(+ offset i))
+                                                           ,(* i 8)))
+                                                      (iota extract)))
 
-                                             (list 'build-vector (abs extract)  
-                                                   (list 'lambda
-                                                         (list 'i)
-                                                         (list 'vector-ref 'vec (list '+ offset 'i))))
-                                             )))
-                                     fields))))))
+                                       `(build-vector
+                                          ,(abs extract)
+                                          (lambda (i)
+                                            (vector-ref vec (+ ,offset i)))))))
+                               field-width))))))
 
       (define EOF 'EOF)
       (define FAT12-FS 0)
@@ -120,35 +130,35 @@
                         )
 
 
-      (define-structure BPB
-                        jmp-boot
-                        oem-name
-                        bps
-                        sec-per-cluster
-                        reserved-sector-count
-                        fats
-                        root-entry-count
-                        total-sectors-16
-                        media
-                        fat-size-16
-                        sector-per-track
-                        number-heads
-                        hidden-sectors
-                        total-sector-32
-                        fat-size-32
-                        ext-flags
-                        fs-version
-                        root-cluster
-                        fs-info
-                        boot-sector
-                        reserved
-                        drv-num
-                        reserved1
-                        boot-sig
-                        vol-id
-                        vol-lab
-                        fs-type
-                        )
+      (define-c-struct BPB
+                        (jmp-boot 3)
+                        (oem-name 8)
+                        (bps 2)
+                        (sec-per-cluster 1)
+                        (reserved-sector-count 2)
+                        (fats 1)
+                        (root-entry-count 2)
+                        (total-sectors-16 2)
+                        (media 1)
+                        (fat-size-16 2)
+                        (sector-per-track 2)
+                        (number-heads 2)
+                        (hidden-sectors 4)
+                        (total-sector-32 4)
+                        (fat-size-32 4)
+                        (ext-flags 2)
+                        (fs-version 2)
+                        (root-cluster 4)
+                        (fs-info 2)
+                        (boot-sector 2)
+                        (reserved 12)
+                        (drv-num 1)
+                        (reserved1 1)
+                        (boot-sig 1)
+                        (vol-id 4) 
+                        (vol-lab 11)
+                        (fs-type 8)
+       )
 
       (define-macro (BPB-first-data-sector bpb)
                     `(let* ((root-entry-count (BPB-root-entry-count ,bpb))
@@ -162,19 +172,19 @@
                        (+ root-dir-sectors rzvd (* fatsz fats))))
 
       ; A FAT directory entry as defined by the FAT 32 spec
-      (define-structure entry
-                        name
-                        attr
-                        ntres
-                        create-time-tenth
-                        create-time
-                        create-date
-                        last-access-date
-                        cluster-hi
-                        last-write-time
-                        last-write-date
-                        cluster-lo
-                        file-size)
+      (define-c-struct entry
+                        (name 11)
+                        (attr 1)
+                        (ntres 1)
+                        (create-time-tenth 1)
+                        (create-time 2)
+                        (create-date 2)
+                        (last-access-date 2)
+                        (cluster-hi 2)
+                        (last-write-time 2)
+                        (last-write-date 2)
+                        (cluster-lo 2)
+                        (file-size 4))
 
       (define-macro (is-lfn? entry)
                     (let ((attr (gensym)))
@@ -182,15 +192,18 @@
                          (fx= FAT-ATTR-LONG-NAME ,attr))))
 
       ; A LFN structure as defined by the FAT 32 spec
-      (define-structure lfn
-                        ord
-                        name1
-                        attr
-                        type
-                        checksum
-                        name2
-                        cluster-lo
-                        name3)
+      (define-c-struct lfn
+                       (ord 1)
+                       (name1 10)
+                       (attr 1)
+                       (type 1)
+                       (checksum 1)
+                       (name2 12)
+                       (cluster-lo 2)
+                       (name3 -4)
+                       )
+
+
 
       ; A logical directory entry. The name is a string, and it abstracts
       ; away the fact that it comes from a long file name
@@ -210,17 +223,6 @@
                         lfn?
                         )
 
-      ; Create the function pack-BPB that takes a vector and 
-      ; initialises the BPB as you would in C (map the memory to the structure)
-      (define-struct-pack BPB
-                          (3 8 2 1 2 1 2 2 1 2 2 2 4 4 4 2 2 4 2 2 12 1 1 1 4 11 8)) 
-
-      (define entry-width (+ 11 1 1 1 2 2 2 2 2 2 2 4))
-
-      (define-struct-pack entry
-                          (11 1 1 1 2 2 2 2 2 2 2 4))
-
-      (define-struct-pack lfn (1 10 1 1 1 12 2 -4))
 
       (define-structure filesystem
                         disk
@@ -277,25 +279,25 @@
                                           (if (>= cluster FAT-32-EOF)
                                               EOF
                                               cluster))))))
-      
+
       ; Set the next cluster and call the proper continuation (success or fail)
       ; with the file as an argument
       (define (set-next-cluster! file next-clus succ fail)
-          (if (eq? next-clus EOF)
-              (fail ERR-EOF)
-              (let* ((fs (fat-file-fs file))
-                     (lg2spc (filesystem-lg2spc fs))
-                     (fst-data-sect (filesystem-first-data-sector fs))
-                     (lg2bps (filesystem-lg2bps fs)))
-                (debug-write next-clus)
-                (fat-file-curr-clus-set! file next-clus)
-                (fat-file-curr-section-start-set!  file
-                                                   (+ (s<< (- next-clus 2) lg2spc) fst-data-sect))
-                (fat-file-curr-section-length-set! file (s<< 1 (+ lg2bps lg2spc)))
-                (fat-file-curr-section-pos-set! file 0)
-                (debug-write "SET NEXT CLUS CLUS POS")
-                (debug-write (fat-file-curr-section-pos file))
-                (succ file))))
+        (if (eq? next-clus EOF)
+            (fail ERR-EOF)
+            (let* ((fs (fat-file-fs file))
+                   (lg2spc (filesystem-lg2spc fs))
+                   (fst-data-sect (filesystem-first-data-sector fs))
+                   (lg2bps (filesystem-lg2bps fs)))
+              (debug-write next-clus)
+              (fat-file-curr-clus-set! file next-clus)
+              (fat-file-curr-section-start-set!  file
+                                                 (+ (s<< (- next-clus 2) lg2spc) fst-data-sect))
+              (fat-file-curr-section-length-set! file (s<< 1 (+ lg2bps lg2spc)))
+              (fat-file-curr-section-pos-set! file 0)
+              (debug-write "SET NEXT CLUS CLUS POS")
+              (debug-write (fat-file-curr-section-pos file))
+              (succ file))))
 
 
       ; Search the entry with the file name name, and call
