@@ -77,5 +77,10 @@
     (let* ((packed (read unhandled-interrupts)))
       (handle-int (car packed) (cadr packed))
       (exec)))
+    
+(define (idle)
+  (thread-yield!) 
+  (idle))
 
 (thread-start! (make-thread exec "int execution g-tread"))
+(thread-start! (make-thread idle "Mimosa idle green thread"))

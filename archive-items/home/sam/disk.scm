@@ -47,9 +47,7 @@
               (cache (disk-cache disk))
               (used (disk-cache-used disk));; todo: check overflow
               (dev (disk-ide-device disk)))
-          (debug-write "B4 lock")
           (mutex-lock! mut)
-          (debug-write "After lock")
           (let* ((raw-vect (ide-read-sectors dev lba 1))
                  (sect (create-sector raw-vect lba disk))) 
             (table-set! cache lba sect)

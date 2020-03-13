@@ -213,7 +213,9 @@
                (count (min 256 count))
                (sz (<< count (- IDE-LOG2-SECTOR-SIZE 1)))
                (word-vector (make-vector sz 0)))
+          ; (debug-write "B4 LOCK")
           (mutex-lock! mut)
+          ; (debug-write "AFTER LOCK")
           (write (ide-make-sector-read-command cpu-port word-vector cv mut) q)
           (force-output q)
           (outb (b-chop (fxior IDE-DEV-HEAD-LBA 
@@ -225,7 +227,9 @@
           (outb (b-chop (>> lba 16)) cyl-hi-reg)
           (outb (b-chop IDE-READ-SECTORS-CMD) cmd-reg)
           ; Wait on condvar
+          ; (debug-write "WAIT...")
           (mutex-unlock! mut cv)
+          ; (debug-write "WAIT DONE")
           ; this is the resulting vector
           (expand-wvect word-vector))
 

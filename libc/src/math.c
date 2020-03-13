@@ -311,10 +311,6 @@ double REDIRECT_NAME(floor)(double __x) {
   return floor(__x);
 
 #else
-  debug_write("FLOOR");
-  debug_write(__x);
-  debug_write(CAST(int, __x));
-
   // very naive implementation
   uint32 i = (int)__x;
   

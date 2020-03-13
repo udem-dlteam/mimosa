@@ -15,30 +15,6 @@
       (define ERR-EOF 'ERR-EOF)
       (define ERR-NO-MORE-ENTRIES 'ERR-NO-MORE-ENTRIES)
 
-      ; (define-macro (define-struct-unpack name fields)
-      ;               (let ((fill-struct (string-append "unpack-" (symbol->string name)))
-      ;                     (make-struct (string-append "make-" (symbol->string name)))
-      ;                     (vect-idx 0))
-      ;                 (begin
-      ;                   (list 'define (list (string->symbol fill-struct) 'vec)
-      ;                         (cons 
-      ;                           (string->symbol make-struct)
-      ;                           (map (lambda (extract)
-      ;                                  (let ((offset vect-idx)
-      ;                                        (next-offset (+ vect-idx extract)))
-      ;                                    (set! vect-idx next-offset) 
-      ;                                    (if (<= extract 4)
-      ;                                        (cons '+ (map (lambda (i)
-      ;                                                        (list 'arithmetic-shift
-      ;                                                              (list 'vector-ref 'vec (+ offset i))
-      ;                                                              (* i 8)
-      ;                                                              )) (iota extract)))
-
-      ;                                        (list 'build-vector extract  
-      ;                                              (list 'lambda (list 'i) (list 'vector-ref 'vec (list '+ offset 'i))))
-      ;                                        )))
-      ;                                fields))))))
-
     (define-macro (define-c-struct name . fields)
                   (let* ((symbol-name (symbol->string name))
                          (fill-struct
@@ -54,9 +30,9 @@
                     `(begin
                        (define-structure ,name 
                                          ,@field-names)
-                       (define (,width-struct) (+ ,@field-width))
+                       (define ,width-struct (+ ,@field-width))
                        (define (,fill-struct vec)
-                         `(,make-struct
+                         (,make-struct
                             ;; TODO: map does not guarantee left-to-right calls to function
                             ,@(map (lambda (extract)
                                      (let ((offset vect-idx)
@@ -69,11 +45,11 @@
                                                            ,(* i 8)))
                                                       (iota extract)))
 
-                                       `(build-vector
-                                          ,(abs extract)
-                                          (lambda (i)
-                                            (vector-ref vec (+ ,offset i)))))))
-                               field-width))))))
+                                           `(build-vector
+                                              ,(abs extract)
+                                              (lambda (i)
+                                                (vector-ref vec (+ ,offset i)))))))
+                                   field-width))))))
 
       (define EOF 'EOF)
       (define FAT12-FS 0)
@@ -128,7 +104,6 @@
                         entry-pos
                         type
                         )
-
 
       (define-c-struct BPB
                         (jmp-boot 3)
@@ -289,14 +264,11 @@
                    (lg2spc (filesystem-lg2spc fs))
                    (fst-data-sect (filesystem-first-data-sector fs))
                    (lg2bps (filesystem-lg2bps fs)))
-              (debug-write next-clus)
               (fat-file-curr-clus-set! file next-clus)
               (fat-file-curr-section-start-set!  file
                                                  (+ (s<< (- next-clus 2) lg2spc) fst-data-sect))
               (fat-file-curr-section-length-set! file (s<< 1 (+ lg2bps lg2spc)))
               (fat-file-curr-section-pos-set! file 0)
-              (debug-write "SET NEXT CLUS CLUS POS")
-              (debug-write (fat-file-curr-section-pos file))
               (succ file))))
 
 
@@ -398,8 +370,6 @@
                (cluster (build-cluster logical))
                (lg2bps (filesystem-lg2bps fs))
                (lg2spc (filesystem-lg2spc fs)))
-          (debug-write "Build")
-          (debug-write cluster)
           (make-fat-file
             fs
             cluster
