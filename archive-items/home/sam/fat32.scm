@@ -10,6 +10,7 @@
       read-file
       file-exists?
       list-directory
+      simplify-path
       write-file)
     (begin 
       (define ERR-EOF 'ERR-EOF)
@@ -105,6 +106,18 @@
                         type
                         )
 
+
+    (define (simplify-path path)
+      (let ((split (split-string #\/ path)))
+        (fold-right
+          (lambda (c r)
+            (if (and (> (length r) 0) (string=? ".." (car r)))
+                (cdr r)
+                (cons c r))) 
+          (list ) 
+          split
+          )))
+
       (define-c-struct BPB
                         (jmp-boot 3)
                         (oem-name 8)
@@ -132,8 +145,7 @@
                         (boot-sig 1)
                         (vol-id 4) 
                         (vol-lab 11)
-                        (fs-type 8)
-       )
+                        (fs-type 8))
 
       (define-macro (BPB-first-data-sector bpb)
                     `(let* ((root-entry-count (BPB-root-entry-count ,bpb))
@@ -175,10 +187,7 @@
                        (checksum 1)
                        (name2 12)
                        (cluster-lo 2)
-                       (name3 -4)
-                       )
-
-
+                       (name3 -4))
 
       ; A logical directory entry. The name is a string, and it abstracts
       ; away the fact that it comes from a long file name
@@ -457,7 +466,11 @@
                                   (left-in-cluster (- cluster-len cluster-pos))
                                   ; How many bytes left in sector?
                                   (left-in-sector (- bps (modulo cluster-pos bps)))
-                                  (sz (min count left-in-cluster left-in-sector))
+                                  (left-in-file (if (folder? file)
+                                                    (++ count)
+                                                    (- (fat-file-len file) pos)
+                                                    ))
+                                  (sz (min count left-in-cluster left-in-sector left-in-file))
                                   (lba (+ cluster-start (// cluster-pos bps)))
                                   (offset (modulo cluster-pos bps)))
                              (disk-apply-sector
@@ -485,8 +498,11 @@
             buff))
 
       (define (read-bytes! file count fail)
-        (let ((fs (fat-file-fs file))
-              (buff (make-vector count #x0)))
+        (let* ((fs (fat-file-fs file))
+               (count (if (= -1 count)
+                          (fat-file-len file)
+                          count))
+               (buff (make-vector count #x0)))
           (read-bytes-aux! file
                            fs
                            buff
@@ -496,6 +512,9 @@
                                count)
                            fail 
                            ))) 
+      
+      (define (read-string! file len fail)
+        (vector->string (vector-map integer->char (read-bytes! file len fail))))
 
       (define (make-fat-time hours minute seconds)
         ; According to the FAT specification, the FAT time is set that way:
@@ -541,7 +560,7 @@
           (fxand #xF (>> fat-date 5))
           (fxand #x1F fat-date)))
 
-      (define p (list "home" "sam"))
+      (define p (list "home" "sam" "fact.scm"))
 
       (define (f-test disk)
         (open-root-dir (build-fs disk)))
@@ -549,6 +568,6 @@
       (define (f-tests disk)
         (let ((fs (build-fs disk)))
           ; (search-entry (open-root-dir fs) "BOOT.SYS" ID ID)
-          (list-dir (follow-path (open-root-dir fs) p))))
+          (read-string! (follow-path (open-root-dir fs) p) -1 ID)))
 
       ))

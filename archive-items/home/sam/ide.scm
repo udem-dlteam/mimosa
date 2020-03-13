@@ -82,6 +82,7 @@
                                  IDE-CTRL-1
                                  IDE-CTRL-2
                                  IDE-CTRL-3))
+
   (define IDE-CONTROLLER-IRQS (list
                                 IDE-IRQ-0
                                 IDE-IRQ-1
@@ -92,6 +93,7 @@
     (let ((mask (fxior IDE-STATUS-BSY IDE-STATUS-RDY  IDE-STATUS-DF 
                        IDE-STATUS-DSC  IDE-STATUS-DRQ)))
       (not (fx= (fxand status mask) mask)))) 
+
   (define-type ide-device
                id
                kind
@@ -105,6 +107,7 @@
                sectors-per-track
                total-sectors-chs
                total-sectors)
+
   (define-type ide-controller
                controller-id
                cpu-port
@@ -114,6 +117,7 @@
                mut; condvar mutex
                cv ; condvar itself
                )
+
   (define (ide-handle-read-err cpu-port)
     (let* ((err-reg (fx+ cpu-port IDE-ERROR-REG))
            (error (inb err-reg)))
@@ -190,7 +194,6 @@
       (outb IDE-FLUSH-CACHE-CMD cmd-reg)
       (enable-interrupts)))
 
-
   ; Read `count` sectors from the ide device. 
   ; When the data is read, the continuation is called with
   ; a vector that corresponds to the data at `lba` (logical block addressing)
@@ -213,9 +216,7 @@
                (count (min 256 count))
                (sz (<< count (- IDE-LOG2-SECTOR-SIZE 1)))
                (word-vector (make-vector sz 0)))
-          ; (debug-write "B4 LOCK")
           (mutex-lock! mut)
-          ; (debug-write "AFTER LOCK")
           (write (ide-make-sector-read-command cpu-port word-vector cv mut) q)
           (force-output q)
           (outb (b-chop (fxior IDE-DEV-HEAD-LBA 
@@ -226,11 +227,7 @@
           (outb (b-chop (>> lba 8)) cyl-lo-reg)
           (outb (b-chop (>> lba 16)) cyl-hi-reg)
           (outb (b-chop IDE-READ-SECTORS-CMD) cmd-reg)
-          ; Wait on condvar
-          ; (debug-write "WAIT...")
           (mutex-unlock! mut cv)
-          ; (debug-write "WAIT DONE")
-          ; this is the resulting vector
           (expand-wvect word-vector))
 
         (cont (make-vector 0 0))))

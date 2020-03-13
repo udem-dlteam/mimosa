@@ -35,6 +35,7 @@
                   uint8
                   both
                   ID
+                  string-split
                   ; define-struct-fill
                   )
     (begin
@@ -204,6 +205,16 @@
                            (begin
                              (a n)
                              (b n))))
+
+    (define (split-string separator str)
+      (fold-right 
+        (lambda (c r)
+          (if (eq? c separator)
+              (cons "" r)
+              (cons (string-append (string c) (car r)) (cdr r)) 
+              ))
+        (list "") 
+        (string->list str)))
 
       (define (ID i) i)
 
