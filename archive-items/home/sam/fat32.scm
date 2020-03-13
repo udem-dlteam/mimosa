@@ -87,7 +87,7 @@
       (define FAT-NAME-MAX 1024)
       (define DT-UNKNOWN 0)
       (define DT-DIR 1)
-      (define DT-REG 3)
+      (define DT-REG 2)
       (define FAT-ATTR-READ-ONLY #x01)
       (define FAT-ATTR-HIDDEN #x02)
       (define FAT-ATTR-SYSTEM #x04)
