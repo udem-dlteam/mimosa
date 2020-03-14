@@ -1,7 +1,7 @@
 ;; The mimosa project
 ;; Ide controller base code
 (define-library (ide)
-(import (gambit) (utils) (low-level) (debug)) 
+(import (errors) (gambit) (utils) (low-level) (debug)) 
 (export
   setup
   switch-over-driver
@@ -137,7 +137,8 @@
           (debug-write "Track 0 not found during recalibrate command"))
 
       (if (mask error IDE-ERROR-AMNF)
-          (debug-write "Data address mark not found after ID field"))))
+          (debug-write "Data address mark not found after ID field")))
+      ERR-ARGS)
 
   ; Take a vector made of shorts and return a vector made
   ; of bytes (system endianness)
@@ -162,27 +163,6 @@
                       (let ((b-idx (<< idx 1)))
                         (fxior (<< (vector-ref b-vect  (+ b-idx 1)) 8)
                                (vector-ref b-vect b-idx))))))) 
-
-  ; Creates a read command for the int
-  (define (ide-make-sector-read-command cpu-port target-vector cv mut)
-    (lambda ()
-      (let* ((data-reg (fx+ cpu-port IDE-DATA-REG))
-             (stt-reg (fx+ cpu-port IDE-STATUS-REG))
-             (alt-reg (fx+ cpu-port IDE-ALT-STATUS-REG))
-             (status (inb stt-reg)))
-        (if (mask status IDE-STATUS-ERR)
-            (ide-handle-read-err cpu-port)
-            (begin 
-              (mutex-lock! mut)
-              (for-each (lambda (i)
-                          (vector-set! target-vector i (inw data-reg)))
-                        (iota (vector-length target-vector)))
-              (if (mask IDE-STATUS-DRQ (inb alt-reg))
-                  (debug-write "Unknown error while reading..."))))
-        ; Signal we are ready
-        (condition-variable-signal! cv)
-        (mutex-unlock! mut)
-        )))
 
   ; Flush the command cache of an ide device
   (define (ide-flush-cache device)
@@ -210,8 +190,9 @@
   ; Read `count` sectors from the ide device. 
   ; When the data is read, the continuation is called with
   ; a vector that corresponds to the data at `lba` (logical block addressing)
-  ; The continuation might be called from another thread
-  (define (ide-read-sectors device lba count)
+  ; c is a continuation that takes the vector as parameter 
+  ; e is an error continuation, taking an error symbol as a parameter
+  (define (ide-read-sectors device lba count c e)
     (if (fx> count 0)
         (let* ((dev-id (ide-device-id device))
                (ctrl ((ide-device-controller device)))
@@ -223,14 +204,31 @@
                (sect-num-reg (fx+ cpu-port IDE-SECT-NUM-REG))
                (cyl-lo-reg (fx+ cpu-port IDE-CYL-LO-REG))
                (cyl-hi-reg (fx+ cpu-port IDE-CYL-HI-REG))
+               (data-reg (fx+ cpu-port IDE-DATA-REG))
+               (alt-reg (fx+ cpu-port IDE-ALT-STATUS-REG))
                (cmd-reg (fx+ cpu-port IDE-COMMAND-REG))
                (stt-reg (fx+ cpu-port IDE-STATUS-REG))
                (q (ide-controller-continuations-queue ctrl))
                (count (min 256 count))
+               (err #f)
                (sz (<< count (- IDE-LOG2-SECTOR-SIZE 1)))
                (word-vector (make-vector sz 0)))
           (mutex-lock! mut)
-          (write (ide-make-sector-read-command cpu-port word-vector cv mut) q)
+          (write 
+            (lambda ()
+              (mutex-lock! mut)
+              (let* ((status (inb stt-reg)))
+                (if (mask status IDE-STATUS-ERR)
+                    (set! err (ide-handle-read-err cpu-port))
+                    (begin (for-each (lambda (i)
+                                       (vector-set! word-vector i (inw data-reg)))
+                                     (iota (vector-length word-vector)))
+                      (if (mask IDE-STATUS-DRQ (inb alt-reg))
+                          (set! err ERR-HWD))))
+                ; Signal we are ready
+                (condition-variable-signal! cv)
+                (mutex-unlock! mut)))      
+            q)
           (force-output q)
           (outb (b-chop (fxior IDE-DEV-HEAD-LBA 
                                (IDE-DEV-HEAD-DEV dev-id)
@@ -241,8 +239,10 @@
           (outb (b-chop (>> lba 16)) cyl-hi-reg)
           (outb (b-chop IDE-READ-SECTORS-CMD) cmd-reg)
           (mutex-unlock! mut cv)
-          (expand-wvect word-vector))
-        #f))
+          (if err
+              (e err)
+              (c (expand-wvect word-vector))))
+        (e ERR-ARGS)))
 
   (define (ide-init-devices)
     (make-list IDE-DEVICES-PER-CONTROLLER IDE-DEVICE-ABSENT))

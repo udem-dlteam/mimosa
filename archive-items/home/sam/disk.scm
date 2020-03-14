@@ -3,6 +3,7 @@
 ; Ill assume yes for now
 (define-library (disk)
                 (import (gambit)
+                        (errors)
                         (ide)
                         (utils)
                         (debug)
@@ -51,12 +52,21 @@
               (used (disk-cache-used disk));; todo: check overflow
               (dev (disk-ide-device disk)))
           (mutex-lock! mut)
-          (let* ((raw-vect (ide-read-sectors dev lba 1))
-                 (sect (create-sector raw-vect lba disk))) 
-            (table-set! cache lba sect)
-            (disk-cache-used-set! disk (++ used))
-            (mutex-unlock! mut)     
-            sect)))
+          (let ((cleanup (lambda () (mutex-unlock! mut))))
+          (ide-read-sectors
+            dev
+            lba
+            1
+            (lambda (raw-vect)
+              (let ((sect (create-sector raw-vect lba disk)))
+                (table-set! cache lba sect)
+                (disk-cache-used-set! disk (++ used))
+                (cleanup)
+                sect))
+            (lambda (err)
+              (cleanup) 
+              err))
+          )))
 
       (define (disk-read-sector disk lba)
         (let* ((cache (disk-cache disk))

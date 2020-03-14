@@ -1,6 +1,6 @@
 ; The mimosa project
 (define-library (fat32)
-    (import (disk) (gambit) (utils) (debug))
+    (import (errors) (disk) (gambit) (utils) (debug))
     (export 
       f-tests
       f-test
@@ -21,10 +21,6 @@
       (define FILE-MODE-APPEND (arithmetic-shift 1 2))
       (define FILE-MODE-PLUS (arithmetic-shift 1 3))
       (define FILE-MODE-BINARY (arithmetic-shift 1 4))
-      (define ERR-EOF 'ERR-EOF)
-      (define ERR-FNF 'ERR-FNF)
-      (define ERR-PATH 'ERR-PATH)
-      (define ERR-NO-MORE-ENTRIES 'ERR-NO-MORE-ENTRIES)
       (define filesystem-list (list))
 
       (define (mode-requires-existence? mode)
