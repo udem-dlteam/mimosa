@@ -77,17 +77,29 @@
               (disk-fetch-and-set! disk lba)))) 
 
       (define (flush-block disk sector)
-        (let ((smut (sector-mut sector))
-              (dmut (disk-mut disk))
-              (dev (disk-ide-device disk))
-              (lba (sector-lba sector))
-              (v (sector-vect sector)))
+        (let* ((smut (sector-mut sector))
+               (dmut (disk-mut disk))
+               (dev (disk-ide-device disk))
+               (lba (sector-lba sector))
+               (v (sector-vect sector))
+               (cleanup (lambda ()
+                          (mutex-unlock! dmut)
+                          (mutex-unlock! smut); todo not sure if necessary
+                          ))
+               )
           (mutex-lock! smut)
           (mutex-lock! dmut)
-          ; (ide-write-sectors dev lba v 1)
-          (mutex-unlock! dmut)
-          (mutex-unlock! smut); todo not sure if necessary
-          #t))
+          ; (ide-write-sectors
+          ;   dev
+          ;   lba
+          ;   v
+          ;   1
+          ;   (lambda () #t) 
+          ;   (lambda (err)
+          ;     (cleanup)
+          ;     err))
+          (cleanup)
+          ))
 
       (define (create-sector v lba disk)
         (make-sector 

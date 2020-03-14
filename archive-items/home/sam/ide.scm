@@ -165,7 +165,9 @@
                                (vector-ref b-vect b-idx))))))) 
 
   ; Flush the command cache of an ide device
-  (define (ide-flush-cache device)
+  ; c: the success continuation, nothing in it
+  ; e: the error continuation, with the error code
+  (define (ide-flush-cache device c e)
     (let* ((dev-id (ide-device-id device))
            (ctrl ((ide-device-controller device)))
            (cpu-port (ide-controller-cpu-port ctrl))
@@ -173,11 +175,12 @@
            (mut (ide-controller-mut ctrl))
            (cv (ide-controller-cv ctrl))
            (stt-reg (fx+ cpu-port IDE-STATUS-REG))
+           (err #f)
            (cmd-reg (fx+ cpu-port IDE-COMMAND-REG)))
       (mutex-lock! mut)
       (write (lambda () 
                (if (mask (inb stt-reg) IDE-STATUS-ERR)
-                (debug-write "ERROR WHILE FLUSHING COMMAND")) 
+                (set! err ERR-HWD)) 
                (mutex-lock! mut)
                (condition-variable-signal! cv)
                (mutex-unlock! mut)
@@ -185,7 +188,9 @@
       (force-output q)
       (outb IDE-FLUSH-CACHE-CMD cmd-reg)
       (mutex-unlock! mut cv)
-      ))
+      (if err
+       (e err)
+       (c))))
 
   ; Read `count` sectors from the ide device. 
   ; When the data is read, the continuation is called with
@@ -250,7 +255,7 @@
   (define (device-absent? dev)
     (eq? dev IDE-DEVICE-ABSENT))
 
-  (define (ide-write-sectors device lba buffer count)
+  (define (ide-write-sectors device lba buffer count c e)
     (let* ((count (min count 256))
            (compressed-vector (compress-bvect buffer))
            (dev-id (ide-device-id device))
@@ -266,13 +271,15 @@
            (stt-reg (fx+ cpu-port IDE-STATUS-REG))
            (mut (ide-controller-mut ctrl))
            (cv (ide-controller-cv ctrl))
+           (err #f)
            (q (ide-controller-continuations-queue ctrl))
            (count (min 256 count)))
       (write (lambda () 
                (mutex-lock! mut)
                (if (mask (inb stt-reg) IDE-STATUS-ERR)
-                   (debug-write "Write error!") ; check status
-                   )
+                   (begin
+                     (debug-write "Failed to write to disk...")
+                     (set! err ERR-HWD)))
                (condition-variable-signal! cv)
                (mutex-unlock! mut)
                ) q) ; nothing really to do, maybe add a signal later?
@@ -299,9 +306,10 @@
                   (outw (vector-ref compressed-vector i) data-reg))
                 (iota (<< 1 (- IDE-LOG2-SECTOR-SIZE 1))))
       (mutex-unlock! mut cv) ; wait until the IRQ was received
-      ; Send a flush command
-      (ide-flush-cache device)
-      ))
+      (if err
+          (e err)
+          (ide-flush-cache device c e) ; flush to confirm no more writes are going to occur
+          )))
 
   ; Init the devices struct
   (define (ide-init-controllers)
