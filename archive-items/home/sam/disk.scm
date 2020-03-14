@@ -88,14 +88,7 @@
                           #t)))
           (mutex-lock! smut)
           (mutex-lock! dmut)
-          (ide-write-sectors
-            dev
-            lba
-            v
-            1
-            (lambda () (cleanup)) 
-            (lambda (err) (cleanup) err))
-          ))
+          (ide-write-sectors dev lba v 1 cleanup (lambda (err) (cleanup) err))))
 
       (define (create-sector v lba disk)
         (make-sector 
