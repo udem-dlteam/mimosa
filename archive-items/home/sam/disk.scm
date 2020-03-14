@@ -85,20 +85,16 @@
                (cleanup (lambda ()
                           (mutex-unlock! dmut)
                           (mutex-unlock! smut); todo not sure if necessary
-                          ))
-               )
+                          #t)))
           (mutex-lock! smut)
           (mutex-lock! dmut)
-          ; (ide-write-sectors
-          ;   dev
-          ;   lba
-          ;   v
-          ;   1
-          ;   (lambda () #t) 
-          ;   (lambda (err)
-          ;     (cleanup)
-          ;     err))
-          (cleanup)
+          (ide-write-sectors
+            dev
+            lba
+            v
+            1
+            (lambda () (cleanup)) 
+            (lambda (err) (cleanup) err))
           ))
 
       (define (create-sector v lba disk)
