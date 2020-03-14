@@ -675,8 +675,35 @@ void debug_write(uint32 x) {
   debug_write(str);
 }
 
+
+void __debug_write(uint32 x) {
+  const int max_digits = 10;  // 2^32 contains 10 decimal digits
+  native_char buf[max_digits + 1];
+  native_string str = buf + max_digits;
+
+  *str = '\0';
+
+  if (x == 0)
+    *--str = '0';
+  else {
+    while (x != 0) {
+      uint32 x10 = x / 10;
+      *--str = '0' + (x - x10 * 10);
+      x = x10;
+    }
+  }
+
+  __debug_write(str);
+}
+
 void _debug_write(native_char c) {
   outb(c, OUT_PORT);
+}
+
+void __debug_write(native_string str) {
+  while (*str != '\0') {
+    outb(*str++, OUT_PORT);
+  }
 }
 
 void debug_write(native_string str) {
