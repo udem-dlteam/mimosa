@@ -8,11 +8,12 @@
       pack-entry
       entry-name
       read-file
-      open-file
-      file-exists?
+      open-fat-file
+      fat-file-exists?
       list-directory
       simplify-path
       mount-partitions
+      filesystem-list
       write-file)
     (begin 
       (define FILE-MODE-READ (arithmetic-shift 1 0))
@@ -24,6 +25,7 @@
       (define ERR-FNF 'ERR-FNF)
       (define ERR-PATH 'ERR-PATH)
       (define ERR-NO-MORE-ENTRIES 'ERR-NO-MORE-ENTRIES)
+      (define filesystem-list (list))
 
       (define (mode-requires-existence? mode)
         (mask mode FILE-MODE-READ))
@@ -257,7 +259,7 @@
             0 ; parent first clsu
             0 ; entry pos in parent entry
             TYPE-FOLDER ; type
-            )))
+            FILE-MODE-READ)))
 
       (define (next-cluster file)
         (let* ((fs (fat-file-fs file))
@@ -402,9 +404,10 @@
             (fat-file-first-clus parent)
             pos
             (logical-entry-type logical)
+            FILE-MODE-READ
             )))
 
-      (define (list-dir folder)
+      (define (list-directory folder)
         (map logical-entry-name
              (entry-list->logical-entries (read-all-entries folder))))
 
@@ -613,7 +616,7 @@
                    FILE-MODE-APPEND)))))
 
       ; Open a fat file
-      (define (open-file fs path mode)
+      (define (open-fat-file fs path mode)
         (let ((parts (simplify-path path))
               (root (open-root-dir fs))
               (mode (parse-modes mode)))
@@ -621,15 +624,15 @@
             root
             parts
             (lambda (f)
-             (fat-file-mode-set! mode) ; set the mode and ret for now
+             (fat-file-mode-set! f mode) ; set the mode and ret for now
              f)
             (lambda (err)
               ERR-FNF ; for now
        )))) 
 
-      (define (f-tests disk path)
+      (define (f-tests disk)
         (let ((fs (build-fs disk)))
-          (follow-path (open-root-dir fs) (simplify-path path) ID ID)))
+          (list-directory (open-root-dir fs))))
       
     
       (define (mount-partition disk default)
@@ -648,12 +651,12 @@
                   default)))) 
 
       (define (mount-partitions disk-list)
-       (fold (lambda (e r)
-              (let ((fs (mount-partition e #f)))
-               (if fs
-                (cons fs r)
-                r
-                )))
-         (list)
-         disk-list))
-      ))
+        (let ((filesystems (fold (lambda (e r)
+                                   (let ((fs (mount-partition e #f)))
+                                     (if fs (cons fs r) r)))
+                                 (list)
+                                 disk-list)))
+        (set! filesystem-list filesystems)
+        filesystems))
+
+))

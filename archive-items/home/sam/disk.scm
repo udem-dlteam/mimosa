@@ -66,7 +66,6 @@
               cached 
               (disk-fetch-and-set! disk lba)))) 
 
-      (define (flush-block disk sector) #t)
       (define (flush-block disk sector)
         (let ((smut (sector-mut sector))
               (dmut (disk-mut disk))
@@ -102,10 +101,9 @@
                (refs (sector-ref-count sector))
                (mut (sector-mut sector)))
           (mutex-lock! mut)
-          (begin
-            (sector-ref-count-set! sector (++ refs))
-            (mutex-unlock! mut)
-            sector)))
+          (sector-ref-count-set! sector (++ refs))
+          (mutex-unlock! mut)
+          sector))
 
       (define (disk-release-block sect)
         (let* ((lba (sector-lba sect))
@@ -113,11 +111,10 @@
                (disk ((sector-disk-l sect)))
                (refs (sector-ref-count sect)))
           (mutex-lock! mut)
-          (begin
-            (sector-ref-count-set! sect (- refs 1))
-            (mutex-unlock! mut)
-            (if (= refs 1) (flush-block disk sect))
-            #t)))
+          (sector-ref-count-set! sect (- refs 1))
+          (mutex-unlock! mut)
+          (if (= refs 1) (flush-block disk sect))
+          #t))
 
       (define (init-disks)
         (let ((disk-idx 0)) 

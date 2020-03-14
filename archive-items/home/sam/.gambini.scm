@@ -40,11 +40,6 @@
 
 ; (for-each (o uart-do-init ++) (iota 4))
 
-(ide#setup)
-(ide#switch-over-driver)
-
-(init-disks)
-(define main-disk (car disk-list))
 
 (define (t) (f-tests main-disk))
 
@@ -111,3 +106,16 @@
 (thread-start! (make-thread exec "int execution g-tread"))
 (thread-start! (make-thread int-clear "Mimosa interrupt clearing thread"))
 (thread-start! (make-thread idle "Mimosa idle green thread"))
+
+
+;;;----------------------------------------------------
+;;;                     INIT SYSTEM  
+;;;----------------------------------------------------
+
+(ide#setup)
+(ide#switch-over-driver)
+
+(init-disks)
+(define main-disk (car disk-list))
+(mount-partitions disk-list)
+(define fs (car filesystem-list))
