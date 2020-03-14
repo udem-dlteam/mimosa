@@ -36,6 +36,7 @@
 ;;;----------------------------------------------------
 
 (define int-mutex (make-mutex))
+(define int-condvar (make-condition-variable))
 
 ; (for-each (o uart-do-init ++) (iota 4))
 
@@ -66,7 +67,7 @@
   (let pmp ()
     (let ((int-no (read-iu8 #f (read-at reader-offset))))
       (if (fx= 0 int-no)
-            #t; stop
+          #t; stop
           (let* ((arr-len (read-iu8 #f (read-at 1 reader-offset)))
                  (params (map (lambda (n) (read-iu8 #f (read-at 2 n reader-offset))) (iota arr-len)))
                  (total-len (+ 2 arr-len)))
@@ -80,8 +81,12 @@
 ;;;                  INTERRUPT WIRING 
 ;;;----------------------------------------------------
 
-
-(##interrupt-vector-set! 5 (lambda () #t))
+(##interrupt-vector-set! 5 (lambda () 
+                            ; Signal the int pump threadi
+                            ; to pump the fifo into the scheme fifo
+                            (mutex-lock! int-mutex)
+                            (condition-variable-signal! int-condvar)
+                            (mutex-unlock! int-mutex)))
 
 
 ;;;----------------------------------------------------
@@ -94,10 +99,15 @@
       (handle-int (car packed) (cadr packed))
       (exec)))
     
-(define (idle)
+(define (int-clear)
+  (mutex-unlock! int-mutex int-condvar 30) ; wait on condvar, timeout
   (mimosa-interrupt-handler)
+  (int-clear))
+
+(define (idle)
   (thread-yield!) 
   (idle))
 
 (thread-start! (make-thread exec "int execution g-tread"))
+(thread-start! (make-thread int-clear "Mimosa interrupt clearing thread"))
 (thread-start! (make-thread idle "Mimosa idle green thread"))
