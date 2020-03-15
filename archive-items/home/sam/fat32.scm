@@ -57,7 +57,7 @@
                          (define-structure ,name 
                                            ,@field-names)
                          (define ,width-struct (+ ,@field-width))
-                         (define (,unpack-struct strc vec)
+                         (define (,unpack-struct strc vec base-offset)
                            ; fields that are shorter than 4 are packed into an int
                            ; fields that are longer than 4 are packed directly into a vect
                            ; fields that have a negative length are forced into a vect
@@ -73,14 +73,14 @@
                                                             (set! offset (+ offset 1))
                                                             `(vector-set!
                                                                vec
-                                                               ,(- offset 1)
+                                                               (+ ,(- offset 1) base-offset)
                                                                (vector-ref (,(field-accessor f) strc) ,i)))
                                                           (iota (abs w))))
                                               `(begin ,@(map (lambda (i)
                                                                (set! offset (+ offset 1))
                                                                `(vector-set!
                                                                   vec
-                                                                  ,(- offset 1)
+                                                                  (+ ,(- offset 1) base-offset)
                                                                   (fxand #xFF (arithmetic-shift
                                                                            (,(field-accessor f) strc)
                                                                            ,(- 0 (* i 8)))))
