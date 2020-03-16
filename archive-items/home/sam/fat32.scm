@@ -83,12 +83,12 @@
                                                                   vec
                                                                   (+ ,(- offset 1) base-offset)
                                                                   (bitwise-and #xFF (arithmetic-shift
-                                                                                (,(field-accessor f) strc)
-                                                                                ,(- 0 (* i 8)))))
+                                                                                      (,(field-accessor f) strc)
+                                                                                      ,(- 0 (* i 8)))))
                                                                )
                                                              (iota w)))
                                               ))) (iota (length field-names))))
-                                vec))
+                             vec))
                          (define (,pack-struct vec)
                            (,make-struct
                              ;; TODO: map does not guarantee left-to-right calls to function
@@ -283,7 +283,7 @@
       (define fs-vector (make-vector 32 'NO-FS))
 
       (define (ff fs)
-       (make-fat-cache (filesystem-disk fs) (filesystem-bpb fs)))
+        (make-fat-cache (filesystem-disk fs) (filesystem-bpb fs)))
 
       (define (make-fat-cache dsk bpb)
         (let* ((fat-sz (BPB-fat-size-32 bpb))
@@ -350,28 +350,114 @@
           (table-ref cache (fat-file-curr-clus file)))) 
 
       (define (next-cluster file)
-       (let* ((link (get-cached-cluster file))
-              (n (cache-link-next link)))
-        (if (fx>= n FAT-32-EOF)
-         EOF
-         n)))
+        (let* ((link (get-cached-cluster file))
+               (n (cache-link-next link)))
+          (if (fx>= n FAT-32-EOF)
+              EOF
+              n)))
 
       (define (previous-cluster file)
         (let* ((link (get-cached-cluster file))
-              (n (cache-link-prev link)))
-        (if (fx>= n FAT-32-EOF)
-         EOF
-         n)))
+               (n (cache-link-prev link)))
+          (if (fx>= n FAT-32-EOF)
+              EOF
+              n)))
 
       (define (set-next-cluster-curried! file)
-       (lambda (next-clus)
-        (set-next-cluster! file next-clus)))
-      
+        (lambda (next-clus)
+          (set-next-cluster! file next-clus)))
+
+      (define (fat-reset-cursor! file)
+        (let* ((fs (fat-file-fs file))
+               (lg2spc (filesystem-lg2spc fs))
+               (lg2bps (filesystem-lg2bps))
+               (first-cluster (fat-file-first-clus f)))
+          (fat-file-curr-clus-set! file first-cluster)
+          (fat-file-curr-section-start-set!
+            file
+            (+ (<< (- first-clus 2) lg2spc) (filesystem-first-data-sector fs)))
+          (fat-file-curr-section-length-set! file (<< 1 (+ lg2bps lg2spc)))
+          (fat-file-curr-section-pos-set! file 0)
+          (fat-file-pos-set! file 0)))
+
       ; TODO
       ; J'étais en train de faire des routines pour facilement
       ; changer de place dans un fichier
+      (define (file-set-cursor-absolute! file pos)
+        (let ((current-pos (fat-file-pos file)))
+          (cond ((= current-pos pos)
+                 #t)
+                ((= 0 pos)
+                 (file-reset-cursor! file))
+                (else
+                  TODO ; do the delta
 
-    
+                  ))))
+
+      (define (traverse-fat-chain relative-to mvmt chain)
+        (if (= mvmt 0)
+            relative-to
+            (let ((link (table-ref cache relative-to)))
+              (if (> mvmt 0)
+                  (traverse-fat-chain (cache-link-next link) (-- mvmt) chain)
+                  (traverse-fat-chain (cache-link-prev link) (++ mvmt) chain)))))
+
+      (define (file-move-cursor-backward! file rewind)
+        (let* ((section-pos (fat-file-curr-section-pos file))
+               (section-len (fat-file-curr-section-length file))
+               (diff (max 0 (- rewind section-pos))))
+          (if (> diff 0)
+              ; need to go over boundary
+              (let* ((fs (fat-file-fs file))
+                     (lg2spc (filesystem-lg2spc fs))
+                     (lg2bps (filesystem-lg2bps fs))
+                     (lg2bpc (+ lg2spc lg2bpc))
+                     (start-cluster (fat-file-curr-clus file))
+                     (clusters-backward (>> diff lg2bpc))
+                     (cluster-leftover (- (fat-file-curr-section-length file)
+                                          (modulo diff (<< 1 lg2bpc))))
+                     (new-cluster (traverse-fat-chain
+                                    start-cluster
+                                    (- -1 clusters-backward))))
+                (fat-file-curr-clus-set! file new-cluster)
+                (fat-file-curr-section-start-set!
+                  (+ (<< (- new-cluster 2) lg2spc)
+                     (filesystem-first-data-sector fs)))
+                (fat-file-curr-section-pos-set! file cluster-leftover))
+              ; simply move
+              (fat-file-curr-section-pos-set! file (- section-pos rewind))))
+        (fat-file-pos-set! file (- (fat-file-pos file) rewind)))
+
+      (define (file-move-cursor-forward! file wind)
+        (let* ((section-pos (fat-file-curr-section-pos file))
+               (section-len (fat-file-curr-section-length file))
+               (left-in-section (- section-len section-pos))
+               (diff (max 0 (- wind left-in-section))))
+          (if (> diff 0)
+              ; need to go over boundary
+              (let* ((fs (fat-file-fs file))
+                     (lg2spc (filesystem-lg2spc fs))
+                     (lg2bps (filesystem-lg2bps fs))
+                     (lg2bpc (+ lg2spc lg2bpc))
+                     (start-cluster (fat-file-curr-clus file))
+                     (clusters-forward (>> diff lg2bpc))
+                     (cluster-leftover (modulo diff (<< 1 lg2bpc)))
+                     (new-cluster (traverse-fat-chain
+                                    start-cluster
+                                    (+ 1 clusters-forward))))
+                (fat-file-curr-clus-set! file new-cluster)
+                (fat-file-curr-section-start-set!
+                  (+ (<< (- new-cluster 2) lg2spc)
+                     (filesystem-first-data-sector fs)))
+                (fat-file-curr-section-pos-set! file cluster-leftover))
+              ; simply move
+              (fat-file-curr-section-pos-set! file (+ section-pos wind))))
+        (fat-file-pos-set! file (+ (fat-file-pos file) wind)))
+
+      (define (file-move-cursor! file delta)
+        (if (> delta 0)
+            (file-move-cursor-forward! file delta)
+            (file-move-cursor-backward! file (abs delta))))
 
       ; Set the next cluster, move to it and return the FAT array
       ; with the file as an argument
@@ -834,7 +920,8 @@
             parent-parts
             (lambda (parent) ; we opened the parent of where we want to insert a file (or directory)
               ; TEMP! Replace root dir
-              (read-all-entries temp) ; this sets the cursor where we want
+              (read-all-entries temp) ; this sets the cursor one entry over what we want
+              (file-move-cursor! temp (- entry-width))
               ; TODO: allocate cluster...
               (let ((new-file (make-entry
                                 (vector-map char->integer (vector #\A #\A #\A #\A #\A #\A #\A #\A #\B #\B #\B))
@@ -852,10 +939,10 @@
                                 )) 
                     )
                 (write-bytes!
-                 temp 
-                 (unpack-entry new-file (make-vector entry-width 0) 0) 
-                 0
-                 entry-width (lambda (err) ERR-FNF))))
+                  temp 
+                  (unpack-entry new-file (make-vector entry-width 0) 0) 
+                  0
+                  entry-width (lambda (err) ERR-FNF))))
             (lambda (err) ERR-FNF))))
 
       ; Open a fat file
@@ -864,8 +951,8 @@
               (root (open-root-dir fs))
               (mode (parse-modes mode)))
           (follow-path root parts
-            (lambda (f) (fat-file-mode-set! f mode) f)
-            (lambda (err) ERR-FNF)))) 
+                       (lambda (f) (fat-file-mode-set! f mode) f)
+                       (lambda (err) ERR-FNF)))) 
 
       (define (f-tests)
         (let ((fs (car filesystem-list)))

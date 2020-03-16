@@ -4,6 +4,7 @@
                 (export 
                   //
                   ++
+                  --
                   >>
                   <<
                   s>>
@@ -87,6 +88,8 @@
           (+ k n)))
 
       (define ++ (incn 1))
+
+      (define -- (incn -1))
 
       (define CURRENT-THREAD-CHANNELS-ADDR 28)
 
