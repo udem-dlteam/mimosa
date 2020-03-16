@@ -30,12 +30,16 @@
                   TODO
                   ilog2
                   fields
+                  wint32
+                  wint16
+                  wint8
                   uint32
                   uint16
                   uint8
                   both
                   ID
                   split-string
+                  first-index
                   ; define-struct-fill
                   )
     (begin
@@ -192,6 +196,14 @@
                                     (list 'arithmetic-shift
                                           (list 'vector-ref 'vec (list '+ 'offset i))
                                           (* i 8))) (iota w))))
+
+      (define-macro (write-uint vec offset val w)
+                    `(begin
+                       ,@(map
+                           (lambda (i)
+                             `(vector-set! ,vec (+ offset ,i) (fxand #xFF (arithmetic-shift val ,(- 0 (* i 8))))))
+                           (iota w))))
+
       (define (uint32 vec offset)
         (extract-uint vec offset 4))
 
@@ -201,25 +213,48 @@
       (define (uint8 vec offset)
         (extract-uint vec offset 1))
 
+      (define (wint32 vec offset val)
+        (write-uint vec offset val 4)
+        vec)
+
+      (define (wint16 vec offset val)
+        (write-uint vec offset val 2)
+        vec)
+
+      (define (wint8 vec offset val)
+        (write-uint vec offset val 1)
+        vec)
+
       (define (both) a b (lambda (n)
                            (begin
                              (a n)
                              (b n))))
 
-    (define (split-string separator str)
-      (fold-right 
-        (lambda (c r)
-          (if (eq? c separator)
-              (cons "" r)
-              (cons (string-append (string c) (car r)) (cdr r)) 
-              ))
-        (list "") 
-        (string->list str)))
+      (define (first-index-aux l comp e i default)
+        (cond ((not (pair? l))
+               default)
+              ((comp e (car l))
+               i)
+              (else 
+                (first-index (cdr l) e (++ i) default))))
+
+      (define (first-index l comp e default)
+        (first-index-aux l comp e 0 default))
+
+      (define (split-string separator str)
+        (fold-right 
+          (lambda (c r)
+            (if (eq? c separator)
+                (cons "" r)
+                (cons (string-append (string c) (car r)) (cdr r)) 
+                ))
+          (list "") 
+          (string->list str)))
 
       (define (ID i) i)
 
       (define (byte-vector->string v)
-       (vector->string (vector-map integer->char v)))
+        (vector->string (vector-map integer->char v)))
 
       ; (define-macro (define-struct-fill name fields)
       ;               (let ((fill-struct (string-append "fill-" (symbol->string name)))
