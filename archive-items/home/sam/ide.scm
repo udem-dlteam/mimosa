@@ -274,6 +274,7 @@
            (err #f)
            (q (ide-controller-continuations-queue ctrl))
            (count (min 256 count)))
+      (mutex-lock! mut)
       (write (lambda () 
                (mutex-lock! mut)
                (if (mask (inb stt-reg) IDE-STATUS-ERR)
