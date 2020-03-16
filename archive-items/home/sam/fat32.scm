@@ -17,11 +17,13 @@
       filesystem-list
       write-file)
     (begin 
+      (define FAT-LINK-MASK #x0FFFFFFF)
       (define FILE-MODE-READ (arithmetic-shift 1 0))
       (define FILE-MODE-TRUNC (arithmetic-shift 1 1))
       (define FILE-MODE-APPEND (arithmetic-shift 1 2))
       (define FILE-MODE-PLUS (arithmetic-shift 1 3))
       (define FILE-MODE-BINARY (arithmetic-shift 1 4))
+      (define FAT32-ENTRY-WIDTH 4)
       (define filesystem-list (list))
 
       (define (mode-requires-existence? mode)
@@ -174,9 +176,7 @@
               (if (and (> (length r) 0) (string=? ".." (car r)))
                   (cdr r)
                   (cons c r))) 
-            (list ) 
-            split
-            )))
+            (list) split)))
 
       (define-c-struct BPB
                        (jmp-boot 3)
@@ -273,7 +273,8 @@
                         lg2bps
                         lg2spc
                         first-data-sector
-                        fat-cache
+                        cache-write-mut
+                        fat-cache ; does not need to be a hash table... a vector would have been good
                         )
 
       (define-structure cache-link
@@ -282,13 +283,10 @@
 
       (define fs-vector (make-vector 32 'NO-FS))
 
-      (define (ff fs)
-        (make-fat-cache (filesystem-disk fs) (filesystem-bpb fs)))
-
       (define (make-fat-cache dsk bpb)
         (let* ((fat-sz (BPB-fat-size-32 bpb))
                (rsvd (BPB-reserved-sector-count bpb))
-               (entries-per-sector (// 512 4))
+               (entries-per-sector (BPB-entries-per-sector bpb))
                (no-of-entries (* entries-per-sector fat-sz))
                (sectors (map (lambda (s)
                                (disk-apply-sector dsk (+ s rsvd) ID)) (iota fat-sz)))
@@ -302,7 +300,7 @@
                           cache
                           l
                           (make-cache-link
-                            (fxand #x1FFFFFFF value)
+                            (fxand #x0FFFFFFF value)
                             0))))
                     (iota no-of-entries))
           (for-each (lambda (l)
@@ -321,8 +319,8 @@
             (ilog2 (BPB-bps bpb))
             (ilog2 (BPB-sec-per-cluster bpb))
             (BPB-first-data-sector bpb)
-            (make-fat-cache dsk bpb)
-            )))
+            (make-mutex) ; cache write mutex
+            (make-fat-cache dsk bpb))))
 
       (define (open-root-dir fs)
         (let*
@@ -359,13 +357,7 @@
       (define (previous-cluster file)
         (let* ((link (get-cached-cluster file))
                (n (cache-link-prev link)))
-          (if (fx>= n FAT-32-EOF)
-              EOF
-              n)))
-
-      (define (set-next-cluster-curried! file)
-        (lambda (next-clus)
-          (set-next-cluster! file next-clus)))
+          (if (fx>= n FAT-32-EOF) EOF n)))
 
       (define (fat-reset-cursor! file)
         (let* ((fs (fat-file-fs file))
@@ -380,9 +372,6 @@
           (fat-file-curr-section-pos-set! file 0)
           (fat-file-pos-set! file 0)))
 
-      ; TODO
-      ; J'étais en train de faire des routines pour facilement
-      ; changer de place dans un fichier
       (define (file-set-cursor-absolute! file pos)
         (let ((current-pos (fat-file-pos file)))
           (cond ((= current-pos pos)
@@ -390,9 +379,8 @@
                 ((= 0 pos)
                  (file-reset-cursor! file))
                 (else
-                  TODO ; do the delta
-
-                  ))))
+                 (let ((delta (- pos current-pos)))
+                  (file-move-cursor! file delta))))))
 
       (define (traverse-fat-chain relative-to mvmt chain)
         (if (= mvmt 0)
@@ -588,6 +576,9 @@
                          TYPE-FOLDER
                          TYPE-FILE))
 
+     (define-macro (fat-entries-per-sector bpb)
+      `(// (BPB-bps bpb) FAT32-ENTRY-WIDTH))
+
       (define (logical-entry->file parent pos logical)
         (let* ((fs (fat-file-fs parent))
                (fds (filesystem-first-data-sector fs))
@@ -743,29 +734,79 @@
       (define (vect->cluster-list cpv)
         (lambda (v) (map (lambda (i) (uint32 v (* 4 v))) (iota cpv))))
 
-      (define (find-first-free-cluster-aux d max-lba start-lba lba succ fail)
-        (if (>= lba max-lba)
-            (fail ERR-NO-MORE-ENTRIES)
-            ; Read the sector and inspect the clusters
-            (let* ((clster-list (disk-apply-sector d lba (vect->cluster-list (/ 512 4))))
-                   (i (first-index cluster fx= #x00 #f)))
-              (if i
-                  ; Found that the ith cluster of this lba is free
-                  (succ (+ i (* (/ 512 4) (- lba start-lba))))
-                  ; not free
-                  (find-first-free-cluster-aux d max-lba start-lba (++ lba) succ fail)))))
+      (define (update-cluster-link-on-disk fs cluster link)
+        (let* ((bpb (filesystem-bpb fs))
+               (rsvd (BPB-reserved-sector-count bpb))
+               (entries-per-sector (BPB-entries-per-sector bpb))
+               (offset (modulo cluster entries-per-sector))
+               (lba-offset (// cluster entries-per-sector))
+               (d (filesystem-disk fs)))
+          (disk-apply-sector
+            d
+            (+ lba-offset rsvd) 
+            (lambda (vect)
+             (wint32 vect (<< offset 2) (cache-link-next link))))
+          ))
+
+      (define (find-first-free-cluster-aux cache index len succ fail)
+       (if (< index len)
+        (let* ((link (table-ref cache index))
+               (link-next (cache-link-next link)))
+         (if (fx= link-next 0)
+          (succ index link)
+          (find-first-free-cluster-aux cache (++ index) len succ fail)))
+        (fail ERR-EOF)))
 
       ; Find the first free cluster in the FS file table.
       ; the fail continuation is called in case of error,
-      ; the succ continuation is called with the cluster number
-      ; when it found one. As soon as the cluster is found, it is
-      ; marked with an EOF tag to prevent race conditions
+      ; the succ continuation is called with the cluster number and the link
+      ; when it found one. 
+      ; The link will be marked with an EOF tag to prevent race conditions.
       (define (find-first-free-cluster fs succ fail)
+       (let* ((cache (filesystem-fat-cache fs))
+              (cache-mut (filesystem-cache-write-mut fs))
+              (l (table-length cache)))
+         (mutex-lock! cache-mut); acquire
+         (find-first-free-cluster-aux
+           cache
+           0
+           l
+           ; free the mutex when the continuation is called
+           (lambda (cluster link)
+             (cache-link-next-set! link FAT-32-EOF)
+             (update-cluster-link-on-disk fs cluster link)
+             (mutex-unlock! cache-mut)
+             (succ cluster link))
+           (lambda (err)
+             (mutex-unlock! cache-mut)
+             (fail err)))))
+
+      (define (unlink-chain-aux fs cache cluster)
         (let* ((bpb (filesystem-bpb fs))
-               (fat-lba (BPB-reserved-sector-count bpb))
-               (max-lba (+ fat-lba (BPB-fat-size-32 bpb)))
+               (link (table-ref cache cluster))
+               (rsvd (BPB-reserved-sector-count bpb))
+               (entries-per-sector (BPB-entries-per-sector bpb))
+               (offset (modulo cluster entries-per-sector))
+               (lba-offset (// cluster entries-per-sector))
+               (next (cache-link-next cluster))
                (d (filesystem-disk fs)))
-          (find-first-free-cluster-aux d max-lba lba lba succ fail)))
+          (disk-apply-sector
+            d
+            (+ lba-offset rsvd) 
+            (lambda (vect)
+              (cache-link-next-set! link 0) ; erase in the cache
+              (wint32 vect (<< offset 2) 0) ; erase on disk
+              ; stack the env to flush to disk the minimal amount of time
+              (unlink-chain-aux fs cache next) 
+              ))))
+      
+      (define (unlink-chain fs cluster)
+       (let ((mut (filesystem-cache-write-mut fs))
+             (cache (filesystem-fat-cache fs)))
+        (mutex-lock! mut)
+        (unlink-chain-aux fs cache cluster)
+        (mutex-unlock! mut)
+        ))
 
       ; Fetch the next cluster 
       (define (fetch-or-allocate-next-cluster file c fail)
@@ -778,7 +819,9 @@
                 (begin ; create a new cluster
                   (find-first-free-cluster 
                     (fat-file-fs file)
-                    (set-next-cluster-curried! file)
+                    (lambda (cluster link)
+                     (cache-link-prev-set! link (fat-file-curr-clus file))
+                     (set-next-cluster! file cluster))
                     fail)
                   (c file))
                 (fail err-code)))))
@@ -922,27 +965,32 @@
               ; TEMP! Replace root dir
               (read-all-entries temp) ; this sets the cursor one entry over what we want
               (file-move-cursor! temp (- entry-width))
-              ; TODO: allocate cluster...
-              (let ((new-file (make-entry
-                                (vector-map char->integer (vector #\A #\A #\A #\A #\A #\A #\A #\A #\B #\B #\B))
-                                0
-                                0
-                                0
-                                #xFF00
-                                #xFF00
-                                #xFF00
-                                #xFF00
-                                #xFF00
-                                #xFF00
-                                #xFF00
-                                #xAABBCCDD
-                                )) 
-                    )
-                (write-bytes!
-                  temp 
-                  (unpack-entry new-file (make-vector entry-width 0) 0) 
-                  0
-                  entry-width (lambda (err) ERR-FNF))))
+              ; (define (find-first-free-cluster fs succ fail)
+              (find-first-free-cluster
+                fs
+                (lambda (cluster link)
+                  (let ((new-file (make-entry
+                                    (vector-map char->integer (vector #\A #\A #\A #\A #\A #\A #\A #\A #\B #\B #\B))
+                                    0          ; attributes
+                                    0          ; nt-res
+                                    0          ; tenth
+                                    #xFF00     ; creation time
+                                    #xFF00     ; creation date
+                                    #xFF00     ; last acc. date
+                                    (bitwise-and #xFFFF (>> cluster 16))     ; cluster hi
+                                    #xFF00     ; last write time
+                                    #xFF00     ; last write date
+                                    (bitwise-and #xFFFF cluster)     ; cluster lo
+                                    0 ; size
+                                    ))
+                        )
+                    (cache-link-prev-set! link 0)
+                    (write-bytes!
+                      temp 
+                      (unpack-entry new-file (make-vector entry-width 0) 0) 
+                      0
+                      entry-width (lambda (err) ERR-FNF))) 
+                  ) ID))
             (lambda (err) ERR-FNF))))
 
       ; Open a fat file
