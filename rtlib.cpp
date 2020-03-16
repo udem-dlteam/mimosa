@@ -166,7 +166,7 @@ static void setup_kheap() {
 }
 
 static void setup_appheap() {
-  heap_init(&appheap, CAST(void*, 64 * (1<<20)), 900 * (1<<20));
+  heap_init(&appheap, CAST(void*, 64 * (1<<20)), 1024 * (1<<20));
 }
 
 extern "C" void* memcpy(void* dest, const void* src, size_t n) {
@@ -447,6 +447,15 @@ uint8 send_gambit_int(uint8 int_no, uint8* params, uint8 len) {
         uint32 scout = gambit_writer;
 
         uint32 i;
+
+        /* __debug_write("Int no: "); */
+        /* debug_write(int_no); */
+        /* debug_write("-----------------"); */
+        /* for(i = 0; i < 512; ++i) { */
+        /*     __debug_write(mem[i]); */
+        /* } */
+        /* debug_write("-----------------"); */
+
         for(i = 0;
             i < required_len;
             ++i, scout = (scout + 1) % GAMBIT_SHARED_MEM_LEN) {
