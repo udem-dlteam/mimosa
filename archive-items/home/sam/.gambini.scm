@@ -28,7 +28,7 @@
 
 (load "mimosa_io.scm")
 (load "intr.scm")
-; (load "edit.scm")
+(load "edit.scm")
 (load "int_handle.scm") ; must be loaded after all drivers
 
 ;;;----------------------------------------------------
