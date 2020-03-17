@@ -7,6 +7,15 @@
         (low-level)
         (debug))
 
+(define (reboot)
+  (let wait-loop ()
+    (let ((temp (inb #x64)))
+      (if (mask temp #x01)
+          (inb #x60)
+          (if (mask temp #x02)
+              (wait-loop)))))
+  (outb #xFE #x64))
+
 (define reader-offset 0)
 (define SHARED-MEMORY-AREA #x300000)
 (define SHARED-MEMORY-AREA-LEN 512)

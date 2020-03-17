@@ -18,6 +18,13 @@
       filesystem-list
       write-file)
     (begin 
+      ; --------------------------------------------------
+      ; --------------------------------------------------
+      ; --------------------------------------------------
+      ;         Definitions, constants and globals
+      ; --------------------------------------------------
+      ; --------------------------------------------------
+      ; --------------------------------------------------
       (define FAT-LINK-MASK #x0FFFFFFF)
       (define FILE-MODE-READ (arithmetic-shift 1 0))
       (define FILE-MODE-TRUNC (arithmetic-shift 1 1))
@@ -25,11 +32,45 @@
       (define FILE-MODE-PLUS (arithmetic-shift 1 3))
       (define FILE-MODE-BINARY (arithmetic-shift 1 4))
       (define FAT32-ENTRY-WIDTH 4)
-      (define filesystem-list (list))
-
       (define (mode-requires-existence? mode)
         (mask mode FILE-MODE-READ))
-
+      (define EOF 'EOF)
+      (define FAT12-FS 0)
+      (define FAT16-FS 1)
+      (define FAT32-FS 2)
+      (define FAT-32-EOF #x0FFFFFF8)
+      (define FAT32-FIRST-CLUSTER 2)
+      (define FAT-UNUSED-ENTRY #xE5)
+      (define FAT-LAST-LONG-ENTRY #x40)
+      (define FAT-CHARS-PER-LONG-NAME-ENTRY 13)
+      (define FAT-NAME-MAX 1024)
+      (define DT-UNKNOWN 0)
+      (define DT-DIR 1)
+      (define DT-REG 2)
+      (define FAT-ATTR-READ-ONLY #x01)
+      (define FAT-ATTR-HIDDEN #x02)
+      (define FAT-ATTR-SYSTEM #x04)
+      (define FAT-ATTR-VOLUME-ID #x08)
+      (define FAT-ATTR-DIRECTORY #x10)
+      (define FAT-ATTR-ARCHIVE #x20)
+      (define FAT-ATTR-LONG-NAME
+        (fxior FAT-ATTR-READ-ONLY
+               FAT-ATTR-HIDDEN 
+               FAT-ATTR-SYSTEM 
+               FAT-ATTR-VOLUME-ID))
+      (define FAT-NAME-LENGTH 11)
+      (define FAT-DIR-ENTRY-SIZE 32)
+      (define TYPE-FOLDER 'FOLDER)
+      (define FAT-32-FS-TYPE "FAT32")
+      (define TYPE-FILE 'FILE)
+      (define filesystem-list (list))
+      ; --------------------------------------------------
+      ; --------------------------------------------------
+      ; --------------------------------------------------
+      ;                      MACROS
+      ; --------------------------------------------------
+      ; --------------------------------------------------
+      ; --------------------------------------------------
       (define-macro (define-c-struct name . fields)
                     (let* ((symbol-name (symbol->string name))
                            (pack-struct
@@ -114,37 +155,6 @@
                                                (lambda (i)
                                                  (vector-ref vec (+ ,offset i)))))))
                                     field-width))))))
-
-      (define EOF 'EOF)
-      (define FAT12-FS 0)
-      (define FAT16-FS 1)
-      (define FAT32-FS 2)
-      (define FAT-32-EOF #x0FFFFFF8)
-      (define FAT32-FIRST-CLUSTER 2)
-      (define FAT-UNUSED-ENTRY #xE5)
-      (define FAT-LAST-LONG-ENTRY #x40)
-      (define FAT-CHARS-PER-LONG-NAME-ENTRY 13)
-      (define FAT-NAME-MAX 1024)
-      (define DT-UNKNOWN 0)
-      (define DT-DIR 1)
-      (define DT-REG 2)
-      (define FAT-ATTR-READ-ONLY #x01)
-      (define FAT-ATTR-HIDDEN #x02)
-      (define FAT-ATTR-SYSTEM #x04)
-      (define FAT-ATTR-VOLUME-ID #x08)
-      (define FAT-ATTR-DIRECTORY #x10)
-      (define FAT-ATTR-ARCHIVE #x20)
-      (define FAT-ATTR-LONG-NAME
-        (fxior FAT-ATTR-READ-ONLY
-               FAT-ATTR-HIDDEN 
-               FAT-ATTR-SYSTEM 
-               FAT-ATTR-VOLUME-ID))
-      (define FAT-NAME-LENGTH 11)
-      (define FAT-DIR-ENTRY-SIZE 32)
-      (define TYPE-FOLDER 'FOLDER)
-      (define FAT-32-FS-TYPE "FAT32")
-      (define TYPE-FILE 'FILE)
-
       (define-macro (folder? ff)
                     `(eq? (fat-file-type ,ff) TYPE-FOLDER))
 
@@ -156,6 +166,58 @@
                       `(let ((,signal (vector-ref (entry-name ,entry) 0)))
                          (not (or (fx= #x00 ,signal) (fx= #xE5 ,signal))))))
 
+      (define-macro (build-cluster logical)
+                    `(fxior (<< (logical-entry-cluster-hi ,logical) 16)
+                            (logical-entry-cluster-lo ,logical)))
+
+      (define-macro (entry-type entry)
+                    `(if (mask (entry-attr ,entry) FAT-ATTR-DIRECTORY)
+                         TYPE-FOLDER
+                         TYPE-FILE))
+
+      (define-macro (logical-entry-type logical)
+                    `(if (mask (logical-entry-attr ,logical) FAT-ATTR-DIRECTORY)
+                         TYPE-FOLDER
+                         TYPE-FILE))
+
+      (define-macro (BPB-entries-per-sector bpb)
+                    `(// (BPB-bps bpb) FAT32-ENTRY-WIDTH))
+
+      (define-macro (is-lfn? entry)
+                    (let ((attr (gensym)))
+                      `(let ((,attr (entry-attr ,entry)))
+                         (fx= FAT-ATTR-LONG-NAME ,attr))))
+
+      (define-macro (BPB-first-data-sector bpb)
+                    `(let* ((root-entry-count (BPB-root-entry-count ,bpb))
+                            (bps (BPB-bps ,bpb))
+                            (lg2-bps (ilog2 bps))
+                            (fatsz (BPB-fat-size-32 ,bpb))
+                            (fats (BPB-fats ,bpb))
+                            (rzvd (BPB-reserved-sector-count ,bpb))
+                            (root-dir-sectors (s>> (- (+ (* root-entry-count FAT-DIR-ENTRY-SIZE) (s<< 1 lg2-bps)) 1) lg2-bps))
+                            )
+                       (+ root-dir-sectors rzvd (* fatsz fats))))
+
+      (define-macro (relative-move-function file mvmt fn)
+                    `(,(if (eq? fn '+)
+                           `simulate-forward-move
+                           `simulate-backward-move)
+                       ,file
+                       ,mvmt
+                       (lambda (new-cluster cluster-pos section-start)
+                         (fat-file-curr-clus-set! ,file new-cluster)
+                         (fat-file-curr-section-start-set! ,file section-start)
+                         (fat-file-curr-section-pos-set! ,file cluster-pos)
+                         (fat-file-pos-set! ,file (,fn (fat-file-pos ,file) ,mvmt)))))
+
+      ; --------------------------------------------------
+      ; --------------------------------------------------
+      ; --------------------------------------------------
+      ;                  STRUCTURES
+      ; --------------------------------------------------
+      ; --------------------------------------------------
+      ; --------------------------------------------------
       (define-structure fat-file
                         fs
                         first-clus
@@ -171,15 +233,6 @@
                         mode
                         entry
                         )
-
-      (define (simplify-path path)
-        (let ((split (split-string #\/ path)))
-          (fold-right
-            (lambda (c r)
-              (if (and (> (length r) 0) (string=? ".." (car r)))
-                  (cdr r)
-                  (cons c r))) 
-            (list) split)))
 
       (define-c-struct BPB
                        (jmp-boot 3)
@@ -210,18 +263,6 @@
                        (vol-lab 11)
                        (fs-type 8))
 
-      (define-macro (BPB-first-data-sector bpb)
-                    `(let* ((root-entry-count (BPB-root-entry-count ,bpb))
-                            (bps (BPB-bps ,bpb))
-                            (lg2-bps (ilog2 bps))
-                            (fatsz (BPB-fat-size-32 ,bpb))
-                            (fats (BPB-fats ,bpb))
-                            (rzvd (BPB-reserved-sector-count ,bpb))
-                            (root-dir-sectors (s>> (- (+ (* root-entry-count FAT-DIR-ENTRY-SIZE) (s<< 1 lg2-bps)) 1) lg2-bps))
-                            )
-                       (+ root-dir-sectors rzvd (* fatsz fats))))
-
-      ; A FAT directory entry as defined by the FAT 32 spec
       (define-c-struct entry
                        (name 11)
                        (attr 1)
@@ -236,12 +277,6 @@
                        (cluster-lo 2)
                        (file-size 4))
 
-      (define-macro (is-lfn? entry)
-                    (let ((attr (gensym)))
-                      `(let ((,attr (entry-attr ,entry)))
-                         (fx= FAT-ATTR-LONG-NAME ,attr))))
-
-      ; A LFN structure as defined by the FAT 32 spec
       (define-c-struct lfn
                        (ord 1)
                        (name1 10)
@@ -252,8 +287,13 @@
                        (cluster-lo 2)
                        (name3 -4))
 
+
+      ; A FAT directory entry as defined by the FAT 32 spec
+      ; A LFN structure as defined by the FAT 32 spec
+
       ; A logical directory entry. The name is a string, and it abstracts
       ; away the fact that it comes from a long file name
+
       (define-structure logical-entry
                         name
                         attr
@@ -280,28 +320,123 @@
                         fat-cache ; does not need to be a hash table... a vector would have been good
                         )
 
-      (define-macro (build-cluster logical)
-                    `(fxior (<< (logical-entry-cluster-hi ,logical) 16)
-                            (logical-entry-cluster-lo ,logical)))
-
-      (define-macro (entry-type entry)
-                    `(if (mask (entry-attr ,entry) FAT-ATTR-DIRECTORY)
-                         TYPE-FOLDER
-                         TYPE-FILE))
-
-      (define-macro (logical-entry-type logical)
-                    `(if (mask (logical-entry-attr ,logical) FAT-ATTR-DIRECTORY)
-                         TYPE-FOLDER
-                         TYPE-FILE))
-
-      (define-macro (BPB-entries-per-sector bpb)
-                    `(// (BPB-bps bpb) FAT32-ENTRY-WIDTH))
-
       (define-structure cache-link
                         next
                         prev)
 
-      (define fs-vector (make-vector 32 'NO-FS))
+      ; --------------------------------------------------
+      ; --------------------------------------------------
+      ; --------------------------------------------------
+      ;                  Utils for FAT
+      ; --------------------------------------------------
+      ; --------------------------------------------------
+      ; --------------------------------------------------
+
+      (define (make-fat-time hours minute seconds)
+        ; According to the FAT specification, the FAT time is set that way:
+        ; Bits 15-11: the hour
+        ; Bits 10-5 : the minutes
+        ; Bits 4-0  : the half seconds
+        (fxior 
+          (<< (fxand #x1F hours) 11)
+          (<< (fxand #x3F minutes) 5)
+          (fxand #x1F (>> seconds 1))))
+
+      ; Unpack a fat time entry and call
+      ; the fn function with arguments hours, minutes and second
+      (define (unpack-fat-time fat-time fn)
+        ; Bits 15-11: the hour
+        ; Bits 10-5 : the minutes
+        ; Bits 4-0  : the half seconds
+        (let ((hours (fxand #x1F (>> fat-time 11)))
+              (minutes (fxand #x3F (>> fat-time 5)))
+              (seconds (fxand #x1F fat-time)))
+          (fn hours minutes seconds)))
+
+      (define (make-fat-date year month day)
+        ; According to the FAT specification, the FAT date is set that way:
+        ; Bits 15-9: Year relative to 1980
+        ; Bits 8-5: Month
+        ; Bits 4-0: Day of month
+        (let ((year ((max year 1980) 1980))) ; year below 1980 is incorrect
+          (fxior
+            (<< (fxand year #x7F) 9)
+            (<< (fxand month #xF) 5)
+            (fxand day #x1F))))
+
+      ; Unpack a fat date and call the fn function
+      ; with the arguments year month day of month
+      (define (unpack-fat-date fate-date fn)
+        ; According to the FAT specification, the FAT date is set that way:
+        ; Bits 15-9: Year relative to 1980
+        ; Bits 8-5: Month
+        ; Bits 4-0: Day of month
+        (fn 
+          (fx+ 1980 (fxand #x7F (>> fat-date 9)))
+          (fxand #xF (>> fat-date 5))
+          (fxand #x1F fat-date)))
+
+      (define (extract-lfn-data lfn)
+        (let ((text (list
+                      (lfn-name1 lfn)
+                      (lfn-name2 lfn)
+                      (lfn-name3 lfn))))
+          (fold-right
+            string-append "" (map lfn-name->string
+                                  (map (lambda (v) (vector-map integer->char v)) text)))))
+      (define (simplify-path path)
+        (let ((split (split-string #\/ path)))
+          (fold-right
+            (lambda (c r)
+              (if (and (> (length r) 0) (string=? ".." (car r)))
+                  (cdr r)
+                  (cons c r))) 
+            (list) split)))
+
+      (define (string->short-name-vect str)
+        (let ((split (split-string #\. str)))
+          (let ((v (make-vector 11 (char->integer #\space)))
+                (name (string-upcase (car split)))
+                (ext (string-upcase (cadr split))))
+            (debug-write name)
+            (debug-write ext)
+            (vector-copy! v 0 (string->u8vector name) 0 (min 8 (string-length name)))
+            (vector-copy! v 8 (string->u8vector ext) 0 (min 3 (string-length ext)))
+            v )))
+
+      (define (short-name->string sn-vect)
+        (fold-right (lambda (c v)
+                      (if (and (eq? c #\space) (> (string-length v) 0) (eq? #\. (string-ref v 0)))
+                          v
+                          (string-append (if (eq? c #\space)
+                                             "."
+                                             (string c)) v))) 
+                    ""
+                    (map (o char-downcase integer->char) (vector->list sn-vect))))
+
+      (define (lfn-name->string vect)
+        (list->string (fold-right (lambda (c r)
+                                    (if (or (eq? #\null c) (eq? #\xFF c))
+                                        r
+                                        (cons c r)))
+                                  (list)
+                                  (vector->list vect))))
+
+      ; Transform a vector into a list of cluster
+      ; A FAT32 cluster is four bytes long
+      ; the 'cpv' parameter specifies how many clusters
+      ; are in a vector
+      ; the function is curried to place in continuations
+      (define (vect->cluster-list cpv)
+        (lambda (v) (map (lambda (i) (uint32 v (* 4 v))) (iota cpv))))
+
+      ; --------------------------------------------------
+      ; --------------------------------------------------
+      ; --------------------------------------------------
+      ;                    Driver init
+      ; --------------------------------------------------
+      ; --------------------------------------------------
+      ; --------------------------------------------------
 
       (define (make-fat-cache dsk bpb)
         (let* ((fat-sz (BPB-fat-size-32 bpb))
@@ -362,6 +497,38 @@
             TYPE-FOLDER ; type
             FILE-MODE-READ
             0)))
+
+      (define (mount-partition disk default)
+        (if (disk-absent? disk)
+            default
+            (let* ((fs (build-fs disk))
+                   (bpb (filesystem-bpb fs))
+                   (fs-type (u8vector->string (BPB-fs-type bpb))))
+              (if (string=?
+                    (substring
+                      fs-type
+                      0
+                      (string-length FAT-32-FS-TYPE))
+                    FAT-32-FS-TYPE)
+                  fs
+                  default)))) 
+
+      (define (mount-partitions disk-list)
+        (let ((filesystems (fold (lambda (e r)
+                                   (let ((fs (mount-partition e #f)))
+                                     (if fs (cons fs r) r)))
+                                 (list)
+                                 disk-list)))
+          (set! filesystem-list filesystems)
+          filesystems))
+
+      ; --------------------------------------------------
+      ; --------------------------------------------------
+      ; --------------------------------------------------
+      ;              Movements of the cursor
+      ; --------------------------------------------------
+      ; --------------------------------------------------
+      ; --------------------------------------------------
 
       (define (get-cached-cluster file)
         (let* ((fs (fat-file-fs file))
@@ -470,18 +637,6 @@
                 (fat-file-curr-section-start file)
                 ))))
 
-      (define-macro (relative-move-function file mvmt fn)
-                    `(,(if (eq? fn '+)
-                            `simulate-forward-move
-                            `simulate-backward-move)
-                       ,file
-                       ,mvmt
-                       (lambda (new-cluster cluster-pos section-start)
-                         (fat-file-curr-clus-set! ,file new-cluster)
-                         (fat-file-curr-section-start-set! ,file section-start)
-                         (fat-file-curr-section-pos-set! ,file cluster-pos)
-                         (fat-file-pos-set! ,file (,fn (fat-file-pos ,file) ,mvmt)))))
-
       (define (file-move-cursor-backward! file rewind)
         (relative-move-function file rewind -))
 
@@ -535,10 +690,19 @@
               (succ file))))
 
 
+
+      ; --------------------------------------------------
+      ; --------------------------------------------------
+      ; --------------------------------------------------
+      ;                Search / Traversal 
+      ; --------------------------------------------------
+      ; --------------------------------------------------
+      ; --------------------------------------------------
+
+
       ; Search the entry with the file name name, and call
       ; the succ continuation with the logical entry or fail if the
       ; entry does not seem to exist.
-
       (define (search-entry file name succ fail)
         (search-entry-aux file name (list) succ (lambda (err-no) ;; todo create FNF
                                                   (fail 'FNF-ERR))))
@@ -595,34 +759,6 @@
           (entry-file-size entry)
           #f))
 
-      (define (string->short-name-vect str)
-       (let ((split (split-string #\. str)))
-        (let ((v (make-vector 11 (char->integer #\space)))
-              (name (string-upcase (car split)))
-              (ext (string-upcase (cadr split))))
-            (debug-write name)
-            (debug-write ext)
-            (vector-copy! v 0 (string->u8vector name) 0 (min 8 (string-length name)))
-            (vector-copy! v 8 (string->u8vector ext) 0 (min 3 (string-length ext)))
-            v )))
-
-      (define (short-name->string sn-vect)
-        (fold-right (lambda (c v)
-                      (if (and (eq? c #\space) (> (string-length v) 0) (eq? #\. (string-ref v 0)))
-                          v
-                          (string-append (if (eq? c #\space)
-                                             "."
-                                             (string c)) v))) 
-                    ""
-                    (map (o char-downcase integer->char) (vector->list sn-vect))))
-
-      (define (lfn-name->string vect)
-        (list->string (fold-right (lambda (c r)
-                                    (if (or (eq? #\null c) (eq? #\xFF c))
-                                        r
-                                        (cons c r)))
-                                  (list)
-                                  (vector->list vect))))
 
       (define (logical-entry->file parent pos logical)
         (let* ((fs (fat-file-fs parent))
@@ -650,21 +786,21 @@
                 logical)))))
 
       (define (fat-file->entries file)
-       (let ((le (fat-file-entry file))) (list
-              (make-entry
-                (string->short-name-vect (logical-entry-name le))
-                (logical-entry-attr le) ; TODO: upate
-                (logical-entry-ntres le) ; does not change
-                (logical-entry-create-time-tenth le) ; does not change
-                (logical-entry-create-time le) ; does not change
-                (logical-entry-create-date le) ; does not change
-                (logical-entry-last-access-date le) ; TODO: update
-                (logical-entry-cluster-hi le) ; does not change
-                (logical-entry-last-write-time le) ; TODO: update
-                (logical-entry-last-write-date le) ; TODO: update
-                (logical-entry-cluster-lo le) ; does not change
-                (fat-file-len file) ; get the latest information
-                ))))
+        (let ((le (fat-file-entry file))) (list
+                                            (make-entry
+                                              (string->short-name-vect (logical-entry-name le))
+                                              (logical-entry-attr le) ; TODO: upate
+                                              (logical-entry-ntres le) ; does not change
+                                              (logical-entry-create-time-tenth le) ; does not change
+                                              (logical-entry-create-time le) ; does not change
+                                              (logical-entry-create-date le) ; does not change
+                                              (logical-entry-last-access-date le) ; TODO: update
+                                              (logical-entry-cluster-hi le) ; does not change
+                                              (logical-entry-last-write-time le) ; TODO: update
+                                              (logical-entry-last-write-date le) ; TODO: update
+                                              (logical-entry-cluster-lo le) ; does not change
+                                              (fat-file-len file) ; get the latest information
+                                              ))))
 
       (define (list-directory folder)
         (map logical-entry-name
@@ -694,14 +830,7 @@
                       (fail ERR-PATH))) ; on failure
                 ))))
 
-      (define (extract-lfn-data lfn)
-        (let ((text (list
-                      (lfn-name1 lfn)
-                      (lfn-name2 lfn)
-                      (lfn-name3 lfn))))
-          (fold-right
-            string-append "" (map lfn-name->string
-                                  (map (lambda (v) (vector-map integer->char v)) text)))))
+
 
       (define (entry-list->logical-entries entry-list)
         ; The fat spec garantess this structure:
@@ -726,6 +855,48 @@
                           ; not LFN, leave it as is
                           (cons (entry->logical-entry entry) rest))) 
                     (list) entry-list))
+
+      (define (find-first-free-cluster-aux cache index len succ fail)
+        (if (< index len)
+            (let* ((link (table-ref cache index))
+                   (link-next (cache-link-next link)))
+              (if (fx= link-next 0)
+                  (succ index link)
+                  (find-first-free-cluster-aux cache (++ index) len succ fail)))
+            (fail ERR-EOF)))
+
+      ; Find the first free cluster in the FS file table.
+      ; the fail continuation is called in case of error,
+      ; the succ continuation is called with the cluster number and the link
+      ; when it found one. 
+      ; The link will be marked with an EOF tag to prevent race conditions.
+      (define (find-first-free-cluster fs succ fail)
+        (let* ((cache (filesystem-fat-cache fs))
+               (cache-mut (filesystem-cache-write-mut fs))
+               (l (table-length cache)))
+          (mutex-lock! cache-mut); acquire
+          (find-first-free-cluster-aux
+            cache
+            0
+            l
+            ; free the mutex when the continuation is called
+            (lambda (cluster link)
+              (cache-link-next-set! link FAT-32-EOF)
+              (update-cluster-link-on-disk fs cluster link)
+              (mutex-unlock! cache-mut)
+              (succ cluster link))
+            (lambda (err)
+              (mutex-unlock! cache-mut)
+              (fail err)))))
+
+
+      ; --------------------------------------------------
+      ; --------------------------------------------------
+      ; --------------------------------------------------
+      ;                Reading / Writing 
+      ; --------------------------------------------------
+      ; --------------------------------------------------
+      ; --------------------------------------------------
 
       (define (read-bytes-aux! file fs buff idx count fail)
         (if (> count 0) 
@@ -791,14 +962,6 @@
                            fail 
                            ))) 
 
-      ; Transform a vector into a list of cluster
-      ; A FAT32 cluster is four bytes long
-      ; the 'cpv' parameter specifies how many clusters
-      ; are in a vector
-      ; the function is curried to place in continuations
-      (define (vect->cluster-list cpv)
-        (lambda (v) (map (lambda (i) (uint32 v (* 4 v))) (iota cpv))))
-
       (define (update-cluster-link-on-disk fs cluster link)
         (let* ((bpb (filesystem-bpb fs))
                (rsvd (BPB-reserved-sector-count bpb))
@@ -813,38 +976,6 @@
               (wint32 vect (<< offset 2) (cache-link-next link))))
           ))
 
-      (define (find-first-free-cluster-aux cache index len succ fail)
-        (if (< index len)
-            (let* ((link (table-ref cache index))
-                   (link-next (cache-link-next link)))
-              (if (fx= link-next 0)
-                  (succ index link)
-                  (find-first-free-cluster-aux cache (++ index) len succ fail)))
-            (fail ERR-EOF)))
-
-      ; Find the first free cluster in the FS file table.
-      ; the fail continuation is called in case of error,
-      ; the succ continuation is called with the cluster number and the link
-      ; when it found one. 
-      ; The link will be marked with an EOF tag to prevent race conditions.
-      (define (find-first-free-cluster fs succ fail)
-        (let* ((cache (filesystem-fat-cache fs))
-               (cache-mut (filesystem-cache-write-mut fs))
-               (l (table-length cache)))
-          (mutex-lock! cache-mut); acquire
-          (find-first-free-cluster-aux
-            cache
-            0
-            l
-            ; free the mutex when the continuation is called
-            (lambda (cluster link)
-              (cache-link-next-set! link FAT-32-EOF)
-              (update-cluster-link-on-disk fs cluster link)
-              (mutex-unlock! cache-mut)
-              (succ cluster link))
-            (lambda (err)
-              (mutex-unlock! cache-mut)
-              (fail err)))))
 
       (define (unlink-chain-aux fs cache cluster)
         (let* ((bpb (filesystem-bpb fs))
@@ -950,66 +1081,23 @@
                 (max-len (fat-file-len file)))
             (if (> pos max-len)
                 (begin
-                 (debug-write max-len)
-                 (debug-write pos)
-                 (debug-write "B4 set")
-                 (fat-file-len-set! file pos)
-                 (debug-write "AFTER set")
-                 (debug-write pos)
-                 (debug-write (fat-file-len file))
-                 (flush-fat-file-to-disk
-                  file 
-                  (car (fat-file->entries file))
-                  ))))
-            result))
+                  (debug-write max-len)
+                  (debug-write pos)
+                  (debug-write "B4 set")
+                  (fat-file-len-set! file pos)
+                  (debug-write "AFTER set")
+                  (debug-write pos)
+                  (debug-write (fat-file-len file))
+                  (flush-fat-file-to-disk
+                    file 
+                    (car (fat-file->entries file))
+                    ))))
+          result))
 
-      (define (make-fat-time hours minute seconds)
-        ; According to the FAT specification, the FAT time is set that way:
-        ; Bits 15-11: the hour
-        ; Bits 10-5 : the minutes
-        ; Bits 4-0  : the half seconds
-        (fxior 
-          (<< (fxand #x1F hours) 11)
-          (<< (fxand #x3F minutes) 5)
-          (fxand #x1F (>> seconds 1))))
-
-      ; Unpack a fat time entry and call
-      ; the fn function with arguments hours, minutes and second
-      (define (unpack-fat-time fat-time fn)
-        ; Bits 15-11: the hour
-        ; Bits 10-5 : the minutes
-        ; Bits 4-0  : the half seconds
-        (let ((hours (fxand #x1F (>> fat-time 11)))
-              (minutes (fxand #x3F (>> fat-time 5)))
-              (seconds (fxand #x1F fat-time)))
-          (fn hours minutes seconds)))
-
-      (define (make-fat-date year month day)
-        ; According to the FAT specification, the FAT date is set that way:
-        ; Bits 15-9: Year relative to 1980
-        ; Bits 8-5: Month
-        ; Bits 4-0: Day of month
-        (let ((year ((max year 1980) 1980))) ; year below 1980 is incorrect
-          (fxior
-            (<< (fxand year #x7F) 9)
-            (<< (fxand month #xF) 5)
-            (fxand day #x1F))))
-
-      ; Unpack a fat date and call the fn function
-      ; with the arguments year month day of month
-      (define (unpack-fat-date fate-date fn)
-        ; According to the FAT specification, the FAT date is set that way:
-        ; Bits 15-9: Year relative to 1980
-        ; Bits 8-5: Month
-        ; Bits 4-0: Day of month
-        (fn 
-          (fx+ 1980 (fxand #x7F (>> fat-date 9)))
-          (fxand #xF (>> fat-date 5))
-          (fxand #x1F fat-date)))
 
       (define (f-test fs)
-       (let ((f (open-fat-file fs "home/sam/fact.scm" "a")))
-        (file-write! f (string->u8vector "(+ 5 5)") 0 7 ID)))
+        (let ((f (open-fat-file fs "home/sam/fact.scm" "a")))
+          (file-write! f (string->u8vector "(+ 5 5)") 0 7 ID)))
 
       ; Parse the file opening mode
       ; r, r+ : read, read-write from start respectively
@@ -1046,14 +1134,14 @@
                (leftover-offset
                  (modulo entry-offset (filesystem-lg2bps fs))))
           (disk-apply-sector
-           (filesystem-disk fs)
-           lba
-           (lambda (vect)
-            (display entry)
-            (debug-write "WRT")
-            (debug-write vect)
-            (unpack-entry entry vect entry-offset)
-            (debug-write vect)))))
+            (filesystem-disk fs)
+            lba
+            (lambda (vect)
+              (display entry)
+              (debug-write "WRT")
+              (debug-write vect)
+              (unpack-entry entry vect entry-offset)
+              (debug-write vect)))))
 
       ; Create a file and return a handle
       ; to it
@@ -1122,32 +1210,16 @@
                        (lambda (err) ERR-FNF)))) 
 
 
+      ; --------------------------------------------------
+      ; --------------------------------------------------
+      ; --------------------------------------------------
+      ;                      Tests
+      ; --------------------------------------------------
+      ; --------------------------------------------------
+      ; --------------------------------------------------
       (define (f-tests)
         (let ((fs (car filesystem-list)))
           (list-directory (open-root-dir fs))))
 
-      (define (mount-partition disk default)
-        (if (disk-absent? disk)
-            default
-            (let* ((fs (build-fs disk))
-                   (bpb (filesystem-bpb fs))
-                   (fs-type (u8vector->string (BPB-fs-type bpb))))
-              (if (string=?
-                    (substring
-                      fs-type
-                      0
-                      (string-length FAT-32-FS-TYPE))
-                    FAT-32-FS-TYPE)
-                  fs
-                  default)))) 
-
-      (define (mount-partitions disk-list)
-        (let ((filesystems (fold (lambda (e r)
-                                   (let ((fs (mount-partition e #f)))
-                                     (if fs (cons fs r) r)))
-                                 (list)
-                                 disk-list)))
-          (set! filesystem-list filesystems)
-          filesystems))
 
       ))
