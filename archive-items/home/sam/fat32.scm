@@ -16,6 +16,7 @@
       simplify-path
       mount-partitions
       filesystem-list
+      make-lfns
       write-file)
     (begin 
       ; --------------------------------------------------
@@ -810,10 +811,10 @@
                 logical)))))
 
       (define (string->lfn-vector name len)
-        (let ((half (// len 2))
+        (let* ((half (// len 2))
               (v (make-vector len 0))
-              (l (string-length len))
-              (sub (substring name 0 half)))
+              (l (string-length name))
+              )
           (for-each (lambda (i)
                       (cond 
                         ((= i l)
@@ -840,7 +841,6 @@
               (cons 
                 (make-lfn
                   ith
-                  (map integer->cha)
                   (string->lfn-vector (safe-substring name 0 5) 10)
                   FAT-CHARS-PER-LONG-NAME-ENTRY
                   0
@@ -849,7 +849,7 @@
                   0
                   (string->lfn-vector (safe-substring name 12 14) 4)
                   )
-                (make-lfns TRUNC NAME (+ ith 1))))))
+                (make-lfns (safe-substring name 15 l) (+ ith 1) chksm)))))
 
       (define (fat-file->entries file)
         (let* ((underyling-entry (fat-file-entry file))
@@ -862,26 +862,26 @@
               #t
               )))
 
-      (define (fat-file->entries file)
-        (let ((name (fat-file-name file)))
+      ; (define (fat-file->entries file)
+      ;   (let ((name (fat-file-name file)))
 
-          )
+      ;     )
 
-        (let ((le (fat-file-entry file))) (list
-                                            (make-entry
-                                              (string->short-name-vect (logical-entry-name le))
-                                              (logical-entry-attr le) ; TODO: upate
-                                              (logical-entry-ntres le) ; does not change
-                                              (logical-entry-create-time-tenth le) ; does not change
-                                              (logical-entry-create-time le) ; does not change
-                                              (logical-entry-create-date le) ; does not change
-                                              (logical-entry-last-access-date le) ; TODO: update
-                                              (logical-entry-cluster-hi le) ; does not change
-                                              (logical-entry-last-write-time le) ; TODO: update
-                                              (logical-entry-last-write-date le) ; TODO: update
-                                              (logical-entry-cluster-lo le) ; does not change
-                                              (fat-file-len file) ; get the latest information
-                                              ))))
+      ;   (let ((le (fat-file-entry file))) (list
+      ;                                       (make-entry
+      ;                                         (string->short-name-vect (logical-entry-name le))
+      ;                                         (logical-entry-attr le) ; TODO: upate
+      ;                                         (logical-entry-ntres le) ; does not change
+      ;                                         (logical-entry-create-time-tenth le) ; does not change
+      ;                                         (logical-entry-create-time le) ; does not change
+      ;                                         (logical-entry-create-date le) ; does not change
+      ;                                         (logical-entry-last-access-date le) ; TODO: update
+      ;                                         (logical-entry-cluster-hi le) ; does not change
+      ;                                         (logical-entry-last-write-time le) ; TODO: update
+      ;                                         (logical-entry-last-write-date le) ; TODO: update
+      ;                                         (logical-entry-cluster-lo le) ; does not change
+      ;                                         (fat-file-len file) ; get the latest information
+      ;                                         ))))
 
       (define (list-directory folder)
         (map logical-entry-name
