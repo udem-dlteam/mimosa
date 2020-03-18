@@ -42,6 +42,7 @@
       (define FAT32-FIRST-CLUSTER 2)
       (define FAT-UNUSED-ENTRY #xE5)
       (define FAT-LAST-LONG-ENTRY #x40)
+      (define FAT-SHORT-FILE-NAME-MAX-LEN 11)
       (define FAT-CHARS-PER-LONG-NAME-ENTRY 13)
       (define FAT-NAME-MAX 1024)
       (define DT-UNKNOWN 0)
@@ -331,6 +332,29 @@
       ; --------------------------------------------------
       ; --------------------------------------------------
       ; --------------------------------------------------
+
+      (define (safe-substring s start end)
+       (let ((l (string-length s)))
+        (if (>= start l)
+         ""
+         (substring s start (min l end)))))
+
+      (define (checksum name sum)
+        (let* ((l (string-length name))
+               (r (substring name 1 l))) 
+          (if (= 0 l)
+              0
+              (checksum r (+
+                            (if (odd? sum)
+                                #x80
+                                0
+                                )
+                            (>> sum 1)
+                            (char->integer
+                              (string-ref
+                                name
+                                0))
+                            )))))
 
       (define (make-fat-time hours minute seconds)
         ; According to the FAT specification, the FAT time is set that way:
@@ -785,7 +809,64 @@
                 FILE-MODE-READ
                 logical)))))
 
+      (define (string->lfn-vector name len)
+        (let ((half (// len 2))
+              (v (make-vector len 0))
+              (l (string-length len))
+              (sub (substring name 0 half)))
+          (for-each (lambda (i)
+                      (cond 
+                        ((= i l)
+                         (begin
+                           (vector-set! v (<< i 1) 0)
+                           (vector-set! v (++ (<< i 1)) 0)))
+                        ((> i l)
+                         (begin
+                           (vector-set! v (<< i 1) #xFF)
+                           (vector-set! v (++ (<< i 1)) #xFF)))
+                        (else
+                          (vector-set!
+                            v
+                            (<< i 1)
+                            (char->integer (string-ref name i))))))
+                    (iota half))
+          v))
+
+      (define (make-lfns name ith chksm)
+        (let ((l (string-length name)))
+          (if (= l 0)
+              (list)
+              ; Copy into a LFN and truncate the rest of the string
+              (cons 
+                (make-lfn
+                  ith
+                  (map integer->cha)
+                  (string->lfn-vector (safe-substring name 0 5) 10)
+                  FAT-CHARS-PER-LONG-NAME-ENTRY
+                  0
+                  chksm
+                  (string->lfn-vector (safe-substring name 5 11) 12)
+                  0
+                  (string->lfn-vector (safe-substring name 12 14) 4)
+                  )
+                (make-lfns TRUNC NAME (+ ith 1))))))
+
       (define (fat-file->entries file)
+        (let* ((underyling-entry (fat-file-entry file))
+               (name (logical-entry-name underlying-entry))
+               (name-l (string-length name))
+               (requires-lfn? (> name-l FAT-SHORT-FILE-NAME-MAX-LEN))
+               )
+          (if requires-lfn?
+              #t
+              #t
+              )))
+
+      (define (fat-file->entries file)
+        (let ((name (fat-file-name file)))
+
+          )
+
         (let ((le (fat-file-entry file))) (list
                                             (make-entry
                                               (string->short-name-vect (logical-entry-name le))
@@ -972,7 +1053,10 @@
             d
             (+ lba-offset rsvd) 
             (lambda (vect)
-              (wint32 vect (<< offset 2) (cache-link-next link))))
+              (wint32
+                vect
+                (<< offset 2) 
+                (cache-link-next link))))
           ))
 
 
@@ -1020,7 +1104,7 @@
                     fail)
                   (c file))
                 (fail err-code)))))
-    
+
       ; Write 'len' bytes from the vector 'vect' starting at offset 'offset'
       ; the continuation fail is called if the data could not be written.
       ; data is written at the current cursor position of the file 'file'
@@ -1112,12 +1196,12 @@
         ; in case of conflict, but leave the + there
         (let ((ored (fold (lambda (c n)
                             (fxior
-															n
-															(cond ((eq? #\+ c) FILE-MODE-PLUS)
-																		((eq? #\a c) FILE-MODE-APPEND)
-																		((eq? #\w c) FILE-MODE-TRUNC)
-																		((eq? #\b c) FILE-MODE-BINARY)
-																		((eq? #\r c) FILE-MODE-READ))))
+                              n
+                              (cond ((eq? #\+ c) FILE-MODE-PLUS)
+                                    ((eq? #\a c) FILE-MODE-APPEND)
+                                    ((eq? #\w c) FILE-MODE-TRUNC)
+                                    ((eq? #\b c) FILE-MODE-BINARY)
+                                    ((eq? #\r c) FILE-MODE-READ))))
                           0 (string->list mode))))
           (fxior
             (fxand FILE-MODE-PLUS ored)
@@ -1209,7 +1293,7 @@
                                   ))
                                ((mask mode FILE-MODE-TRUNC)
                                 (begin
-                                 (truncate-file f)))
+                                  (truncate-file f)))
                                )
                          (fat-file-mode-set! f mode)
                          f)
@@ -1231,4 +1315,4 @@
         (let ((fs (car filesystem-list)))
           (list-directory (open-root-dir fs))))
 
-))
+      ))
