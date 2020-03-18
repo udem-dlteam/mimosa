@@ -13,6 +13,7 @@
                         disk-acquire-block
                         disk-release-block
                         init-disks
+                        disk-absent?
                         sector-vect)
     (begin
       (define DISK-CACHE-MAX-SZ 4098)
@@ -22,6 +23,8 @@
 
       ; Disk types
       (define DISK-TYPE-IDE 'IDE-DISK)
+      (define (disk-absent? disk)
+       (eq? disk 'NO-DISK))
 
       (define-type sector
                    lba

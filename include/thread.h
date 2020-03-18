@@ -20,6 +20,7 @@
 #define GAMBIT_COMM_INT 5
 const uint32 GAMBIT_START = 0x100000;
 const uint32 GAMBIT_SHARED_MEM_CMD = 0x300000;
+const uint32 GAMBIT_SHARED_MEM_LEN = 512;
 
 //-----------------------------------------------------------------------------
 

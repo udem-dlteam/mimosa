@@ -8,49 +8,60 @@
       pack-entry
       entry-name
       read-file
+      open-file
       file-exists?
       list-directory
       simplify-path
+      mount-partitions
       write-file)
     (begin 
+      (define FILE-MODE-READ (arithmetic-shift 1 0))
+      (define FILE-MODE-TRUNC (arithmetic-shift 1 1))
+      (define FILE-MODE-APPEND (arithmetic-shift 1 2))
+      (define FILE-MODE-PLUS (arithmetic-shift 1 3))
+      (define FILE-MODE-BINARY (arithmetic-shift 1 4))
       (define ERR-EOF 'ERR-EOF)
+      (define ERR-FNF 'ERR-FNF)
+      (define ERR-PATH 'ERR-PATH)
       (define ERR-NO-MORE-ENTRIES 'ERR-NO-MORE-ENTRIES)
 
-    (define-macro (define-c-struct name . fields)
-                  (let* ((symbol-name (symbol->string name))
-                         (fill-struct
-                           (string->symbol (string-append "pack-" symbol-name)))
-                         (make-struct
-                           (string->symbol (string-append "make-" symbol-name)))
-                         (width-struct
-                           (string->symbol (string-append symbol-name "-width")))
-                         (vect-idx 0)
-                         (field-names (map car fields))
-                         (field-width (map cadr fields))
-                         )
-                    `(begin
-                       (define-structure ,name 
-                                         ,@field-names)
-                       (define ,width-struct (+ ,@field-width))
-                       (define (,fill-struct vec)
-                         (,make-struct
-                            ;; TODO: map does not guarantee left-to-right calls to function
-                            ,@(map (lambda (extract)
-                                     (let ((offset vect-idx)
-                                           (next-offset (+ vect-idx extract)))
-                                       (set! vect-idx next-offset)
-                                       (if (<= 0 extract 4)
-                                           `(+ ,@(map (lambda (i)
-                                                        `(arithmetic-shift
-                                                           (vector-ref vec ,(+ offset i))
-                                                           ,(* i 8)))
-                                                      (iota extract)))
+      (define (mode-requires-existence? mode)
+        (mask mode FILE-MODE-READ))
 
-                                           `(build-vector
-                                              ,(abs extract)
-                                              (lambda (i)
-                                                (vector-ref vec (+ ,offset i)))))))
-                                   field-width))))))
+      (define-macro (define-c-struct name . fields)
+                    (let* ((symbol-name (symbol->string name))
+                           (fill-struct
+                             (string->symbol (string-append "pack-" symbol-name)))
+                           (make-struct
+                             (string->symbol (string-append "make-" symbol-name)))
+                           (width-struct
+                             (string->symbol (string-append symbol-name "-width")))
+                           (vect-idx 0)
+                           (field-names (map car fields))
+                           (field-width (map cadr fields)))
+                      `(begin
+                         (define-structure ,name 
+                                           ,@field-names)
+                         (define ,width-struct (+ ,@field-width))
+                         (define (,fill-struct vec)
+                           (,make-struct
+                             ;; TODO: map does not guarantee left-to-right calls to function
+                             ,@(map (lambda (extract)
+                                      (let ((offset vect-idx)
+                                            (next-offset (+ vect-idx extract)))
+                                        (set! vect-idx next-offset)
+                                        (if (<= 0 extract 4)
+                                            `(+ ,@(map (lambda (i)
+                                                         `(arithmetic-shift
+                                                            (vector-ref vec ,(+ offset i))
+                                                            ,(* i 8)))
+                                                       (iota extract)))
+
+                                            `(build-vector
+                                               ,(abs extract)
+                                               (lambda (i)
+                                                 (vector-ref vec (+ ,offset i)))))))
+                                    field-width))))))
 
       (define EOF 'EOF)
       (define FAT12-FS 0)
@@ -79,6 +90,7 @@
       (define FAT-NAME-LENGTH 11)
       (define FAT-DIR-ENTRY-SIZE 32)
       (define TYPE-FOLDER 'FOLDER)
+      (define FAT-32-FS-TYPE "FAT32")
       (define TYPE-FILE 'FILE)
 
       (define-macro (folder? ff)
@@ -104,48 +116,47 @@
                         parent-first-clus
                         entry-pos
                         type
-                        )
+                        mode)
 
-
-    (define (simplify-path path)
-      (let ((split (split-string #\/ path)))
-        (fold-right
-          (lambda (c r)
-            (if (and (> (length r) 0) (string=? ".." (car r)))
-                (cdr r)
-                (cons c r))) 
-          (list ) 
-          split
-          )))
+      (define (simplify-path path)
+        (let ((split (split-string #\/ path)))
+          (fold-right
+            (lambda (c r)
+              (if (and (> (length r) 0) (string=? ".." (car r)))
+                  (cdr r)
+                  (cons c r))) 
+            (list ) 
+            split
+            )))
 
       (define-c-struct BPB
-                        (jmp-boot 3)
-                        (oem-name 8)
-                        (bps 2)
-                        (sec-per-cluster 1)
-                        (reserved-sector-count 2)
-                        (fats 1)
-                        (root-entry-count 2)
-                        (total-sectors-16 2)
-                        (media 1)
-                        (fat-size-16 2)
-                        (sector-per-track 2)
-                        (number-heads 2)
-                        (hidden-sectors 4)
-                        (total-sector-32 4)
-                        (fat-size-32 4)
-                        (ext-flags 2)
-                        (fs-version 2)
-                        (root-cluster 4)
-                        (fs-info 2)
-                        (boot-sector 2)
-                        (reserved 12)
-                        (drv-num 1)
-                        (reserved1 1)
-                        (boot-sig 1)
-                        (vol-id 4) 
-                        (vol-lab 11)
-                        (fs-type 8))
+                       (jmp-boot 3)
+                       (oem-name 8)
+                       (bps 2)
+                       (sec-per-cluster 1)
+                       (reserved-sector-count 2)
+                       (fats 1)
+                       (root-entry-count 2)
+                       (total-sectors-16 2)
+                       (media 1)
+                       (fat-size-16 2)
+                       (sector-per-track 2)
+                       (number-heads 2)
+                       (hidden-sectors 4)
+                       (total-sector-32 4)
+                       (fat-size-32 4)
+                       (ext-flags 2)
+                       (fs-version 2)
+                       (root-cluster 4)
+                       (fs-info 2)
+                       (boot-sector 2)
+                       (reserved 12)
+                       (drv-num 1)
+                       (reserved1 1)
+                       (boot-sig 1)
+                       (vol-id 4) 
+                       (vol-lab 11)
+                       (fs-type 8))
 
       (define-macro (BPB-first-data-sector bpb)
                     `(let* ((root-entry-count (BPB-root-entry-count ,bpb))
@@ -160,18 +171,18 @@
 
       ; A FAT directory entry as defined by the FAT 32 spec
       (define-c-struct entry
-                        (name 11)
-                        (attr 1)
-                        (ntres 1)
-                        (create-time-tenth 1)
-                        (create-time 2)
-                        (create-date 2)
-                        (last-access-date 2)
-                        (cluster-hi 2)
-                        (last-write-time 2)
-                        (last-write-date 2)
-                        (cluster-lo 2)
-                        (file-size 4))
+                       (name 11)
+                       (attr 1)
+                       (ntres 1)
+                       (create-time-tenth 1)
+                       (create-time 2)
+                       (create-date 2)
+                       (last-access-date 2)
+                       (cluster-hi 2)
+                       (last-write-time 2)
+                       (last-write-date 2)
+                       (cluster-lo 2)
+                       (file-size 4))
 
       (define-macro (is-lfn? entry)
                     (let ((attr (gensym)))
@@ -339,7 +350,7 @@
           (entry-cluster-lo entry)
           (entry-file-size entry)
           #f))
-
+     
       (define (short-name->string sn-vect)
         (fold-right (lambda (c v)
                       (if (and (eq? c #\space) (> (string-length v) 0) (eq? #\. (string-ref v 0)))
@@ -399,21 +410,27 @@
 
       ; Follow a path (folder list) and return the last part
       ; described by the path
-      (define (follow-path from to)
+      (define (follow-path from to succ fail)
         (let ((l (length to)))
           (if (= l 0)
-              from
+              (succ from)
               (search-entry
-                from
-                (car to)
-                (lambda (f) 
+                from ; we search from there
+                (car to) ; next child
+                (lambda (f) ; on success
                   (follow-path 
                     (logical-entry->file
                       from
                       (- (fat-file-pos from) entry-width)
                       f)
-                    (cdr to)))
-                (lambda (err) 'FNF-ERR)))))
+                    (cdr to)
+                    succ
+                    fail))
+                (lambda (err)
+                  (if (= l 1)
+                      (fail err)
+                      (fail ERR-PATH))) ; on failure
+                ))))
 
       (define (extract-lfn-data lfn)
         (let ((text (list
@@ -512,9 +529,16 @@
                                count)
                            fail 
                            ))) 
-      
+
       (define (read-string! file len fail)
-        (vector->string (vector-map integer->char (read-bytes! file len fail))))
+        (vector->string
+          (vector-map integer->char (read-bytes! file len fail))))
+
+      (define (read-file file len fail)
+       (let ((m (fat-file-mode file)))
+        (if (mask m FILE-MODE-BINARY)
+            (read-bytes! file len fail)
+            (read-string! file len fail))))
 
       (define (make-fat-time hours minute seconds)
         ; According to the FAT specification, the FAT time is set that way:
@@ -560,14 +584,76 @@
           (fxand #xF (>> fat-date 5))
           (fxand #x1F fat-date)))
 
-      (define p (list "home" "sam" "fact.scm"))
-
       (define (f-test disk)
         (open-root-dir (build-fs disk)))
 
-      (define (f-tests disk)
-        (let ((fs (build-fs disk)))
-          ; (search-entry (open-root-dir fs) "BOOT.SYS" ID ID)
-          (read-string! (follow-path (open-root-dir fs) p) -1 ID)))
+      ; Parse the file opening mode
+      ; r, r+ : read, read-write from start respectively
+      ; w, w+ : write, read-write from start (truncation)
+      ; a, a+ : write, read-write, from end (append)
+      ; c is the continuation that will
+      (define (parse-modes mode)
+        ; We want to take the smallest mode
+        ; in case of conflict, but leave the + there
+        (let ((ored (fold (lambda (c n)
+                            (fxior n (cond ((eq? #\+ c) FILE-MODE-PLUS)
+                                           ((eq? #\a c) FILE-MODE-APPEND)
+                                           ((eq? #\w c) FILE-MODE-TRUNC)
+                                           ((eq? #\b c) FILE-MODE-BINARY)
+                                           ((eq? #\r c) FILE-MODE-READ))))
+                          0 (string->list mode))))
+          (fxior
+            (fxand FILE-MODE-PLUS ored)
+            (fxand FILE-MODE-BINARY ored)
+            (cond ((mask ored FILE-MODE-READ)
+                   FILE-MODE-READ)
+                  ((mask ored FILE-MODE-TRUNC)
+                   FILE-MODE_TRUNC)
+                  ((mask ored FILE-MODE-APPEND)
+                   FILE-MODE-APPEND)))))
 
+      ; Open a fat file
+      (define (open-file fs path mode)
+        (let ((parts (simplify-path path))
+              (root (open-root-dir fs))
+              (mode (parse-modes mode)))
+          (follow-path
+            root
+            parts
+            (lambda (f)
+             (fat-file-mode-set! mode) ; set the mode and ret for now
+             f)
+            (lambda (err)
+              ERR-FNF ; for now
+       )))) 
+
+      (define (f-tests disk path)
+        (let ((fs (build-fs disk)))
+          (follow-path (open-root-dir fs) (simplify-path path) ID ID)))
+      
+    
+      (define (mount-partition disk default)
+        (if (disk-absent? disk)
+            default
+            (let* ((fs (build-fs disk))
+                   (bpb (filesystem-bpb fs))
+                   (fs-type (utils#byte-vector->string (BPB-fs-type bpb))))
+              (if (string=?
+                    (substring
+                      fs-type
+                      0
+                      (string-length FAT-32-FS-TYPE))
+                    FAT-32-FS-TYPE)
+                  fs
+                  default)))) 
+
+      (define (mount-partitions disk-list)
+       (fold (lambda (e r)
+              (let ((fs (mount-partition e #f)))
+               (if fs
+                (cons fs r)
+                r
+                )))
+         (list)
+         disk-list))
       ))

@@ -644,6 +644,13 @@ void REDIRECT_NAME(set_gstate)(___global_state_struct *gs) {
 #ifdef USE_LIBC_LINK
     LIBC_LINK._set_gstate(gs);
 #else
+
+    // Clear the shared memory so the interrupts do not start desynced
+    uint8* mem = CAST(uint8*, GAMBIT_SHARED_MEM_CMD);
+    for(uint32 i =0 ; i < 512; ++i) {
+        mem[i] = 0;
+    }
+
     if(NULL == (___local_gstate = gs)) {
         panic(L"Gambit state is null...");
     } else if (NULL == ___local_gstate->___raise_interrupt) {

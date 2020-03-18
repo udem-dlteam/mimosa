@@ -35,7 +35,7 @@
                   uint8
                   both
                   ID
-                  string-split
+                  split-string
                   ; define-struct-fill
                   )
     (begin
@@ -217,6 +217,9 @@
         (string->list str)))
 
       (define (ID i) i)
+
+      (define (byte-vector->string v)
+       (vector->string (vector-map integer->char v)))
 
       ; (define-macro (define-struct-fill name fields)
       ;               (let ((fill-struct (string-append "fill-" (symbol->string name)))

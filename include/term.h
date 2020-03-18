@@ -85,8 +85,10 @@ term* term_write(term* self, native_string x);
 term* term_write(term* self, unicode_string x);
 
 void debug_write(uint32 x);
+void __debug_write(uint32 x);
 void debug_write(native_string x);
 void _debug_write(native_char x);
+void __debug_write(native_string x);
 
 size_t strlen(char* str);
 
