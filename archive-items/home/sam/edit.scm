@@ -123,7 +123,7 @@
     svect))
 
 (define (file-write path svect)
-  (let ((f (open-fat-file fs path "r+"))
+  (let ((f (open-fat-file fs path "w+"))
         (s (append-strings
              (vector->list
                (vector-map sstring->string (svector->vector svect)))

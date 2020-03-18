@@ -897,7 +897,6 @@
       ; --------------------------------------------------
       ; --------------------------------------------------
       ; --------------------------------------------------
-
       (define (read-bytes-aux! file fs buff idx count fail)
         (if (> count 0) 
             (let* ((succ (lambda (file)
@@ -1021,7 +1020,7 @@
                     fail)
                   (c file))
                 (fail err-code)))))
-
+    
       ; Write 'len' bytes from the vector 'vect' starting at offset 'offset'
       ; the continuation fail is called if the data could not be written.
       ; data is written at the current cursor position of the file 'file'
@@ -1075,29 +1074,33 @@
               (read-bytes! file len fail)
               (read-string! file len fail))))
 
+      (define (update-file-len file len)
+        (fat-file-len-set! file len)
+        (flush-fat-file-to-disk
+          file 
+          (car (fat-file->entries file))))
+
       (define (file-write! file vect offset len fail)
         (let ((result (write-bytes! file vect offset len fail)))
           (let ((pos (fat-file-pos file))
                 (max-len (fat-file-len file)))
             (if (> pos max-len)
-                (begin
-                  (debug-write max-len)
-                  (debug-write pos)
-                  (debug-write "B4 set")
-                  (fat-file-len-set! file pos)
-                  (debug-write "AFTER set")
-                  (debug-write pos)
-                  (debug-write (fat-file-len file))
-                  (flush-fat-file-to-disk
-                    file 
-                    (car (fat-file->entries file))
-                    ))))
+                (update-file-len file pos)))
           result))
 
-
-      (define (f-test fs)
-        (let ((f (open-fat-file fs "home/sam/fact.scm" "a")))
-          (file-write! f (string->u8vector "(+ 5 5)") 0 7 ID)))
+      ; Truncate a file
+      ; This involves two things: erasing the cluster chain to free the blocks,
+      ; and setting the file length to zero.
+      (define (truncate-file file)
+        (let* ((fs (fat-file-fs file))
+               (chain (filesystem-fat-cache fs))
+               (cluster (fat-file-first-clus file))
+               (link (table-ref chain cluster))
+               (next (cache-link-next link)))
+          (if (not (mask FAT-32-EOF next))
+              ; We want to keep the current block
+              (unlink-chain fs chain next))
+          (update-file-len file 0)))
 
       ; Parse the file opening mode
       ; r, r+ : read, read-write from start respectively
@@ -1108,11 +1111,13 @@
         ; We want to take the smallest mode
         ; in case of conflict, but leave the + there
         (let ((ored (fold (lambda (c n)
-                            (fxior n (cond ((eq? #\+ c) FILE-MODE-PLUS)
-                                           ((eq? #\a c) FILE-MODE-APPEND)
-                                           ((eq? #\w c) FILE-MODE-TRUNC)
-                                           ((eq? #\b c) FILE-MODE-BINARY)
-                                           ((eq? #\r c) FILE-MODE-READ))))
+                            (fxior
+															n
+															(cond ((eq? #\+ c) FILE-MODE-PLUS)
+																		((eq? #\a c) FILE-MODE-APPEND)
+																		((eq? #\w c) FILE-MODE-TRUNC)
+																		((eq? #\b c) FILE-MODE-BINARY)
+																		((eq? #\r c) FILE-MODE-READ))))
                           0 (string->list mode))))
           (fxior
             (fxand FILE-MODE-PLUS ored)
@@ -1120,7 +1125,7 @@
             (cond ((mask ored FILE-MODE-READ)
                    FILE-MODE-READ)
                   ((mask ored FILE-MODE-TRUNC)
-                   FILE-MODE_TRUNC)
+                   FILE-MODE-TRUNC)
                   ((mask ored FILE-MODE-APPEND)
                    FILE-MODE-APPEND)))))
 
@@ -1203,7 +1208,8 @@
                                   (max 0 (- (fat-file-len f) 1))
                                   ))
                                ((mask mode FILE-MODE-TRUNC)
-                                TODO)
+                                (begin
+                                 (truncate-file f)))
                                )
                          (fat-file-mode-set! f mode)
                          f)
@@ -1217,9 +1223,12 @@
       ; --------------------------------------------------
       ; --------------------------------------------------
       ; --------------------------------------------------
+      (define (f-test fs)
+        (let ((f (open-fat-file fs "home/sam/fact.scm" "a")))
+          (file-write! f (string->u8vector "(+ 5 5)") 0 7 ID)))
+
       (define (f-tests)
         (let ((fs (car filesystem-list)))
           (list-directory (open-root-dir fs))))
 
-
-      ))
+))
