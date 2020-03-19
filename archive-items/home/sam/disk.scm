@@ -14,9 +14,17 @@
                         disk-acquire-block
                         disk-release-block
                         init-disks
+                        MRO
+                        MRW
+                        MODE-READ-ONLY
+                        MODE-READ-WRITE
                         disk-absent?
                         sector-vect)
     (begin
+      (define MRO 'MODE-READ-ONLY)
+      (define MRW 'MODE-READ-WRITE)
+      (define MODE-READ-ONLY MRO)
+      (define MODE-READ-WRITE MRW)
       (define DISK-CACHE-MAX-SZ 4098)
       (define DISK-IDE 0)
       (define MAX-NB-DISKS 32)
@@ -83,6 +91,7 @@
                (lba (sector-lba sector))
                (v (sector-vect sector))
                (cleanup (lambda ()
+                          (sector-dirty?-set sector #f)
                           (mutex-unlock! dmut)
                           (mutex-unlock! smut); todo not sure if necessary
                           #t)))
@@ -113,11 +122,13 @@
           0
           type))
 
-      (define (disk-acquire-block disk lba)
+      (define (disk-acquire-block disk lba mode)
         (let* ((sector (disk-read-sector disk lba))
                (refs (sector-ref-count sector))
                (mut (sector-mut sector)))
           (mutex-lock! mut)
+          (if (eq? MODE-READ-WRITE mode)
+           (sector-dirty?-set! sector #t))
           (sector-ref-count-set! sector (++ refs))
           (mutex-unlock! mut)
           sector))
@@ -130,7 +141,8 @@
           (mutex-lock! mut)
           (sector-ref-count-set! sect (- refs 1))
           (mutex-unlock! mut)
-          (if (= refs 1) (flush-block disk sect))
+          (if (and (= refs 1) (sector-dirty? sect))
+              (flush-block disk sect))
           #t))
 
       (define (init-disks)
@@ -156,8 +168,8 @@
 
       ; For a disk, a block address, apply function 
       ; fn on the sector vector
-      (define (disk-apply-sector dsk lba fn)
-        (let* ((sect (disk-acquire-block dsk lba))
+      (define (disk-apply-sector dsk lba mode fn)
+        (let* ((sect (disk-acquire-block dsk lba mode))
                (rslt (fn (sector-vect sect))))
           (disk-release-block sect)
           rslt))

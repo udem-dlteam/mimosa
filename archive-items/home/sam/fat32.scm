@@ -354,7 +354,6 @@
       ; --------------------------------------------------
       ; --------------------------------------------------
 
-
       (define (safe-substring s start end)
         (let ((l (string-length s)))
           (if (>= start l)
@@ -442,8 +441,6 @@
           (let ((v (make-vector 11 (char->integer #\space)))
                 (name (string-upcase (car split)))
                 (ext (string-upcase (cadr split))))
-            (debug-write name)
-            (debug-write ext)
             (vector-copy! v 0 (string->u8vector name) 0 (min 8 (string-length name)))
             (vector-copy! v 8 (string->u8vector ext) 0 (min 3 (string-length ext)))
             v)))
@@ -480,7 +477,7 @@
                (entries-per-sector (BPB-entries-per-sector bpb))
                (no-of-entries (* entries-per-sector fat-sz))
                (sectors (map (lambda (s)
-                               (disk-apply-sector dsk (+ s rsvd) ID)) (iota fat-sz)))
+                               (disk-apply-sector dsk (+ s rsvd) MRO ID)) (iota fat-sz)))
                (cache (make-table)))
           ; Cache is now filled in
           (for-each (lambda (l)
@@ -503,7 +500,7 @@
           cache))
 
       (define (build-fs dsk)
-        (let ((bpb (disk-apply-sector dsk 0 pack-BPB)))
+        (let ((bpb (disk-apply-sector dsk 0 MRO pack-BPB)))
           (make-filesystem
             dsk
             bpb
@@ -708,10 +705,8 @@
               (cache-link-next-set! 
                 (table-ref cache cluster)
                 next-clus)
-              (disk-apply-sector disk lba (lambda (vect) 
-                                            (debug-write "A1")
+              (disk-apply-sector disk lba MRW (lambda (vect) 
                                             (wint32 vect (<< offset 2) next-clus)
-                                            (debug-write "A2")
                                             next-clus)))))
 
       ; Move to the next cluster and call the proper continuation (success or fail)
@@ -886,11 +881,6 @@
                         (set! conseq 0)
                         (next)))))
             (lambda (err)
-              (debug-write "FAILED TO READ MORE ENTRIES")
-              (debug-write (string-append "Parent pos: " (number->string (fat-file-pos folder))))
-              (debug-write (string-append "Parent len " (number->string (fat-file-len folder))))
-              (debug-write (string-append "conseq: " (number->string conseq)))
-              (debug-write (symbol->string err))
               (fail
                 err
                 (cond ((eq? ERR-EOF err)
@@ -946,7 +936,6 @@
       ; ...
       ; nth lfn
       (define (fat-file->entries file)
-        (debug-write "fat-file->entries")
         (let* ((underlying-entry (fat-file-entry file))
                (name (logical-entry-name underlying-entry))
                (name-l (string-length name))
@@ -1084,6 +1073,7 @@
                              (disk-apply-sector
                                disk
                                lba
+                               MRO
                                (lambda (vect)
                                  (for-each (lambda (i) (vector-set! buff
                                                                     (+ i idx)
@@ -1131,6 +1121,7 @@
           (disk-apply-sector
             d
             (+ lba-offset rsvd) 
+            MRW
             (lambda (vect)
               (wint32
                 vect
@@ -1149,6 +1140,7 @@
           (disk-apply-sector
             d
             (+ lba-offset rsvd) 
+            MRW
             (lambda (vect)
               (cache-link-next-set! link 0) ; erase in the cache
               (wint32 vect (<< offset 2) 0) ; erase on disk
@@ -1189,7 +1181,6 @@
       (define (write-bytes! file vect offset len fail)
         (if (> len 0)
             (let* ((wrt (lambda (f)
-                          (debug-write "START OF WRT")
                           (let* ((cluster-start (fat-file-curr-section-start f))
                                  (fs (fat-file-fs file))
                                  (disk (filesystem-disk fs))
@@ -1211,6 +1202,7 @@
                             (disk-apply-sector
                               disk
                               lba
+                              MRW
                               ; write to vector
                               (lambda (v)
                                 ; Not the correct offset
@@ -1301,6 +1293,7 @@
           (disk-apply-sector
             (filesystem-disk fs)
             lba
+            MRW
             (lambda (vect)
               (unpack-entry entry vect entry-offset)))))
 
@@ -1375,7 +1368,6 @@
                                 (fold-right
                                   (lambda (e r)
                                     (let ((v (make-vector entry-width 0)))
-                                      (debug-write (string-append  "-------WRITING------" (number->string r)))
                                       (write-bytes!
                                         parent
                                         (if (lfn? e)
@@ -1388,7 +1380,6 @@
                                     (++ r))
                                   0
                                   entries)
-                                (debug-write "DONE WRITING THE ENTRIES")
                                 )))
                     (look-for-n-available-entries!
                       parent
@@ -1409,7 +1400,6 @@
               (mode (parse-modes mode)))
           (follow-path root parts
                        (lambda (f)
-                         (debug-write (fat-file-curr-clus f))
                          (cond ((mask mode FILE-MODE-READ) ; r, r+
                                 #t ; nothing special
                                 )
