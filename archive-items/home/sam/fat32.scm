@@ -2,8 +2,6 @@
 (define-library (fat32)
     (import (errors) (disk) (gambit) (utils) (debug))
     (export 
-      f-tests
-      f-test
       pack-BPB
       pack-entry
       entry-name
@@ -16,8 +14,15 @@
       simplify-path
       mount-partitions
       filesystem-list
+      look-for-n-available-entries!
       make-lfns
-      write-file)
+      write-file
+      a-tests
+      b-tests
+      c-tests
+      d-tests
+      f-tests
+      f-test)
     (begin 
       ; --------------------------------------------------
       ; --------------------------------------------------
@@ -163,9 +168,10 @@
       (define-macro (file? ff)
                     `(eq? (fat-file-type ,ff) TYPE-FILE))
 
+
       (define-macro (valid-entry? entry)
                     (let ((signal (gensym)))
-                      `(let ((,signal (vector-ref (entry-name ,entry) 0)))
+                      `(let ((,signal (vector-ref (entry-name ,entry) 1)))
                          (not (or (fx= #x00 ,signal) (fx= #xE5 ,signal))))))
 
       (define-macro (build-cluster logical)
@@ -212,6 +218,20 @@
                          (fat-file-curr-section-start-set! ,file section-start)
                          (fat-file-curr-section-pos-set! ,file cluster-pos)
                          (fat-file-pos-set! ,file (,fn (fat-file-pos ,file) ,mvmt)))))
+
+      (define-macro (entry-deleted? entry)
+                    `(fx=
+                       (if (lfn? ,entry)
+                           (lfn-ord ,entry)
+                           (vector-ref (entry-name ,entry) 0))
+                       #xE5))
+
+      (define-macro (entry-empty? entry)
+                    `(fx=
+                       (if (lfn? ,entry)
+                           (lfn-ord ,entry)
+                           (vector-ref (entry-name ,entry) 0))
+                       #x00))
 
       ; --------------------------------------------------
       ; --------------------------------------------------
@@ -334,28 +354,26 @@
       ; --------------------------------------------------
       ; --------------------------------------------------
 
-      (define (safe-substring s start end)
-       (let ((l (string-length s)))
-        (if (>= start l)
-         ""
-         (substring s start (min l end)))))
 
-      (define (checksum name sum)
-        (let* ((l (string-length name))
-               (r (substring name 1 l))) 
-          (if (= 0 l)
-              0
-              (checksum r (+
-                            (if (odd? sum)
-                                #x80
-                                0
-                                )
-                            (>> sum 1)
-                            (char->integer
-                              (string-ref
-                                name
-                                0))
-                            )))))
+      (define (safe-substring s start end)
+        (let ((l (string-length s)))
+          (if (>= start l)
+              ""
+              (substring s start (min l end)))))
+
+      (define (checksum name)
+        (fold
+          (lambda (e r)
+            (bitwise-and
+              #xFF
+              (+
+                (if (odd? r)
+                    #x80
+                    0) 
+                e 
+                (>> r 1)))) 
+          0 
+          (vector->list name)))
 
       (define (make-fat-time hours minute seconds)
         ; According to the FAT specification, the FAT time is set that way:
@@ -418,6 +436,7 @@
                   (cons c r))) 
             (list) split)))
 
+
       (define (string->short-name-vect str)
         (let ((split (split-string #\. str)))
           (let ((v (make-vector 11 (char->integer #\space)))
@@ -427,7 +446,7 @@
             (debug-write ext)
             (vector-copy! v 0 (string->u8vector name) 0 (min 8 (string-length name)))
             (vector-copy! v 8 (string->u8vector ext) 0 (min 3 (string-length ext)))
-            v )))
+            v)))
 
       (define (short-name->string sn-vect)
         (fold-right (lambda (c v)
@@ -446,14 +465,6 @@
                                         (cons c r)))
                                   (list)
                                   (vector->list vect))))
-
-      ; Transform a vector into a list of cluster
-      ; A FAT32 cluster is four bytes long
-      ; the 'cpv' parameter specifies how many clusters
-      ; are in a vector
-      ; the function is curried to place in continuations
-      (define (vect->cluster-list cpv)
-        (lambda (v) (map (lambda (i) (uint32 v (* 4 v))) (iota cpv))))
 
       ; --------------------------------------------------
       ; --------------------------------------------------
@@ -504,10 +515,12 @@
 
       (define (open-root-dir fs)
         (let*
-          ((bpb (filesystem-bpb fs))
+          (
+           (bpb (filesystem-bpb fs))
            (bps (BPB-bps bpb))
            (root-clus (BPB-root-cluster bpb))
-           (sec-per-cluster (BPB-sec-per-cluster bpb)))
+           (sec-per-cluster (BPB-sec-per-cluster bpb))
+           )
           (make-fat-file
             fs               ; fs
             root-clus        ; first cluster
@@ -683,6 +696,7 @@
         (if (eq? next-clus EOF)
             (fail ERR-ARGS)
             (let* ((fs (fat-file-fs file))
+                   (cache (filesystem-fat-cache fs))
                    (disk (filesystem-disk fs))
                    (bpb (filesystem-bpb fs))
                    (lg2bps (filesystem-lg2bps fs))
@@ -694,9 +708,11 @@
               (cache-link-next-set! 
                 (table-ref cache cluster)
                 next-clus)
-              (disk-apply-sector disk (lambda (vect) 
-                                        (wint32 vect (<< offset 2) next-clus)
-                                        next-clus) lba))))
+              (disk-apply-sector disk lba (lambda (vect) 
+                                            (debug-write "A1")
+                                            (wint32 vect (<< offset 2) next-clus)
+                                            (debug-write "A2")
+                                            next-clus)))))
 
       ; Move to the next cluster and call the proper continuation (success or fail)
       ; with the file as an argument
@@ -729,38 +745,42 @@
       ; the succ continuation with the logical entry or fail if the
       ; entry does not seem to exist.
       (define (search-entry file name succ fail)
-        (search-entry-aux file name (list) succ (lambda (err-no) ;; todo create FNF
-                                                  (fail 'FNF-ERR))))
+        (search-entry-aux file name (list) succ (lambda (err-no) (fail ERR-FNF))))
 
       (define (search-entry-aux file name lfns succ fail)
-        (read-entries file (lambda (e next)
-                             (if (lfn? e)
-                                 (search-entry-aux
-                                   file
-                                   name
-                                   (cons e lfns)
-                                   succ 
-                                   fail)
-                                 (let* ((logical-ents (entry-list->logical-entries (reverse (cons e lfns)))))
-                                   (if (string=? name (logical-entry-name (car logical-ents)))
-                                       (succ (car logical-ents))
-                                       (search-entry-aux file name '() succ fail))
-                                   ))) fail))
+        (read-entries
+          file 
+          (lambda (e next)
+            (if (lfn? e)
+                (search-entry-aux
+                  file
+                  name
+                  (cons e lfns)
+                  succ 
+                  fail)
+                (let* ((logical-ents (entry-list->logical-entries (reverse (cons e lfns)))))
+                  (if (string=? name (logical-entry-name (car logical-ents)))
+                      (succ (car logical-ents))
+                      (search-entry-aux file name '() succ fail))
+                  )))
+          fail))
 
       ; Read entries as if the file is a FAT directory. 
       ; Takes the argument cont, a lambda that receives the entry and a function
       ; to read the next entry and fail a function that is called in case of failure
       (define (read-entries file succ fail)
         (let* ((cont (lambda () (read-entries file succ fail)))
-               (vect (read-bytes! file entry-width fail))
-               (e (pack-entry vect)) ; TODO only do one of them for efficiency
-               (l (pack-lfn vect)))
-          (cond ((is-lfn? e)
+               (vect (read-bytes! file entry-width fail)))
+          (if (vector? vect)
+          (let ((e (pack-entry vect))
+                (l (pack-lfn vect)))
+           (cond ((is-lfn? e)
                  (succ l cont))
                 ((valid-entry? e)
                  (succ e cont))
                 (else
-                  (fail ERR-NO-MORE-ENTRIES)))))
+                  (fail ERR-NO-MORE-ENTRIES))))
+          vect)))
 
       (define (read-all-entries file)
         (read-entries
@@ -812,9 +832,9 @@
 
       (define (string->lfn-vector name len)
         (let* ((half (// len 2))
-              (v (make-vector len 0))
-              (l (string-length name))
-              )
+               (v (make-vector len 0))
+               (l (string-length name))
+               )
           (for-each (lambda (i)
                       (cond 
                         ((= i l)
@@ -830,8 +850,58 @@
                             v
                             (<< i 1)
                             (char->integer (string-ref name i))))))
-                    (iota half))
-          v))
+                    (iota half)) v))
+
+
+      ; Return an absolute position in the 'folder' where
+      ; 'n' consecutive entries are available. The success continuation
+      ; takes the absolute position as a single parameter.
+      ; The fail continuation takes two parameters, the first one being
+      ; the error code and the second one being an absolute position
+      ; that we can start writing to. This can happen if
+      ; there are available entries to write to at the end of a file,
+      ; but the file boundary does not allow more entries to be considered
+      ; part of the file. The boundary can simply be extended (by writing to the file)
+      ; to allow 
+      ; This function resets the file cursor to 0 at the start.
+      (define (look-for-n-available-entries! folder n succ fail)
+        (let ((ignored (file-set-cursor-absolute! folder 0))
+              (conseq 0))
+          (read-entries
+            folder
+            (lambda (e next)
+              (if (entry-deleted? e)
+                  (if (= (++ conseq) n)
+                      ; Done: find the position
+                      (succ (- (fat-file-pos folder) (* n entry-width)))
+                      (begin
+                        (set! conseq (++ conseq))
+                        (next)))
+                  ; Not deleted
+                  (if (entry-empty? e)
+                      ; All the rest is free, we can use it
+                      (succ (- (fat-file-pos folder) (* (++ conseq) entry-width)))
+                      ; Reset
+                      (begin
+                        (set! conseq 0)
+                        (next)))))
+            (lambda (err)
+              (debug-write "FAILED TO READ MORE ENTRIES")
+              (debug-write (string-append "Parent pos: " (number->string (fat-file-pos folder))))
+              (debug-write (string-append "Parent len " (number->string (fat-file-len folder))))
+              (debug-write (string-append "conseq: " (number->string conseq)))
+              (debug-write (symbol->string err))
+              (fail
+                err
+                (cond ((eq? ERR-EOF err)
+                       (- (fat-file-pos folder)
+                          (* conseq entry-width)))
+                      ((eq? ERR-NO-MORE-ENTRIES err)
+                       (- (fat-file-pos folder)
+                          (* (++ conseq) entry-width))
+                       )
+                      (else -1)))
+              ))))
 
       (define (make-lfns name ith chksm)
         (let ((l (string-length name)))
@@ -840,52 +910,57 @@
               ; Copy into a LFN and truncate the rest of the string
               (cons 
                 (make-lfn
-                  ith
+                  (fxior ith (if (<= l FAT-CHARS-PER-LONG-NAME-ENTRY)
+                                 FAT-LAST-LONG-ENTRY
+                                 0))
                   (string->lfn-vector (safe-substring name 0 5) 10)
-                  FAT-CHARS-PER-LONG-NAME-ENTRY
+                  FAT-ATTR-LONG-NAME
                   0
                   chksm
                   (string->lfn-vector (safe-substring name 5 11) 12)
                   0
-                  (string->lfn-vector (safe-substring name 12 14) 4)
+                  (string->lfn-vector (safe-substring name 11 13) 4)
                   )
-                (make-lfns (safe-substring name 15 l) (+ ith 1) chksm)))))
+                (make-lfns (safe-substring name 13 l) (+ ith 1) chksm)))))
 
+      (define (make-header file)
+        (let ((le (fat-file-entry file))) 
+          (make-entry
+            (string->short-name-vect (logical-entry-name le))
+            (logical-entry-attr le) ; TODO: upate
+            (logical-entry-ntres le) ; does not change
+            (logical-entry-create-time-tenth le) ; does not change
+            (logical-entry-create-time le) ; does not change
+            (logical-entry-create-date le) ; does not change
+            (logical-entry-last-access-date le) ; TODO: update
+            (logical-entry-cluster-hi le) ; does not change
+            (logical-entry-last-write-time le) ; TODO: update
+            (logical-entry-last-write-date le) ; TODO: update
+            (logical-entry-cluster-lo le) ; does not change
+            (fat-file-len file) ; get the latest information
+            )))
+
+      ; Returns a list in the following order:
+      ; file entry
+      ; lfn 1
+      ; ...
+      ; nth lfn
       (define (fat-file->entries file)
-        (let* ((underyling-entry (fat-file-entry file))
+        (debug-write "fat-file->entries")
+        (let* ((underlying-entry (fat-file-entry file))
                (name (logical-entry-name underlying-entry))
                (name-l (string-length name))
                (requires-lfn? (> name-l FAT-SHORT-FILE-NAME-MAX-LEN))
-               )
-          (if requires-lfn?
-              #t
-              #t
-              )))
-
-      ; (define (fat-file->entries file)
-      ;   (let ((name (fat-file-name file)))
-
-      ;     )
-
-      ;   (let ((le (fat-file-entry file))) (list
-      ;                                       (make-entry
-      ;                                         (string->short-name-vect (logical-entry-name le))
-      ;                                         (logical-entry-attr le) ; TODO: upate
-      ;                                         (logical-entry-ntres le) ; does not change
-      ;                                         (logical-entry-create-time-tenth le) ; does not change
-      ;                                         (logical-entry-create-time le) ; does not change
-      ;                                         (logical-entry-create-date le) ; does not change
-      ;                                         (logical-entry-last-access-date le) ; TODO: update
-      ;                                         (logical-entry-cluster-hi le) ; does not change
-      ;                                         (logical-entry-last-write-time le) ; TODO: update
-      ;                                         (logical-entry-last-write-date le) ; TODO: update
-      ;                                         (logical-entry-cluster-lo le) ; does not change
-      ;                                         (fat-file-len file) ; get the latest information
-      ;                                         ))))
+               (hdr (make-header file)))
+          (cons 
+            hdr 
+            (if requires-lfn?
+                (make-lfns name 1 (checksum (entry-name hdr)))
+                (list)))))
 
       (define (list-directory folder)
-        (map logical-entry-name
-             (entry-list->logical-entries (read-all-entries folder))))
+        (let ((all (read-all-entries folder)))
+          (map logical-entry-name (entry-list->logical-entries all))))
 
       ; Follow a path (folder list) and return the last part
       ; described by the path
@@ -911,8 +986,6 @@
                       (fail ERR-PATH))) ; on failure
                 ))))
 
-
-
       (define (entry-list->logical-entries entry-list)
         ; The fat spec garantess this structure:
         ; nth LFN
@@ -920,22 +993,28 @@
         ; ....
         ; 1st LFN
         ; entry
-        (fold-right (lambda (entry rest)
-                      (if (lfn? entry)
-                          (let* ((underlying-entry (car rest))
-                                 (next-part (extract-lfn-data entry))
-                                 (name (logical-entry-name underlying-entry)))
-                            (logical-entry-name-set!
-                              underlying-entry
-                              (if (logical-entry-lfn? underlying-entry)
-                                  (begin
-                                    (logical-entry-lfn-set! underlying-entry #t)
-                                    (string-append name next-part))
-                                  next-part))
-                            rest)
-                          ; not LFN, leave it as is
-                          (cons (entry->logical-entry entry) rest))) 
-                    (list) entry-list))
+        (fold-right
+          (lambda (entry rest)
+            (if (lfn? entry)
+                ; Append the name
+                (let* ((underlying-entry (car rest))
+                       (next-part (extract-lfn-data entry))
+                       (name (logical-entry-name underlying-entry)))
+                  ; If it was not LFN before, we erase
+                  (logical-entry-name-set!
+                    underlying-entry
+                    (string-append
+                      (if (logical-entry-lfn? underlying-entry)
+                          name
+                          "")
+                      next-part))
+                  (if (not (logical-entry-lfn? underlying-entry))
+                      (logical-entry-lfn?-set! underlying-entry #t))
+                  rest)
+                ; not LFN, leave it as is
+                (cons (entry->logical-entry entry) rest))) 
+          (list)
+          entry-list))
 
       (define (find-first-free-cluster-aux cache index len succ fail)
         (if (< index len)
@@ -1056,9 +1135,7 @@
               (wint32
                 vect
                 (<< offset 2) 
-                (cache-link-next link))))
-          ))
-
+                (cache-link-next link))))))
 
       (define (unlink-chain-aux fs cache cluster)
         (let* ((bpb (filesystem-bpb fs))
@@ -1084,8 +1161,8 @@
               (cache (filesystem-fat-cache fs)))
           (mutex-lock! mut)
           (unlink-chain-aux fs cache cluster)
-          (mutex-unlock! mut)
-          ))
+          (mutex-unlock! mut))
+        )
 
       ; Fetch the next cluster 
       (define (fetch-or-allocate-next-cluster file c fail)
@@ -1094,7 +1171,7 @@
           (next-cluster file)
           c
           (lambda (err-code) ; check the error code. If EOF, we allocate a new cluster
-            (if (eq? ERR-EOF)
+            (if (eq? err-code ERR-EOF)
                 (begin ; create a new cluster
                   (find-first-free-cluster 
                     (fat-file-fs file)
@@ -1112,6 +1189,7 @@
       (define (write-bytes! file vect offset len fail)
         (if (> len 0)
             (let* ((wrt (lambda (f)
+                          (debug-write "START OF WRT")
                           (let* ((cluster-start (fat-file-curr-section-start f))
                                  (fs (fat-file-fs file))
                                  (disk (filesystem-disk fs))
@@ -1135,17 +1213,15 @@
                               lba
                               ; write to vector
                               (lambda (v)
-                                (debug-write v)
                                 ; Not the correct offset
-                                (vector-copy! v dest-offset vect offset (+ offset len))
-                                (debug-write v)
-                                ))
+                                (vector-copy! v dest-offset vect offset (+ offset len))))
                             (fat-file-pos-set! f (+ sz pos))
+                            (fat-file-curr-section-pos-set! f (+ cluster-pos sz))
                             (write-bytes! f vect (+ offset sz) (- len sz) fail))))
                    (cluster-pos (fat-file-curr-section-pos file))
                    (cluster-len (fat-file-curr-section-length file))) 
               (if (>= cluster-pos cluster-len)
-                  (fetch-or-allocate-cluster file wrt fail) ; fetch and then write
+                  (fetch-or-allocate-next-cluster file wrt fail) ; fetch and then write
                   (wrt file))) ; write
             #t))
 
@@ -1162,7 +1238,7 @@
         (fat-file-len-set! file len)
         (flush-fat-file-to-disk
           file 
-          (car (fat-file->entries file))))
+          (make-header file)))
 
       (define (file-write! file vect offset len fail)
         (let ((result (write-bytes! file vect offset len fail)))
@@ -1226,11 +1302,46 @@
             (filesystem-disk fs)
             lba
             (lambda (vect)
-              (display entry)
-              (debug-write "WRT")
-              (debug-write vect)
-              (unpack-entry entry vect entry-offset)
-              (debug-write vect)))))
+              (unpack-entry entry vect entry-offset)))))
+
+      (define (make-empty-fat-file
+                fs
+                parent
+                clus
+                type
+                name)
+        (let* ((bpb (filesystem-bpb fs))
+               (bps (BPB-bps bpb))
+               (root-clus (BPB-root-cluster bpb))
+               (sec-per-cluster (BPB-sec-per-cluster bpb)))
+          (make-fat-file
+            fs
+            clus
+            clus
+            (BPB-first-data-sector bpb)
+            (+ (- clus 2) (* bps sec-per-cluster))
+            0
+            0
+            0
+            (fat-file-first-clus parent) 
+            0 
+            type
+            (fxior FILE-MODE-TRUNC FILE-MODE-PLUS)
+            (make-logical-entry
+              name
+              0 ; attrs
+              0 ; ntres
+              0 ; create time tenth
+              0 ; create time
+              0 ; create date
+              0 ; last access date
+              (fxand #xFF (>> clus 16)) ; cluster high
+              0 ; last write time
+              0 ; last write date
+              (fxand #xFF clus) ; cluster low
+              0
+              (> (string-length name) FAT-NAME-LENGTH)
+              ))))
 
       ; Create a file and return a handle
       ; to it
@@ -1245,35 +1356,51 @@
             parent-parts
             (lambda (parent) ; we opened the parent of where we want to insert a file (or directory)
               ; TEMP! Replace root dir
-              (read-all-entries temp) ; this sets the cursor one entry over what we want
-              (file-move-cursor! temp (- entry-width))
-              ; (define (find-first-free-cluster fs succ fail)
               (find-first-free-cluster
                 fs
                 (lambda (cluster link)
-                  (let ((new-file (make-entry
-                                    (vector-map char->integer (vector #\A #\A #\A #\A #\A #\A #\A #\A #\B #\B #\B))
-                                    0          ; attributes
-                                    0          ; nt-res
-                                    0          ; tenth
-                                    #xFF00     ; creation time
-                                    #xFF00     ; creation date
-                                    #xFF00     ; last acc. date
-                                    (bitwise-and #xFFFF (>> cluster 16))     ; cluster hi
-                                    #xFF00     ; last write time
-                                    #xFF00     ; last write date
-                                    (bitwise-and #xFFFF cluster)     ; cluster lo
-                                    0 ; size
-                                    ))
-                        )
-                    (cache-link-prev-set! link 0)
-                    (file-write!
-                      temp 
-                      (unpack-entry new-file (make-vector entry-width 0) 0) 
-                      0
-                      entry-width (lambda (err) ERR-FNF))) 
-                  ) ID))
-            (lambda (err) ERR-FNF))))
+                  (let* ((new-file (make-empty-fat-file
+                                     fs
+                                     parent
+                                     cluster
+                                     TYPE-FILE
+                                     file-name))
+                         (entries (fat-file->entries new-file))
+                         (wrt (lambda (offset)
+                                ; Set the cursor to the right place
+                                (file-set-cursor-absolute! parent offset)
+                                ; The offset is set to zero when we create the empty file
+                                (fat-file-entry-offset-set! new-file offset)
+                                ; Fold right we start right from left, which is what we want
+                                (fold-right
+                                  (lambda (e r)
+                                    (let ((v (make-vector entry-width 0)))
+                                      (debug-write (string-append  "-------WRITING------" (number->string r)))
+                                      (write-bytes!
+                                        parent
+                                        (if (lfn? e)
+                                            (unpack-lfn e v 0)
+                                            (unpack-entry e v 0))
+                                        0
+                                        entry-width
+                                        ID))
+                                    ; We count the number of written entries
+                                    (++ r))
+                                  0
+                                  entries)
+                                (debug-write "DONE WRITING THE ENTRIES")
+                                )))
+                    (look-for-n-available-entries!
+                      parent
+                      (length entries)
+                      wrt
+                      (lambda (err offset) (if (>= offset 0) (wrt offset) (ID err)))
+                      )))
+                (lambda (err)
+                  (display "Failed to find first free cluster"))))
+            (lambda (err)
+              (display "Failed to follow path")
+              ERR-FNF))))
 
       ; Open a fat file
       (define (open-fat-file fs path mode)
@@ -1307,9 +1434,31 @@
       ; --------------------------------------------------
       ; --------------------------------------------------
       ; --------------------------------------------------
+
       (define (f-test fs)
-        (let ((f (open-fat-file fs "home/sam/fact.scm" "a")))
-          (file-write! f (string->u8vector "(+ 5 5)") 0 7 ID)))
+        (look-for-n-available-entries!
+          (open-root-dir fs)
+          5
+          ID
+          (lambda (err pos)
+            (display err)
+            (display pos))))
+
+      (define (a-tests)
+        (let ((fs (car filesystem-list)))
+          (create-fat-file fs "home/sam/thisisafilewithalongfilenameevenlonguernow.txt")))
+
+      (define (b-tests)
+        (let ((fs (car filesystem-list)))
+          (follow-path (open-root-dir fs) (list "home") list-directory ID)))
+
+      (define (c-tests)
+        (let ((fs (car filesystem-list)))
+          (create-fat-file fs "home/thisisafilewithalongfilename.txt")))
+
+      (define (d-tests)
+        (let ((fs (car filesystem-list)))
+          (follow-path (open-root-dir fs) (list "home" "sam") list-directory ID)))
 
       (define (f-tests)
         (let ((fs (car filesystem-list)))

@@ -43,7 +43,7 @@
                   first-index
                   string->u8vector
                   u8vector->string
-                  ; define-struct-fill
+                  displayn
                   )
     (begin
       (define (// a b)
@@ -263,6 +263,11 @@
 
       (define (string->u8vector s)
         (vector-map (o (lambda (int) (bitwise-and #xFF int)) char->integer) (string->vector s)))
+
+      (define (displayn obj)
+       (begin
+        (display obj)
+        (newline)))
 
       ; (define-macro (define-struct-fill name fields)
       ;               (let ((fill-struct (string-append "fill-" (symbol->string name)))

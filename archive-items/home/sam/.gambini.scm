@@ -1,6 +1,7 @@
 ; The MIMOSA project
 ; Scheme executor bridge
-(import (ide)
+(import (errors)
+        (ide)
         (disk)
         (utils)
         (fat32)
