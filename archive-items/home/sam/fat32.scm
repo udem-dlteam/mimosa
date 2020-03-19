@@ -1218,7 +1218,8 @@
             #t))
 
       (define (read-string! file len fail)
-        (vector->string (vector-map integer->char (read-bytes! file len fail))))
+        (vector->string
+          (vector-map integer->char (read-bytes! file len fail))))
 
       (define (file-read! file len fail)
         (let ((m (fat-file-mode file)))
