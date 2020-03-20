@@ -1381,13 +1381,13 @@
                                     (++ r))
                                   0
                                   entries)
+                                  new-file
                                 )))
                     (look-for-n-available-entries!
                       parent
                       (length entries)
                       wrt
-                      (lambda (err offset) (if (>= offset 0) (wrt offset) (ID err)))
-                      )))
+                      (lambda (err offset) (if (>= offset 0) (wrt offset) (ID err))))))
                 (lambda (err)
                   (display "Failed to find first free cluster"))))
             (lambda (err)
@@ -1455,4 +1455,4 @@
         (let ((fs (car filesystem-list)))
           (list-directory (open-root-dir fs))))
 
-      ))
+))
