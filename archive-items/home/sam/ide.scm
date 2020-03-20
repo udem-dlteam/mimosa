@@ -222,7 +222,6 @@
                (err #f)
                (sz (<< count (- IDE-LOG2-SECTOR-SIZE 1)))
                (word-vector (make-vector sz 0)))
-          (debug-write (string-append "Count is" (number->string count)))
           (mutex-lock! mut)
           (write 
             (lambda ()
@@ -233,12 +232,10 @@
                     (begin (for-each (lambda (i) (vector-set! word-vector i (inw data-reg)))
                                      (iota sz))
                            ; TODO: figure out why one more sector avail
-                           (for-each (lambda (i) (inw data-reg)) (iota 256)) 
                            (if (mask IDE-STATUS-DRQ (inb alt-reg))
                                (begin
-                                 (debug-write (string-append "LEN IS " (number->string (vector-length word-vector))))
                                  (debug-write "DRQ is on: data left?")
-                                 ; (set! err ERR-HWD)
+                                 (set! err ERR-HWD)
                                  ))))
                 ; Signal we are ready
                 (condition-variable-signal! cv)

@@ -100,13 +100,14 @@
                            qtt 
                            (lambda (raw-vect) (vector-append results raw-vect))
                            (lambda (err)
-                            (debug-write "ERR:")
-                            (debug-write (symbol->string err))
-                            (make-vector (* 512 qtt) 0)))
+                             (debug-write "ERR:")
+                             (debug-write (symbol->string err))
+                             (make-vector (* 512 qtt) 0)))
                          ))
                      (make-vector 0 0)
                      q)))
-            (mutex-unlock! mut) r)))
+            (mutex-unlock! mut)
+            r)))
 
       (define (flush-block disk sector)
         (let* ((smut (sector-mut sector))

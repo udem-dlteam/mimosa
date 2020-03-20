@@ -87,7 +87,7 @@
 ;;;----------------------------------------------------
 
 (##interrupt-vector-set! 5 (lambda () 
-                            ; Signal the int pump threadi
+                            ; Signal the int pump thread
                             ; to pump the fifo into the scheme fifo
                             (mutex-lock! int-mutex)
                             (condition-variable-signal! int-condvar)
