@@ -3,6 +3,7 @@
 (define-library (ide)
 (import (errors) (gambit) (utils) (low-level) (debug)) 
 (export
+  IDE-MAX-SECTOR-READ
   setup
   switch-over-driver
   handle-ide-int
@@ -10,6 +11,7 @@
   list-devices 
   ide-read-sectors)
 (begin
+  (define IDE-MAX-SECTOR-READ 255)
   (define IDE-DEVICE-ABSENT 'IDE-DEVICE-ABSENT)
   (define IDE-DEVICE-ATA    'IDE-DEVICE-ATA)
   (define IDE-DEVICE-ATAPI  'IDE-DEVICE-ATAPI)
@@ -180,7 +182,9 @@
       (mutex-lock! mut)
       (write (lambda () 
                (if (mask (inb stt-reg) IDE-STATUS-ERR)
-                (set! err ERR-HWD)) 
+                (begin
+                 (debug-write "FLUSH ERR")
+                 (set! err ERR-HWD))) 
                (mutex-lock! mut)
                (condition-variable-signal! cv)
                (mutex-unlock! mut)
@@ -218,6 +222,7 @@
                (err #f)
                (sz (<< count (- IDE-LOG2-SECTOR-SIZE 1)))
                (word-vector (make-vector sz 0)))
+          (debug-write (string-append "Count is" (number->string count)))
           (mutex-lock! mut)
           (write 
             (lambda ()
@@ -225,11 +230,16 @@
               (let* ((status (inb stt-reg)))
                 (if (mask status IDE-STATUS-ERR)
                     (set! err (ide-handle-read-err cpu-port))
-                    (begin (for-each (lambda (i)
-                                       (vector-set! word-vector i (inw data-reg)))
-                                     (iota (vector-length word-vector)))
-                      (if (mask IDE-STATUS-DRQ (inb alt-reg))
-                          (set! err ERR-HWD))))
+                    (begin (for-each (lambda (i) (vector-set! word-vector i (inw data-reg)))
+                                     (iota sz))
+                           ; TODO: figure out why one more sector avail
+                           (for-each (lambda (i) (inw data-reg)) (iota 256)) 
+                           (if (mask IDE-STATUS-DRQ (inb alt-reg))
+                               (begin
+                                 (debug-write (string-append "LEN IS " (number->string (vector-length word-vector))))
+                                 (debug-write "DRQ is on: data left?")
+                                 ; (set! err ERR-HWD)
+                                 ))))
                 ; Signal we are ready
                 (condition-variable-signal! cv)
                 (mutex-unlock! mut)))      

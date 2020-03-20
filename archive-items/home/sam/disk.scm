@@ -8,19 +8,8 @@
                         (utils)
                         (debug)
                         (low-level))
-                (export disk-list
-                        disk-ide-device
-                        disk-apply-sector
-                        disk-acquire-block
-                        disk-release-block
-                        init-disks
-                        MRO
-                        MRW
-                        MODE-READ-ONLY
-                        MODE-READ-WRITE
-                        disk-absent?
-                        sector-vect)
-    (begin
+                (begin
+      (define BIG-READ-THRESH 5)
       (define MRO 'MODE-READ-ONLY)
       (define MRW 'MODE-READ-WRITE)
       (define MODE-READ-ONLY MRO)
@@ -84,6 +73,41 @@
               cached 
               (disk-fetch-and-set! disk lba)))) 
 
+      (define (queries-to-make lba count)
+        (let* ((d (/ count IDE-MAX-SECTOR-READ))
+              (q (floor d))
+              (t (ceiling d))
+              (r (modulo count IDE-MAX-SECTOR-READ)))
+          (map
+            (lambda (i)
+              (if (< i q)
+                  (cons (+ lba (* i IDE-MAX-SECTOR-READ)) IDE-MAX-SECTOR-READ)
+                  (cons (+ lba (* i IDE-MAX-SECTOR-READ)) r)))
+            (iota t))))
+       
+      (define (disk-read-sectors disk lba count)
+        (let* ((dev (disk-ide-device disk))
+               (q (queries-to-make lba count))
+               (mut (disk-mut disk)))
+          (mutex-lock! mut)
+          (let ((r (fold 
+                     (lambda (query results)
+                       (let ((lba (car query))
+                             (qtt (cdr query)))
+                         (ide-read-sectors
+                           dev
+                           lba
+                           qtt 
+                           (lambda (raw-vect) (vector-append results raw-vect))
+                           (lambda (err)
+                            (debug-write "ERR:")
+                            (debug-write (symbol->string err))
+                            (make-vector (* 512 qtt) 0)))
+                         ))
+                     (make-vector 0 0)
+                     q)))
+            (mutex-unlock! mut) r)))
+
       (define (flush-block disk sector)
         (let* ((smut (sector-mut sector))
                (dmut (disk-mut disk))
@@ -133,6 +157,7 @@
           (mutex-unlock! mut)
           sector))
 
+
       (define (disk-release-block sect)
         (let* ((lba (sector-lba sect))
                (mut (sector-mut sect))
@@ -173,9 +198,17 @@
                (rslt (fn (sector-vect sect))))
           (disk-release-block sect)
           rslt))
-
-      ; (define (disk-read-sectors dsk lba count fn)
-       
-       
-      ;  )
-))
+)
+    (export disk-list
+                        disk-ide-device
+                        disk-apply-sector
+                        disk-acquire-block
+                        disk-release-block
+                        disk-read-sectors
+                        init-disks
+                        MRO
+                        MRW
+                        MODE-READ-ONLY
+                        MODE-READ-WRITE
+                        disk-absent?
+                        sector-vect))
