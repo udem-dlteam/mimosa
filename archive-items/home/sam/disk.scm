@@ -173,4 +173,9 @@
                (rslt (fn (sector-vect sect))))
           (disk-release-block sect)
           rslt))
+
+      ; (define (disk-read-sectors dsk lba count fn)
+       
+       
+      ;  )
 ))
