@@ -66,7 +66,6 @@
           (display "STUB")
           #t))
 
-
       (define (assock key tbl)
         (car (assoc key tbl)))
 

@@ -1,11 +1,13 @@
 ; The MIMOSA project
 ; Scheme executor bridge
 (import (errors)
+        (keyboard)
         (ide)
         (disk)
         (utils)
         (fat32)
         (low-level)
+        (uart)
         (debug))
 
 (define (reboot)
@@ -36,10 +38,7 @@
 ;;;                      IMPORTs 
 ;;;----------------------------------------------------
 
-(load "mimosa_io.scm")
-(load "intr.scm")
 (load "edit.scm")
-(load "int_handle.scm") ; must be loaded after all drivers
 
 ;;;----------------------------------------------------
 ;;;                    INIT SYS 
@@ -47,15 +46,25 @@
 
 (define int-mutex (make-mutex))
 (define int-condvar (make-condition-variable))
-
-; (for-each (o uart-do-init ++) (iota 4))
-
-
 (define (t) (f-tests main-disk))
 
 ;;;----------------------------------------------------
 ;;;                 INTERRUPT HANDLING 
 ;;;----------------------------------------------------
+
+(define KEYBOARD-INT #x1)
+(define UART-INT #x2)
+(define IDE-INT #x3)
+
+(define INT-WITH-ARG-TABLE
+  (list
+    (cons KEYBOARD-INT keyboard#handle-kbd-int)
+    (cons UART-INT uart#handle-uart-int)
+    (cons IDE-INT ide#handle-ide-int)))
+
+(define (handle-int int-no args)
+  (let ((fn (assocv int-no INT-WITH-ARG-TABLE)))
+     (apply fn args)))
 
 (define (read-at . offset)
  (+ SHARED-MEMORY-AREA (modulo (fold + 0 offset) SHARED-MEMORY-AREA-LEN)))
@@ -93,7 +102,6 @@
                             (condition-variable-signal! int-condvar)
                             (mutex-unlock! int-mutex)))
 
-
 ;;;----------------------------------------------------
 ;;;              INTERRUPT EXEC ROUTINE 
 ;;;----------------------------------------------------
@@ -117,7 +125,6 @@
 (thread-start! (make-thread int-clear "Mimosa interrupt clearing thread"))
 (thread-start! (make-thread idle "Mimosa idle green thread"))
 
-
 ;;;----------------------------------------------------
 ;;;                     INIT SYSTEM  
 ;;;----------------------------------------------------
@@ -129,3 +136,7 @@
 (define main-disk (car disk-list))
 (mount-partitions disk-list)
 (define fs (car filesystem-list))
+
+(debug-write "AFTER INIT")
+(for-each (o uart#uart-do-init ++) (iota 4))
+(debug-write "DONE INIT")
