@@ -13,6 +13,8 @@
             (for-each debug-write obj))
            ((number? obj)
             (number-debug-write obj))
+           ((symbol? obj)
+            (debug-write (symbol->string obj)))
            (else
              (str-debug-write (string obj)))))
 

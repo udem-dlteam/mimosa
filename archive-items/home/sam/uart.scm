@@ -285,10 +285,10 @@
     (let* ((data (inb (fx+ cpu-port UART-8250-RHR)))
            (cpu-port (CPU-PORT->COM-PORT cpu-port))
            (port-data (get-port-data cpu-port))
-           (endpoint (port-data-get-endpoint port-data)))
-      (write-char (integer->char data) endpoint))
-      (debug-write "DONE RHR")
-    ) ;; Write to the endpoint
+           (endpoint (port-data-get-endpoint port-data))
+           (c (integer->char data)))
+      (write-char c endpoint)
+    )) ;; Write to the endpoint
 
   ; Check if a device is connected on the uart port
   (define (uart-device-connected? com-port)
@@ -302,7 +302,6 @@
       (inb msr-reg)))
 
   (define (uart-handle-thr cpu-port)
-    (debug-write "THR")
     (if (UART-THR-GET-ACTION (inb (fx+ cpu-port UART-8250-LSR)))
         ; We can write to THR
         (let* ((com-port (CPU-PORT->COM-PORT cpu-port))
@@ -324,6 +323,13 @@
              (uart-read-rhr cpu-port))
             (else e))))
 
+  (define (uart-handle-iir cpu-port iir)
+    (if (mask #x1 iir)
+        #t
+        (begin
+          (uart-handle-cause cpu-port (UART-IIR-GET-CAUSE iir))
+          (uart-handle-iir cpu-port (inb (fx+ cpu-port UART-8250-IIR))))))
+
   (define (uart-handle-cause cpu-port cause)
     (cond ((= cause UART-IIR-MODEM)
            ; Modem Status
@@ -332,9 +338,7 @@
            ;             line signal detect signals.
            ; priority :lowest
            ; Reading Modem Status Register (MSR)
-           (begin
-             (debug-write "MSR")
-             (uart-read-msr cpu-port)))
+           (uart-read-msr cpu-port))
           ((= cause UART-IIR-TRANSMITTER-HOLDING-REG)
            ; Transmitter empty
            ; Caused by : The transmitter finishes sending
@@ -342,18 +346,14 @@
            ; priority : next to lowest
            ; Reading interrupt indentification register(IIR)
            ; or writing to Transmit Holding Buffer (THR)
-           (begin
-             (debug-write "THR")
-             (uart-handle-thr cpu-port)))
+           (uart-handle-thr cpu-port))
           ((= cause UART-IIR-RCV-LINE)
            ; Error or Break
            ; caused by : Overrun error, parity error, framing
            ;             error, or break interrupt.
            ; priority : highest
            ; reading line status register
-           (begin
-             (debug-write "LSR")
-             (uart-read-lsr cpu-port)))
+           (uart-read-lsr cpu-port))
           ((= cause UART-IIR-DATA-AVAIL)
            ; Data Available
            ; caused by : Data arriving from an external
@@ -363,22 +363,21 @@
            ; This means that we need to read data
            ; before the connection timeouts
            ; reading receive Buffer Register(RHR)
-           (begin
-             (debug-write "RHR")
-             (uart-read-rhr cpu-port)))
+           (uart-read-rhr cpu-port))
           ((= cause UART-IIR-TIMEOUT)
-           (debug-write "Timeout"))
+           (begin
+             (debug-write "Timeout")
+             (uart-read-rhr cpu-port)))
           (else
             (debug-write "Unknown IIR status"))))
+  ;(cause (UART-IIR-GET-CAUSE iir))
 
   ; Handle a UART interrupt
   ; We know there is a pending interrupt for the port
   ; We can start processing it immediately
   (define (handle-uart-int com-port iir)
-    (debug-write "!")
-    (let* ((cpu-port (COM-PORT->CPU-PORT com-port))
-           (cause (UART-IIR-GET-CAUSE iir)))
-      (uart-handle-cause cpu-port cause)))
+    (let* ((cpu-port (COM-PORT->CPU-PORT com-port)))
+      (uart-handle-iir cpu-port iir)))
 
   (define (make-pump-thread-body com-port endpoint)
     (lambda ()

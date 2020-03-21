@@ -37,29 +37,29 @@ void irq3() {
   }
 }
 
-void show_debug(uint8 iir) {
-    uint8 cause = UART_IIR_GET_CAUSE(iir);
-    switch (cause) {
-        case UART_IIR_MODEM:
-            debug_write("UART_IIR_MODEM");
-            break;
-        case UART_IIR_TRANSMITTER_HOLDING_REG:
-            debug_write("UART_IIR_TRANSMITTER_HOLDING_REG");
-            break;
-        case UART_IIR_RCV_LINE:
-            debug_write("UART_IIR_RCV_LINE");
-            break;
-        case UART_IIR_DATA_AVAIL:
-            debug_write("UART_IIR_DATA_AVAIL");
-            break;
-        case UART_IIR_TIMEOUT:
-            debug_write("UART_IIR_TIMEOUT");
-            break;
-        default:
-            debug_write("Illegal UART interrupt cause");
-            break;
-    }
-}
+/* void show_debug(uint8 iir) { */
+/*     uint8 cause = UART_IIR_GET_CAUSE(iir); */
+/*     switch (cause) { */
+/*         case UART_IIR_MODEM: */
+/*             debug_write("UART_IIR_MODEM"); */
+/*             break; */
+/*         case UART_IIR_TRANSMITTER_HOLDING_REG: */
+/*             debug_write("UART_IIR_TRANSMITTER_HOLDING_REG"); */
+/*             break; */
+/*         case UART_IIR_RCV_LINE: */
+/*             debug_write("UART_IIR_RCV_LINE"); */
+/*             break; */
+/*         case UART_IIR_DATA_AVAIL: */
+/*             debug_write("UART_IIR_DATA_AVAIL"); */
+/*             break; */
+/*         case UART_IIR_TIMEOUT: */
+/*             debug_write("UART_IIR_TIMEOUT"); */
+/*             break; */
+/*         default: */
+/*             debug_write("Illegal UART interrupt cause"); */
+/*             break; */
+/*     } */
+/* } */
 
 void irq4() {
     ASSERT_INTERRUPTS_DISABLED();
@@ -68,8 +68,6 @@ void irq4() {
     uint8 com1_iir = inb(COM1_PORT_BASE + UART_8250_IIR);
     uint8 com3_iir = inb(COM3_PORT_BASE + UART_8250_IIR);
     
-    show_debug(com1_iir);
-
     bool caught_something = FALSE;
 
     if (UART_IIR_PENDING(com1_iir)) {
