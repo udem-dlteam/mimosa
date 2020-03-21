@@ -147,7 +147,7 @@
         (fx> (fxand v m) 0))
 
       (define (b-chop v)
-        (fxand 255 v))
+        (bitwise-and #xFF v))
 
       (define (fxhalve n)
         (fxarithmetic-shift-right n 1))

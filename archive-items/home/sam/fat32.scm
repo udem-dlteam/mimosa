@@ -1,6 +1,11 @@
 ; The mimosa project
 (define-library (fat32)
-    (import (errors) (disk) (gambit) (utils) (debug))
+    (import
+      (errors)
+      (disk)
+      (gambit)
+      (utils)
+      (debug))
     (export 
       TYPE-FOLDER
       TYPE-FILE
