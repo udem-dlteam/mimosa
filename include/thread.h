@@ -116,7 +116,7 @@ const uint32 GAMBIT_SHARED_MEM_LEN = 512;
                 pushl %%eax                                                       \n \
                 pushfl                 # Setup a stack frame with the same format \n \
                 pushl %%cs             #  as expected by the ``iret'' instruction \n \
-                call  *%P0              #  so that ``iret'' can restore the context\n \
+                call  %P0              #  so that ``iret'' can restore the context\n \
                 addl  $8,%%esp         # Remove the third and fourth parameter    \n \
                 popa" \
                 :                                                                       \
