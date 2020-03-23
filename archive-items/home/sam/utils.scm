@@ -1,50 +1,52 @@
 ;; The mimosa project
 (define-library (utils)
                 (import (gambit))
-                (export 
-                  //
+                (export
                   ++
                   --
-                  >>
+                  //
                   <<
-                  s>>
-                  s<<
+                  >>
+                  ID
                   O
                   TIME-UNIT-MICROSECS
                   TIME-UNIT-MS
                   TIME-UNIT-NSECS
-                  TIME-UNIT-SECONDS 
-                  assock 
+                  TIME-UNIT-SECONDS
+                  TODO
+                  assock
                   assocv
                   b-chop
+                  bipartition
+                  both
                   build-vector
+                  displayn
+                  fields
                   filter
+                  first-index
+                  flatten
                   fxhalve
                   gambit-set-repl-channels!
+                  ilog2
                   lwrap
                   mask
                   o
-                  string-trim
-                  until-has-elapsed
-                  zip
-                  flatten
-                  TODO
-                  ilog2
-                  fields
-                  wint32
-                  wint16
-                  wint8
-                  uint32
-                  uint16
-                  uint8
-                  both
-                  ID
+                  replace-error
+                  s<<
+                  s>>
                   split-string
-                  first-index
                   string->u8vector
+                  string-trim
                   u8vector->string
-                  displayn
-                  replace-error)
+                  uint16
+                  uint32
+                  uint8
+                  until-has-elapsed
+                  wint16
+                  wint32
+                  wint8
+                  zip
+                  )
     (begin
       (define (// a b)
         (floor (/ a b)))
@@ -97,7 +99,7 @@
       ; Set the channels on the thread's current repl
       ; it takes three channels (in, out, err)
       (define (gambit-set-repl-channels! chan1 chan2 chan3)
-        (##vector-set! (current-thread) CURRENT-THREAD-CHANNELS-ADDR 
+        (##vector-set! (current-thread) CURRENT-THREAD-CHANNELS-ADDR
          (##make-repl-channel-ports chan1 chan2 chan3)))
 
       (define (nanoseconds->time nsecs)
@@ -129,7 +131,7 @@
         (list->string (list-trim (string->list msg))))
 
       ; Why does this not work...
-      (define-macro (lwrap expr) 
+      (define-macro (lwrap expr)
                     `(lambda () ,expr))
 
       (define TIME-UNIT-SECONDS seconds->time)
@@ -239,20 +241,20 @@
                default)
               ((comp e (car l))
                i)
-              (else 
+              (else
                 (first-index (cdr l) e (++ i) default))))
 
       (define (first-index l comp e default)
         (first-index-aux l comp e 0 default))
 
       (define (split-string separator str)
-        (fold-right 
+        (fold-right
           (lambda (c r)
             (if (eq? c separator)
                 (cons "" r)
-                (cons (string-append (string c) (car r)) (cdr r)) 
+                (cons (string-append (string c) (car r)) (cdr r))
                 ))
-          (list "") 
+          (list "")
           (string->list str)))
 
       (define (ID i) i)
@@ -271,4 +273,22 @@
       (define (replace-error err)
         (lambda (cancelled)
           err))
-      )) 
+
+      ; Partition a list 'l' in two parts according to the truth of predicate 'p'
+      ; and call the continuation 'c' with the two lists as the only two arguments,
+      ; where the first list satisfies the predicate and the second does not.
+      ; It preserves the order elements are found in the list
+      (define (bipartition l p c)
+        (let ((len (length l)))
+          (if (= 0 len)
+              (c '() '())
+              (let ((e (car l)))
+                (bipartition
+                  (cdr l)
+                  p
+                  (lambda (yes no)
+                    (if (p e)
+                        (c (cons e yes) no)
+                        (c yes (cons e no)))))))))
+
+      ))
