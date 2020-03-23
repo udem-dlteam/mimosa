@@ -221,7 +221,8 @@
                            `simulate-backward-move)
                        ,file
                        ,mvmt
-                       (lambda (new-cluster cluster-pos section-start)
+                       (lambda (new-cluster cluster-pos)
+                         (debug-write "IN LAMBDA OF REMF")
                          (fat-file-curr-clus-set! ,file new-cluster)
                          (fat-file-pos-set! ,file (,fn (fat-file-pos ,file) ,mvmt)))))
 
@@ -494,21 +495,12 @@
       ; Convert a cluster number and a cluster offset to a
       ; LBA
       (define (cluster+offset->lba fs cluster offset)
+        (debug-write "C+O->L")
         (let ((lg2bps (filesystem-lg2bps fs))
               (lg2spc (filesystem-lg2spc fs))
               (fds (filesystem-first-data-sector fs)))
-          (debug-write "BPS")
-          (debug-write lg2bps)
-          (debug-write "SPC")
-          (debug-write lg2spc)
-          (debug-write "FDS")
-          (debug-write fds)
-          (debug-write "Cluster")
-          (debug-write cluster)
-          (+
-           fds
-           (<< (- cluster 2) (+ lg2bps lg2spc))
-           (// offset (<< 1 lg2bps)))))
+          (+ fds (<< (- cluster 2) lg2spc) (// offset (<< 1 lg2bps)))))
+
 
       ; --------------------------------------------------
       ; --------------------------------------------------
@@ -563,7 +555,6 @@
             (make-fat-cache dsk bpb))))
 
       (define (open-root-dir fs)
-        (debug-write "open-root-dir")
         (let*
           ((bpb (filesystem-bpb fs))
            (bps (BPB-bps bpb))
@@ -636,6 +627,7 @@
           (fat-file-pos-set! file 0)))
 
       (define (file-set-cursor-absolute! file pos)
+        (debug-write "FSCA!")
         (let ((current-pos (fat-file-pos file)))
           (cond ((= current-pos pos)
                  #t)
@@ -646,6 +638,7 @@
                     (file-move-cursor! file delta))))))
 
       (define (traverse-fat-chain relative-to mvmt chain)
+        (debug-write "TFC")
         (if (= mvmt 0)
             relative-to
             (let ((link (table-ref chain relative-to)))
@@ -653,19 +646,31 @@
                   (traverse-fat-chain (cache-link-next link) (-- mvmt) chain)
                   (traverse-fat-chain (cache-link-prev link) (++ mvmt) chain)))))
 
-      (define-macro (simulate-direction-move direction f rewind c)
+      (define-macro (simulate-direction-move direction file rewind c)
                     `(let* ((fs (fat-file-fs file))
+                            (temp (debug-write "A"))
                             (lg2spc (filesystem-lg2spc fs))
+                            (temp (debug-write "B"))
                             (lg2bps (filesystem-lg2bps fs))
+                            (temp (debug-write "C"))
                             (lg2bpc (filesystem-lg2bpc fs))
+                            (temp (debug-write "D"))
                             (bpc (filesystem-bpc fs))
+                            (temp (debug-write "E"))
                             (pos (fat-file-pos file))
+                            (temp (debug-write "E!"))
+                            (temp (debug-write pos))
+                            (temp (debug-write bpc))
                             (section-pos (modulo pos bpc))
+                            (temp (debug-write "F"))
                             (diff (max 0 (- rewind section-pos))))
+                            (debug-write "G")
                             (if (> diff 0)
                                 ; need to go over boundary
-                                (let* ((start-cluster (fat-file-curr-clus file))
+                                (let* ((temp (debug-write "H"))
+                                       (start-cluster (fat-file-curr-clus file))
                                        (cluster-mvmt (>> diff lg2bpc))
+                                       (debug-write "I")
                                        ,(if (eq? direction 'BACKWARDS)
                                             `(cluster-leftover (- bpc (modulo diff (<< 1 lg2bpc))))
                                             `(cluster-leftover (modulo diff (<< 1 lg2bpc))))
@@ -679,12 +684,13 @@
                                                             start-cluster
                                                             (+ 1 cluster-mvmt)
                                                             (filesystem-fat-cache fs)))))
-                                  (c
-                                    new-cluster
-                                    cluster-leftover))
-                                (c
-                                  (fat-file-curr-clus file)
-                                  (,(if (eq? direction 'BACKWARDS) `- `+) section-pos rewind)))))
+                                  (c new-cluster cluster-leftover))
+                                (begin
+                                 (debug-write "H'")
+                                 (debug-write (fat-file-curr-clus file))
+                                 (c (fat-file-curr-clus file)
+                                    (,(if (eq? direction 'BACKWARDS) `- `+) section-pos rewind))
+                                 ))))
 
       (define (simulate-backward-move file rewind c)
         (simulate-direction-move 'BACKWARDS file rewind c))
@@ -704,26 +710,30 @@
             (simulate-backward-move file (abs delta) c)))
 
       (define (file-move-cursor! file delta)
+        (debug-write "FMC")
+        (debug-write delta)
         (if (> delta 0)
             (file-move-cursor-forward! file delta)
-            (file-move-cursor-backward! file (abs delta))))
+            (file-move-cursor-backward! file (abs delta)))
+        (debug-write "FMC EN")
+        )
 
       (define (update-link-next cache clus new-next)
-        (let* ((link (table-ref cache cluster))
-               (previous-next-no (cache-link-next link))
-               (previous-next-link (table-ref cache previous-next-no))
-               (new-next-link (table-ref cache new-next)))
+        (let* ((link (table-ref cache clus))
+               (previous-next-no (cache-link-next link)))
           ; Update the new link
           (cache-link-next-set! link new-next)
           (if (and
                 (not (mask new-next FAT-32-EOF))
                 (> new-next 0))
-              (cache-link-prev-set! new-next-link clus))
+              (let ((new-next-link (table-ref cache new-next)))
+                (cache-link-prev-set! new-next-link clus)))
           ; If it was set to something, unset it
           (if (and
                 (not (mask previous-next-no FAT-32-EOF))
                 (> previous-next-no 0))
-              (cache-link-prev-set! previous-next-link 0))))
+              (let ((previous-next-link (table-ref cache previous-next-no)))
+                (cache-link-prev-set! previous-next-link 0)))))
 
       ; Set the next cluster, move to it and return the FAT array
       ; with the file as an argument
@@ -773,7 +783,6 @@
       ; the succ continuation with the logical entry or fail if the
       ; entry does not seem to exist.
       (define (search-entry file name succ fail)
-        (debug-write "SEARCH ENTRY")
         (search-entry-aux
           file
           name
@@ -977,9 +986,6 @@
             parent
             (- entry-width)
             (lambda (parent-cluster parent-section-pos)
-              (debug-write "PARENT")
-              (debug-write parent-cluster)
-              (debug-write parent-section-pos)
               (make-fat-file
                 fs
                 cluster
@@ -995,7 +1001,6 @@
       ; Follow a path (folder list) and return the last part
       ; described by the path
       (define (follow-path from to succ fail)
-        (debug-write "FOLLOW PATH")
         (let ((l (length to)))
           (if (= l 0)
               (succ from)
@@ -1003,7 +1008,6 @@
                 from ; we search from there
                 (car to) ; next child
                 (lambda (f) ; on success
-                  (debug-write "FOLLOW PATH SUCC")
                   (follow-path
                     (logical-entry->file
                       from
@@ -1095,7 +1099,6 @@
       ; --------------------------------------------------
 
       (define (read-bytes-aux! file fs buff idx count fail)
-        (debug-write "RBA!")
         (if (> count 0)
             (let* ((lg2spc (filesystem-lg2spc fs))
                    (lg2bps (filesystem-lg2bps fs))
@@ -1104,59 +1107,48 @@
                    (bpc (s<< 1 (+ lg2bps lg2spc)))
                    (pos (fat-file-pos file))
                    (cluster (fat-file-curr-clus file))
-                   (succ (lambda (file)
-                           (debug-write "RBA! SUCC")
-                           (let* ((disk (filesystem-disk fs))
-                                  (pos (fat-file-pos file))
-                                  (cluster-pos (modulo pos bpc))
-                                  (ignore (debug-write cluster-pos))
-                                  ; How many bytes left in cluster?
-                                  (left-in-cluster (- bpc cluster-pos))
-                                  ; How many bytes left in sector?
-                                  (left-in-sector (- bps (modulo cluster-pos bps)))
-                                  (left-in-file (if (folder? file)
-                                                    (++ count)
-                                                    (- (fat-file-len file) pos)))
-                                  (sz (min count left-in-cluster left-in-sector left-in-file))
-                                  (lba (cluster+offset->lba
-                                         fs
-                                         (fat-file-curr-clus file)
-                                         cluster-pos))
-                                  (ignore (debug-write lba))
-                                  (offset (modulo cluster-pos bps)))
-                             (with-sector
-                               disk
-                               lba
-                               MRO
-                               (lambda (vect)
-                                 (for-each
-                                   (lambda (i) (vector-set!
-                                                 buff
-                                                 (+ i idx)
-                                                 (vector-ref
-                                                   vect
-                                                   (+ i offset))))
-                                   (iota sz))))
-                             (fat-file-pos-set! file (+ sz pos))
-                             (debug-write "RBA! SUCC B4 REC")
-                             (read-bytes-aux!
-                               file
-                               fs
-                               buff
-                               (+ idx sz)
-                               (- count sz)
-                               fail))
-                               )))
-              (if (>= pos (* bpc (++ cluster)))
-                  ; out of bounds of the sector, go fetch the next one
-                  (begin
-                   (debug-write "MOV")
-                   (move-next-cluster! file (next-cluster file) succ fail))
-                  (succ file)))
+                   (disk (filesystem-disk fs))
+                   (pos (fat-file-pos file))
+                   (cluster-pos (modulo pos bpc))
+                   ; How many bytes left in cluster?
+                   (left-in-cluster (- bpc cluster-pos))
+                   ; How many bytes left in sector?
+                   (left-in-sector (- bps (modulo cluster-pos bps)))
+                   (left-in-file (if (folder? file)
+                                     (++ count)
+                                     (- (fat-file-len file) pos)))
+                   (sz (min count left-in-cluster left-in-sector left-in-file))
+                   (lba (cluster+offset->lba
+                          fs
+                          (fat-file-curr-clus file)
+                          cluster-pos))
+                   (offset (modulo cluster-pos bps)))
+              (with-sector
+                disk
+                lba
+                MRO
+                (lambda (vect)
+                  (for-each
+                    (lambda (i) (vector-set!
+                                  buff
+                                  (+ i idx)
+                                  (vector-ref
+                                    vect
+                                    (+ i offset))))
+                    (iota sz))))
+              (fat-file-pos-set! file (+ sz pos))
+              (if (= 0 (modulo (+ sz pos) bpc))
+                  ; Move to next cluster
+                  (move-next-cluster!
+                    file
+                    (next-cluster file)
+                    (lambda (f)
+                      (read-bytes-aux! file fs buff (+ idx sz) (- count sz) fail))
+                    fail)
+                  (read-bytes-aux! file fs buff (+ idx sz) (- count sz) fail)))
             buff))
 
       (define (read-bytes! file count fail)
-        (debug-write "READ B!")
         (let* ((fs (fat-file-fs file))
                (count (if (= -1 count)
                           (fat-file-len file)
@@ -1236,6 +1228,7 @@
 
 
       ; TODO: MAKE FAT FILE
+      ; JEtais en train de fix le write-bytes! comme le read bytes
 
       ; Write 'len' bytes from the vector 'vect' starting at offset 'offset'
       ; the continuation fail is called if the data could not be written.
@@ -1243,47 +1236,72 @@
       ; If necessary, the sector boundary will be moved and extended
       (define (write-bytes! file vect offset len fail)
         (if (> len 0)
-            (let* ((lg2spc (filesystem-lg2spc fs))
+            (let* (
+                   (temp (debug-write 1))
+                   (fs (fat-file-fs file))
+                   (temp (debug-write 2))
+                   (lg2spc (filesystem-lg2spc fs))
+                   (temp (debug-write 3))
                    (lg2bps (filesystem-lg2bps fs))
+                   (temp (debug-write 4))
                    (bps (s<< 1 lg2bps))
+                   (temp (debug-write 5))
                    (spc (s<< 1 lg2spc))
-                   (bpc (s<< 1 (+ lg2bps lg2spc)))
+                   (temp (debug-write 6))
+                   (bpc (filesystem-bpc fs))
+                   (temp (debug-write 7))
                    (cluster (fat-file-curr-clus file))
-                   (wrt (lambda (f)
-                          (let* ((cluster-start
-                                   (cluster->lba
-                                     fs
-                                     (fat-file-curr-clus f)))
-                                 (fs (fat-file-fs file))
-                                 (disk (filesystem-disk fs))
-                                 (pos (fat-file-pos file))
-                                 (cluster-pos (modulo pos bpc))
-                                 ; How many bytes left in cluster?
-                                 (left-in-cluster (- bpc cluster-pos))
-                                 ; How many bytes left in sector?
-                                 (left-in-sector (- bps (modulo cluster-pos bps)))
-                                 (sz (min len left-in-cluster left-in-sector))
-                                 (lba (+ cluster-start (// cluster-pos bps)))
-                                 (dest-offset (modulo cluster-pos bps)))
-                            (with-sector
-                              disk
-                              lba
-                              MRW
-                              ; write to vector
-                              (lambda (v)
-                                (vector-copy!
-                                  v
-                                  dest-offset
-                                  vect
-                                  offset
-                                  (+ offset len))))
-                            (fat-file-pos-set! f (+ sz pos))
-                            (write-bytes! f vect (+ offset sz) (- len sz) fail)))))
-              (if (>= pos (* (++ cluster) bpc))
+                   (temp (debug-write 8))
+                   (disk (filesystem-disk fs))
+                   (temp (debug-write 9))
+                   (pos (fat-file-pos file))
+                   (temp (debug-write 10))
+                   (cluster-pos (modulo pos bpc))
+                   (temp (debug-write 11))
+                   ; How many bytes left in cluster?
+                   (left-in-cluster (- bpc cluster-pos))
+                   (temp (debug-write 12))
+                   ; How many bytes left in sector?
+                   (left-in-sector (- bps (modulo cluster-pos bps)))
+                   (temp (debug-write 13))
+                   (sz (min len left-in-cluster left-in-sector))
+                   (temp (debug-write 14))
+                   (lba (cluster+offset->lba fs (fat-file-first-clus file) cluster-pos))
+                   (temp (debug-write 14))
+                   (temp (debug-write 114))
+                   (temp (debug-write cluster-pos))
+                   (temp (debug-write 115))
+                   (temp (debug-write bps))
+                   (temp (debug-write "BEFORE MOD"))
+                   (dest-offset (modulo cluster-pos bps))
+                   )
+              (debug-write 15)
+              (with-sector
+                disk
+                lba
+                MRW
+                ; write to vector
+                (lambda (v)
+                  (debug-write "IN WITH-SECTOR")
+                  (vector-copy!
+                    v
+                    dest-offset
+                    vect
+                    offset
+                    (+ offset len))))
+              (debug-write "UPDATE")
+              (fat-file-pos-set! file (+ sz pos))
+              (debug-write "B4 IF")
+              (if (= 0 (modulo (+ sz pos) bpc))
+               (fetch-or-allocate-next-cluster
+                 file
+                 (lambda (file)
+                   (debug-write "WRT EXTEND")
+                   (write-bytes! file vect (+ offset sz) (- len sz) fail))
+                 fail)
                   (begin
-                   (debug-write "MOV")
-                   (fetch-or-allocate-next-cluster file wrt fail)) ; fetch and then write
-                  (wrt file))) ; write
+                   (debug-write "WRT NOT EXTEND")
+                   (write-bytes! file vect (+ offset sz) (- len sz) fail))))
             #t))
 
       (define (read-string! file len fail)
@@ -1303,11 +1321,13 @@
           (make-root-entry file)))
 
       (define (file-write! file vect offset len fail)
+        (debug-write "STARTING WRITING")
         (let ((result (write-bytes! file vect offset len fail)))
           (let ((pos (fat-file-pos file))
                 (max-len (fat-file-len file)))
             (if (> pos max-len)
                 (update-file-len file pos)))
+          (debug-write "DONE WRITING")
           result))
 
       ; Truncate a file
@@ -1458,6 +1478,8 @@
               (find-first-free-cluster
                 fs
                 (lambda (cluster link)
+                  (debug-write "FIRST FREE CLUSTER")
+                  (debug-write cluster)
                   (let* ((new-file (make-empty-fat-file
                                      fs
                                      parent
@@ -1466,13 +1488,17 @@
                                      file-name))
                          (entries (fat-file->entries new-file))
                          (wrt (lambda (offset)
+                                (debug-write "WRT")
                                 ; Set the cursor to the right place
                                 (file-set-cursor-absolute! parent offset)
+                                (debug-write "IN MIDDLE")
                                 ; The offset is set to zero when we create the empty file
                                 (fat-file-entry-offset-set! new-file offset)
                                 ; Fold right we start right from left, which is what we want
+                                (debug-write "B4 FOLD")
                                 (fold-right
                                   (lambda (e r)
+                                    (debug-write "IN FOLD")
                                     (let ((v (make-vector entry-width 0)))
                                       (write-bytes!
                                         parent
@@ -1486,8 +1512,7 @@
                                     (++ r))
                                   0
                                   entries)
-                                new-file
-                                )))
+                                new-file)))
                     (look-for-n-available-entries!
                       parent
                       (length entries)
