@@ -31,7 +31,9 @@
       c-tests
       d-tests
       f-tests
-      f-test)
+      f-test
+      g-tests
+      )
     (begin
       ; --------------------------------------------------
       ; --------------------------------------------------
@@ -41,6 +43,7 @@
       ; --------------------------------------------------
       ; --------------------------------------------------
       (define FAT-LINK-MASK #x0FFFFFFF)
+      (define FAT-DELETED-MARKER #xE5)
       (define FILE-MODE-READ (arithmetic-shift 1 0))
       (define FILE-MODE-TRUNC (arithmetic-shift 1 1))
       (define FILE-MODE-APPEND (arithmetic-shift 1 2))
@@ -863,7 +866,7 @@
               (if (entry-deleted? e)
                   (if (= (++ conseq) n)
                       ; Done: find the position
-                      (succ (- (fat-file-pos folder) (* n entry-width)))
+                        (succ (- (fat-file-pos folder) (* n entry-width)))
                       (begin
                         (set! conseq (++ conseq))
                         (next)))
@@ -878,12 +881,13 @@
             (lambda (err)
               (fail
                 err
+                ; WHY
                 (cond ((eq? ERR-EOF err) ; we did not move the cursor
                        (- (fat-file-pos folder)
                           (* conseq entry-width)))
                       ((eq? ERR-NO-MORE-ENTRIES err) ; the cursor moved before we read 0
-                       (- (fat-file-pos folder)
-                          (* (++ conseq) entry-width)))
+                        (- (fat-file-pos folder)
+                           (* (++ conseq) entry-width)))
                       (else -1)))))))
 
       ; Create a collection of long file name starting at ordinal 'ith'
@@ -1160,7 +1164,8 @@
                (entries-per-sector (BPB-entries-per-sector bpb))
                (offset (modulo cluster entries-per-sector))
                (lba-offset (// cluster entries-per-sector))
-               (next (cache-link-next cluster))
+               (link (table-ref cache cluster))
+               (next (cache-link-next link))
                (d (filesystem-disk fs)))
           (with-sector
             d
@@ -1170,7 +1175,8 @@
               (update-link-next (filesystem-fat-cache fs) cluster 0) ; erase in the cache
               (wint32 vect (<< offset 2) 0) ; erase on disk
               ; stack the env to flush to disk the minimal amount of time
-              (unlink-chain-aux fs cache next)
+              (if (not (mask FAT-32-EOF next))
+                  (unlink-chain-aux fs cache next))
               ))))
 
       (define (unlink-chain fs cluster)
@@ -1222,7 +1228,7 @@
                    (sz (min len left-in-cluster left-in-sector))
                    (lba (cluster+offset->lba
                           fs
-                          (fat-file-first-clus file)
+                          (fat-file-curr-clus file)
                           cluster-pos))
                    (dest-offset (modulo cluster-pos bps)))
               (with-sector
@@ -1312,47 +1318,73 @@
                   ((mask ored FILE-MODE-APPEND)
                    FILE-MODE-APPEND)))))
 
-      ; (define (flush-fat-file-to-disk file entry-chain)
-      ;   (let ((l (length entry-chain))
-      ;         (fs (fat-file-fs file))
-      ;         (dsk (filesystem-disk fs))
-      ;         ; We can use the fact that a long file name never spans
-      ;         ; more than two clusters
-      ;         (entry-cluster (fat-file-entry-cluster file))
-      ;         ; TODO: check if the offset is within the cluster
-      ;         (entry-offset  (fat-file-entry-offset file))
-      ;         (entry-lba (cluster+offset->lba
-      ;                      fs
-      ;                      entry-cluster entry-offset))
+      (define (flush-fat-file-to-disk file entry-chain)
+        (let* ((l (length entry-chain))
+              (fs (fat-file-fs file))
+              (bps (<< 1 (filesystem-lg2bps fs)))
+              (dsk (filesystem-disk fs))
+              ; We can use the fact that a long file name never spans
+              ; more than two sectors
+              (entry-cluster (fat-file-entry-cluster file))
 
-      ;         )
-      ;     (let ((offsets (map
-      ;                      (lambda (i)
-      ;                        (cons
-      ;                          (list-ref entry-chain i)
-      ;                          (+ entry-offset (* entry-width (- i (- l 1))))))
-      ;                      (iota l))))
-      ;       (bipartition
-      ;         offsets
-      ;         (lambda (i) (< (cdr i) 0))
-      ;         (lambda (prev curr)
-      ;           ; Write previous
-      ;           (if (> (length prev) 0)
-
-      ;               )
-      ;           ; Write currents
-      ;           (with-sector
-      ;             dsk
-      ;             entry-lba
-      ;             (lambda (sector)
-
-
-
-      ;              )
-      ;             )
-
-      ;           )))
-      ;     ))
+              ; TODO: check if the offset is within the cluster
+              (entry-offset  (fat-file-entry-offset file))
+              (entry-lba (cluster+offset->lba
+                           fs
+                           entry-cluster entry-offset)))
+          (let ((offsets (map
+                           (lambda (i)
+                             (cons
+                               (list-ref entry-chain i)
+                               (+ entry-offset (* entry-width (- i (- l 1))))))
+                           (iota l))))
+            (bipartition
+              offsets
+              (lambda (i) (< (cdr i) 0))
+              (lambda (prev curr)
+                ; Write previous
+                (if (> (length prev) 0)
+                    (let* ((offsets-cluster (map cdr prev))
+                           (start-offset (apply min offsets-cluster))
+                           (chain (filesystem-fat-cache fs))
+                           (link (table-ref chain entry-cluster))
+                           (prev-cluster (cache-link-prev link))
+                           (lba (cluster+offset->lba previous-cluster start-offset)))
+                      (with-sector
+                        dsk
+                        lba
+                        MRW
+                        (lambda (vect)
+                          (for-each
+                            (lambda (entry-and-offset)
+                              ; I wish there was a canonical form
+                              ; for this. Some sort of unpacking (like python)
+                              (let* ((offset (cdr entry-and-offset))
+                                     (entry (car entry-and-offset))
+                                     (offset (modulo offset bps)))
+                                (unpack-lfn entry vect offset)))
+                            prev)))))
+                (let* ((offsets-cluster (map cdr curr))
+                       (start-offset (apply min offsets-cluster))
+                       (chain (filesystem-fat-cache fs)))
+                  (with-sector
+                    dsk
+                    entry-lba
+                    MRW
+                    (lambda (vect)
+                      (for-each
+                        (lambda (entry-and-offset)
+                          (let* ((offset (cdr entry-and-offset))
+                                 (entry (car entry-and-offset))
+                                 (offset (modulo offset bps)))
+                            ((if (lfn? entry)
+                                 unpack-lfn
+                                 unpack-entry)
+                             entry
+                             vect
+                             offset)))
+                        curr))))
+                )))))
 
       (define (flush-fat-entry-to-disk file entry)
         (let* ((fs (fat-file-fs file))
@@ -1464,8 +1496,9 @@
         entry)
 
       (define (file-delete! fs path)
-        (let ((parts (simplify-path path))
-              (root (open-root-dir fs)))
+        (let* ((parts (simplify-path path))
+               (chain (filesystem-fat-cache fs))
+               (root (open-root-dir fs)))
           (follow-path
             root
             parts
@@ -1535,5 +1568,8 @@
       (define (f-tests)
         (let ((fs (car filesystem-list)))
           (list-directory (open-root-dir fs))))
+
+      (define (g-tests)
+       (file-delete! (car filesystem-list) "home/sam/fact.scm"))
 
       ))
