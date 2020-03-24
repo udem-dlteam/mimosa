@@ -103,7 +103,7 @@
     (subvector-move! vect2 start2 end2 new-buf start1)))
 
 (define (read-all path)
- (file-read! (open-fat-file fs path "r") -1 ID))
+ (file-read! (file-open! fs path "r") -1 ID))
 
 (define (file-read path)
   (let* ((content (read-all path))

@@ -1326,12 +1326,9 @@
               ; We can use the fact that a long file name never spans
               ; more than two sectors
               (entry-cluster (fat-file-entry-cluster file))
-
               ; TODO: check if the offset is within the cluster
               (entry-offset  (fat-file-entry-offset file))
-              (entry-lba (cluster+offset->lba
-                           fs
-                           entry-cluster entry-offset)))
+              (entry-lba (cluster+offset->lba fs entry-cluster entry-offset)))
           (let ((offsets (map
                            (lambda (i)
                              (cons
@@ -1367,6 +1364,10 @@
                 (let* ((offsets-cluster (map cdr curr))
                        (start-offset (apply min offsets-cluster))
                        (chain (filesystem-fat-cache fs)))
+                  (debug-write "CLUSTER")
+                  (debug-write start-offset)
+                  (debug-write "LBA")
+                  (debug-write entry-lba)
                   (with-sector
                     dsk
                     entry-lba
@@ -1377,12 +1378,22 @@
                           (let* ((offset (cdr entry-and-offset))
                                  (entry (car entry-and-offset))
                                  (offset (modulo offset bps)))
+                            (debug-write "LFN?")
+                            (debug-write (lfn? entry))
+                            (debug-write "OFFSET")
+                            (debug-write offset)
+                            (if (not (entry? entry))
+                                (entry-name-set! entry (make-vector 11 97)))
+                            (debug-write "VECTOR")
+                            (debug-write vect)
+
                             ((if (lfn? entry)
                                  unpack-lfn
                                  unpack-entry)
                              entry
                              vect
-                             offset)))
+                             offset))
+                          )
                         curr))))
                 )))))
 
@@ -1458,11 +1469,12 @@
                                      type
                                      file-name))
                          (entries (fat-file->entries new-file))
+                         (bpc (filesystem-bpc fs))
                          (wrt (lambda (offset)
                                 ; Set the cursor to the right place
                                 (file-set-cursor-absolute! parent offset)
                                 ; The offset is set to zero when we create the empty file
-                                (fat-file-entry-offset-set! new-file offset)
+                                (fat-file-entry-offset-set! new-file (modulo offset bpc))
                                 ; Fold right we start right from left, which is what we want
                                 (fold-right
                                   (lambda (e r)
