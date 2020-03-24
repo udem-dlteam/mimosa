@@ -33,6 +33,7 @@
       f-tests
       f-test
       g-tests
+      h-tests
       )
     (begin
       ; --------------------------------------------------
@@ -256,8 +257,8 @@
                         curr-clus
                         pos
                         len
-                        entry-cluster
-                        entry-offset
+                        entry-cluster ; cluster where the entry is located
+                        entry-offset ; offset within that cluster where the entry is located
                         type
                         mode
                         entry
@@ -954,7 +955,7 @@
       ; Create a file after we just read the entry of said file
       ; The cursor is simulated backwards so we get the cluster of the
       ; parent correctly
-      (define (logical-entry->file parent pos logical)
+      (define (logical-entry->file parent logical)
         (let* ((fs (fat-file-fs parent))
                (fds (filesystem-first-data-sector fs))
                (cluster (build-cluster logical))
@@ -963,15 +964,15 @@
           (simulate-move
             parent
             (- entry-width)
-            (lambda (parent-cluster parent-section-pos)
+            (lambda (entry-cluster entry-offset)
               (make-fat-file
                 fs
                 cluster
                 cluster
                 0
                 (logical-entry-file-size logical)
-                parent-cluster
-                parent-section-pos
+                entry-cluster
+                entry-offset
                 (logical-entry-type logical)
                 FILE-MODE-READ
                 logical)))))
@@ -987,10 +988,7 @@
                 (car to) ; next child
                 (lambda (f) ; on success
                   (follow-path
-                    (logical-entry->file
-                      from
-                      (- (fat-file-pos from) entry-width)
-                      f)
+                    (logical-entry->file from f)
                     (cdr to)
                     succ
                     fail))
@@ -1264,10 +1262,10 @@
               (read-string! file len fail))))
 
       (define (update-file-len file len)
+        (debug-write "UPDATE FILE LEN")
         (fat-file-len-set! file len)
-        (flush-fat-entry-to-disk
-          file
-          (make-root-entry file)))
+        (flush-fat-entry-to-disk file (make-root-entry file))
+        (debug-write "AFTER UPDATE FILE LEN"))
 
       (define (file-write! file vect offset len fail)
         (let ((result (write-bytes! file vect offset len fail)))
@@ -1401,16 +1399,23 @@
         (let* ((fs (fat-file-fs file))
                (entry-cluster (fat-file-entry-cluster file))
                (entry-offset  (fat-file-entry-offset file))
-               (lba (+ (filesystem-first-data-sector fs)
-                       (- entry-cluster 2)
-                       (// entry-offset (<< 1 (filesystem-lg2bps fs)))))
-               (leftover-offset (modulo entry-offset (filesystem-lg2bps fs))))
+               (lba (cluster+offset->lba fs entry-cluster entry-offset))
+               (offset (modulo entry-offset (<< 1 (filesystem-lg2bps fs)))))
+          (debug-write "entry cluster")
+          (debug-write entry-cluster)
+          (debug-write "OFFSET")
+          (debug-write entry-offset)
           (with-sector
             (filesystem-disk fs)
             lba
             MRW
             (lambda (vect)
-              (unpack-entry entry vect entry-offset)))))
+              (debug-write "TEMP")
+              (debug-write vect)
+              (unpack-entry
+                entry
+                vect
+                offset)))))
 
       (define (make-empty-fat-file
                 fs
@@ -1428,7 +1433,7 @@
             clus
             0
             0
-            (fat-file-first-clus parent)
+            0
             0
             type
             (fxior FILE-MODE-TRUNC FILE-MODE-PLUS)
@@ -1470,11 +1475,17 @@
                                      file-name))
                          (entries (fat-file->entries new-file))
                          (bpc (filesystem-bpc fs))
+                         (n (length entries))
                          (wrt (lambda (offset)
                                 ; Set the cursor to the right place
                                 (file-set-cursor-absolute! parent offset)
-                                ; The offset is set to zero when we create the empty file
-                                (fat-file-entry-offset-set! new-file (modulo offset bpc))
+                                (simulate-move
+                                 parent
+                                 (* entry-width (-- n))
+                                 (lambda (entry-cluster entry-offset)
+                                   ; Set the correct entry coodinates
+                                   (fat-file-entry-cluster-set! new-file entry-cluster)
+                                   (fat-file-entry-offset-set! new-file entry-offset)))
                                 ; Fold right we start right from left, which is what we want
                                 (fold-right
                                   (lambda (e r)
@@ -1494,7 +1505,7 @@
                                 new-file)))
                     (look-for-n-available-entries!
                       parent
-                      (length entries)
+                      n
                       wrt
                       (lambda (err offset) (if (>= offset 0) (wrt offset) (ID err))))))
                 ID))
@@ -1583,5 +1594,9 @@
 
       (define (g-tests)
        (file-delete! (car filesystem-list) "home/sam/fact.scm"))
+
+     (define (h-tests)
+      (let ((f (a-tests)))
+       (file-write! f (string->u8vector "test") 0 4 ID)))
 
       ))
