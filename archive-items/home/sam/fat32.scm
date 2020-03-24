@@ -676,8 +676,8 @@
       (define (simulate-backward-move file rewind c)
         (simulate-direction-move 'BACKWARDS file rewind c))
 
-      (define (simulate-forward-move file wind c)
-        (simulate-direction-move 'FORWARDS file wind c))
+      (define (simulate-forward-move file rewind c)
+        (simulate-direction-move 'FORWARDS file rewind c))
 
       (define (file-move-cursor-backward! file rewind)
         (relative-move-function file rewind -))
