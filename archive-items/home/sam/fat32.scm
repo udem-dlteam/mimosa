@@ -8,32 +8,24 @@
       (utils)
       (debug))
     (export
-      TYPE-FOLDER
       TYPE-FILE
-      pack-BPB
-      pack-entry
+      TYPE-FOLDER
       entry-name
+      fat-file-exists?
+      file-create!
+      file-delete!
+      file-open!
       file-read!
       file-write!
-      file-delete!
-      file-create!
-      file-open!
-      fat-file-exists?
-      list-directory
-      simplify-path
-      mount-partitions
       filesystem-list
+      list-directory
       look-for-n-available-entries!
       make-lfns
+      mount-partitions
+      pack-BPB
+      pack-entry
+      simplify-path
       write-file
-      a-tests
-      b-tests
-      c-tests
-      d-tests
-      f-tests
-      f-test
-      g-tests
-      h-tests
       )
     (begin
       ; --------------------------------------------------
@@ -941,15 +933,14 @@
         (let* ((underlying-entry (fat-file-entry file))
                (name (logical-entry-name underlying-entry))
                (name-l (string-length name))
-               (requires-lfn? (or
+               (requires-lfn? (or; sometimes an host FS will create lfns
+                                 ; to avoid having the name in all caps
                                 (logical-entry-lfn? (fat-file-entry file))
                                 (> name-l FAT-SHORT-FILE-NAME-MAX-LEN)))
                (hdr (make-root-entry file)))
-          (cons
-            hdr
-            (if requires-lfn?
-                (make-lfns name 1 (checksum (entry-name hdr)))
-                (list)))))
+          (cons hdr (if requires-lfn?
+                        (make-lfns name 1 (checksum (entry-name hdr)))
+                        (list)))))
 
       ; Create a list of subitems in a directory
       (define (list-directory folder)
@@ -1043,8 +1034,7 @@
               (if (fx= link-next 0)
                   (succ index link)
                   (find-first-free-cluster-aux cache (++ index) len succ fail)))
-            (fail ERR-EOF)
-            ))
+            (fail ERR-EOF)))
 
       ; Find the first free cluster in the FS file table.
       ; the fail continuation is called in case of error,
@@ -1109,12 +1099,13 @@
                 MRO
                 (lambda (vect)
                   (for-each
-                    (lambda (i) (vector-set!
-                                  buff
-                                  (+ i idx)
-                                  (vector-ref
-                                    vect
-                                    (+ i offset))))
+                    (lambda (i)
+                      (vector-set!
+                        buff
+                        (+ i idx)
+                        (vector-ref
+                          vect
+                          (+ i offset))))
                     (iota sz))))
               (fat-file-pos-set! file (+ sz pos))
               (if (= 0 (modulo (+ sz pos) bpc))
@@ -1527,58 +1518,4 @@
               (fat-file-mode-set! f mode)
               f)
             (lambda (err) ERR-FNF))))
-
-      ; --------------------------------------------------
-      ; --------------------------------------------------
-      ; --------------------------------------------------
-      ;                      Tests
-      ; --------------------------------------------------
-      ; --------------------------------------------------
-      ; --------------------------------------------------
-
-      (define (f-test fs)
-        (look-for-n-available-entries!
-          (open-root-dir fs)
-          5
-          ID
-          (lambda (err pos)
-            (display err)
-            (display pos))))
-
-      (define (a-tests)
-        (let ((fs (car filesystem-list)))
-          (file-create! fs "home/sam/thisisafilewithalongfilenameevenlonguernow.txt" TYPE-FILE)))
-
-      (define (b-tests)
-        (let ((fs (car filesystem-list)))
-          (follow-path (open-root-dir fs) (list "home") list-directory ID)))
-
-      (define (c-tests)
-        (let ((fs (car filesystem-list)))
-          (file-create! fs "home/thisisafilewithalongfilename.txt" TYPE-FILE)))
-
-      (define (d-tests)
-        (let ((fs (car filesystem-list)))
-          (follow-path (open-root-dir fs) (list "home" "sam") list-directory ID)))
-
-      (define (f-tests)
-        (let ((fs (car filesystem-list)))
-          (list-directory (open-root-dir fs))))
-
-      (define (g-tests)
-        (let* ((fs (car filesystem-list))
-               (f (file-open! fs "home/sam/fact.scm" "a")))
-          (display f)
-          (file-write!
-            f
-            (string->u8vector "alongstringthatiamwritingathtendofafile")
-            0
-            (string-length "alongstringthatiamwritingathtendofafile")
-            ID
-            )
-          ))
-
-      (define (h-tests)
-        (file-delete! (car filesystem-list) "home/sam/fact.scm"))
-
-      ))
+))
