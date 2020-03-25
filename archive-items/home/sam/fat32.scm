@@ -634,7 +634,6 @@
           (fat-file-pos-set! file 0)))
 
       (define (file-set-cursor-absolute! file pos)
-        (debug-write "FSCA")
         (let ((current-pos (fat-file-pos file)))
           (cond ((= current-pos pos)
                  #t)
@@ -642,8 +641,6 @@
                  (file-reset-cursor! file))
                 (else
                   (let ((delta (- pos current-pos)))
-                    (debug-write "Moving delta...")
-                    (debug-write delta)
                     (file-move-cursor! file delta))))))
 
       (define (traverse-fat-chain relative-to mvmt chain)
@@ -661,7 +658,6 @@
                             (lg2bpc (filesystem-lg2bpc fs))
                             (bpc (filesystem-bpc fs))
                             (pos (fat-file-pos file))
-                            (temp (debug-write pos))
                             (section-pos (modulo pos bpc))
                             (diff (+ section-pos rewind))
                             (spanned-clusters (>> diff lg2bpc)))
@@ -682,8 +678,6 @@
         (simulate-direction-move 'BACKWARDS file rewind c))
 
       (define (simulate-forward-move file rewind c)
-        (debug-write "Simulate forward move")
-        (debug-write rewind)
         (simulate-direction-move 'FORWARDS file rewind c))
 
       (define (file-move-cursor-backward! file rewind)
@@ -1196,14 +1190,11 @@
 
       ; Fetch the next cluster
       (define (fetch-or-allocate-next-cluster file c fail)
-        (debug-write "FORANC")
         (move-next-cluster!
           file
           (next-cluster file)
           c
           (lambda (err-code) ; check the error code. If EOF, we allocate a new cluster
-            (debug-write "Allocate a new cluster")
-            (debug-write err-code)
             (if (eq? err-code ERR-EOF)
                 (begin ; create a new cluster
                   (find-first-free-cluster
@@ -1221,11 +1212,6 @@
       ; data is written at the current cursor position of the file 'file'
       ; If necessary, the sector boundary will be moved and extended
       (define (write-bytes! file vect offset len fail)
-        (debug-write "write-bytes!")
-        (debug-write "offset:")
-        (debug-write offset)
-        (debug-write "len")
-        (debug-write len)
         (if (> len 0)
             (let* ((fs (fat-file-fs file))
                    (lg2spc (filesystem-lg2spc fs))
@@ -1247,23 +1233,18 @@
                           (fat-file-curr-clus file)
                           cluster-pos))
                    (dest-offset (modulo cluster-pos bps)))
-              (debug-write (string-append "Writing " (number->string sz) " bytes"))
-              (debug-write (fat-file-curr-clus file))
-              (debug-write "wrt bytes after let")
               (with-sector
                 disk
                 lba
                 MRW
                 ; write to vector
                 (lambda (v)
-                  (debug-write "IN lambda")
                   (vector-copy!
                     v
                     dest-offset
                     vect
                     offset
                     (+ offset len))))
-              (debug-write "after lambda")
               (fat-file-pos-set! file (+ sz pos))
               (if (= 0 (modulo (+ sz pos) bpc))
                   (fetch-or-allocate-next-cluster
@@ -1356,7 +1337,6 @@
       ; LFN N
       ; and a file descriptor and write them to the disk
       (define (flush-fat-file-to-disk file entry-chain)
-        (debug-write "FFFTD")
         (let* ((entry-chain-l (length entry-chain))
                (vector-len (* entry-width entry-chain-l))
                (backwards-mvmt (* entry-width (-- entry-chain-l)))
@@ -1372,39 +1352,23 @@
                               0
                               0))
                (v (make-vector vector-len 0)))
-          (debug-write "MVMT")
-          (debug-write backwards-mvmt)
-          (debug-write "Cluster")
-          (debug-write (fat-file-entry-cluster file))
-          (debug-write "Offset")
-          (debug-write (fat-file-entry-offset file))
           (simulate-move
             fake-parent
             (- backwards-mvmt)
             (lambda (c p)
               (fat-file-curr-clus-set! fake-parent c)
               (fat-file-pos-set! fake-parent p)))
-          (debug-write "NCluster")
-          (debug-write (fat-file-curr-clus fake-parent))
-          (debug-write "NOffset")
-          (debug-write (fat-file-pos fake-parent))
-          (debug-write "Len of chain")
-          (debug-write entry-chain-l)
           (fold-right
             (lambda (e r)
               (let ((entry (list-ref entry-chain e)))
                 (if (lfn? entry)
                     (begin
-                      (debug-write "LFN")
                       (unpack-lfn entry v (* entry-width (- entry-chain-l 1 e))))
                     (begin
-                      (debug-write "ENTRY")
                       (unpack-entry entry v (* entry-width (- entry-chain-l 1 e))))))
               r)
             v
             (iota entry-chain-l))
-          (debug-write "Vector")
-          (debug-write v)
           (write-bytes!
             fake-parent
             v
@@ -1419,25 +1383,15 @@
                (entry-offset  (fat-file-entry-offset file))
                (lba (cluster+offset->lba fs entry-cluster entry-offset))
                (offset (modulo entry-offset (<< 1 (filesystem-lg2bps fs)))))
-          (debug-write "entry cluster")
-          (debug-write entry-cluster)
-          (debug-write "OFFSET")
-          (debug-write entry-offset)
-          (debug-write "Len written in entry")
-          (debug-write (entry-file-size entry))
           (with-sector
             (filesystem-disk fs)
             lba
             MRW
             (lambda (vect)
-              (debug-write "TEMP")
-              (debug-write vect)
               (unpack-entry
                 entry
                 vect
-                offset)
-              (debug-write vect)
-              ))))
+                offset)))))
 
       (define (make-empty-fat-file
                 fs
@@ -1541,7 +1495,6 @@
         entry)
 
       (define (file-delete! fs path)
-        (debug-write "FDE!")
         (let* ((parts (simplify-path path))
                (chain (filesystem-fat-cache fs))
                (root (open-root-dir fs)))
@@ -1549,12 +1502,9 @@
             root
             parts
             (lambda (file)
-              (debug-write (logical-entry-name (fat-file-entry file)))
               (let ((start-cluster (fat-file-first-clus file))
                     (new-lfn-chain (map mark-entry-deleted (fat-file->entries file))))
-                (debug-write "IN LET")
                 (unlink-chain fs start-cluster)
-                (debug-write "Unlinked")
                 (flush-fat-file-to-disk file new-lfn-chain)))
             (lambda (err) ERR-FNF))))
 
