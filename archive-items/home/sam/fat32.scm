@@ -43,6 +43,7 @@
       ; --------------------------------------------------
       ; --------------------------------------------------
       ; --------------------------------------------------
+      (define ATTR-BIT-POS 11)
       (define FAT-LINK-MASK #x0FFFFFFF)
       (define FAT-DELETED-MARKER #xE5)
       (define FILE-MODE-READ (arithmetic-shift 1 0))
@@ -181,10 +182,18 @@
       (define-macro (file? ff)
                     `(eq? (fat-file-type ,ff) TYPE-FILE))
 
-      (define-macro (valid-entry? entry)
-                    (let ((signal (gensym)))
-                      `(let ((,signal (vector-ref (entry-name ,entry) 0)))
-                         (not (or (fx= #x00 ,signal) (fx= FAT-DELETED-MARKER ,signal))))))
+      (define-macro (empty-entry? vect)
+                    (let ((first-byte (gensym)))
+                      `(let ((,first-byte (vector-ref ,vect 0)))
+                         (fx= ,first-byte #x00))))
+
+      (define-macro (deleted-entry? vect)
+                    (let ((first-byte (gensym)))
+                      `(let ((,first-byte (vector-ref ,vect 0)))
+                         (fx= ,first-byte FAT-DELETED-MARKER))))
+
+      (define-macro (lfn-entry? vect)
+                    `(mask (vector-ref ,vect ATTR-BIT-POS) FAT-ATTR-LONG-NAME))
 
       (define-macro (build-cluster logical)
                     `(fxior (<< (logical-entry-cluster-hi ,logical) 16)
@@ -780,8 +789,8 @@
                 (let* ((logical-ents (entry-list->logical-entries (reverse (cons e lfns)))))
                   (if (string=? name (logical-entry-name (car logical-ents)))
                       (begin
-                       (display e)
-                       (succ (car logical-ents)))
+                        (display e)
+                        (succ (car logical-ents)))
                       (search-entry-aux file name '() succ fail))
                   )))
           fail))
@@ -792,18 +801,16 @@
       (define (read-entries file succ fail)
         (let* ((cont (lambda () (read-entries file succ fail)))
                (vect (read-bytes! file entry-width fail)))
-          (if (vector? vect) ; if an error occurs, it's not gonna be a vector
-              (if (not (fx= (vector-ref vect 0) FAT-DELETED-MARKER))
-               ; TODO: check this
-               ; not quite correct; the valid-entry? check is incorrect.
-               (let ((e (pack-entry vect))
-                        (l (pack-lfn vect)))
-                    (cond ((is-lfn? e)
-                           (succ l cont))
-                          ((valid-entry? e)
-                           (succ e cont))
-                          (else (fail ERR-NO-MORE-ENTRIES))))
-               (cont))
+          ; if an error occurs, it's not gonna be a vector
+          (if (vector? vect)
+              (cond ((deleted-entry? vect)
+                     (cont))
+                    ((empty-entry? vect)
+                     (fail ERR-NO-MORE-ENTRIES))
+                    ((lfn-entry? vect)
+                     (succ (pack-lfn vect) cont))
+                    (else
+                      (succ (pack-entry vect) cont)))
               vect)))
 
       (define (read-all-entries file)
@@ -868,7 +875,7 @@
               (if (entry-deleted? e)
                   (if (= (++ conseq) n)
                       ; Done: find the position
-                        (succ (- (fat-file-pos folder) (* n entry-width)))
+                      (succ (- (fat-file-pos folder) (* n entry-width)))
                       (begin
                         (set! conseq (++ conseq))
                         (next)))
@@ -888,8 +895,8 @@
                        (- (fat-file-pos folder)
                           (* conseq entry-width)))
                       ((eq? ERR-NO-MORE-ENTRIES err) ; the cursor moved before we read 0
-                        (- (fat-file-pos folder)
-                           (* (++ conseq) entry-width)))
+                       (- (fat-file-pos folder)
+                          (* (++ conseq) entry-width)))
                       (else -1)))))))
 
       ; Create a collection of long file name starting at ordinal 'ith'
@@ -1259,12 +1266,12 @@
               (debug-write "after lambda")
               (fat-file-pos-set! file (+ sz pos))
               (if (= 0 (modulo (+ sz pos) bpc))
-               (fetch-or-allocate-next-cluster
-                 file
-                 (lambda (file)
-                   (write-bytes! file vect (+ offset sz) (- len sz) fail))
-                 fail)
-               (write-bytes! file vect (+ offset sz) (- len sz) fail)))
+                  (fetch-or-allocate-next-cluster
+                    file
+                    (lambda (file)
+                      (write-bytes! file vect (+ offset sz) (- len sz) fail))
+                    fail)
+                  (write-bytes! file vect (+ offset sz) (- len sz) fail)))
             vect))
 
       (define (read-string! file len fail)
@@ -1279,7 +1286,18 @@
 
       (define (update-file-len file new-len)
         (fat-file-len-set! file new-len)
-        (flush-fat-entry-to-disk file (make-root-entry file)))
+        (let* ((fs (fat-file-fs file))
+               (entry-cluster (fat-file-entry-cluster file))
+               (entry-offset  (fat-file-entry-offset file))
+               (lba (cluster+offset->lba fs entry-cluster entry-offset))
+               (offset (modulo entry-offset (<< 1 (filesystem-lg2bps fs)))))
+          (with-sector
+            (filesystem-disk fs)
+            lba
+            MRW
+            (lambda (vect)
+              ; Only update the length to avoid changing file information
+              (wint32 vect (+ offset entry-width -4) new-len)))))
 
       (define (file-write! file vect offset len fail)
         (let ((result (write-bytes! file vect offset len fail)))
@@ -1484,12 +1502,12 @@
                                 ; Set the cursor to the right place
                                 (file-set-cursor-absolute! parent offset)
                                 (simulate-move
-                                 parent
-                                 (* entry-width (-- n))
-                                 (lambda (entry-cluster entry-offset)
-                                   ; Set the correct entry coodinates
-                                   (fat-file-entry-cluster-set! new-file entry-cluster)
-                                   (fat-file-entry-offset-set! new-file entry-offset)))
+                                  parent
+                                  (* entry-width (-- n))
+                                  (lambda (entry-cluster entry-offset)
+                                    ; Set the correct entry coodinates
+                                    (fat-file-entry-cluster-set! new-file entry-cluster)
+                                    (fat-file-entry-offset-set! new-file entry-offset)))
                                 ; Fold right we start right from left, which is what we want
                                 (fold-right
                                   (lambda (e r)
@@ -1598,19 +1616,19 @@
           (list-directory (open-root-dir fs))))
 
       (define (g-tests)
-       (let* ((fs (car filesystem-list))
-              (f (file-open! fs "home/sam/fact.scm" "a")))
-        (display f)
-        (file-write!
-         f
-         (string->u8vector "alongstringthatiamwritingathtendofafile")
-         0
-         (string-length "alongstringthatiamwritingathtendofafile")
-         ID
-         )
-        ))
+        (let* ((fs (car filesystem-list))
+               (f (file-open! fs "home/sam/fact.scm" "a")))
+          (display f)
+          (file-write!
+            f
+            (string->u8vector "alongstringthatiamwritingathtendofafile")
+            0
+            (string-length "alongstringthatiamwritingathtendofafile")
+            ID
+            )
+          ))
 
-     (define (h-tests)
-      (file-delete! (car filesystem-list) "home/sam/fact.scm"))
+      (define (h-tests)
+        (file-delete! (car filesystem-list) "home/sam/fact.scm"))
 
       ))
