@@ -197,8 +197,8 @@
                  (t (make-thread c)))
               (mutex-lock! mut)
               (sector-flush-cont-set! sect c)
-              (mutex-unlock! mut))
-              (thread-start! c))))
+              (mutex-unlock! mut)
+              (thread-start! t)))))
 
       (define (init-disks)
         (let ((disk-idx 0))

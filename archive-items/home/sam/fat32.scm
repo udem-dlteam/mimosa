@@ -10,6 +10,7 @@
     (export
       TYPE-FILE
       TYPE-FOLDER
+      a-tests
       entry-name
       fat-file-exists?
       file-create!
@@ -644,27 +645,26 @@
                   (traverse-fat-chain (cache-link-prev link) (++ mvmt) chain)))))
 
       (define-macro (simulate-direction-move direction file rewind c)
-                    `(let* ((fs (fat-file-fs file))
+                    `(let* ((fs (fat-file-fs ,file))
                             (lg2spc (filesystem-lg2spc fs))
                             (lg2bps (filesystem-lg2bps fs))
                             (lg2bpc (filesystem-lg2bpc fs))
                             (bpc (filesystem-bpc fs))
-                            (pos (fat-file-pos file))
+                            (pos (fat-file-pos ,file))
                             (section-pos (modulo pos bpc))
-                            (diff (+ section-pos rewind))
+                            (diff (+ section-pos ,rewind))
                             (spanned-clusters (>> diff lg2bpc)))
                        (if (> (abs spanned-clusters) 0)
                            ; need to go over boundary
-                           (let* ((start-cluster (fat-file-curr-clus file))
+                           (let* ((start-cluster (fat-file-curr-clus ,file))
                                   (cluster-leftover (modulo diff (<< 1 lg2bpc)))
                                   (new-cluster (traverse-fat-chain
                                                  start-cluster
                                                  spanned-clusters
-                                                 (filesystem-fat-cache fs)
-                                                 )))
+                                                 (filesystem-fat-cache fs))))
                              (c new-cluster cluster-leftover))
-                           (c (fat-file-curr-clus file)
-                              (,(if (eq? direction 'BACKWARDS) `- `+) section-pos rewind)))))
+                           (c (fat-file-curr-clus ,file)
+                              (,(if (eq? direction 'BACKWARDS) `- `+) section-pos ,rewind)))))
 
       (define (simulate-backward-move file rewind c)
         (simulate-direction-move 'BACKWARDS file rewind c))
@@ -686,7 +686,7 @@
       (define (file-move-cursor! file delta)
         (if (> delta 0)
             (file-move-cursor-forward! file delta)
-            (file-move-cursor-backward! file (abs delta))))
+            (file-move-cursor-backward! file delta)))
 
       (define (update-link-next cache clus new-next)
         (let* ((link (table-ref cache clus))
@@ -1444,15 +1444,7 @@
                          (bpc (filesystem-bpc fs))
                          (n (length entries))
                          (wrt (lambda (offset)
-                                ; Set the cursor to the right place
                                 (file-set-cursor-absolute! parent offset)
-                                (simulate-move
-                                  parent
-                                  (* entry-width (-- n))
-                                  (lambda (entry-cluster entry-offset)
-                                    ; Set the correct entry coodinates
-                                    (fat-file-entry-cluster-set! new-file entry-cluster)
-                                    (fat-file-entry-offset-set! new-file entry-offset)))
                                 ; Fold right we start right from left, which is what we want
                                 (fold-right
                                   (lambda (e r)
@@ -1469,6 +1461,16 @@
                                     (++ r))
                                   0
                                   entries)
+                                ; It's possible that writing the file will allocate a cluster that
+                                ; is not reserved for the file yet. A forward move before would therefore
+                                ; potentially end up in an unallocated zone
+                                (simulate-move
+                                  parent
+                                  (- entry-width)
+                                  (lambda (entry-cluster entry-offset)
+                                    ; Set the correct entry coodinates
+                                    (fat-file-entry-cluster-set! new-file entry-cluster)
+                                    (fat-file-entry-offset-set! new-file entry-offset)))
                                 new-file)))
                     (look-for-n-available-entries!
                       parent
@@ -1518,4 +1520,8 @@
               (fat-file-mode-set! f mode)
               f)
             (lambda (err) ERR-FNF))))
+
+     (define (a-tests)
+      (file-create! (car filesystem-list) "home/sam/ijustcreatedthisfile.txt" TYPE-FILE))
+
 ))
