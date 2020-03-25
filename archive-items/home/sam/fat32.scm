@@ -1234,6 +1234,7 @@
                           (fat-file-curr-clus file)
                           cluster-pos))
                    (dest-offset (modulo cluster-pos bps)))
+              (debug-write (string-append "Writing " (number->string sz) " bytes"))
               (debug-write (fat-file-curr-clus file))
               (debug-write "wrt bytes after let")
               (with-sector
