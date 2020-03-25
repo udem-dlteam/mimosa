@@ -6,14 +6,14 @@
   (gambit)
   (utils)
   (low-level)
-  (debug)) 
+  (debug))
 (export
   IDE-MAX-SECTOR-READ
   setup
   switch-over-driver
   handle-ide-int
   ide-write-sectors
-  list-devices 
+  list-devices
   ide-read-sectors)
 (begin
   (define IDE-MAX-SECTOR-READ 255)
@@ -102,7 +102,7 @@
                   IDE-STATUS-DF
                   IDE-STATUS-DSC
                   IDE-STATUS-DRQ)))
-      (not (fx= (fxand status mask) mask)))) 
+      (not (fx= (fxand status mask) mask))))
 
   (define-type ide-device
                id
@@ -122,7 +122,7 @@
                controller-id
                cpu-port
                irq
-               devices 
+               devices
                continuations-queue
                mut; condvar mutex
                cv ; condvar itself
@@ -155,7 +155,7 @@
   (define (expand-wvect wvector)
     (let ((get-byte (lambda (i)
                       (let* ((even (fxeven? i))
-                             (half-pos (if even 
+                             (half-pos (if even
                                            (fxhalve i)
                                            (fxhalve (- i 1))))
                              (val (vector-ref wvector half-pos)))
@@ -174,7 +174,7 @@
           (let ((b-idx (<< idx 1)))
             (fxior
               (<< (vector-ref b-vect (+ b-idx 1)) 8)
-              (vector-ref b-vect b-idx))))))) 
+              (vector-ref b-vect b-idx)))))))
 
   ; Flush the command cache of an ide device
   ; c: the success continuation, nothing in it
@@ -191,7 +191,7 @@
            (cmd-reg (fx+ cpu-port IDE-COMMAND-REG)))
       (mutex-lock! mut)
       (write
-        (lambda () 
+        (lambda ()
           (if (mask (inb stt-reg) IDE-STATUS-ERR)
               (set! err ERR-HWD))
           (mutex-lock! mut)
@@ -203,10 +203,10 @@
       (mutex-unlock! mut cv)
       (if err (e err) (c))))
 
-  ; Read `count` sectors from the ide device. 
+  ; Read `count` sectors from the ide device.
   ; When the data is read, the continuation is called with
   ; a vector that corresponds to the data at `lba` (logical block addressing)
-  ; c is a continuation that takes the vector as parameter 
+  ; c is a continuation that takes the vector as parameter
   ; e is an error continuation, taking an error symbol as a parameter
   (define (ide-read-sectors device lba count c e)
     (if (fx> count 0)
@@ -230,7 +230,7 @@
                (sz (<< count (- IDE-LOG2-SECTOR-SIZE 1)))
                (word-vector (make-vector sz 0)))
           (mutex-lock! mut)
-          (write 
+          (write
             (lambda ()
               (mutex-lock! mut)
               (let* ((status (inb stt-reg)))
@@ -245,12 +245,12 @@
                           (set! err ERR-HWD))))
                 ; Signal we are ready
                 (condition-variable-signal! cv)
-                (mutex-unlock! mut)))      
+                (mutex-unlock! mut)))
             q)
           (force-output q)
           (outb
             (b-chop (fxior
-                      IDE-DEV-HEAD-LBA 
+                      IDE-DEV-HEAD-LBA
                       (IDE-DEV-HEAD-DEV dev-id)
                       (>> lba 24)))
             head-reg)
@@ -294,7 +294,7 @@
            (count (min 256 count)))
       (mutex-lock! mut)
       (write
-        (lambda () 
+        (lambda ()
           (mutex-lock! mut)
           (if (mask (inb stt-reg) IDE-STATUS-ERR)
               (begin
@@ -308,7 +308,7 @@
       (outb
         (b-chop
           (fxior
-            IDE-DEV-HEAD-LBA 
+            IDE-DEV-HEAD-LBA
             (IDE-DEV-HEAD-DEV dev-id)
             (>> lba 24)))
         head-reg)
@@ -321,7 +321,7 @@
       ; There should be an interrupt sent but somehow
       ; it never comes for the first sector
       (let spin-loop ()
-        (if (or (mask (inb stt-reg) IDE-STATUS-BSY) 
+        (if (or (mask (inb stt-reg) IDE-STATUS-BSY)
                 (not (mask (inb stt-reg) IDE-STATUS-DRQ)))
             (begin
               (ide-delay cpu-port)
@@ -338,7 +338,7 @@
   ; Init the devices struct
   (define (ide-init-controllers)
     (list->vector
-      (map 
+      (map
         (lambda (i)
           (make-ide-controller
             i ; the id
@@ -356,7 +356,7 @@
       (list-set! dev-list dev-no device)))
 
   ; Execute `cont` on the device `dev-no` of the controller
-  ; if there is such a device. `cont` must be a lambda that 
+  ; if there is such a device. `cont` must be a lambda that
   ; accepts the device has a first parameter
   (define (ide-controller-if-device? controller dev-no cont)
     (let* ((ctrls-devices (ide-controller-devices controller))
@@ -369,14 +369,14 @@
 
   (define (ide-delay cpu-port)
     ; We read the alternative status reg.
-    ; it doesnt erase it, and is the recommanded way of 
+    ; it doesnt erase it, and is the recommanded way of
     ; waiting on an ide device
     (for-each (lambda (n) (inb (fx+ cpu-port IDE-ALT-STATUS-REG))) (iota 4)))
 
   (define (swap-and-trim vect offset len)
     (let* ((idcs (iota len))
            (extract-char (lambda (idx)
-                           (if (mask idx 1) 
+                           (if (mask idx 1)
                                (vector-ref vect (+ offset (>> idx 1)))
                                (>> (vector-ref vect (+ offset (>> idx 1))) 8))))
            (untrimmed (list->string (map (o integer->char extract-char) idcs))))
@@ -385,8 +385,10 @@
   (define (handle-ide-int controller-no)
     (let* ((ctrl (vector-ref IDE-CTRL-VECT controller-no))
            (q (ide-controller-continuations-queue ctrl))
+           (temp (debug-write "BEFORE INT"))
            (cont (read q)))
-      (if cont (cont) #f))) 
+      (debug-write "INT")
+      (if cont (cont) #f)))
 
   (define (ide-make-device-setup-lambda controller devices)
     (lambda (dev-no)
@@ -425,12 +427,12 @@
                          (heads-per-cyl (vector-ref id-vect (if has-extended 55 3)))
                          (sect-per-trk (vector-ref id-vect (if has-extended 56 6)))
                          (total-sectors
-                           (fx+ 
+                           (fx+
                              (<< (vector-ref id-vect 61) 16)
                              (vector-ref id-vect 60)))
-                         (total-sectors-chs 
+                         (total-sectors-chs
                            (if has-extended
-                               (fx+ 
+                               (fx+
                                  (<< (vector-ref id-vect 58) 16)
                                  (vector-ref id-vect 57)) 0))
                          (device (make-ide-device
@@ -474,7 +476,7 @@
       (and
         (fx= (fxand (inb stt-reg) IDE-STATUS-BSY) 0)
         (eq? type IDE-DEVICE-ATAPI))))
-    
+
   (define (ide-reset-controller controller devices statuses candidates)
     (let* ((cpu-port (ide-controller-cpu-port controller))
            (head-reg (fx+ cpu-port IDE-DEV-HEAD-REG))
@@ -521,7 +523,7 @@
                                    (eq? (list-ref devices dev)
                                         IDE-DEVICE-ATA))
                               ; Update the list: this is an ATAPI device
-                              (list-set! devices dev IDE-DEVICE-ATAPI)))) 
+                              (list-set! devices dev IDE-DEVICE-ATAPI))))
                       (iota IDE-DEVICES-PER-CONTROLLER))
             (for-each (lambda (dev)
                         (let ((dev-type (list-ref devices dev)))
@@ -531,7 +533,7 @@
                                   (list-set! devices dev IDE-DEVICE-ABSENT)
                                   ; Make sure the device is present
                                   (begin
-                                    (outb (fxior IDE-DEV-HEAD-IBM (IDE-DEV-HEAD-DEV dev)) head-reg) 
+                                    (outb (fxior IDE-DEV-HEAD-IBM (IDE-DEV-HEAD-DEV dev)) head-reg)
                                     (ide-delay cpu-port)
                                     ; TODO: remove these magic numbers
                                     (outb #x58 err-reg)
