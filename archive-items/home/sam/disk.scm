@@ -44,6 +44,7 @@
                    vect
                    ref-count
                    disk-l
+                   flush-cont
                    )
 
       (define-type disk
@@ -129,10 +130,12 @@
                (lba (sector-lba sector))
                (v (sector-vect sector))
                (cleanup (lambda ()
-                          (sector-dirty?-set sector #f)
+                          (sector-flush-cont-set! sector #f)
+                          (sector-dirty?-set! sector #f)
                           (mutex-unlock! dmut)
                           (mutex-unlock! smut); todo not sure if necessary
                           #t)))
+          (debug-write "Flushing...")
           (mutex-lock! smut)
           (mutex-lock! dmut)
           (ide-write-sectors
@@ -150,7 +153,8 @@
           (make-mutex)
           v
           0
-          (lambda () disk)))
+          (lambda () disk)
+          #f))
 
       (define (create-disk dev type)
         (make-disk
@@ -181,8 +185,20 @@
           (sector-ref-count-set! sect (- refs 1))
           (mutex-unlock! mut)
           (if (and (= refs 1) (sector-dirty? sect))
-              (flush-block disk sect))
+              (prepare-flushing disk sect))
           #t))
+
+
+      (define (prepare-flushing disk sect)
+        (let ((c (sector-flush-cont sect))
+              (mut (sector-mut sect)))
+          (if (not c)
+           (let* ((c (lambda () (flush-block disk sect)))
+                 (t (make-thread c)))
+              (mutex-lock! mut)
+              (sector-flush-cont-set! sect c)
+              (mutex-unlock! mut))
+              (thread-start! c))))
 
       (define (init-disks)
         (let ((disk-idx 0))
