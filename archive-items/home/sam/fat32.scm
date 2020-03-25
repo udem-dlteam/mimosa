@@ -183,8 +183,8 @@
 
       (define-macro (valid-entry? entry)
                     (let ((signal (gensym)))
-                      `(let ((,signal (vector-ref (entry-name ,entry) 1)))
-                         (not (or (fx= #x00 ,signal) (fx= #xE5 ,signal))))))
+                      `(let ((,signal (vector-ref (entry-name ,entry) 0)))
+                         (not (or (fx= #x00 ,signal) (fx= FAT-DELETED-MARKER ,signal))))))
 
       (define-macro (build-cluster logical)
                     `(fxior (<< (logical-entry-cluster-hi ,logical) 16)
@@ -686,7 +686,7 @@
       (define (simulate-move file delta c)
         (if (> delta 0)
             (simulate-forward-move file delta c)
-            (simulate-backward-move file (abs delta) c)))
+            (simulate-backward-move file delta c)))
 
       (define (file-move-cursor! file delta)
         (if (> delta 0)
@@ -793,13 +793,17 @@
         (let* ((cont (lambda () (read-entries file succ fail)))
                (vect (read-bytes! file entry-width fail)))
           (if (vector? vect) ; if an error occurs, it's not gonna be a vector
-              (let ((e (pack-entry vect))
-                    (l (pack-lfn vect)))
-                (cond ((is-lfn? e)
-                       (succ l cont))
-                      ((valid-entry? e)
-                       (succ e cont))
-                      (else (fail ERR-NO-MORE-ENTRIES))))
+              (if (not (fx= (vector-ref vect 0) FAT-DELETED-MARKER))
+               ; TODO: check this
+               ; not quite correct; the valid-entry? check is incorrect.
+               (let ((e (pack-entry vect))
+                        (l (pack-lfn vect)))
+                    (cond ((is-lfn? e)
+                           (succ l cont))
+                          ((valid-entry? e)
+                           (succ e cont))
+                          (else (fail ERR-NO-MORE-ENTRIES))))
+               (cont))
               vect)))
 
       (define (read-all-entries file)
@@ -936,7 +940,9 @@
         (let* ((underlying-entry (fat-file-entry file))
                (name (logical-entry-name underlying-entry))
                (name-l (string-length name))
-               (requires-lfn? (> name-l FAT-SHORT-FILE-NAME-MAX-LEN))
+               (requires-lfn? (or
+                                (logical-entry-lfn? (fat-file-entry file))
+                                (> name-l FAT-SHORT-FILE-NAME-MAX-LEN)))
                (hdr (make-root-entry file)))
           (cons
             hdr
@@ -1249,8 +1255,7 @@
                     dest-offset
                     vect
                     offset
-                    (+ offset len))
-              ))
+                    (+ offset len))))
               (debug-write "after lambda")
               (fat-file-pos-set! file (+ sz pos))
               (if (= 0 (modulo (+ sz pos) bpc))
@@ -1272,21 +1277,16 @@
               (read-bytes! file len fail)
               (read-string! file len fail))))
 
-      (define (update-file-len file len)
-        (debug-write "UPDATE FILE LEN")
-        (fat-file-len-set! file len)
-        (flush-fat-entry-to-disk file (make-root-entry file))
-        (debug-write "AFTER UPDATE FILE LEN"))
+      (define (update-file-len file new-len)
+        (fat-file-len-set! file new-len)
+        (flush-fat-entry-to-disk file (make-root-entry file)))
 
       (define (file-write! file vect offset len fail)
-        (debug-write "FILE WRITE")
         (let ((result (write-bytes! file vect offset len fail)))
-          (debug-write "After writing bytes")
           (let ((pos (fat-file-pos file))
                 (max-len (fat-file-len file)))
-            (if (> pos max-len)
-                (update-file-len file pos)))
-          (debug-write "After update file len")
+            (if (>= pos max-len)
+                (update-file-len file (++ pos))))
           result))
 
       ; Truncate a file
@@ -1330,84 +1330,70 @@
                   ((mask ored FILE-MODE-APPEND)
                    FILE-MODE-APPEND)))))
 
+      ; Take a list of entries 'entry-chain' in the order
+      ; ROOT
+      ; LFN 1
+      ; LFN 2
+      ; ...
+      ; LFN N
+      ; and a file descriptor and write them to the disk
       (define (flush-fat-file-to-disk file entry-chain)
-        (let* ((l (length entry-chain))
-              (fs (fat-file-fs file))
-              (bps (<< 1 (filesystem-lg2bps fs)))
-              (dsk (filesystem-disk fs))
-              ; We can use the fact that a long file name never spans
-              ; more than two sectors
-              (entry-cluster (fat-file-entry-cluster file))
-              ; TODO: check if the offset is within the cluster
-              (entry-offset  (fat-file-entry-offset file))
-              (entry-lba (cluster+offset->lba fs entry-cluster entry-offset)))
-          (let ((offsets (map
-                           (lambda (i)
-                             (cons
-                               (list-ref entry-chain i)
-                               (+ entry-offset (* entry-width (- i (- l 1))))))
-                           (iota l))))
-            (bipartition
-              offsets
-              (lambda (i) (< (cdr i) 0))
-              (lambda (prev curr)
-                ; Write previous
-                (if (> (length prev) 0)
-                    (let* ((offsets-cluster (map cdr prev))
-                           (start-offset (apply min offsets-cluster))
-                           (chain (filesystem-fat-cache fs))
-                           (link (table-ref chain entry-cluster))
-                           (prev-cluster (cache-link-prev link))
-                           (lba (cluster+offset->lba previous-cluster start-offset)))
-                      (with-sector
-                        dsk
-                        lba
-                        MRW
-                        (lambda (vect)
-                          (for-each
-                            (lambda (entry-and-offset)
-                              ; I wish there was a canonical form
-                              ; for this. Some sort of unpacking (like python)
-                              (let* ((offset (cdr entry-and-offset))
-                                     (entry (car entry-and-offset))
-                                     (offset (modulo offset bps)))
-                                (unpack-lfn entry vect offset)))
-                            prev)))))
-                (let* ((offsets-cluster (map cdr curr))
-                       (start-offset (apply min offsets-cluster))
-                       (chain (filesystem-fat-cache fs)))
-                  (debug-write "CLUSTER")
-                  (debug-write start-offset)
-                  (debug-write "LBA")
-                  (debug-write entry-lba)
-                  (with-sector
-                    dsk
-                    entry-lba
-                    MRW
-                    (lambda (vect)
-                      (for-each
-                        (lambda (entry-and-offset)
-                          (let* ((offset (cdr entry-and-offset))
-                                 (entry (car entry-and-offset))
-                                 (offset (modulo offset bps)))
-                            (debug-write "LFN?")
-                            (debug-write (lfn? entry))
-                            (debug-write "OFFSET")
-                            (debug-write offset)
-                            (if (not (entry? entry))
-                                (entry-name-set! entry (make-vector 11 97)))
-                            (debug-write "VECTOR")
-                            (debug-write vect)
-
-                            ((if (lfn? entry)
-                                 unpack-lfn
-                                 unpack-entry)
-                             entry
-                             vect
-                             offset))
-                          )
-                        curr))))
-                )))))
+        (debug-write "FFFTD")
+        (let* ((entry-chain-l (length entry-chain))
+               (vector-len (* entry-width entry-chain-l))
+               (backwards-mvmt (* entry-width (-- entry-chain-l)))
+               (fake-parent (make-fat-file
+                              (fat-file-fs file)
+                              0
+                              (fat-file-entry-cluster file)
+                              (fat-file-entry-offset file)
+                              0
+                              0
+                              0
+                              0
+                              0
+                              0))
+               (v (make-vector vector-len 0)))
+          (debug-write "MVMT")
+          (debug-write backwards-mvmt)
+          (debug-write "Cluster")
+          (debug-write (fat-file-entry-cluster file))
+          (debug-write "Offset")
+          (debug-write (fat-file-entry-offset file))
+          (simulate-move
+            fake-parent
+            (- backwards-mvmt)
+            (lambda (c p)
+              (fat-file-curr-clus-set! fake-parent c)
+              (fat-file-pos-set! fake-parent p)))
+          (debug-write "NCluster")
+          (debug-write (fat-file-curr-clus fake-parent))
+          (debug-write "NOffset")
+          (debug-write (fat-file-pos fake-parent))
+          (debug-write "Len of chain")
+          (debug-write entry-chain-l)
+          (fold-right
+            (lambda (e r)
+              (let ((entry (list-ref entry-chain e)))
+                (if (lfn? entry)
+                    (begin
+                      (debug-write "LFN")
+                      (unpack-lfn entry v (* entry-width (- entry-chain-l 1 e))))
+                    (begin
+                      (debug-write "ENTRY")
+                      (unpack-entry entry v (* entry-width (- entry-chain-l 1 e))))))
+              r)
+            v
+            (iota entry-chain-l))
+          (debug-write "Vector")
+          (debug-write v)
+          (write-bytes!
+            fake-parent
+            v
+            0
+            vector-len
+            ID)
+          ))
 
       (define (flush-fat-entry-to-disk file entry)
         (let* ((fs (fat-file-fs file))
@@ -1419,6 +1405,8 @@
           (debug-write entry-cluster)
           (debug-write "OFFSET")
           (debug-write entry-offset)
+          (debug-write "Len written in entry")
+          (debug-write (entry-file-size entry))
           (with-sector
             (filesystem-disk fs)
             lba
@@ -1429,7 +1417,9 @@
               (unpack-entry
                 entry
                 vect
-                offset)))))
+                offset)
+              (debug-write vect)
+              ))))
 
       (define (make-empty-fat-file
                 fs
@@ -1533,6 +1523,7 @@
         entry)
 
       (define (file-delete! fs path)
+        (debug-write "FDE!")
         (let* ((parts (simplify-path path))
                (chain (filesystem-fat-cache fs))
                (root (open-root-dir fs)))
@@ -1540,9 +1531,12 @@
             root
             parts
             (lambda (file)
+              (debug-write (logical-entry-name (fat-file-entry file)))
               (let ((start-cluster (fat-file-first-clus file))
                     (new-lfn-chain (map mark-entry-deleted (fat-file->entries file))))
+                (debug-write "IN LET")
                 (unlink-chain fs start-cluster)
+                (debug-write "Unlinked")
                 (flush-fat-file-to-disk file new-lfn-chain)))
             (lambda (err) ERR-FNF))))
 
@@ -1565,7 +1559,6 @@
               (fat-file-mode-set! f mode)
               f)
             (lambda (err) ERR-FNF))))
-
 
       ; --------------------------------------------------
       ; --------------------------------------------------
@@ -1617,9 +1610,7 @@
          )
         ))
 
-      (define (h-tests)
-       (let* ((fs (car filesystem-list))
-              (f (file-open! fs "home/sam/fact.scm" "a")))
-        f))
+     (define (h-tests)
+      (file-delete! (car filesystem-list) "home/sam/fact.scm"))
 
       ))

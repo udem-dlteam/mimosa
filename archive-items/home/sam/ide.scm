@@ -385,9 +385,7 @@
   (define (handle-ide-int controller-no)
     (let* ((ctrl (vector-ref IDE-CTRL-VECT controller-no))
            (q (ide-controller-continuations-queue ctrl))
-           (temp (debug-write "BEFORE INT"))
            (cont (read q)))
-      (debug-write "INT")
       (if cont (cont) #f)))
 
   (define (ide-make-device-setup-lambda controller devices)

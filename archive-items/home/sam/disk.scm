@@ -161,7 +161,6 @@
           type))
 
       (define (disk-acquire-block disk lba mode)
-        (debug-write "ACQ block")
         (let* ((sector (disk-read-sector disk lba))
                (refs (sector-ref-count sector))
                (mut (sector-mut sector)))
@@ -170,7 +169,6 @@
            (sector-dirty?-set! sector #t))
           (sector-ref-count-set! sector (++ refs))
           (mutex-unlock! mut)
-          (debug-write "ACQ block done")
           sector))
 
 
@@ -210,8 +208,6 @@
       ; For a disk, a block address, apply function
       ; fn on the sector vector
       (define (with-sector dsk lba mode fn)
-        (debug-write "Reading sector")
-        (debug-write lba)
         (let* ((sect (disk-acquire-block dsk lba mode))
                (rslt (fn (sector-vect sect))))
           (disk-release-block sect)
