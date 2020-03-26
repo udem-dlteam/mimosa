@@ -601,17 +601,14 @@
       ; --------------------------------------------------
       ; --------------------------------------------------
 
-      (define (get-cached-cluster file)
-        (let* ((fs (fat-file-fs file))
-               (cache (filesystem-fat-cache fs)))
-          (table-ref cache (fat-file-curr-clus file))))
+      (define (get-cached-cluster fs cluster)
+        (let* ((cache (filesystem-fat-cache fs)))
+          (table-ref cache cluster)))
 
-      (define (next-cluster file)
-        (let* ((link (get-cached-cluster file))
+      (define (next-cluster fs cluster)
+        (let* ((link (get-cached-cluster fs cluster))
                (n (cache-link-next link)))
-          (if (fx>= n FAT-32-EOF)
-              EOF
-              n)))
+          (if (fx>= n FAT-32-EOF) EOF n)))
 
       (define (previous-cluster file)
         (let* ((link (get-cached-cluster file))
@@ -707,20 +704,20 @@
 
       ; Set the next cluster, move to it and return the FAT array
       ; with the file as an argument
-      (define (set-next-cluster! file next-clus)
+      (define (set-next-cluster! fs cluster next-clus)
         (if (eq? next-clus EOF)
             ERR-ARGS
-            (let* ((fs (fat-file-fs file))
-                   (cache (filesystem-fat-cache fs))
+            (let* ((cache (filesystem-fat-cache fs))
                    (disk (filesystem-disk fs))
                    (bpb (filesystem-bpb fs))
                    (lg2bps (filesystem-lg2bps fs))
                    (entries-per-sector (>> (<< 1 lg2bps) 2))
                    (rsvd (BPB-reserved-sector-count bpb))
-                   (cluster (fat-file-curr-clus file))
                    (lba (+ (// cluster entries-per-sector) rsvd))
                    (offset (modulo cluster entries-per-sector)))
+              ; Update in cache
               (update-link-next cache cluster next-clus)
+              ; Update on disk
               (with-sector
                 disk
                 lba
@@ -728,18 +725,6 @@
                 (lambda (vect)
                   (wint32 vect (<< offset 2) next-clus)
                   next-clus)))))
-
-      ; Move to the next cluster and call the proper continuation (success or fail)
-      ; with the file as an argument
-      (define (move-next-cluster! file next-clus succ fail)
-        (if (eq? next-clus EOF)
-            (fail ERR-EOF)
-            (let* ((fs (fat-file-fs file))
-                   (lg2spc (filesystem-lg2spc fs))
-                   (fst-data-sect (filesystem-first-data-sector fs))
-                   (lg2bps (filesystem-lg2bps fs)))
-              (fat-file-curr-clus-set! file next-clus)
-              (succ file))))
 
       ; --------------------------------------------------
       ; --------------------------------------------------
@@ -1068,30 +1053,22 @@
       ; --------------------------------------------------
       ; --------------------------------------------------
 
-      (define (read-bytes-aux! file buff idx len fail)
+      (define (read-bytes-aux fs cluster pos max-len buff idx len c fail)
         (if (> len 0)
-            (let* ((fs (fat-file-fs file))
-                   (lg2spc (filesystem-lg2spc fs))
+            (let* ((lg2spc (filesystem-lg2spc fs))
                    (lg2bps (filesystem-lg2bps fs))
                    (bps (s<< 1 lg2bps))
                    (spc (s<< 1 lg2spc))
                    (bpc (filesystem-bpc fs))
-                   (cluster (fat-file-curr-clus file))
                    (disk (filesystem-disk fs))
-                   (pos (fat-file-pos file))
                    (cluster-pos (modulo pos bpc))
                    ; How many bytes left in cluster?
                    (left-in-cluster (- bpc cluster-pos))
                    ; How many bytes left in sector?
                    (left-in-sector (- bps (modulo cluster-pos bps)))
-                   (left-in-file (if (folder? file)
-                                     (++ len)
-                                     (- (fat-file-len file) pos)))
+                   (left-in-file (- max-len pos))
                    (sz (min len left-in-cluster left-in-sector left-in-file))
-                   (lba (cluster+offset->lba
-                          fs
-                          (fat-file-curr-clus file)
-                          cluster-pos))
+                   (lba (cluster+offset->lba fs cluster cluster-pos))
                    (offset (modulo cluster-pos bps)))
               (with-sector
                 disk
@@ -1107,31 +1084,37 @@
                           vect
                           (+ i offset))))
                     (iota sz))))
-              (fat-file-pos-set! file (+ sz pos))
               (if (= 0 (modulo (+ sz pos) bpc))
-                  ; Move to next cluster
-                  (move-next-cluster!
-                    file
-                    (next-cluster file)
-                    (lambda (f)
-                      (read-bytes-aux! file buff (+ idx sz) (- len sz) fail))
-                    fail)
-                  (read-bytes-aux! file buff (+ idx sz) (- len sz) fail)))
-            buff))
+                  (let ((next-clus (next-cluster fs cluster)))
+                    (if (eq? next-clus EOF)
+                        (fail ERR-EOF) ; end
+                        (read-bytes-aux fs next-clus (+ sz pos) max-len buff (+ idx sz) (- len sz) c fail)))
+                  (read-bytes-aux fs cluster (+ sz pos) max-len buff (+ idx sz) (- len sz) c fail)))
+            (c buff cluster pos)))
 
       (define (read-bytes! file count fail)
         (let* ((fs (fat-file-fs file))
                (count (if (= -1 count)
                           (fat-file-len file)
                           count))
-               (buff (make-vector count #x0)))
-          (read-bytes-aux!
-            file
+               (buff (make-vector count #x0))
+               (pos (fat-file-pos file)))
+          (read-bytes-aux
+            fs
+            (fat-file-curr-clus file)
+            pos
+            (if (folder? file)
+             (+ count pos) ; never run out of space that way
+             (fat-file-len file)) ; prevents reading past the file end
             buff
             0
             (if (not (folder? file))
                 (min count (- (fat-file-len file) (fat-file-pos file)))
                 count)
+            (lambda (result cluster pos)
+              (fat-file-curr-clus-set! file cluster)
+              (fat-file-pos-set! file pos)
+              result)
             fail)))
 
       (define (update-cluster-link-on-disk fs cluster link)
@@ -1180,49 +1163,33 @@
           (mutex-unlock! mut)))
 
       ; Fetch the next cluster
-      (define (fetch-or-allocate-next-cluster file c fail)
-        (move-next-cluster!
-          file
-          (next-cluster file)
-          c
-          (lambda (err-code) ; check the error code. If EOF, we allocate a new cluster
-            (if (eq? err-code ERR-EOF)
-                (begin ; create a new cluster
-                  (find-first-free-cluster
-                    (fat-file-fs file)
-                    (lambda (cluster link)
-                      (cache-link-prev-set! link (fat-file-curr-clus file))
-                      (set-next-cluster! file cluster))
-                    fail)
-                  (c file))
-                (fail err-code)))))
+      ; TODO: dont take a file
+      (define (fetch-or-allocate-next-cluster fs cluster c fail)
+       (let ((new-cluster (next-cluster fs cluster)))
+        (if (eq? new-cluster EOF)
+         (find-first-free-cluster
+           fs
+           (lambda (new-cluster link)
+             (set-next-cluster! fs cluster new-cluster)
+             (c new-cluster))
+           fail)
+         (c new-cluster))))
 
-
-      ; Write 'len' bytes from the vector 'vect' starting at offset 'offset'
-      ; the continuation fail is called if the data could not be written.
-      ; data is written at the current cursor position of the file 'file'
-      ; If necessary, the sector boundary will be moved and extended
-      (define (write-bytes! file vect offset len fail)
+      (define (write-bytes-aux fs cluster pos vect offset len c fail)
         (if (> len 0)
-            (let* ((fs (fat-file-fs file))
-                   (lg2spc (filesystem-lg2spc fs))
+            (let* ((lg2spc (filesystem-lg2spc fs))
                    (lg2bps (filesystem-lg2bps fs))
                    (bps (s<< 1 lg2bps))
                    (spc (s<< 1 lg2spc))
                    (bpc (filesystem-bpc fs))
-                   (cluster (fat-file-curr-clus file))
                    (disk (filesystem-disk fs))
-                   (pos (fat-file-pos file))
                    (cluster-pos (modulo pos bpc))
                    ; How many bytes left in cluster?
                    (left-in-cluster (- bpc cluster-pos))
                    ; How many bytes left in sector?
                    (left-in-sector (- bps (modulo cluster-pos bps)))
                    (sz (min len left-in-cluster left-in-sector))
-                   (lba (cluster+offset->lba
-                          fs
-                          (fat-file-curr-clus file)
-                          cluster-pos))
+                   (lba (cluster+offset->lba fs cluster cluster-pos))
                    (dest-offset (modulo cluster-pos bps)))
               (with-sector
                 disk
@@ -1236,15 +1203,36 @@
                     vect
                     offset
                     (+ offset len))))
-              (fat-file-pos-set! file (+ sz pos))
               (if (= 0 (modulo (+ sz pos) bpc))
                   (fetch-or-allocate-next-cluster
-                    file
-                    (lambda (file)
-                      (write-bytes! file vect (+ offset sz) (- len sz) fail))
-                    fail)
-                  (write-bytes! file vect (+ offset sz) (- len sz) fail)))
-            vect))
+                    cluster
+                    (lambda (new-cluster)
+                      (write-bytes-aux fs new-cluster vect (+ offset sz) (- len sz) c fail))
+                    fail
+                   )
+                  (write-bytes-aux fs cluster (+ sz pos) vect (+ offset sz) (- len sz) c fail)))
+            (c vect cluster pos)))
+
+      ; Write 'len' bytes from the vector 'vect' starting at offset 'offset'
+      ; the continuation fail is called if the data could not be written.
+      ; data is written at the current cursor position of the file 'file'
+      ; If necessary, the sector boundary will be moved and extended
+      (define (write-bytes! file vect offset len fail)
+       (let ((fs (fat-file-fs file))
+             (cluster (fat-file-curr-clus file))
+             (pos (fat-file-pos file)))
+        (write-bytes-aux
+          fs
+          cluster
+          pos
+          vect
+          offset
+          len
+          (lambda (vect cluster pos)
+           (fat-file-curr-clus-set! file cluster)
+           (fat-file-pos-set! file pos)
+           vect)
+          fail)))
 
       (define (read-string! file len fail)
         (vector->string
