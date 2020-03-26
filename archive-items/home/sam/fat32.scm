@@ -10,7 +10,6 @@
     (export
       TYPE-FILE
       TYPE-FOLDER
-      a-tests
       entry-name
       fat-file-exists?
       file-create!
@@ -225,7 +224,9 @@
                     `(,(if (eq? fn '+)
                            `simulate-forward-move
                            `simulate-backward-move)
-                       ,file
+                       (fat-file-fs ,file)
+                       (fat-file-curr-clus ,file)
+                       (fat-file-pos ,file)
                        ,mvmt
                        (lambda (new-cluster cluster-pos)
                          (fat-file-curr-clus-set! ,file new-cluster)
@@ -641,33 +642,29 @@
                   (traverse-fat-chain (cache-link-next link) (-- mvmt) chain)
                   (traverse-fat-chain (cache-link-prev link) (++ mvmt) chain)))))
 
-      (define-macro (simulate-direction-move direction file rewind c)
-                    `(let* ((fs (fat-file-fs ,file))
-                            (lg2spc (filesystem-lg2spc fs))
-                            (lg2bps (filesystem-lg2bps fs))
-                            (lg2bpc (filesystem-lg2bpc fs))
-                            (bpc (filesystem-bpc fs))
-                            (pos (fat-file-pos ,file))
-                            (section-pos (modulo pos bpc))
+      (define-macro (simulate-direction-move direction fs cluster pos rewind c)
+                    `(let* ((lg2spc (filesystem-lg2spc ,fs))
+                            (lg2bps (filesystem-lg2bps ,fs))
+                            (lg2bpc (filesystem-lg2bpc ,fs))
+                            (bpc (filesystem-bpc ,fs))
+                            (section-pos (modulo ,pos bpc))
                             (diff (+ section-pos ,rewind))
                             (spanned-clusters (>> diff lg2bpc)))
                        (if (> (abs spanned-clusters) 0)
                            ; need to go over boundary
-                           (let* ((start-cluster (fat-file-curr-clus ,file))
-                                  (cluster-leftover (modulo diff (<< 1 lg2bpc)))
+                           (let* ((cluster-leftover (modulo diff (<< 1 lg2bpc)))
                                   (new-cluster (traverse-fat-chain
-                                                 start-cluster
+                                                 ,cluster
                                                  spanned-clusters
-                                                 (filesystem-fat-cache fs))))
+                                                 (filesystem-fat-cache ,fs))))
                              (c new-cluster cluster-leftover))
-                           (c (fat-file-curr-clus ,file)
-                              (,(if (eq? direction 'BACKWARDS) `- `+) section-pos ,rewind)))))
+                           (c ,cluster (,(if (eq? direction 'BACKWARDS) `- `+) section-pos ,rewind)))))
 
-      (define (simulate-backward-move file rewind c)
-        (simulate-direction-move 'BACKWARDS file rewind c))
+      (define (simulate-backward-move fs cursor pos rewind c)
+        (simulate-direction-move 'BACKWARDS fs cursor pos rewind c))
 
-      (define (simulate-forward-move file rewind c)
-        (simulate-direction-move 'FORWARDS file rewind c))
+      (define (simulate-forward-move fs cursor pos rewind c)
+        (simulate-direction-move 'FORWARDS fs cursor pos rewind c))
 
       (define (file-move-cursor-backward! file rewind)
         (relative-move-function file rewind -))
@@ -675,10 +672,10 @@
       (define (file-move-cursor-forward! file wind)
         (relative-move-function file wind +))
 
-      (define (simulate-move file delta c)
+      (define (simulate-move fs cursor pos delta c)
         (if (> delta 0)
-            (simulate-forward-move file delta c)
-            (simulate-backward-move file delta c)))
+            (simulate-forward-move fs cursor pos delta c)
+            (simulate-backward-move fs cursor pos delta c)))
 
       (define (file-move-cursor! file delta)
         (if (> delta 0)
@@ -942,7 +939,9 @@
                (lg2bps (filesystem-lg2bps fs))
                (lg2spc (filesystem-lg2spc fs)))
           (simulate-move
-            parent
+            fs
+            (fat-file-curr-clus parent)
+            (fat-file-pos parent)
             (- entry-width)
             (lambda (entry-cluster entry-offset)
               (make-fat-file
@@ -1315,46 +1314,21 @@
       ; ...
       ; LFN N
       ; and a file descriptor and write them to the disk
-      (define (flush-fat-file-to-disk file entry-chain)
+      (define (flush-entry-list-to-disk fs cluster pos entry-chain c)
         (let* ((entry-chain-l (length entry-chain))
                (vector-len (* entry-width entry-chain-l))
-               (backwards-mvmt (* entry-width (-- entry-chain-l)))
-               (fake-parent (make-fat-file
-                              (fat-file-fs file)
-                              0
-                              (fat-file-entry-cluster file)
-                              (fat-file-entry-offset file)
-                              0
-                              0
-                              0
-                              0
-                              0
-                              0))
                (v (make-vector vector-len 0)))
-          (simulate-move
-            fake-parent
-            (- backwards-mvmt)
-            (lambda (c p)
-              (fat-file-curr-clus-set! fake-parent c)
-              (fat-file-pos-set! fake-parent p)))
+          ; unpack into vector
           (fold-right
             (lambda (e r)
               (let ((entry (list-ref entry-chain e)))
                 (if (lfn? entry)
-                    (begin
-                      (unpack-lfn entry v (* entry-width (- entry-chain-l 1 e))))
-                    (begin
-                      (unpack-entry entry v (* entry-width (- entry-chain-l 1 e))))))
+                    (unpack-lfn entry v (* entry-width (- entry-chain-l 1 e)))
+                    (unpack-entry entry v (* entry-width (- entry-chain-l 1 e)))))
               r)
             v
             (iota entry-chain-l))
-          (write-bytes!
-            fake-parent
-            v
-            0
-            vector-len
-            ID)
-          ))
+          (write-bytes-aux fs cluster pos v 0 vector-len c ID)))
 
       (define (flush-fat-entry-to-disk file entry)
         (let* ((fs (fat-file-fs file))
@@ -1433,32 +1407,24 @@
                          (n (length entries))
                          (wrt (lambda (offset)
                                 (file-set-cursor-absolute! parent offset)
-                                ; Fold right we start right from left, which is what we want
-                                (fold-right
-                                  (lambda (e r)
-                                    (let ((v (make-vector entry-width 0)))
-                                      (write-bytes!
-                                        parent
-                                        (if (lfn? e)
-                                            (unpack-lfn e v 0)
-                                            (unpack-entry e v 0))
-                                        0
-                                        entry-width
-                                        ID))
-                                    ; We count the number of written entries
-                                    (++ r))
-                                  0
-                                  entries)
-                                ; It's possible that writing the file will allocate a cluster that
-                                ; is not reserved for the file yet. A forward move before would therefore
-                                ; potentially end up in an unallocated zone
-                                (simulate-move
-                                  parent
-                                  (- entry-width)
-                                  (lambda (entry-cluster entry-offset)
-                                    ; Set the correct entry coodinates
-                                    (fat-file-entry-cluster-set! new-file entry-cluster)
-                                    (fat-file-entry-offset-set! new-file entry-offset)))
+                                (flush-entry-list-to-disk
+                                  fs
+                                  (fat-file-curr-clus parent)
+                                  (fat-file-pos parent)
+                                  entries
+                                  (lambda (r c p)
+                                    ; It's possible that writing the file will allocate a cluster that
+                                    ; is not reserved for the file yet. A forward move before would therefore
+                                    ; potentially end up in an unallocated zone
+                                    (simulate-move
+                                      fs
+                                      c
+                                      p
+                                      (- entry-width)
+                                      (lambda (entry-cluster entry-offset)
+                                        ; Set the correct entry coodinates
+                                        (fat-file-entry-cluster-set! new-file entry-cluster)
+                                        (fat-file-entry-offset-set! new-file entry-offset)))))
                                 new-file)))
                     (look-for-n-available-entries!
                       parent
@@ -1486,7 +1452,18 @@
               (let ((start-cluster (fat-file-first-clus file))
                     (new-lfn-chain (map mark-entry-deleted (fat-file->entries file))))
                 (unlink-chain fs start-cluster)
-                (flush-fat-file-to-disk file new-lfn-chain)))
+                (simulate-move
+                  fs
+                  (fat-file-entry-cluster file)
+                  (fat-file-entry-offset file)
+                  (* (- entry-width) (-- (length new-lfn-chain)))
+                  (lambda (c p)
+                   (flush-entry-list-to-disk
+                     fs
+                     c
+                     p
+                     new-lfn-chain
+                     (lambda (r c p) #t))))))
             (lambda (err) ERR-FNF))))
 
       ; Open a fat file
@@ -1508,8 +1485,5 @@
               (fat-file-mode-set! f mode)
               f)
             (lambda (err) ERR-FNF))))
-
-     (define (a-tests)
-      (file-create! (car filesystem-list) "home/sam/ijustcreatedthisfile.txt" TYPE-FILE))
 
 ))
