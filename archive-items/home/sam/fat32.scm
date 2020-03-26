@@ -25,6 +25,15 @@
       pack-BPB
       pack-entry
       simplify-path
+      stat
+      stat-from-file
+      ; Stat struct functions
+      stat-struct-creation-date
+      stat-struct-creation-time
+      stat-struct-last-access-date
+      stat-struct-last-write-date
+      stat-struct-last-write-time
+      stat-struct-type
       write-file
       )
     (begin
@@ -348,6 +357,14 @@
                         cache-write-mut
                         fat-cache) ; does not need to be a hash table... a vector would have been good
 
+      (define-structure stat-struct
+                        type
+                        creation-date
+                        creation-time
+                        last-access-date
+                        last-write-date
+                        last-write-time)
+
       (define-structure cache-link
                         next
                         prev)
@@ -414,15 +431,15 @@
 
       ; Unpack a fat date and call the fn function
       ; with the arguments year month day of month
-      (define (unpack-fat-date fate-date fn)
+      (define (unpack-fat-date fat-date fn)
         ; According to the FAT specification, the FAT date is set that way:
         ; Bits 15-9: Year relative to 1980
         ; Bits 8-5: Month
         ; Bits 4-0: Day of month
         (fn
-          (fx+ 1980 (fxand #x7F (>> fat-date 9)))
+          (fxand #x1F fat-date)
           (fxand #xF (>> fat-date 5))
-          (fxand #x1F fat-date)))
+          (fx+ 1980 (fxand #x7F (>> fat-date 9)))))
 
       (define (extract-lfn-data lfn)
         (let ((text (list
@@ -1476,8 +1493,7 @@
             parts
             (lambda (f)
               (cond ((mask mode FILE-MODE-READ) ; r, r+
-                     #t ; nothing special
-                     )
+                     #t) ; nothing special
                     ((mask mode FILE-MODE-APPEND)
                      (file-set-cursor-absolute!  f (max 0 (-- (fat-file-len f)))))
                     ((mask mode FILE-MODE-TRUNC)
@@ -1485,5 +1501,24 @@
               (fat-file-mode-set! f mode)
               f)
             (lambda (err) ERR-FNF))))
+
+       (define (stat fs path)
+        (let ((file (file-open! fs path "r")))
+         (if-not file ERR-FNF stat-from-file)))
+
+       (define (stat-from-file file)
+         (let* ((ent (fat-file-entry file))
+                (create-time (logical-entry-create-time ent))
+                (create-date (logical-entry-create-date ent))
+                (la-date (logical-entry-last-access-date ent))
+                (lw-time (logical-entry-last-write-time ent))
+                (lw-date (logical-entry-last-write-date ent)))
+           (make-stat-struct
+             (fat-file-type file)
+             (unpack-fat-date create-date day-month-year->epoch-seconds)
+             (unpack-fat-time create-time hour-minute-seconds->seconds)
+             (unpack-fat-date la-date day-month-year->epoch-seconds)
+             (unpack-fat-date lw-date day-month-year->epoch-seconds)
+             (unpack-fat-time lw-time hour-minute-seconds->seconds))))
 
 ))

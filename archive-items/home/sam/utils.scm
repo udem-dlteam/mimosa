@@ -20,6 +20,8 @@
                   bipartition
                   both
                   build-vector
+                  day-month-year->days-since-epoch
+                  day-month-year->epoch-seconds
                   displayn
                   fields
                   filter
@@ -27,6 +29,8 @@
                   flatten
                   fxhalve
                   gambit-set-repl-channels!
+                  hour-minute-seconds->seconds
+                  if-not
                   ilog2
                   lwrap
                   mask
@@ -50,6 +54,22 @@
     (begin
       (define (// a b)
         (floor (/ a b)))
+
+      (define (hour-minute-seconds->seconds h m s)
+       (+ (* 3600 h) (* 60 m) s))
+
+      ; This wonderful algorithm has been translated to Scheme,
+      ; by me, from https://howardhinnant.github.io/date_algorithms.html
+      (define (day-month-year->days-since-epoch d m y)
+        (let* ((y (- y (if (<= m 2) m 0)))
+               (era (// (- y 399) 400))
+               (yoe (- y (* 400 era)))
+               (doy (+ (// (+ 2 (* 153 (+ m (if (> m 2) -3 9 )))) 5) d -1))
+               (doe (+ doy (- (// yoe 100))  (// yoe 4) (* 365 yoe))))
+          (+ doe -719468 (* era 146097))))
+
+      (define (day-month-year->epoch-seconds d m y)
+       (* 24 3600 (day-month-year->days-since-epoch d m y)))
 
       (define (<< n shl)
         (fxarithmetic-shift n shl))
@@ -290,5 +310,11 @@
                     (if (p e)
                         (c (cons e yes) no)
                         (c yes (cons e no)))))))))
+
+
+      (define (if-not val sym f)
+       (if (eq? val sym)
+        sym
+        (f val)))
 
       ))
