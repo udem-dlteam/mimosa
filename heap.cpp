@@ -299,3 +299,4 @@ void *heap_malloc(heap *h, size_t size) {
 
 #undef block_used
 #undef block_size
+#undef MIN_SPLIT_DELTA
