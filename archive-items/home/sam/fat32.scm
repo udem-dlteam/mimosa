@@ -1,176 +1,177 @@
 ; The mimosa project
 ; Limitation: root entry cluster must be two
-(define-library (fat32)
-    (import
-      (errors)
-      (disk)
-      (gambit)
-      (utils)
-      (debug))
-    (export
-      TYPE-FILE
-      TYPE-FOLDER
-      entry-name
-      fat-file-exists?
-      file-create!
-      file-delete!
-      file-open!
-      file-read!
-      file-write!
-      filesystem-list
-      list-directory
-      look-for-n-available-entries!
-      make-lfns
-      mount-partitions
-      pack-BPB
-      pack-entry
-      simplify-path
-      stat
-      stat-from-file
-      ; Stat struct functions
-      stat-struct-creation-date
-      stat-struct-creation-time
-      stat-struct-last-access-date
-      stat-struct-last-write-date
-      stat-struct-last-write-time
-      stat-struct-type
-      write-file
-      )
-    (begin
-      ; --------------------------------------------------
-      ; --------------------------------------------------
-      ; --------------------------------------------------
-      ;         Definitions, constants and globals
-      ; --------------------------------------------------
-      ; --------------------------------------------------
-      ; --------------------------------------------------
-      (define ATTR-BIT-POS 11)
-      (define FAT-LINK-MASK #x0FFFFFFF)
-      (define FAT-DELETED-MARKER #xE5)
-      (define FILE-MODE-READ (arithmetic-shift 1 0))
-      (define FILE-MODE-TRUNC (arithmetic-shift 1 1))
-      (define FILE-MODE-APPEND (arithmetic-shift 1 2))
-      (define FILE-MODE-PLUS (arithmetic-shift 1 3))
-      (define FILE-MODE-BINARY (arithmetic-shift 1 4))
-      (define FAT32-ENTRY-WIDTH 4)
-      (define (mode-requires-existence? mode)
-        (mask mode FILE-MODE-READ))
-      (define EOF 'EOF)
-      (define FAT12-FS 0)
-      (define FAT16-FS 1)
-      (define FAT32-FS 2)
-      (define FAT-32-EOF #x0FFFFFF8)
-      (define FAT32-FIRST-CLUSTER 2)
-      (define FAT-UNUSED-ENTRY #xE5)
-      (define FAT-LAST-LONG-ENTRY #x40)
-      (define FAT-SHORT-FILE-NAME-MAX-LEN 11)
-      (define FAT-CHARS-PER-LONG-NAME-ENTRY 13)
-      (define FAT-NAME-MAX 1024)
-      (define DT-UNKNOWN 0)
-      (define DT-DIR 1)
-      (define DT-REG 2)
-      (define FAT-ATTR-READ-ONLY #x01)
-      (define FAT-ATTR-HIDDEN #x02)
-      (define FAT-ATTR-SYSTEM #x04)
-      (define FAT-ATTR-VOLUME-ID #x08)
-      (define FAT-ATTR-DIRECTORY #x10)
-      (define FAT-ATTR-ARCHIVE #x20)
-      (define FAT-ATTR-LONG-NAME
-        (fxior FAT-ATTR-READ-ONLY
-               FAT-ATTR-HIDDEN
-               FAT-ATTR-SYSTEM
-               FAT-ATTR-VOLUME-ID))
-      (define FAT-NAME-LENGTH 11)
-      (define FAT-DIR-ENTRY-SIZE 32)
-      (define TYPE-FOLDER 'FOLDER)
-      (define FAT-32-FS-TYPE "FAT32")
-      (define TYPE-FILE 'FILE)
-      (define filesystem-list (list))
-      ; --------------------------------------------------
-      ; --------------------------------------------------
-      ; --------------------------------------------------
-      ;                      MACROS
-      ; --------------------------------------------------
-      ; --------------------------------------------------
-      ; --------------------------------------------------
-      (define-macro (define-c-struct name . fields)
-                    (let* ((symbol-name (symbol->string name))
-                           (pack-struct
-                             (string->symbol (string-append "pack-" symbol-name)))
-                           (unpack-struct
-                             (string->symbol (string-append "unpack-" symbol-name)))
-                           (make-struct
-                             (string->symbol (string-append "make-" symbol-name)))
-                           (width-struct
-                             (string->symbol (string-append symbol-name "-width")))
-                           (field-accessor (lambda (field)
-                                             (string->symbol
-                                               (string-append
-                                                 symbol-name
-                                                 "-"
-                                                 (symbol->string field)))))
-                           (flatten (lambda (lst)
-                                      (if (pair? lst)
-                                          (fold-right (lambda (e r)
-                                                        (if (pair? e)
-                                                            (append (flatten (car e)) (flatten (cdr e)) r)
-                                                            (cons e r)))
-                                                      (list) lst)
-                                          (list lst))))
-                           (vect-idx 0)
-                           (field-names (map car fields))
-                           (field-width (map cadr fields)))
-                      `(begin
-                         (define-structure ,name
-                                           ,@field-names)
-                         (define ,width-struct (+ ,@field-width))
-                         (define (,unpack-struct strc vec base-offset)
+(define-library
+  (fat32)
+  (import
+    (errors)
+    (disk)
+    (gambit)
+    (utils)
+    (debug))
+  (export
+    TYPE-FILE
+    TYPE-FOLDER
+    entry-name
+    fat-file-exists?
+    file-create!
+    file-delete!
+    file-open!
+    file-read!
+    file-write!
+    filesystem-list
+    list-directory
+    look-for-n-available-entries!
+    make-lfns
+    mount-partitions
+    pack-BPB
+    pack-entry
+    simplify-path
+    stat
+    stat-from-file
+    ; Stat struct functions
+    stat-struct-creation-date
+    stat-struct-creation-time
+    stat-struct-last-access-date
+    stat-struct-last-write-date
+    stat-struct-last-write-time
+    stat-struct-type
+    write-file
+    )
+  (begin
+    ; --------------------------------------------------
+    ; --------------------------------------------------
+    ; --------------------------------------------------
+    ;         Definitions, constants and globals
+    ; --------------------------------------------------
+    ; --------------------------------------------------
+    ; --------------------------------------------------
+    (define ATTR-BIT-POS 11)
+    (define FAT-LINK-MASK #x0FFFFFFF)
+    (define FAT-DELETED-MARKER #xE5)
+    (define FILE-MODE-READ (arithmetic-shift 1 0))
+    (define FILE-MODE-TRUNC (arithmetic-shift 1 1))
+    (define FILE-MODE-APPEND (arithmetic-shift 1 2))
+    (define FILE-MODE-PLUS (arithmetic-shift 1 3))
+    (define FILE-MODE-BINARY (arithmetic-shift 1 4))
+    (define FAT32-ENTRY-WIDTH 4)
+    (define (mode-requires-existence? mode)
+      (mask mode FILE-MODE-READ))
+    (define EOF 'EOF)
+    (define FAT12-FS 0)
+    (define FAT16-FS 1)
+    (define FAT32-FS 2)
+    (define FAT-32-EOF #x0FFFFFF8)
+    (define FAT32-FIRST-CLUSTER 2)
+    (define FAT-UNUSED-ENTRY #xE5)
+    (define FAT-LAST-LONG-ENTRY #x40)
+    (define FAT-SHORT-FILE-NAME-MAX-LEN 11)
+    (define FAT-CHARS-PER-LONG-NAME-ENTRY 13)
+    (define FAT-NAME-MAX 1024)
+    (define DT-UNKNOWN 0)
+    (define DT-DIR 1)
+    (define DT-REG 2)
+    (define FAT-ATTR-READ-ONLY #x01)
+    (define FAT-ATTR-HIDDEN #x02)
+    (define FAT-ATTR-SYSTEM #x04)
+    (define FAT-ATTR-VOLUME-ID #x08)
+    (define FAT-ATTR-DIRECTORY #x10)
+    (define FAT-ATTR-ARCHIVE #x20)
+    (define FAT-ATTR-LONG-NAME
+      (fxior FAT-ATTR-READ-ONLY
+             FAT-ATTR-HIDDEN
+             FAT-ATTR-SYSTEM
+             FAT-ATTR-VOLUME-ID))
+    (define FAT-NAME-LENGTH 11)
+    (define FAT-DIR-ENTRY-SIZE 32)
+    (define TYPE-FOLDER 'FOLDER)
+    (define FAT-32-FS-TYPE "FAT32")
+    (define TYPE-FILE 'FILE)
+    (define filesystem-list (list))
+    ; --------------------------------------------------
+    ; --------------------------------------------------
+    ; --------------------------------------------------
+    ;                      MACROS
+    ; --------------------------------------------------
+    ; --------------------------------------------------
+    ; --------------------------------------------------
+    (define-macro (define-c-struct name . fields)
+                  (let* ((symbol-name (symbol->string name))
+                         (pack-struct
+                           (string->symbol (string-append "pack-" symbol-name)))
+                         (unpack-struct
+                           (string->symbol (string-append "unpack-" symbol-name)))
+                         (make-struct
+                           (string->symbol (string-append "make-" symbol-name)))
+                         (width-struct
+                           (string->symbol (string-append symbol-name "-width")))
+                         (field-accessor (lambda (field)
+                                           (string->symbol
+                                             (string-append
+                                               symbol-name
+                                               "-"
+                                               (symbol->string field)))))
+                         (flatten (lambda (lst)
+                                    (if (pair? lst)
+                                        (fold-right (lambda (e r)
+                                                      (if (pair? e)
+                                                          (append (flatten (car e)) (flatten (cdr e)) r)
+                                                          (cons e r)))
+                                                    (list) lst)
+                                        (list lst))))
+                         (vect-idx 0)
+                         (field-names (map car fields))
+                         (field-width (map cadr fields)))
+                    `(begin
+                       (define-structure ,name
+                                         ,@field-names)
+                       (define ,width-struct (+ ,@field-width))
+                       (define (,unpack-struct strc vec base-offset)
+                         ; fields that are shorter than 4 are packed into an int
+                         ; fields that are longer than 4 are packed directly into a vect
+                         ; fields that have a negative length are forced into a vect
+                         (begin
+                           ,@(let ((offset 0))
+                               (map (lambda (f-index)
+                                      (let ((f (list-ref field-names f-index))
+                                            (w (list-ref field-width f-index)))
+                                        ; copy the vector into the target vector
+                                        (if (or (< w 0) (> w 4))
+                                            `(begin ,@(map
+                                                        (lambda (i)
+                                                          (set! offset (+ offset 1))
+                                                          `(vector-set!
+                                                             vec
+                                                             (+ ,(- offset 1) base-offset)
+                                                             (vector-ref (,(field-accessor f) strc) ,i)))
+                                                        (iota (abs w))))
+                                            `(begin ,@(map (lambda (i)
+                                                             (set! offset (+ offset 1))
+                                                             `(vector-set!
+                                                                vec
+                                                                (+ ,(- offset 1) base-offset)
+                                                                (bitwise-and #xFF (arithmetic-shift
+                                                                                    (,(field-accessor f) strc)
+                                                                                    ,(- 0 (* i 8)))))
+                                                             )
+                                                           (iota w)))
+                                            ))) (iota (length field-names))))
+                           vec))
+                       (define (,pack-struct vec)
+                         (,make-struct
+                           ;; TODO: map does not guarantee left-to-right calls to function
                            ; fields that are shorter than 4 are packed into an int
                            ; fields that are longer than 4 are packed directly into a vect
                            ; fields that have a negative length are forced into a vect
-                           (begin
-                             ,@(let ((offset 0))
-                                 (map (lambda (f-index)
-                                        (let ((f (list-ref field-names f-index))
-                                              (w (list-ref field-width f-index)))
-                                          ; copy the vector into the target vector
-                                          (if (or (< w 0) (> w 4))
-                                              `(begin ,@(map
-                                                          (lambda (i)
-                                                            (set! offset (+ offset 1))
-                                                            `(vector-set!
-                                                               vec
-                                                               (+ ,(- offset 1) base-offset)
-                                                               (vector-ref (,(field-accessor f) strc) ,i)))
-                                                          (iota (abs w))))
-                                              `(begin ,@(map (lambda (i)
-                                                               (set! offset (+ offset 1))
-                                                               `(vector-set!
-                                                                  vec
-                                                                  (+ ,(- offset 1) base-offset)
-                                                                  (bitwise-and #xFF (arithmetic-shift
-                                                                                      (,(field-accessor f) strc)
-                                                                                      ,(- 0 (* i 8)))))
-                                                               )
-                                                             (iota w)))
-                                              ))) (iota (length field-names))))
-                             vec))
-                         (define (,pack-struct vec)
-                           (,make-struct
-                             ;; TODO: map does not guarantee left-to-right calls to function
-                             ; fields that are shorter than 4 are packed into an int
-                             ; fields that are longer than 4 are packed directly into a vect
-                             ; fields that have a negative length are forced into a vect
-                             ,@(map (lambda (extract)
-                                      (let ((offset vect-idx)
-                                            (next-offset (+ vect-idx (abs extract))))
-                                        (set! vect-idx next-offset)
-                                        (if (<= 0 extract 4)
-                                            `(+ ,@(map (lambda (i)
-                                                         `(arithmetic-shift
-                                                            (vector-ref vec ,(+ offset i))
-                                                            ,(* i 8)))
-                                                       (iota extract)))
+                           ,@(map (lambda (extract)
+                                    (let ((offset vect-idx)
+                                          (next-offset (+ vect-idx (abs extract))))
+                                      (set! vect-idx next-offset)
+                                      (if (<= 0 extract 4)
+                                          `(+ ,@(map (lambda (i)
+                                                       `(arithmetic-shift
+                                                          (vector-ref vec ,(+ offset i))
+                                                          ,(* i 8)))
+                                                     (iota extract)))
 
                                             `(build-vector
                                                ,(abs extract)
@@ -1264,7 +1265,7 @@
         (fat-file-len-set! file new-len)
         (let* ((fs (fat-file-fs file))
                (entry-cluster (fat-file-entry-cluster file))
-               (entry-offset  (fat-file-entry-offset file))
+               (entry-offset (fat-file-entry-offset file))
                (lba (cluster+offset->lba fs entry-cluster entry-offset))
                (offset (modulo entry-offset (<< 1 (filesystem-lg2bps fs)))))
           (with-sector
@@ -1350,7 +1351,7 @@
       (define (flush-fat-entry-to-disk file entry)
         (let* ((fs (fat-file-fs file))
                (entry-cluster (fat-file-entry-cluster file))
-               (entry-offset  (fat-file-entry-offset file))
+               (entry-offset (fat-file-entry-offset file))
                (lba (cluster+offset->lba fs entry-cluster entry-offset))
                (offset (modulo entry-offset (<< 1 (filesystem-lg2bps fs)))))
           (with-sector
@@ -1495,7 +1496,7 @@
               (cond ((mask mode FILE-MODE-READ) ; r, r+
                      #t) ; nothing special
                     ((mask mode FILE-MODE-APPEND)
-                     (file-set-cursor-absolute!  f (max 0 (-- (fat-file-len f)))))
+                     (file-set-cursor-absolute! f (max 0 (-- (fat-file-len f)))))
                     ((mask mode FILE-MODE-TRUNC)
                      (truncate-file f)))
               (fat-file-mode-set! f mode)
