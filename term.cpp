@@ -17,7 +17,7 @@
 
 //-----------------------------------------------------------------------------
 
-static file* term_stdout_write;
+static file *term_stdout_write;
 static volatile bool stdout_configured;
 
 error_code init_terms() {
@@ -33,8 +33,8 @@ error_code init_terms() {
   return err;
 }
 
-term* term_init(term* self, int x, int y, int nb_columns, int nb_rows,
-                font_c* font_normal, font_c* font_bold, unicode_string title,
+term *term_init(term *self, int x, int y, int nb_columns, int nb_rows,
+                font_c *font_normal, font_c *font_bold, unicode_string title,
                 bool initialy_visible) {
   self->_x = x;
   self->_y = y;
@@ -61,7 +61,7 @@ term* term_init(term* self, int x, int y, int nb_columns, int nb_rows,
   return self;
 }
 
-void term_show(term* self) {
+void term_show(term *self) {
   if (self->_visible) {
     return;
   }
@@ -69,7 +69,7 @@ void term_show(term* self) {
   int sx, sy, ex, ey;
   int char_height = font_get_height(self->_fn_normal);
 
-  pattern* background;
+  pattern *background;
 
   term_char_coord_to_screen_coord(self, self->_nb_columns - 1,
                                   self->_nb_rows - 1, &sx, &sy, &ex, &ey);
@@ -111,13 +111,13 @@ void term_show(term* self) {
       self->_fn_normal, &screen.super,
       self->_x + term_outer_border + term_frame_border + term_inner_border,
       self->_y + term_outer_border + term_frame_border + term_inner_border,
-      L"\x25b6 ",  // rightward triangle and space
+      L"\x25b6 ", // rightward triangle and space
       &pattern_blue, &pattern_black);
 
-  font_draw_string(
-      self->_fn_normal, &screen.super, curr_x,
-      self->_y + term_outer_border + term_frame_border + term_inner_border,
-      self->_title, &pattern_blue, &pattern_black);
+  font_draw_string(self->_fn_normal, &screen.super, curr_x,
+                   self->_y + term_outer_border + term_frame_border +
+                       term_inner_border,
+                   self->_title, &pattern_blue, &pattern_black);
 
   raw_bitmap_fill_rect(
       &screen.super, self->_x + term_outer_border + term_frame_border,
@@ -129,8 +129,8 @@ void term_show(term* self) {
   self->_visible = TRUE;
 }
 
-void term_char_coord_to_screen_coord(term* self, int column, int row, int* sx,
-                                     int* sy, int* ex, int* ey) {
+void term_char_coord_to_screen_coord(term *self, int column, int row, int *sx,
+                                     int *sy, int *ex, int *ey) {
   int char_max_width = font_get_max_width(self->_fn_normal);
   int char_height = font_get_height(self->_fn_normal);
 
@@ -142,51 +142,51 @@ void term_char_coord_to_screen_coord(term* self, int column, int row, int* sx,
   *ey = *sy + char_height;
 }
 
-void term_color_to_pattern(term* self, int color, pattern** pat) {
+void term_color_to_pattern(term *self, int color, pattern **pat) {
   switch (color) {
-    case 0:
-      *pat = &pattern_black;
-      break;
-    case 1:
-      *pat = &pattern_red;
-      break;
-    case 2:
-      *pat = &pattern_green;
-      break;
-    case 3:
-      *pat = &pattern_yellow;
-      break;
-    case 4:
-      *pat = &pattern_blue;
-      break;
-    case 5:
-      *pat = &pattern_magenta;
-      break;
-    case 6:
-      *pat = &pattern_cyan;
-      break;
-    case 7:
-      *pat = &pattern_white;
-      break;
-    default:
-      *pat = &pattern_black;
-      break;
+  case 0:
+    *pat = &pattern_black;
+    break;
+  case 1:
+    *pat = &pattern_red;
+    break;
+  case 2:
+    *pat = &pattern_green;
+    break;
+  case 3:
+    *pat = &pattern_yellow;
+    break;
+  case 4:
+    *pat = &pattern_blue;
+    break;
+  case 5:
+    *pat = &pattern_magenta;
+    break;
+  case 6:
+    *pat = &pattern_cyan;
+    break;
+  case 7:
+    *pat = &pattern_white;
+    break;
+  default:
+    *pat = &pattern_black;
+    break;
   }
 }
 
-void term_show_cursor(term* self) {
+void term_show_cursor(term *self) {
   if (!self->_cursor_visible) {
     term_toggle_cursor(self);
   }
 }
 
-void term_hide_cursor(term* self) {
+void term_hide_cursor(term *self) {
   if (self->_cursor_visible) {
     term_toggle_cursor(self);
   }
 }
 
-void term_toggle_cursor(term* self) {
+void term_toggle_cursor(term *self) {
   int sx, sy, ex, ey;
 
   term_char_coord_to_screen_coord(self, self->_cursor_column, self->_cursor_row,
@@ -197,7 +197,7 @@ void term_toggle_cursor(term* self) {
   self->_cursor_visible = !self->_cursor_visible;
 }
 
-int term_write(term* self, unicode_char* buf, int count) {
+int term_write(term *self, unicode_char *buf, int count) {
   error_code err = NO_ERROR;
   unicode_char c = L'\0';
   int start = 0, end = 0, i = 0;
@@ -218,7 +218,8 @@ int term_write(term* self, unicode_char* buf, int count) {
     // } else {
     //   // ignore, but STDERR would be useful to.
     // }
-    if (ERROR(err = file_write(term_stdout_write, buf, sizeof(unicode_char) * count))) {
+    if (ERROR(err = file_write(term_stdout_write, buf,
+                               sizeof(unicode_char) * count))) {
       // Buffer is full, some content might be lost.
     }
   }
@@ -229,145 +230,154 @@ int term_write(term* self, unicode_char* buf, int count) {
     i = start;
     end = count;
 
-    if (self->_param_num == -2) {  // not inside an escape sequence
+    if (self->_param_num == -2) { // not inside an escape sequence
 
       while (i < end) {
         c = buf[i++];
-        if (c == 0x07 || c == 0x08 || c == 0x0a || c == 0x0d || c == 0x1b)  // special char?
+        if (c == 0x07 || c == 0x08 || c == 0x0a || c == 0x0d ||
+            c == 0x1b) // special char?
         {
-          i--;  // only process characters before the special character
+          i--; // only process characters before the special character
           break;
         }
       }
     }
 
     if (i > start) {
-      end = i;  // stop drawing characters at the first special one
+      end = i; // stop drawing characters at the first special one
     } else {
       while (i < end) {
-        int op = -999;  // noop
+        int op = -999; // noop
         int arg = 0;
         int pn = self->_param_num;
 
         c = buf[i++];
 
         switch (pn) {
-          case -2:
-            if (c == 0x08) {         // backspace character?
-              op = -1;               // move cursor horizontally
-              arg = -1;              // one column left
-            } else if (c == 0x0a) {  // linefeed character?
+        case -2:
+          if (c == 0x08) {        // backspace character?
+            op = -1;              // move cursor horizontally
+            arg = -1;             // one column left
+          } else if (c == 0x0a) { // linefeed character?
 
-              term_hide_cursor(self);
-              self->_cursor_column = 0;
+            term_hide_cursor(self);
+            self->_cursor_column = 0;
 
-              if (self->_cursor_row == self->_nb_rows - 1) {  // on last row?
-                term_scroll_up(self);
-              } else {
-                op = 0;   // move cursor vertically
-                arg = 1;  // one row down
-              }
-
-            } else if (c == 0x0d)  // carriage return character?
-            {
-              op = self->_cursor_row + 1;  // move cursor on same row
-              arg = 1;                     // to leftmost column
-            } else if (c == 0x1b) {         // ESC character?
-              self->_param_num = -1;
-            } else if (c == 0x07) {
-              op = -999; // NOOP
+            if (self->_cursor_row == self->_nb_rows - 1) { // on last row?
+              term_scroll_up(self);
             } else {
-              end = i - 1;  // special character processing is done
+              op = 0;  // move cursor vertically
+              arg = 1; // one row down
             }
-            break;
 
-          case -1:
-            if (c == '[') {
-              self->_param_num = 0;
-              self->_param[0] = 0;
-            } else {
-              self->_param_num = -2;
+          } else if (c == 0x0d) // carriage return character?
+          {
+            op = self->_cursor_row + 1; // move cursor on same row
+            arg = 1;                    // to leftmost column
+          } else if (c == 0x1b) {       // ESC character?
+            self->_param_num = -1;
+          } else if (c == 0x07) {
+            op = -999; // NOOP
+          } else {
+            end = i - 1; // special character processing is done
+          }
+          break;
+
+        case -1:
+          if (c == '[') {
+            self->_param_num = 0;
+            self->_param[0] = 0;
+          } else {
+            self->_param_num = -2;
+          }
+          break;
+
+        default:
+          if (c >= '0' && c <= '9') {
+            int x = c - '0';
+            int p = self->_param[pn];
+            if (p < 1000) {
+              self->_param[pn] = p * 10 + x;
             }
-            break;
 
-          default:
-            if (c >= '0' && c <= '9') {
-              int x = c - '0';
-              int p = self->_param[pn];
-              if (p < 1000) {
-                self->_param[pn] = p * 10 + x;
-              }
+          } else if (c == ';') {
+            pn++;
+            if (pn < term_max_nb_params) {
+              self->_param_num = pn;
+              self->_param[pn] = 0;
+            }
+          } else {
+            self->_param_num = -2;
 
-            } else if (c == ';') {
-              pn++;
-              if (pn < term_max_nb_params) {
-                self->_param_num = pn;
-                self->_param[pn] = 0;
-              }
-            } else {
-              self->_param_num = -2;
-
-              if (c == 'A') {
-                op = 0;  // move cursor vertically (up)
-                arg = -self->_param[0];
-                if (arg >= 0) arg = -1;
-              } else if (c == 'B') {
-                op = 0;  // move cursor vertically (down)
-                arg = self->_param[0];
-                if (arg <= 0) arg = 1;
-              } else if (c == 'C') {
-                op = -1;  // move cursor horizontally (forward)
-                arg = self->_param[0];
-                if (arg <= 0) arg = 1;
-              } else if (c == 'D') {
-                op = -1;  // move cursor horizontally (backward)
-                arg = -self->_param[0];
-                if (arg >= 0) arg = -1;
-              } else if (c == 'H' || c == 'f') {
-                op = self->_param[0];   // move cursor, op = row
-                arg = self->_param[1];  // arg = column
-                if (op <= 0) op = 1;
-                if (pn < 1 || arg <= 0) arg = 1;
-              } else if (c == 'J') {
-                op = -2;  // clear characters
-                arg = self->_param[0];
-                if (arg <= 0) arg = 0;
-              } else if (c == 'K') {
-                op = -3;  // clear characters
-                arg = self->_param[0];
-                if (arg <= 0) arg = 0;
-              } else if (c == 'm') {
-                int j;
-                op = -4;  // set attributes
-                for (j = 0; j <= pn; j++) {
-                  int x = self->_param[j];
-                  if (x <= 0) {
-                    self->_bold = FALSE;
-                    self->_underline = FALSE;
-                    self->_reverse = FALSE;
-                    self->_fg = term_normal_foreground;
-                    self->_bg = term_normal_background;
-                  } else if (x == 1) {
-                    self->_bold = TRUE;
-                  } else if (x == 4) {
-                    self->_underline = TRUE;
-                  } else if (x == 7) {
-                    self->_reverse = TRUE;
-                  } else if (x >= 30 && x <= 37) {
-                    self->_fg = x - 30;
-                  } else if (x >= 40 && x <= 47) {
-                    self->_bg = x - 40;
-                  }
+            if (c == 'A') {
+              op = 0; // move cursor vertically (up)
+              arg = -self->_param[0];
+              if (arg >= 0)
+                arg = -1;
+            } else if (c == 'B') {
+              op = 0; // move cursor vertically (down)
+              arg = self->_param[0];
+              if (arg <= 0)
+                arg = 1;
+            } else if (c == 'C') {
+              op = -1; // move cursor horizontally (forward)
+              arg = self->_param[0];
+              if (arg <= 0)
+                arg = 1;
+            } else if (c == 'D') {
+              op = -1; // move cursor horizontally (backward)
+              arg = -self->_param[0];
+              if (arg >= 0)
+                arg = -1;
+            } else if (c == 'H' || c == 'f') {
+              op = self->_param[0];  // move cursor, op = row
+              arg = self->_param[1]; // arg = column
+              if (op <= 0)
+                op = 1;
+              if (pn < 1 || arg <= 0)
+                arg = 1;
+            } else if (c == 'J') {
+              op = -2; // clear characters
+              arg = self->_param[0];
+              if (arg <= 0)
+                arg = 0;
+            } else if (c == 'K') {
+              op = -3; // clear characters
+              arg = self->_param[0];
+              if (arg <= 0)
+                arg = 0;
+            } else if (c == 'm') {
+              int j;
+              op = -4; // set attributes
+              for (j = 0; j <= pn; j++) {
+                int x = self->_param[j];
+                if (x <= 0) {
+                  self->_bold = FALSE;
+                  self->_underline = FALSE;
+                  self->_reverse = FALSE;
+                  self->_fg = term_normal_foreground;
+                  self->_bg = term_normal_background;
+                } else if (x == 1) {
+                  self->_bold = TRUE;
+                } else if (x == 4) {
+                  self->_underline = TRUE;
+                } else if (x == 7) {
+                  self->_reverse = TRUE;
+                } else if (x >= 30 && x <= 37) {
+                  self->_fg = x - 30;
+                } else if (x >= 40 && x <= 47) {
+                  self->_bg = x - 40;
                 }
               }
             }
+          }
         }
 
         // execute appropriate operation as indicated by "op" and "arg"
 
-        if (op != -999)  // not noop?
+        if (op != -999) // not noop?
         {
-          if (op >= -1)  // move cursor?
+          if (op >= -1) // move cursor?
           {
             term_hide_cursor(self);
 
@@ -393,7 +403,7 @@ int term_write(term* self, unicode_char* buf, int count) {
             } else if (self->_cursor_column >= self->_nb_columns) {
               self->_cursor_column = self->_nb_columns - 1;
             }
-          } else if (op >= -3) {  // clear characters
+          } else if (op >= -3) { // clear characters
             if (arg <= 2) {
               int sx;
               int sy;
@@ -403,7 +413,7 @@ int term_write(term* self, unicode_char* buf, int count) {
               int csy;
               int cex;
               int cey;
-              pattern* background;
+              pattern *background;
 
               term_color_to_pattern(self, term_normal_background, &background);
 
@@ -417,10 +427,12 @@ int term_write(term* self, unicode_char* buf, int count) {
                                               self->_cursor_row, &csx, &csy,
                                               &cex, &cey);
 
-              if (arg != 1) term_hide_cursor(self);
+              if (arg != 1)
+                term_hide_cursor(self);
 
               if (op == -2 && arg != 0) {
-                raw_bitmap_fill_rect(&screen.super,sx, sy, ex, csy, background);
+                raw_bitmap_fill_rect(&screen.super, sx, sy, ex, csy,
+                                     background);
               }
 
               raw_bitmap_fill_rect(&screen.super, (arg == 0) ? csx : sx, csy,
@@ -430,7 +442,7 @@ int term_write(term* self, unicode_char* buf, int count) {
                 raw_bitmap_fill_rect(&screen.super, sx, cey, ex, ey,
                                      background);
             }
-          } else if (op == -4) {  // set attributes
+          } else if (op == -4) { // set attributes
             // note: attributes are handled when characters
             // are displayed
           }
@@ -449,11 +461,11 @@ int term_write(term* self, unicode_char* buf, int count) {
       int ey;
       int fg;
       int bg;
-      pattern* foreground;
-      pattern* background;
+      pattern *foreground;
+      pattern *background;
       int n = end - start;
 
-      if (n > self->_nb_columns - self->_cursor_column)  // one line at a time
+      if (n > self->_nb_columns - self->_cursor_column) // one line at a time
         n = self->_nb_columns - self->_cursor_column;
 
       if (self->_reverse) {
@@ -497,14 +509,14 @@ int term_write(term* self, unicode_char* buf, int count) {
     term_show_cursor(self);
   }
 
-  screen.super.vtable->show_mouse(&screen);  
+  screen.super.vtable->show_mouse(&screen);
   return end;
 }
 
-void term_scroll_up(term* self) {
+void term_scroll_up(term *self) {
   int x0, y0, x1, y1, x2, y2, x3, y3;
 
-  pattern* background;
+  pattern *background;
 
   term_char_coord_to_screen_coord(self, 0, 0, &x0, &y0, &x1, &y1);
   term_char_coord_to_screen_coord(self, self->_nb_columns - 1,
@@ -521,7 +533,7 @@ void term_scroll_up(term* self) {
 static const native_string TRUE_STR = "TRUE";
 static const native_string FALSE_STR = "FALSE";
 
-term* term_write(term* self, bool x) {
+term *term_write(term *self, bool x) {
   if (x) {
     return term_write(self, TRUE_STR);
   } else {
@@ -529,15 +541,15 @@ term* term_write(term* self, bool x) {
   }
 }
 
-term* term_write(term* self, int8 x) {
+term *term_write(term *self, int8 x) {
   return term_write(self, CAST(int32, x));
 }
 
-term* term_write(term* self, int16 x) {
+term *term_write(term *self, int16 x) {
   return term_write(self, CAST(int32, x));
 }
 
-term* term_write(term* self, int32 x) {
+term *term_write(term *self, int32 x) {
   if (x < 0) {
     return term_write(term_write(self, L"-"), CAST(uint32, -x));
   } else {
@@ -545,22 +557,22 @@ term* term_write(term* self, int32 x) {
   }
 }
 
-term* term_write(term* self, int64 x) {
+term *term_write(term *self, int64 x) {
   return term_write(self, CAST(uint64, x));
 }
 
-term* term_write(term* self, uint8 x) {
+term *term_write(term *self, uint8 x) {
   return term_write(self, CAST(uint32, x));
 }
 
-term* term_write(term* self, uint16 x) {
+term *term_write(term *self, uint16 x) {
   return term_write(self, CAST(uint32, x));
 }
 
-term* term_write(term* self, uint32 x) {
-  const int max_digits = 10;  // 2^32 contains 10 decimal digits
+term *term_write(term *self, uint32 x) {
+  const int max_digits = 10; // 2^32 contains 10 decimal digits
   unicode_char buf[max_digits + 1];
-  unicode_char* str = buf + max_digits;
+  unicode_char *str = buf + max_digits;
 
   *str = '\0';
 
@@ -577,10 +589,10 @@ term* term_write(term* self, uint32 x) {
   return term_write(self, str);
 }
 
-term* term_write(term* self, uint64 x) {
-  const int max_digits = 20;  // 2^64 contains 20 decimal digits
+term *term_write(term *self, uint64 x) {
+  const int max_digits = 20; // 2^64 contains 20 decimal digits
   unicode_char buf[max_digits + 1];
-  unicode_char* str = buf + max_digits;
+  unicode_char *str = buf + max_digits;
 
   *str = '\0';
 
@@ -597,8 +609,8 @@ term* term_write(term* self, uint64 x) {
   return term_write(self, str);
 }
 
-term* term_write(term* self, void* x) {
-  const int nb_digits = 8;  // 32 bit pointer contains 8 hexadecimal digits
+term *term_write(term *self, void *x) {
+  const int nb_digits = 8; // 32 bit pointer contains 8 hexadecimal digits
   unicode_char buf[2 + nb_digits + 1];
   unicode_string str = buf + 2 + nb_digits;
   uint32 n = CAST(uint32, x);
@@ -617,11 +629,9 @@ term* term_write(term* self, void* x) {
   return term_write(self, str);
 }
 
-term* term_writeline(term* self) {
-  return term_write(self, "\n\r");
-}
+term *term_writeline(term *self) { return term_write(self, "\n\r"); }
 
-term* term_write(term* self, native_string x) {
+term *term_write(term *self, native_string x) {
   unicode_char buf[2];
 
   buf[1] = '\0';
@@ -634,17 +644,18 @@ term* term_write(term* self, native_string x) {
   return self;
 }
 
-term* term_write(term* self, unicode_string x) {
+term *term_write(term *self, unicode_string x) {
   int n = 0;
 
-  while (x[n] != '\0') n++;
+  while (x[n] != '\0')
+    n++;
 
   term_write(self, x, n);
 
   return self;
 }
 
-term* term_write(term* self, native_char x) {
+term *term_write(term *self, native_char x) {
   native_char buf[2];
 
   buf[0] = x;
@@ -656,7 +667,7 @@ term* term_write(term* self, native_char x) {
 static const int OUT_PORT = 0XE9;
 
 void debug_write(uint32 x) {
-  const int max_digits = 10;  // 2^32 contains 10 decimal digits
+  const int max_digits = 10; // 2^32 contains 10 decimal digits
   native_char buf[max_digits + 1];
   native_string str = buf + max_digits;
 
@@ -675,9 +686,16 @@ void debug_write(uint32 x) {
   debug_write(str);
 }
 
+void debug_write(void *ptr) {
+  if (NULL == ptr) {
+    debug_write("NULL");
+  } else {
+    debug_write(CAST(uint32, ptr));
+  }
+}
 
 void __debug_write(uint32 x) {
-  const int max_digits = 10;  // 2^32 contains 10 decimal digits
+  const int max_digits = 10; // 2^32 contains 10 decimal digits
   native_char buf[max_digits + 1];
   native_string str = buf + max_digits;
 
@@ -696,9 +714,7 @@ void __debug_write(uint32 x) {
   __debug_write(str);
 }
 
-void _debug_write(native_char c) {
-  outb(c, OUT_PORT);
-}
+void _debug_write(native_char c) { outb(c, OUT_PORT); }
 
 void __debug_write(native_string str) {
   while (*str != '\0') {
@@ -714,14 +730,14 @@ void debug_write(native_string str) {
   outb('\r', OUT_PORT);
 }
 
-size_t strlen(char* str) {
+size_t strlen(char *str) {
   uint32 i;
   for (i = 0; str[i] != '\0'; ++i)
     ;
   return i;
 }
 
-unsigned char strcmpl(char* a, char* b, size_t sz) {
+unsigned char strcmpl(char *a, char *b, size_t sz) {
   uint32 i;
   for (i = 0; i < sz && a[i] == b[i]; ++i)
     ;
