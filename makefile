@@ -69,7 +69,7 @@ kernel.bss:
 
 kernel.o: kernel.s
 ifeq "$(shell uname)" "Darwin"
-	as -m32 -DKERNEL_START=$(KERNEL_START) -o $*.o $*.s;
+	gcc -c -m32 -DKERNEL_START=$(KERNEL_START) -o $*.o $*.s;
 else
 	as --32 --defsym KERNEL_START=$(KERNEL_START) -o $*.o $*.s;
 endif
