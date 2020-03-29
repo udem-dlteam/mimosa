@@ -317,4 +317,8 @@
         sym
         (f val)))
 
+      (define (partials f .args)
+       (lambda (.other-args)
+        (apply f (concat args other-args))))
+
       ))

@@ -5,6 +5,7 @@
         (ide)
         (disk)
         (utils)
+        (rtc)
         (fat32)
         (low-level)
         (uart)
@@ -35,13 +36,13 @@
 ;   (inb RTC_PORT_DATA))         ;; read the register
 
 ;;;----------------------------------------------------
-;;;                      IMPORTs 
+;;;                      IMPORTs
 ;;;----------------------------------------------------
 
 (load "edit.scm")
 
 ;;;----------------------------------------------------
-;;;                    INIT SYS 
+;;;                    INIT SYS
 ;;;----------------------------------------------------
 
 (define int-mutex (make-mutex))
@@ -49,7 +50,7 @@
 (define (t) (f-tests main-disk))
 
 ;;;----------------------------------------------------
-;;;                 INTERRUPT HANDLING 
+;;;                 INTERRUPT HANDLING
 ;;;----------------------------------------------------
 
 (define KEYBOARD-INT #x1)
@@ -92,10 +93,10 @@
           ))))
 
 ;;;----------------------------------------------------
-;;;                  INTERRUPT WIRING 
+;;;                  INTERRUPT WIRING
 ;;;----------------------------------------------------
 
-(##interrupt-vector-set! 5 (lambda () 
+(##interrupt-vector-set! 5 (lambda ()
                             ; Signal the int pump thread
                             ; to pump the fifo into the scheme fifo
                             (mutex-lock! int-mutex)
@@ -103,7 +104,7 @@
                             (mutex-unlock! int-mutex)))
 
 ;;;----------------------------------------------------
-;;;              INTERRUPT EXEC ROUTINE 
+;;;              INTERRUPT EXEC ROUTINE
 ;;;----------------------------------------------------
 
 (define (exec)
@@ -111,14 +112,14 @@
     (let* ((packed (read unhandled-interrupts)))
       (handle-int (car packed) (cadr packed))
       (exec)))
-    
+
 (define (int-clear)
   (mutex-unlock! int-mutex int-condvar 30) ; wait on condvar, timeout
   (mimosa-interrupt-handler)
   (int-clear))
 
 (define (idle)
-  (thread-yield!) 
+  (thread-yield!)
   (idle))
 
 (thread-start! (make-thread exec "int execution g-tread"))
@@ -126,7 +127,7 @@
 (thread-start! (make-thread idle "Mimosa idle green thread"))
 
 ;;;----------------------------------------------------
-;;;                     INIT SYSTEM  
+;;;                     INIT SYSTEM
 ;;;----------------------------------------------------
 
 (ide#setup)
