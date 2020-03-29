@@ -8,7 +8,6 @@
 
 //-----------------------------------------------------------------------------
 
-#include "rtlib.h"
 #include "chrono.h"
 #include "disk.h"
 #include "drivers/filesystem/include/stdstream.h"
@@ -16,13 +15,14 @@
 #include "heap.h"
 #include "ide.h"
 #include "intr.h"
+#include "libc/include/libc_header.h"
 #include "ps2.h"
+#include "rtlib.h"
 #include "term.h"
 #include "thread.h"
 #include "video.h"
-#include "libc/include/libc_header.h"
 
-void __rtlib_setup (); // forward declaration
+void __rtlib_setup(); // forward declaration
 
 term term_console;
 term term_log;
@@ -41,56 +41,54 @@ raw_bitmap_in_memory mouse_save;
 
 //-----------------------------------------------------------------------------
 
-
 #define KBRD_INTRFC 0x64
 #define KBRD_RESET 0xFE /* reset CPU command */
- 
+
 void reboot() {
-    term_write(cout, "ATT! Rebooting...\n");
+  term_write(cout, "ATT! Rebooting...\n");
 
-    // Start with the official keyboard controller trick
-    uint8 temp;
-    do
-    {
-        temp = inb(0x64);
-        if((temp & 0x01) != 0)
-        {
-            (void)inb(0x60);
-            continue;
-        }
-    } while((temp & 0x02) != 0);
+  // Start with the official keyboard controller trick
+  uint8 temp;
+  do {
+    temp = inb(0x64);
+    if ((temp & 0x01) != 0) {
+      (void)inb(0x60);
+      continue;
+    }
+  } while ((temp & 0x02) != 0);
 
-    /* Reset! */
-    outb(0xFE, 0x64);
+  /* Reset! */
+  outb(0xFE, 0x64);
 
-    debug_write("Did not reset with keyboard trick");
+  debug_write("Did not reset with keyboard trick");
 
-    // If at this point we did not reboot, try this little hack 
-    // Some magic reboot code found at
-    // https://forum.osdev.org/viewtopic.php?f=1&t=18769 
-    outb(0x8F,0x70);
-    outb(0x00,0x71);
-    outb(0x00,0x70);
-    outb(inb(0x92) | 1, 0x92);
+  // If at this point we did not reboot, try this little hack
+  // Some magic reboot code found at
+  // https://forum.osdev.org/viewtopic.php?f=1&t=18769
+  outb(0x8F, 0x70);
+  outb(0x00, 0x71);
+  outb(0x00, 0x70);
+  outb(inb(0x92) | 1, 0x92);
 
-    // At this point the reboot procedure did not work and there is nothing to do
-    term_write(cout, "Rebooting failed...\n");
+  // At this point the reboot procedure did not work and there is nothing to do
+  term_write(cout, "Rebooting failed...\n");
 }
 
 void panic(unicode_string msg) {
-  if (ARE_INTERRUPTS_ENABLED()) disable_interrupts();
+  if (ARE_INTERRUPTS_ENABLED())
+    disable_interrupts();
 
 #ifdef RED_PANIC_SCREEN
   // The panic screen will take the top part of the screen to allow messges
   // in the console to be read.
-  raw_bitmap_fill_rect((raw_bitmap*)&screen, 0, 0, 640, 120, &pattern_red);
+  raw_bitmap_fill_rect((raw_bitmap *)&screen, 0, 0, 640, 120, &pattern_red);
 
   font_draw_string(&font_mono_6x13, &screen.super, 0, 0, msg, &pattern_white,
                    &pattern_black);
 #else
   debug_write("PANIC!");
-  unicode_char* p = msg;
-  while(*p != '\0') {
+  unicode_char *p = msg;
+  while (*p != '\0') {
     native_char c = *p & 0xFF;
     _debug_write(c);
     p++;
@@ -98,8 +96,8 @@ void panic(unicode_string msg) {
 #endif
 
   // Wait a bit...
-  for(uint32 i = 0; i < CAST(uint32,(-1)); ++i) {
-      NOP();
+  for (uint32 i = 0; i < CAST(uint32, (-1)); ++i) {
+    NOP();
   }
 
   reboot();
@@ -110,7 +108,7 @@ void panic(unicode_string msg) {
 
 // 64 bit arithmetic routines.
 
-extern "C" uint64 __umoddi3(uint64 n, uint64 d) {  // d must fit in 32 bits
+extern "C" uint64 __umoddi3(uint64 n, uint64 d) { // d must fit in 32 bits
   uint32 q0;
   uint32 q1;
   uint32 r;
@@ -125,7 +123,7 @@ extern "C" uint64 __umoddi3(uint64 n, uint64 d) {  // d must fit in 32 bits
   return r;
 }
 
-extern "C" uint64 __udivdi3(uint64 n, uint64 d) {  // d must fit in 32 bits
+extern "C" uint64 __udivdi3(uint64 n, uint64 d) { // d must fit in 32 bits
   uint32 q0;
   uint32 q1;
   uint32 r;
@@ -133,11 +131,11 @@ extern "C" uint64 __udivdi3(uint64 n, uint64 d) {  // d must fit in 32 bits
   uint32 n1 = n >> 32;
   uint32 dv = d;
 
-  __asm__ ("divl %4" : "=a" (q1), "=d" (r) : "0" (n1), "1" (0), "rm" (dv));
+  __asm__("divl %4" : "=a"(q1), "=d"(r) : "0"(n1), "1"(0), "rm"(dv));
   n1 -= q1 * dv;
-  __asm__ ("divl %4" : "=a" (q0), "=d" (r) : "0" (n0), "1" (n1), "rm" (dv));
+  __asm__("divl %4" : "=a"(q0), "=d"(r) : "0"(n0), "1"(n1), "rm"(dv));
 
-  return (CAST(uint64,q1) << 32) + q0;
+  return (CAST(uint64, q1) << 32) + q0;
 }
 
 uint8 log2(uint32 n) {
@@ -153,45 +151,43 @@ uint8 log2(uint32 n) {
 
 // Memory management functions.
 
-void* kmalloc(size_t size) {
-  return heap_malloc(&kheap, size);
-}
+void *kmalloc(size_t size) { return heap_malloc(&kheap, size); }
 
-void kfree(void* ptr) {
-  heap_free(&kheap, ptr);
-}
+void kfree(void *ptr) { heap_free(&kheap, ptr); }
 
 static void setup_kheap() {
-  heap_init(&kheap, CAST(void*, 32 * (1<<20)), 32 * (1<<20));
+  heap_init(&kheap, CAST(void *, 32 * (1 << 20)), 32 * (1 << 20));
 }
 
 static void setup_appheap() {
   heap_init(&appheap, CAST(void*, 64 * (1<<20)), 1024 * (1<<20));
 }
 
-extern "C" void* memcpy(void* dest, const void* src, size_t n) {
-  uint8* d = CAST(uint8*,dest);
-  uint8* s = CAST(uint8*,src);
-  while (n-- > 0) *d++ = *s++;
+extern "C" void *memcpy(void *dest, const void *src, size_t n) {
+  uint8 *d = CAST(uint8 *, dest);
+  uint8 *s = CAST(uint8 *, src);
+  while (n-- > 0)
+    *d++ = *s++;
   return dest;
 }
 
-native_string copy_without_trailing_spaces(uint8* src, native_string dst,
+native_string copy_without_trailing_spaces(uint8 *src, native_string dst,
                                            uint32 n) {
   uint32 i;
   uint32 end = 0;
 
   for (i = 0; i < n; i++) {
     dst[i] = src[i];
-    if (src[i] != ' ') end = i + 1;
+    if (src[i] != ' ')
+      end = i + 1;
   }
 
   return dst + end;
 }
 
 uint32 kstrlen(native_string a) {
-  native_char* p = a;
-  while(*p != '\0') {
+  native_char *p = a;
+  while (*p != '\0') {
     p++;
   }
   return CAST(uint32, (p - a) + 1);
@@ -206,14 +202,15 @@ int16 kstrcmp(native_string a, native_string b) {
   do {
     c1 = CAST(native_char, *s1++);
     c2 = CAST(native_char, *s2++);
-    if (c1 == '\0') return c1 - c2;
+    if (c1 == '\0')
+      return c1 - c2;
   } while (c1 == c2);
   return c1 - c2;
 }
 
 native_string kstrconcat(native_string a, native_string b) {
   uint32 alen = 0, blen = 0;
-  native_char* p;
+  native_char *p;
   native_string out;
 
   p = a;
@@ -246,15 +243,15 @@ typedef void (*func_ptr)();
 extern func_ptr __CTOR_LIST__[];
 extern func_ptr __DTOR_LIST__[];
 
-void __do_global_ctors ()
-{
+void __do_global_ctors() {
   unsigned long nptrs = CAST(unsigned long, __CTOR_LIST__[0]);
   unsigned int i;
   if (nptrs == CAST(unsigned long, -1))
     for (nptrs = 0; __CTOR_LIST__[nptrs + 1] != 0; nptrs++)
       ;
 
-  for (i = nptrs; i >= 1; i--) __CTOR_LIST__[i]();
+  for (i = nptrs; i >= 1; i--)
+    __CTOR_LIST__[i]();
   // Video VTables
   _video_vtable.hide_mouse = video_hide_mouse;
   _video_vtable.show_mouse = video_show_mouse;
@@ -265,12 +262,13 @@ void __do_global_ctors ()
 
   _raw_bitmap_in_memory_vtable.hide_mouse = raw_bitmap_in_memory_hide_mouse;
   _raw_bitmap_in_memory_vtable.show_mouse = raw_bitmap_in_memory_show_mouse;
-  _raw_bitmap_in_memory_vtable._select_layer = _raw_bitmap_in_memory_select_layer;
+  _raw_bitmap_in_memory_vtable._select_layer =
+      _raw_bitmap_in_memory_select_layer;
 
   _raw_bitmap_vtable.hide_mouse = raw_bitmap_hide_mouse;
   _raw_bitmap_vtable.show_mouse = raw_bitmap_show_mouse;
   _raw_bitmap_vtable._select_layer = _raw_bitmap_select_layer;
-  
+
   // Screen
   video_init(&screen);
 
@@ -286,12 +284,11 @@ void __do_global_ctors ()
   term_init(&term_console, 0, 0, 80, 24, &font_mono_6x13, &font_mono_6x13B,
             L"console", TRUE);
 
-  term_init(&term_log, 490, 0, 35, 76, &font_mono_4x6, &font_mono_4x6,
-            L"log", TRUE);
+  term_init(&term_log, 490, 0, 35, 76, &font_mono_4x6, &font_mono_4x6, L"log",
+            TRUE);
 }
 
-void __do_global_dtors ()
-{
+void __do_global_dtors() {
   // Not implemented yet.
 }
 
@@ -303,21 +300,21 @@ void __do_global_dtors ()
 
 static void setup_bss() {
   extern uint8 edata[], end[];
-  uint8* p = edata;
+  uint8 *p = edata;
   while (p < end) // zero out BSS
     *p++ = 0;
 }
 
 extern "C" void __rtlib_entry() {
-  setup_bss ();
+  setup_bss();
   setup_kheap();
   setup_appheap();
-  setup_intr ();
-  setup_time ();
+  setup_intr();
+  setup_time();
 
-  __do_global_ctors ();
+  __do_global_ctors();
 
-  sched_setup (&__rtlib_setup);  
+  sched_setup(&__rtlib_setup);
   // ** NEVER REACHED ** (this function never returns)
 }
 
@@ -328,10 +325,10 @@ static void identify_cpu() {
   native_char vendor[13];
   uint32 processor, dummy, features;
 
-  cpuid(0, max_fn, CAST(uint32*, vendor)[0], CAST(uint32*, vendor)[2],
-        CAST(uint32*, vendor)[1]);
+  cpuid(0, max_fn, CAST(uint32 *, vendor)[0], CAST(uint32 *, vendor)[2],
+        CAST(uint32 *, vendor)[1]);
   vendor[12] = '\0';
-  cpuid (1, processor, dummy, dummy, features);
+  cpuid(1, processor, dummy, dummy, features);
 
 #ifdef SHOW_CPU_INFO
 
@@ -348,37 +345,65 @@ static void identify_cpu() {
   // For meaning of these values check:
   //   http://grafi.ii.pw.edu.pl/gbm/x86/cpuid.html
 
-  if (features & HAS_FPU)       term_write(cout,"  Floating Point Unit\n");
-  if (features & HAS_VME)       term_write(cout,"  V86 Mode Extensions\n");
-  if (features & HAS_DE)        term_write(cout,"  Debug Extensions\n");
-  if (features & HAS_PSE)       term_write(cout,"  Page Size Extensions\n");
-  if (features & HAS_TSC)       term_write(cout,"  Time Stamp Counter\n");
-  if (features & HAS_MSR)       term_write(cout,"  Model Specific Registers\n");
-  if (features & HAS_PAE)       term_write(cout,"  Physical Address Extensions\n");
-  if (features & HAS_MCE)       term_write(cout,"  Machine Check Exception\n");
-  if (features & HAS_CX8)       term_write(cout,"  CMPXCHG8B instruction\n");
-  if (features & HAS_APIC)      term_write(cout,"  Local APIC\n");
-  if (features & HAS_SEP)       term_write(cout,"  Fast system call\n");
-  if (features & HAS_MTRR)      term_write(cout,"  Memory Type Range Registers\n");
-  if (features & HAS_PGE)       term_write(cout,"  Page Global Enable\n");
-  if (features & HAS_MCA)       term_write(cout,"  Machine Check Architecture\n");
-  if (features & HAS_CMOV)      term_write(cout,"  Conditional MOVe\n");
-  if (features & HAS_PAT)       term_write(cout,"  Page Attribute Table\n");
-  if (features & HAS_PSE36)     term_write(cout,"  36 bit Page Size Extensions\n");
-  if (features & HAS_PSN)       term_write(cout,"  Processor Serial Number\n");
-  if (features & HAS_CFLSH)     term_write(cout,"  Cache Flush\n");
-  if (features & HAS_DTES)      term_write(cout,"  Debug Trace Store\n");
-  if (features & HAS_ACPI)      term_write(cout,"  ACPI support\n");
-  if (features & HAS_MMX)       term_write(cout,"  MultiMedia Extensions\n");
-  if (features & HAS_FXSR)      term_write(cout,"  FXSAVE and FXRSTOR\n");
-  if (features & HAS_SSE)       term_write(cout,"  SSE instructions\n");
-  if (features & HAS_SSE2)      term_write(cout,"  SSE2 instructions\n");
-  if (features & HAS_SELFSNOOP) term_write(cout,"  Self Snoop\n");
-  if (features & HAS_ACC)       term_write(cout,"  Automatic clock control\n");
-  if (features & HAS_IA64)      term_write(cout,"  IA64 instructions\n");
+  if (features & HAS_FPU)
+    term_write(cout, "  Floating Point Unit\n");
+  if (features & HAS_VME)
+    term_write(cout, "  V86 Mode Extensions\n");
+  if (features & HAS_DE)
+    term_write(cout, "  Debug Extensions\n");
+  if (features & HAS_PSE)
+    term_write(cout, "  Page Size Extensions\n");
+  if (features & HAS_TSC)
+    term_write(cout, "  Time Stamp Counter\n");
+  if (features & HAS_MSR)
+    term_write(cout, "  Model Specific Registers\n");
+  if (features & HAS_PAE)
+    term_write(cout, "  Physical Address Extensions\n");
+  if (features & HAS_MCE)
+    term_write(cout, "  Machine Check Exception\n");
+  if (features & HAS_CX8)
+    term_write(cout, "  CMPXCHG8B instruction\n");
+  if (features & HAS_APIC)
+    term_write(cout, "  Local APIC\n");
+  if (features & HAS_SEP)
+    term_write(cout, "  Fast system call\n");
+  if (features & HAS_MTRR)
+    term_write(cout, "  Memory Type Range Registers\n");
+  if (features & HAS_PGE)
+    term_write(cout, "  Page Global Enable\n");
+  if (features & HAS_MCA)
+    term_write(cout, "  Machine Check Architecture\n");
+  if (features & HAS_CMOV)
+    term_write(cout, "  Conditional MOVe\n");
+  if (features & HAS_PAT)
+    term_write(cout, "  Page Attribute Table\n");
+  if (features & HAS_PSE36)
+    term_write(cout, "  36 bit Page Size Extensions\n");
+  if (features & HAS_PSN)
+    term_write(cout, "  Processor Serial Number\n");
+  if (features & HAS_CFLSH)
+    term_write(cout, "  Cache Flush\n");
+  if (features & HAS_DTES)
+    term_write(cout, "  Debug Trace Store\n");
+  if (features & HAS_ACPI)
+    term_write(cout, "  ACPI support\n");
+  if (features & HAS_MMX)
+    term_write(cout, "  MultiMedia Extensions\n");
+  if (features & HAS_FXSR)
+    term_write(cout, "  FXSAVE and FXRSTOR\n");
+  if (features & HAS_SSE)
+    term_write(cout, "  SSE instructions\n");
+  if (features & HAS_SSE2)
+    term_write(cout, "  SSE2 instructions\n");
+  if (features & HAS_SELFSNOOP)
+    term_write(cout, "  Self Snoop\n");
+  if (features & HAS_ACC)
+    term_write(cout, "  Automatic clock control\n");
+  if (features & HAS_IA64)
+    term_write(cout, "  IA64 instructions\n");
 
 #ifdef USE_TSC_FOR_TIME
-  
+
   term_write(cout, "CPU clock = ");
   term_write(cout, _tsc_counts_per_sec);
   term_write(cout, " Hz\n");
@@ -403,23 +428,17 @@ static void identify_cpu() {
 
 #ifdef GAMBIT_GSTATE
 
-#include "gambit.h"
+#include "modifiedgambit.h"
 
 bool cut = 0;
 
-void cut_ide_support() {
-    cut = 1;
-}
+void cut_ide_support() { cut = 1; }
 
-bool has_cut_ide_support() {
-    return cut;
-}
+bool has_cut_ide_support() { return cut; }
 
 #define BU (NULL != ___local_gstate)
 
-bool bridge_up() {
-    return BU;
-}
+bool bridge_up() { return BU; }
 
 uint32 gambit_writer = 0;
 
@@ -428,23 +447,23 @@ uint32 gambit_writer = 0;
  * the gambit bridge is not configured,
  * the function returns 0 and the interrupt
  * must be handled locally
-*/
-uint8 send_gambit_int(uint8 int_no, uint8* params, uint8 len) { 
-    ASSERT_INTERRUPTS_DISABLED();
+ */
+uint8 send_gambit_int(uint8 int_no, uint8 *params, uint8 len) {
+  ASSERT_INTERRUPTS_DISABLED();
 
-    if(BU) {
-        uint8* mem = CAST(uint8*, GAMBIT_SHARED_MEM_CMD);
-        /**
-         * Interrupts arguments are sent to gambit in the following way:
-         *  |                   |              |
-         *  |  INTERRUPT NUMBER | SZ OF PARAMS | PARAM 0 | PARAM 1 | ...
-         *  |                   |              |
-         * They are written in a circular buffer
-         */
-        uint8 required_len = 2 + len; // number, size, + params
+  if (BU) {
+    uint8 *mem = CAST(uint8 *, GAMBIT_SHARED_MEM_CMD);
+    /**
+     * Interrupts arguments are sent to gambit in the following way:
+     *  |                   |              |
+     *  |  INTERRUPT NUMBER | SZ OF PARAMS | PARAM 0 | PARAM 1 | ...
+     *  |                   |              |
+     * They are written in a circular buffer
+     */
+    uint8 required_len = 2 + len; // number, size, + params
 
-        // By convention, if the interrupt number is 0, we are ok
-        uint32 scout = gambit_writer;
+    // By convention, if the interrupt number is 0, we are ok
+    uint32 scout = gambit_writer;
 
         uint32 i;
 
@@ -464,67 +483,67 @@ uint8 send_gambit_int(uint8 int_no, uint8* params, uint8 len) {
             }
         }
 
-        if (i != required_len) {
-            // This should be avoided at all cost
-            debug_write("Interrupt queue full. Discarding");
-        } else {
-            scout = gambit_writer;
-            mem[scout % GAMBIT_SHARED_MEM_LEN] = int_no;
-            mem[(scout + 1) % GAMBIT_SHARED_MEM_LEN] = len;
-
-            for(uint8 i = 0; i < len; ++i) {
-                mem[(scout + 2 + i) % GAMBIT_SHARED_MEM_LEN] = params[i];
-            }
-
-            gambit_writer = (gambit_writer + required_len) % GAMBIT_SHARED_MEM_LEN;
-        }
-
-        // Tell Gambit something is ready. This interrupt
-        // might not be handled right away because of garbage
-        // collections, and this is way we cache the interrupts on
-        // the C side as well as the Scheme side.
-        ___local_gstate->___raise_interrupt(GAMBIT_COMM_INT);
-        return 1;
+    if (i != required_len) {
+      // This should be avoided at all cost
+      debug_write("Interrupt queue full. Discarding");
     } else {
-        return 0;
+      scout = gambit_writer;
+      mem[scout % GAMBIT_SHARED_MEM_LEN] = int_no;
+      mem[(scout + 1) % GAMBIT_SHARED_MEM_LEN] = len;
+
+      for (uint8 i = 0; i < len; ++i) {
+        mem[(scout + 2 + i) % GAMBIT_SHARED_MEM_LEN] = params[i];
+      }
+
+      gambit_writer = (gambit_writer + required_len) % GAMBIT_SHARED_MEM_LEN;
     }
+
+    // Tell Gambit something is ready. This interrupt
+    // might not be handled right away because of garbage
+    // collections, and this is way we cache the interrupts on
+    // the C side as well as the Scheme side.
+    ___local_gstate->___raise_interrupt(GAMBIT_COMM_INT);
+    return 1;
+  } else {
+    return 0;
+  }
 }
 
 #else
 #warning "Gambit interrupt handling does is not implemented"
 
-uint8 send_gambit_int(uint8 int_no, uint8* params, uint8 len) {
-    panic(L"!TEMP!");
-    return 0;
+uint8 send_gambit_int(uint8 int_no, uint8 *params, uint8 len) {
+  panic(L"!TEMP!");
+  return 0;
 }
 
 #endif
 
 void idle_thread_run() {
-#ifdef SHOW_HEARTBEAT  
-uint8 heartbeat_cycle = 0;
-uint32 heartbeat_counter = 0;
+#ifdef SHOW_HEARTBEAT
+  uint8 heartbeat_cycle = 0;
+  uint32 heartbeat_counter = 0;
 #endif
 
-  for(;;) {
+  for (;;) {
 #ifdef SHOW_HEARTBEAT
 
-    if(0 == (heartbeat_counter % HEARTBEAT_FREQ)) {
-      if(0 == heartbeat_cycle) {
+    if (0 == (heartbeat_counter % HEARTBEAT_FREQ)) {
+      if (0 == heartbeat_cycle) {
         disable_interrupts();
-        raw_bitmap_fill_rect((raw_bitmap*)&screen, 610, 0, 640, 30,
+        raw_bitmap_fill_rect((raw_bitmap *)&screen, 610, 0, 640, 30,
                              &pattern_red);
         heartbeat_cycle = 1;
         enable_interrupts();
       } else {
         disable_interrupts();
-        raw_bitmap_fill_rect((raw_bitmap*)&screen, 610, 0, 640, 30,
+        raw_bitmap_fill_rect((raw_bitmap *)&screen, 610, 0, 640, 30,
                              &pattern_green);
         heartbeat_cycle = 0;
         enable_interrupts();
       }
     }
-    heartbeat_counter = (heartbeat_counter + 1) % HEARTBEAT_FREQ;  
+    heartbeat_counter = (heartbeat_counter + 1) % HEARTBEAT_FREQ;
 
 #endif
     ASSERT_INTERRUPTS_ENABLED();
@@ -536,19 +555,18 @@ extern void libc_init(void);
 
 void __rtlib_setup() {
   error_code err;
-  thread* the_idle = NULL;
-  uint8* cmd = NULL;
+  thread *the_idle = NULL;
+  uint8 *cmd = NULL;
 #ifdef USE_CACHE_BLOCK_MAID
 
   thread *cache_block_maid_thread;
 
 #endif
-    
-  uint8* mem = CAST(uint8*, GAMBIT_SHARED_MEM_CMD);
-  for(uint32 i =0 ; i < 512; ++i) {
-      mem[i] = 0;
-  }
 
+  uint8 *mem = CAST(uint8 *, GAMBIT_SHARED_MEM_CMD);
+  for (uint32 i = 0; i < 512; ++i) {
+    mem[i] = 0;
+  }
 
   ASSERT_INTERRUPTS_ENABLED();
 
@@ -559,7 +577,7 @@ void __rtlib_setup() {
 
   identify_cpu();
 
-  the_idle = CAST(thread*, kmalloc(sizeof(thread)));
+  the_idle = CAST(thread *, kmalloc(sizeof(thread)));
   the_idle = new_thread(the_idle, idle_thread_run, "Idle thread");
   // the_idle->_prio = null_priority;
   the_idle->_quantum = frequency_to_time(10000); // Temp path for issue #56
@@ -570,27 +588,27 @@ void __rtlib_setup() {
   setup_disk();
 
   term_write(cout, "Loading up IDE controllers...\n");
-  setup_ide ();
+  setup_ide();
 
   term_write(cout, "Loading up the virtual file system...\n");
 
-  if(ERROR(err = init_vfs())) {
+  if (ERROR(err = init_vfs())) {
     goto setup_panic;
   }
 
-  if(ERROR(err = setup_ps2()))
+  if (ERROR(err = setup_ps2()))
     goto setup_panic;
-  
-  if(ERROR(err = init_terms())) {
+
+  if (ERROR(err = init_terms())) {
     goto setup_panic;
   }
 
   term_write(cout, "Cleaning up communication memory space\n");
   // Clean the memory
-  cmd = CAST(uint8*, GAMBIT_SHARED_MEM_CMD);
+  cmd = CAST(uint8 *, GAMBIT_SHARED_MEM_CMD);
 
-  for(uint32 i = 0; i < 512; ++i) {
-      cmd[i] = 0;
+  for (uint32 i = 0; i < 512; ++i) {
+    cmd[i] = 0;
   }
 
   /* Make a messenger thread to take care of communications from gambit */
@@ -601,7 +619,7 @@ void __rtlib_setup() {
 #ifdef USE_CACHE_BLOCK_MAID
 
   term_write(cout, "Loading the cache block maid...\n");
-  cache_block_maid_thread = CAST(thread*, kmalloc(sizeof(thread)));
+  cache_block_maid_thread = CAST(thread *, kmalloc(sizeof(thread)));
   thread_start(new_thread(cache_block_maid_thread, cache_block_maid_run,
                           "Cache block maid"));
 
