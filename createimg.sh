@@ -8,11 +8,10 @@ if [ ! -f ./empty_usb.img ]; then
     # rm ~/mimosa-build/empty_usb.img
 fi
 
-if [[ ! -f ./archive-items/bin ]]; then
+if [[ ! -f ./archive-items/gambit/bin ]]; then
   echo "Missing the Gambit archive... Downloading a default working version."
-  mkdir ./archive-items/bin
-  wget http://www-ens.iro.umontreal.ca/~yvonsamu/gsc.exe
-  mv gsc.exe ./archive-items/bin/gsc.exe
+  mkdir ./archive-items/gambit/bin
+  wget http://www-ens.iro.umontreal.ca/~yvonsamu/gsc.exe -O ./archive-items/gambit/bin/gsc.exe
 fi
 
 # Admin routines
