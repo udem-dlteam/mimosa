@@ -631,7 +631,7 @@ int REDIRECT_NAME(printf)(const char *__format, ...) {
 
 #ifdef GAMBIT_GSTATE 
 
-#include "gambit.h"
+#include "modifiedgambit.h"
 
 volatile struct ___global_state_struct *___local_gstate;
 
