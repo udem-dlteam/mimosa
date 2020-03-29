@@ -68,7 +68,11 @@ kernel.bss:
 	cat kernel.map | grep '\.bss ' | grep -v '\.o' | sed 's/.*0x/0x/'
 
 kernel.o: kernel.s
-	as --32 --defsym KERNEL_START=$(KERNEL_START) -o $*.o $*.s
+ifeq "$(shell uname)" "Darwin"
+	as -m32 --defsym KERNEL_START=$(KERNEL_START) -o $*.o $*.s;
+else
+	as --32 --defsym KERNEL_START=$(KERNEL_START) -o $*.o $*.s;
+endif
 
 .o.asm:
 	objdump --disassemble-all $*.o > $*.asm
