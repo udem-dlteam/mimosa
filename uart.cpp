@@ -1,17 +1,16 @@
-#include "uart.h"
 #include "asm.h"
 #include "general.h"
 #include "intr.h"
 #include "rtlib.h"
 #include "term.h"
 #include "thread.h"
+#include "uart.h"
 
 #ifdef USE_IRQ4_FOR_UART
 
 void irq3() {
   ASSERT_INTERRUPTS_DISABLED();
   ACKNOWLEDGE_IRQ(3);
-
   // Interrupt 4 handles COM 2 and COM 4
   debug_write("\033[41m irq3 UART \033[0m");
 
@@ -33,7 +32,7 @@ void irq3() {
   }
 
   if (!(caught_something)) {
-    panic(L"Misconfiguration of IRQ3.");
+    debug_write("Warning: ghost interrupt of IRQ3");
   }
 }
 
@@ -62,29 +61,29 @@ void irq3() {
 /* } */
 
 void irq4() {
-    ASSERT_INTERRUPTS_DISABLED();
-    ACKNOWLEDGE_IRQ(4);
+  ASSERT_INTERRUPTS_DISABLED();
+  ACKNOWLEDGE_IRQ(4);
 
-    uint8 com1_iir = inb(COM1_PORT_BASE + UART_8250_IIR);
-    uint8 com3_iir = inb(COM3_PORT_BASE + UART_8250_IIR);
-    
-    bool caught_something = FALSE;
+  uint8 com1_iir = inb(COM1_PORT_BASE + UART_8250_IIR);
+  uint8 com3_iir = inb(COM3_PORT_BASE + UART_8250_IIR);
 
-    if (UART_IIR_PENDING(com1_iir)) {
-        caught_something = TRUE;
-        uint8 params[2] = {1, com1_iir};
-        send_gambit_int(GAMBIT_UART_INT, params, 2);
-    }
+  bool caught_something = FALSE;
 
-    if (UART_IIR_PENDING(com3_iir)) {
-        caught_something = TRUE;
+  if (UART_IIR_PENDING(com1_iir)) {
+    caught_something = TRUE;
+    uint8 params[2] = {1, com1_iir};
+    send_gambit_int(GAMBIT_UART_INT, params, 2);
+  }
 
-        uint8 params[2] = {3, com3_iir};
-        send_gambit_int(GAMBIT_UART_INT, params, 2);
-    }
+  if (UART_IIR_PENDING(com3_iir)) {
+    caught_something = TRUE;
 
-    if (!(caught_something)) {
-        panic(L"Misconfiguration of IRQ4.");
-    }
+    uint8 params[2] = {3, com3_iir};
+    send_gambit_int(GAMBIT_UART_INT, params, 2);
+  }
+
+  if (!(caught_something)) {
+    debug_write("Warning: ghost interrupt of IRQ4");
+  }
 }
 #endif
