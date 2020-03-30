@@ -447,23 +447,23 @@ uint32 gambit_writer = 0;
  * the gambit bridge is not configured,
  * the function returns 0 and the interrupt
  * must be handled locally
-*/
-uint8 send_gambit_int(uint8 int_no, uint8* params, uint8 len) { 
-    ASSERT_INTERRUPTS_DISABLED();
+ */
+uint8 send_gambit_int(uint8 int_no, uint8 *params, uint8 len) {
+  ASSERT_INTERRUPTS_DISABLED();
 
-    if(BU) {
-        uint8* mem = CAST(uint8*, GAMBIT_SHARED_MEM_CMD);
-        /**
-         * Interrupts arguments are sent to gambit in the following way:
-         *  |                   |              |
-         *  |  INTERRUPT NUMBER | SZ OF PARAMS | PARAM 0 | PARAM 1 | ...
-         *  |                   |              |
-         * They are written in a circular buffer
-         */
-        uint8 required_len = 2 + len; // number, size, + params
+  if (BU) {
+    uint8 *mem = CAST(uint8 *, GAMBIT_SHARED_MEM_CMD);
+    /**
+     * Interrupts arguments are sent to gambit in the following way:
+     *  |                   |              |
+     *  |  INTERRUPT NUMBER | SZ OF PARAMS | PARAM 0 | PARAM 1 | ...
+     *  |                   |              |
+     * They are written in a circular buffer
+     */
+    uint8 required_len = 2 + len; // number, size, + params
 
-        // By convention, if the interrupt number is 0, we are ok
-        uint32 scout = gambit_writer;
+    // By convention, if the interrupt number is 0, we are ok
+    uint32 scout = gambit_writer;
 
         uint32 i;
 
@@ -483,28 +483,30 @@ uint8 send_gambit_int(uint8 int_no, uint8* params, uint8 len) {
             }
         }
 
-        if (i != required_len) {
-            // This should be avoided at all cost
-            debug_write("Interrupt queue full. Discarding");
-        } else {
-            scout = gambit_writer;
-            mem[scout % GAMBIT_SHARED_MEM_LEN] = int_no;
-            mem[(scout + 1) % GAMBIT_SHARED_MEM_LEN] = len;
+    if (i != required_len) {
+      // This should be avoided at all cost
+      debug_write("Interrupt queue full. Discarding");
+    } else {
+      scout = gambit_writer;
+      mem[scout % GAMBIT_SHARED_MEM_LEN] = int_no;
+      mem[(scout + 1) % GAMBIT_SHARED_MEM_LEN] = len;
 
-            for(uint8 i = 0; i < len; ++i) {
-                mem[(scout + 2 + i) % GAMBIT_SHARED_MEM_LEN] = params[i];
-            }
+      for (uint8 i = 0; i < len; ++i) {
+        mem[(scout + 2 + i) % GAMBIT_SHARED_MEM_LEN] = params[i];
+      }
 
-            gambit_writer = (gambit_writer + required_len) % GAMBIT_SHARED_MEM_LEN;
-        }
-
-        // Tell Gambit something is ready. This interrupt
-        // might not be handled right away because of garbage
-        // collections, and this is way we cache the interrupts on
-        // the C side as well as the Scheme side.
-        ___local_gstate->___raise_interrupt(GAMBIT_COMM_INT);
-        return 1;
+      gambit_writer = (gambit_writer + required_len) % GAMBIT_SHARED_MEM_LEN;
     }
+
+    // Tell Gambit something is ready. This interrupt
+    // might not be handled right away because of garbage
+    // collections, and this is way we cache the interrupts on
+    // the C side as well as the Scheme side.
+    ___local_gstate->___raise_interrupt(GAMBIT_COMM_INT);
+    return 1;
+  } else {
+    return 0;
+  }
 }
 
 #else

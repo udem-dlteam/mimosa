@@ -67,7 +67,7 @@ void irq4() {
 
     uint8 com1_iir = inb(COM1_PORT_BASE + UART_8250_IIR);
     uint8 com3_iir = inb(COM3_PORT_BASE + UART_8250_IIR);
-
+    
     bool caught_something = FALSE;
 
     if (UART_IIR_PENDING(com1_iir)) {

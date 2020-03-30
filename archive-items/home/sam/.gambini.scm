@@ -1,11 +1,14 @@
 ; The MIMOSA project
 ; Scheme executor bridge
 (import (errors)
+        (keyboard)
         (ide)
         (disk)
         (utils)
+        (rtc)
         (fat32)
         (low-level)
+        (uart)
         (debug))
 
 (define (reboot)
@@ -33,29 +36,36 @@
 ;   (inb RTC_PORT_DATA))         ;; read the register
 
 ;;;----------------------------------------------------
-;;;                      IMPORTs 
+;;;                      IMPORTs
 ;;;----------------------------------------------------
 
-(load "mimosa_io.scm")
-(load "intr.scm")
 (load "edit.scm")
-(load "int_handle.scm") ; must be loaded after all drivers
 
 ;;;----------------------------------------------------
-;;;                    INIT SYS 
+;;;                    INIT SYS
 ;;;----------------------------------------------------
 
 (define int-mutex (make-mutex))
 (define int-condvar (make-condition-variable))
-
-; (for-each (o uart-do-init ++) (iota 4))
-
-
 (define (t) (f-tests main-disk))
 
 ;;;----------------------------------------------------
-;;;                 INTERRUPT HANDLING 
+;;;                 INTERRUPT HANDLING
 ;;;----------------------------------------------------
+
+(define KEYBOARD-INT #x1)
+(define UART-INT #x2)
+(define IDE-INT #x3)
+
+(define INT-WITH-ARG-TABLE
+  (list
+    (cons KEYBOARD-INT keyboard#handle-kbd-int)
+    (cons UART-INT uart#handle-uart-int)
+    (cons IDE-INT ide#handle-ide-int)))
+
+(define (handle-int int-no args)
+  (let ((fn (assocv int-no INT-WITH-ARG-TABLE)))
+     (apply fn args)))
 
 (define (read-at . offset)
  (+ SHARED-MEMORY-AREA (modulo (fold + 0 offset) SHARED-MEMORY-AREA-LEN)))
@@ -83,19 +93,18 @@
           ))))
 
 ;;;----------------------------------------------------
-;;;                  INTERRUPT WIRING 
+;;;                  INTERRUPT WIRING
 ;;;----------------------------------------------------
 
-(##interrupt-vector-set! 5 (lambda () 
-                            ; Signal the int pump threadi
+(##interrupt-vector-set! 5 (lambda ()
+                            ; Signal the int pump thread
                             ; to pump the fifo into the scheme fifo
                             (mutex-lock! int-mutex)
                             (condition-variable-signal! int-condvar)
                             (mutex-unlock! int-mutex)))
 
-
 ;;;----------------------------------------------------
-;;;              INTERRUPT EXEC ROUTINE 
+;;;              INTERRUPT EXEC ROUTINE
 ;;;----------------------------------------------------
 
 (define (exec)
@@ -103,23 +112,22 @@
     (let* ((packed (read unhandled-interrupts)))
       (handle-int (car packed) (cadr packed))
       (exec)))
-    
+
 (define (int-clear)
   (mutex-unlock! int-mutex int-condvar 30) ; wait on condvar, timeout
   (mimosa-interrupt-handler)
   (int-clear))
 
 (define (idle)
-  (thread-yield!) 
+  (thread-yield!)
   (idle))
 
 (thread-start! (make-thread exec "int execution g-tread"))
 (thread-start! (make-thread int-clear "Mimosa interrupt clearing thread"))
 (thread-start! (make-thread idle "Mimosa idle green thread"))
 
-
 ;;;----------------------------------------------------
-;;;                     INIT SYSTEM  
+;;;                     INIT SYSTEM
 ;;;----------------------------------------------------
 
 (ide#setup)
@@ -129,3 +137,7 @@
 (define main-disk (car disk-list))
 (mount-partitions disk-list)
 (define fs (car filesystem-list))
+
+(debug-write "AFTER INIT")
+(for-each (o uart#uart-do-init ++) (iota 4))
+(debug-write "DONE INIT")
