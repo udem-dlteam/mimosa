@@ -156,11 +156,12 @@ void *kmalloc(size_t size) { return heap_malloc(&kheap, size); }
 void kfree(void *ptr) { heap_free(&kheap, ptr); }
 
 static void setup_kheap() {
-  heap_init(&kheap, CAST(void *, 32 * (1 << 20)), 32 * (1 << 20));
+  heap_init(&kheap, CAST(void *, 32 * (1 << 20)) + GAMBIT_SHARED_MEM_LEN,
+            32 * (1 << 20) - GAMBIT_SHARED_MEM_LEN);
 }
 
 static void setup_appheap() {
-  heap_init(&appheap, CAST(void*, 64 * (1<<20)), 1024 * (1<<20));
+  heap_init(&appheap, CAST(void *, 64 * (1 << 20)), 1024 * (1 << 20));
 }
 
 extern "C" void *memcpy(void *dest, const void *src, size_t n) {
@@ -465,23 +466,22 @@ uint8 send_gambit_int(uint8 int_no, uint8 *params, uint8 len) {
     // By convention, if the interrupt number is 0, we are ok
     uint32 scout = gambit_writer;
 
-        uint32 i;
+    uint32 i;
 
-        /* __debug_write("Int no: "); */
-        /* debug_write(int_no); */
-        /* debug_write("-----------------"); */
-        /* for(i = 0; i < 512; ++i) { */
-        /*     __debug_write(mem[i]); */
-        /* } */
-        /* debug_write("-----------------"); */
+    /* __debug_write("Int no: "); */
+    /* debug_write(int_no); */
+    /* debug_write("-----------------"); */
+    /* for(i = 0; i < 512; ++i) { */
+    /*     __debug_write(mem[i]); */
+    /* } */
+    /* debug_write("-----------------"); */
 
-        for(i = 0;
-            i < required_len;
-            ++i, scout = (scout + 1) % GAMBIT_SHARED_MEM_LEN) {
-            if (0 != mem[scout]) {
-                break;
-            }
-        }
+    for (i = 0; i < required_len;
+         ++i, scout = (scout + 1) % GAMBIT_SHARED_MEM_LEN) {
+      if (0 != mem[scout]) {
+        break;
+      }
+    }
 
     if (i != required_len) {
       // This should be avoided at all cost
@@ -564,7 +564,7 @@ void __rtlib_setup() {
 #endif
 
   uint8 *mem = CAST(uint8 *, GAMBIT_SHARED_MEM_CMD);
-  for (uint32 i = 0; i < 512; ++i) {
+  for (uint32 i = 0; i < GAMBIT_SHARED_MEM_LEN; ++i) {
     mem[i] = 0;
   }
 

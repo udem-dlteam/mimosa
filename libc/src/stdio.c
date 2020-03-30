@@ -50,6 +50,7 @@ FILE *REDIRECT_NAME(fopen)(const char *__restrict __filename,
   /* debug_write(CAST(native_string, __filename)); */
 
   native_string fname = CAST(native_string, __filename);
+  debug_write(fname);
 
   /* This could be better, like a config file you write to line by line */
   if(0 == kstrcmp(fname, "/cut")) {
@@ -74,8 +75,10 @@ FILE *REDIRECT_NAME(fopen)(const char *__restrict __filename,
                       CAST(native_string, __modes), &f))) {
           FILE *gambit_file = CAST(FILE *, kmalloc(sizeof(FILE)));
           gambit_file->f = f;
+          debug_write("hit");
           return gambit_file;
       } else {
+        debug_write("miss");
           return NULL;
       }
   }

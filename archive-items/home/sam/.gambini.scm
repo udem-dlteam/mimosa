@@ -21,8 +21,8 @@
   (outb #xFE #x64))
 
 (define reader-offset 0)
-(define SHARED-MEMORY-AREA #x300000)
-(define SHARED-MEMORY-AREA-LEN 512)
+(define SHARED-MEMORY-AREA 33554432)
+(define SHARED-MEMORY-AREA-LEN 32768)
 
 ; (define RTC_PORT_ADDR #x70)
 ; (define RTC_PORT_DATA #x71)
