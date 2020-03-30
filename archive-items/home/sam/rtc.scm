@@ -7,6 +7,8 @@
     (utils)
     (debug))
   (export
+    pp-time
+    pp-date
     rtc-current-time
     rtc-current-date)
   (begin
@@ -69,22 +71,33 @@
        (outb ,data RTC-PORT-ADDR)
        (bcd->binary (inb RTC-PORT-DATA))))
 
+    (define pp-time
+     (lambda (secs mins hours)
+      (string-append
+       (number->string hours) ":" (number->string mins) ":" (number->string secs))))
+
+    (define pp-date
+     (lambda (day month year)
+      (string-append
+       (number->string day) "/" (number->string month) "/" (number->string year))))
+
     ; Get the current time from the real time clock
     ; The result is passed to the C continuation in the format
-    ; hour min sec
+    ; sec min hour
     (define (rtc-current-time c)
-      (disable-interrupts) ; System interrupts
+      ; (disable-interrupts) ; System interrupts
       (let ((secs (rtc-command RTC-SEC))
             (mins (rtc-command RTC-MIN))
             (hours (rtc-command RTC-HOUR)))
-        (enable-interrupts) ; System interrupts
-        (c hours mins secs)))
+        ; (enable-interrupts) ; System interrupts
+        (c secs mins hours)))
 
-   ; (define (rtc-current-date c)
-   ;  (disable-interrupts)
-   ;  (let ((day (rtc-command RTC-DAY-IN-MONTH))))
-   ;  ; TODO
-   ;  (enable-interrupts)
-   ;  (c day month year))
+   (define (rtc-current-date c)
+    ; (disable-interrupts)
+    (let ((day (rtc-command RTC-DAY-IN-MONTH))
+          (month (rtc-command RTC-MONTH))
+          (y-in-century (rtc-command RTC-YEAR)))
+      ; (enable-interrupts)
+      (c day month (+ 2000 y-in-century))))
 
     ))

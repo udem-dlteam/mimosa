@@ -17,6 +17,7 @@
                   assock
                   assocv
                   b-chop
+                  bcd->binary
                   bipartition
                   both
                   build-vector
