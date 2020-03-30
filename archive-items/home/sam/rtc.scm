@@ -80,10 +80,11 @@
         (enable-interrupts) ; System interrupts
         (c hours mins secs)))
 
-   (define (rtc-current-date c)
-    (disable-interrupts)
-    (let ((day (rtc-command RTC-DAY-IN-MONTH))))
-    ; TODO
-    (enable-interrupts)
-    (c day month year)))
+   ; (define (rtc-current-date c)
+   ;  (disable-interrupts)
+   ;  (let ((day (rtc-command RTC-DAY-IN-MONTH))))
+   ;  ; TODO
+   ;  (enable-interrupts)
+   ;  (c day month year))
+
     ))
