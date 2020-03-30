@@ -175,7 +175,6 @@ extern "C" void irq14() {
   ACKNOWLEDGE_IRQ(14);
 
   if(has_cut_ide_support()) {
-      debug_write("B4 Gambit call");
       uint8 params[1] = {0};
       send_gambit_int(GAMBIT_IDE_INT, params, 1);
   } else {

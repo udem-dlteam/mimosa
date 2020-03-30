@@ -3,6 +3,7 @@
 ; Ill assume yes for now
 (define-library (disk)
                 (import (gambit)
+                        (errors)
                         (ide)
                         (utils)
                         (debug)
@@ -13,9 +14,17 @@
                         disk-acquire-block
                         disk-release-block
                         init-disks
+                        MRO
+                        MRW
+                        MODE-READ-ONLY
+                        MODE-READ-WRITE
                         disk-absent?
                         sector-vect)
     (begin
+      (define MRO 'MODE-READ-ONLY)
+      (define MRW 'MODE-READ-WRITE)
+      (define MODE-READ-ONLY MRO)
+      (define MODE-READ-WRITE MRW)
       (define DISK-CACHE-MAX-SZ 4098)
       (define DISK-IDE 0)
       (define MAX-NB-DISKS 32)
@@ -51,12 +60,21 @@
               (used (disk-cache-used disk));; todo: check overflow
               (dev (disk-ide-device disk)))
           (mutex-lock! mut)
-          (let* ((raw-vect (ide-read-sectors dev lba 1))
-                 (sect (create-sector raw-vect lba disk))) 
-            (table-set! cache lba sect)
-            (disk-cache-used-set! disk (++ used))
-            (mutex-unlock! mut)     
-            sect)))
+          (let ((cleanup (lambda () (mutex-unlock! mut))))
+          (ide-read-sectors
+            dev
+            lba
+            1
+            (lambda (raw-vect)
+              (let ((sect (create-sector raw-vect lba disk)))
+                (table-set! cache lba sect)
+                (disk-cache-used-set! disk (++ used))
+                (cleanup)
+                sect))
+            (lambda (err)
+              (cleanup) 
+              err))
+          )))
 
       (define (disk-read-sector disk lba)
         (let* ((cache (disk-cache disk))
@@ -66,19 +84,26 @@
               cached 
               (disk-fetch-and-set! disk lba)))) 
 
-      (define (flush-block disk sector) #t)
       (define (flush-block disk sector)
-        (let ((smut (sector-mut sector))
-              (dmut (disk-mut disk))
-              (dev (disk-ide-device disk))
-              (lba (sector-lba sector))
-              (v (sector-vect sector)))
+        (let* ((smut (sector-mut sector))
+               (dmut (disk-mut disk))
+               (dev (disk-ide-device disk))
+               (lba (sector-lba sector))
+               (v (sector-vect sector))
+               (cleanup (lambda ()
+                          (sector-dirty?-set sector #f)
+                          (mutex-unlock! dmut)
+                          (mutex-unlock! smut); todo not sure if necessary
+                          #t)))
           (mutex-lock! smut)
           (mutex-lock! dmut)
-          ; (ide-write-sectors dev lba v 1)
-          (mutex-unlock! dmut)
-          (mutex-unlock! smut); todo not sure if necessary
-          #t))
+          (ide-write-sectors
+            dev
+            lba
+            v
+            1
+            cleanup
+            (lambda (err) (cleanup) err))))
 
       (define (create-sector v lba disk)
         (make-sector 
@@ -97,15 +122,16 @@
           0
           type))
 
-      (define (disk-acquire-block disk lba)
+      (define (disk-acquire-block disk lba mode)
         (let* ((sector (disk-read-sector disk lba))
                (refs (sector-ref-count sector))
                (mut (sector-mut sector)))
           (mutex-lock! mut)
-          (begin
-            (sector-ref-count-set! sector (++ refs))
-            (mutex-unlock! mut)
-            sector)))
+          (if (eq? MODE-READ-WRITE mode)
+           (sector-dirty?-set! sector #t))
+          (sector-ref-count-set! sector (++ refs))
+          (mutex-unlock! mut)
+          sector))
 
       (define (disk-release-block sect)
         (let* ((lba (sector-lba sect))
@@ -113,11 +139,11 @@
                (disk ((sector-disk-l sect)))
                (refs (sector-ref-count sect)))
           (mutex-lock! mut)
-          (begin
-            (sector-ref-count-set! sect (- refs 1))
-            (mutex-unlock! mut)
-            (if (= refs 1) (flush-block disk sect))
-            #t)))
+          (sector-ref-count-set! sect (- refs 1))
+          (mutex-unlock! mut)
+          (if (and (= refs 1) (sector-dirty? sect))
+              (flush-block disk sect))
+          #t))
 
       (define (init-disks)
         (let ((disk-idx 0)) 
@@ -142,8 +168,8 @@
 
       ; For a disk, a block address, apply function 
       ; fn on the sector vector
-      (define (disk-apply-sector dsk lba fn)
-        (let* ((sect (disk-acquire-block dsk lba))
+      (define (disk-apply-sector dsk lba mode fn)
+        (let* ((sect (disk-acquire-block dsk lba mode))
                (rslt (fn (sector-vect sect))))
           (disk-release-block sect)
           rslt))

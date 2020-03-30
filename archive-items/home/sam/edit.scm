@@ -102,16 +102,11 @@
     (subvector-move! buf end1 len new-buf (fx+ end1 change-len))
     (subvector-move! vect2 start2 end2 new-buf start1)))
 
+(define (read-all path)
+ (file-read! (open-fat-file fs path "r") -1 ID))
+
 (define (file-read path)
-  (let* ((content
-          (with-exception-catcher
-           (lambda (e)
-             "")
-           (lambda ()
-             (call-with-input-file
-                 path
-               (lambda (port)
-                 (read-line port #f))))))
+  (let* ((content (read-all path))
          (lines
           (list->vector
            (map (lambda (line)
@@ -128,15 +123,12 @@
     svect))
 
 (define (file-write path svect)
-  (directory-files) ;; this seems to fix a bug in the filesystem IO!
-  (call-with-output-file
-      path
-    (lambda (port)
-      (display (append-strings
-                (vector->list
-                 (vector-map sstring->string (svector->vector svect)))
-                "\n")
-               port))))
+  (let ((f (open-fat-file fs path "w+"))
+        (s (append-strings
+             (vector->list
+               (vector-map sstring->string (svector->vector svect)))
+             "\n")))
+    (file-write! f (string->u8vector s) 0 (string-length s) ID)))
 
 ;;;----------------------------------------------------------------------------
 

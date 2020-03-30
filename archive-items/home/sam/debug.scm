@@ -9,6 +9,8 @@
             (str-debug-write obj))
            ((vector? obj)
             (vector-debug-write obj))
+           ((list? obj)
+            (for-each debug-write obj))
            ((number? obj)
             (number-debug-write obj))
            (else

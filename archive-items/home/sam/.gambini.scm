@@ -1,11 +1,21 @@
 ; The MIMOSA project
 ; Scheme executor bridge
-(import (ide)
+(import (errors)
+        (ide)
         (disk)
         (utils)
         (fat32)
         (low-level)
         (debug))
+
+(define (reboot)
+  (let wait-loop ()
+    (let ((temp (inb #x64)))
+      (if (mask temp #x01)
+          (inb #x60)
+          (if (mask temp #x02)
+              (wait-loop)))))
+  (outb #xFE #x64))
 
 (define reader-offset 0)
 (define SHARED-MEMORY-AREA #x300000)
@@ -28,7 +38,7 @@
 
 (load "mimosa_io.scm")
 (load "intr.scm")
-; (load "edit.scm")
+(load "edit.scm")
 (load "int_handle.scm") ; must be loaded after all drivers
 
 ;;;----------------------------------------------------
@@ -40,11 +50,6 @@
 
 ; (for-each (o uart-do-init ++) (iota 4))
 
-(ide#setup)
-(ide#switch-over-driver)
-
-(init-disks)
-(define main-disk (car disk-list))
 
 (define (t) (f-tests main-disk))
 
@@ -111,3 +116,16 @@
 (thread-start! (make-thread exec "int execution g-tread"))
 (thread-start! (make-thread int-clear "Mimosa interrupt clearing thread"))
 (thread-start! (make-thread idle "Mimosa idle green thread"))
+
+
+;;;----------------------------------------------------
+;;;                     INIT SYSTEM  
+;;;----------------------------------------------------
+
+(ide#setup)
+(ide#switch-over-driver)
+
+(init-disks)
+(define main-disk (car disk-list))
+(mount-partitions disk-list)
+(define fs (car filesystem-list))

@@ -1,7 +1,7 @@
 ;; The mimosa project
 ;; Ide controller base code
 (define-library (ide)
-(import (gambit) (utils) (low-level) (debug)) 
+(import (errors) (gambit) (utils) (low-level) (debug)) 
 (export
   setup
   switch-over-driver
@@ -137,7 +137,8 @@
           (debug-write "Track 0 not found during recalibrate command"))
 
       (if (mask error IDE-ERROR-AMNF)
-          (debug-write "Data address mark not found after ID field"))))
+          (debug-write "Data address mark not found after ID field")))
+      ERR-ARGS)
 
   ; Take a vector made of shorts and return a vector made
   ; of bytes (system endianness)
@@ -163,42 +164,40 @@
                         (fxior (<< (vector-ref b-vect  (+ b-idx 1)) 8)
                                (vector-ref b-vect b-idx))))))) 
 
-  ; Creates a read command for the int
-  (define (ide-make-sector-read-command cpu-port target-vector cv mut)
-    (lambda ()
-      (let* ((data-reg (fx+ cpu-port IDE-DATA-REG))
-             (stt-reg (fx+ cpu-port IDE-STATUS-REG))
-             (alt-reg (fx+ cpu-port IDE-ALT-STATUS-REG))
-             (status (inb stt-reg)))
-        (if (mask status IDE-STATUS-ERR)
-            (ide-handle-read-err cpu-port)
-            (begin 
-              (mutex-lock! mut)
-              (for-each (lambda (i)
-                          (vector-set! target-vector i (inw data-reg)))
-                        (iota (vector-length target-vector)))
-              (if (mask IDE-STATUS-DRQ (inb alt-reg))
-                  (debug-write "Unknown error while reading..."))))
-        ; Signal we are ready
-        (condition-variable-signal! cv)
-        (mutex-unlock! mut)
-        )))
-
   ; Flush the command cache of an ide device
-  (define (ide-flush-cache device)
+  ; c: the success continuation, nothing in it
+  ; e: the error continuation, with the error code
+  (define (ide-flush-cache device c e)
     (let* ((dev-id (ide-device-id device))
            (ctrl ((ide-device-controller device)))
            (cpu-port (ide-controller-cpu-port ctrl))
+           (q (ide-controller-continuations-queue ctrl))
+           (mut (ide-controller-mut ctrl))
+           (cv (ide-controller-cv ctrl))
+           (stt-reg (fx+ cpu-port IDE-STATUS-REG))
+           (err #f)
            (cmd-reg (fx+ cpu-port IDE-COMMAND-REG)))
-      (disable-interrupts)
+      (mutex-lock! mut)
+      (write (lambda () 
+               (if (mask (inb stt-reg) IDE-STATUS-ERR)
+                (set! err ERR-HWD)) 
+               (mutex-lock! mut)
+               (condition-variable-signal! cv)
+               (mutex-unlock! mut)
+               ) q)
+      (force-output q)
       (outb IDE-FLUSH-CACHE-CMD cmd-reg)
-      (enable-interrupts)))
+      (mutex-unlock! mut cv)
+      (if err
+       (e err)
+       (c))))
 
   ; Read `count` sectors from the ide device. 
   ; When the data is read, the continuation is called with
   ; a vector that corresponds to the data at `lba` (logical block addressing)
-  ; The continuation might be called from another thread
-  (define (ide-read-sectors device lba count)
+  ; c is a continuation that takes the vector as parameter 
+  ; e is an error continuation, taking an error symbol as a parameter
+  (define (ide-read-sectors device lba count c e)
     (if (fx> count 0)
         (let* ((dev-id (ide-device-id device))
                (ctrl ((ide-device-controller device)))
@@ -210,14 +209,31 @@
                (sect-num-reg (fx+ cpu-port IDE-SECT-NUM-REG))
                (cyl-lo-reg (fx+ cpu-port IDE-CYL-LO-REG))
                (cyl-hi-reg (fx+ cpu-port IDE-CYL-HI-REG))
+               (data-reg (fx+ cpu-port IDE-DATA-REG))
+               (alt-reg (fx+ cpu-port IDE-ALT-STATUS-REG))
                (cmd-reg (fx+ cpu-port IDE-COMMAND-REG))
                (stt-reg (fx+ cpu-port IDE-STATUS-REG))
                (q (ide-controller-continuations-queue ctrl))
                (count (min 256 count))
+               (err #f)
                (sz (<< count (- IDE-LOG2-SECTOR-SIZE 1)))
                (word-vector (make-vector sz 0)))
           (mutex-lock! mut)
-          (write (ide-make-sector-read-command cpu-port word-vector cv mut) q)
+          (write 
+            (lambda ()
+              (mutex-lock! mut)
+              (let* ((status (inb stt-reg)))
+                (if (mask status IDE-STATUS-ERR)
+                    (set! err (ide-handle-read-err cpu-port))
+                    (begin (for-each (lambda (i)
+                                       (vector-set! word-vector i (inw data-reg)))
+                                     (iota (vector-length word-vector)))
+                      (if (mask IDE-STATUS-DRQ (inb alt-reg))
+                          (set! err ERR-HWD))))
+                ; Signal we are ready
+                (condition-variable-signal! cv)
+                (mutex-unlock! mut)))      
+            q)
           (force-output q)
           (outb (b-chop (fxior IDE-DEV-HEAD-LBA 
                                (IDE-DEV-HEAD-DEV dev-id)
@@ -228,9 +244,10 @@
           (outb (b-chop (>> lba 16)) cyl-hi-reg)
           (outb (b-chop IDE-READ-SECTORS-CMD) cmd-reg)
           (mutex-unlock! mut cv)
-          (expand-wvect word-vector))
-
-        (cont (make-vector 0 0))))
+          (if err
+              (e err)
+              (c (expand-wvect word-vector))))
+        (e ERR-ARGS)))
 
   (define (ide-init-devices)
     (make-list IDE-DEVICES-PER-CONTROLLER IDE-DEVICE-ABSENT))
@@ -238,7 +255,7 @@
   (define (device-absent? dev)
     (eq? dev IDE-DEVICE-ABSENT))
 
-  (define (ide-write-sectors device lba buffer count)
+  (define (ide-write-sectors device lba buffer count c e)
     (let* ((count (min count 256))
            (compressed-vector (compress-bvect buffer))
            (dev-id (ide-device-id device))
@@ -252,13 +269,22 @@
            (cyl-hi-reg (fx+ cpu-port IDE-CYL-HI-REG))
            (cmd-reg (fx+ cpu-port IDE-COMMAND-REG))
            (stt-reg (fx+ cpu-port IDE-STATUS-REG))
+           (mut (ide-controller-mut ctrl))
+           (cv (ide-controller-cv ctrl))
+           (err #f)
            (q (ide-controller-continuations-queue ctrl))
-           (write-lambda (lambda ()
-                           (for-each (lambda (i)
-                                       (outw (vector-ref compressed-vector i)  data-reg))
-                                     (iota (<< 1 (- IDE-LOG2-SECTOR-SIZE 1))))))
            (count (min 256 count)))
-      ; (push write-lambda q)
+      (mutex-lock! mut)
+      (write (lambda () 
+               (mutex-lock! mut)
+               (if (mask (inb stt-reg) IDE-STATUS-ERR)
+                   (begin
+                     (debug-write "Failed to write to disk...")
+                     (set! err ERR-HWD)))
+               (condition-variable-signal! cv)
+               (mutex-unlock! mut)
+               ) q) ; nothing really to do, maybe add a signal later?
+      (force-output q)
       (outb (b-chop (fxior IDE-DEV-HEAD-LBA 
                            (IDE-DEV-HEAD-DEV dev-id)
                            (>> lba 24)))
@@ -277,11 +303,14 @@
             (begin
               (ide-delay cpu-port)
               (spin-loop))))
-      (write-lambda)
-      ; Send a flush command
-      (write (lambda () #t) q) ; nothing really to do, maybe add a signal later?
-      (force-output q)
-      (ide-flush-cache device)))
+      (for-each (lambda (i)
+                  (outw (vector-ref compressed-vector i) data-reg))
+                (iota (<< 1 (- IDE-LOG2-SECTOR-SIZE 1))))
+      (mutex-unlock! mut cv) ; wait until the IRQ was received
+      (if err
+          (e err)
+          (ide-flush-cache device c e) ; flush to confirm no more writes are going to occur
+          )))
 
   ; Init the devices struct
   (define (ide-init-controllers)
