@@ -23,8 +23,6 @@
                         sector-vect)
     (begin
       (define READ-AHEAD #t)
-      ; Not a scientific measure, just a big number
-      (define DISK-LIFE-EXPECTENCY (arithmetic-shift 1 32))
       (define BIG-READ-THRESH 5)
       (define MRO 'MODE-READ-ONLY)
       (define MRW 'MODE-READ-WRITE)
@@ -48,15 +46,16 @@
                    ref-count
                    disk-l
                    flush-cont
-                   age
+                   has-chance?
                    )
 
       (define-type disk
                    ide-device
                    mut
+                   clock-hand
                    cache
-                   type
-                   time)
+                   chance-vect
+                   type)
 
       (define disk-list (make-list MAX-NB-DISKS 'NO-DISK))
 
@@ -65,50 +64,53 @@
           (disk-time-set! disk (modulo (++ time) DISK-LIFE-EXPECTENCY))
           time))
 
-      (define (evict-from-cache cache)
-       (debug-write "Evicting")
-       ; A better implementation would be a red black tree
-       ; While it will take constant time evicting since it is a
-       ; fixed size table, this is not a great implementation
-       (let ((youngest-lba -1)
-             (youth (++ DISK-LIFE-EXPECTENCY)))
-        (table-for-each
-         (lambda (lba sector)
-          (let ((age (sector-age sector)))
-           (if (< age youth)
-            (begin
-             (debug-write age)
-             (set! youngest-lba lba)
-             (set! youth age)))))
-         cache)
-        (if (< youngest-lba 0)
-         (debug-write "Failed to find an entry to evict"))
-        (table-set! cache youngest-lba) ; remove from cache
-        ))
+      (define (evict-and-replace disk new-sector)
+        (let ((clock-hand (disk-clock-hand disk))
+              (chances (disk-chance-vect disk))
+              (cache (disk-cache disk))
+              )
+          (let search ((clock-hand clock-hand))
+           (let* ((lba (vector-ref chances clock-hand))
+                  (sect (table-ref cache lba))
+                  (has-chance? (sector-has-chance? sect)))
+            (if (not has-chance?)
+             (begin
+              (vector-set! chances clock-hand (sector-lba new-sector))
+              (table-set! cache lba) ; erase the old value
+              (table-set! cache (sector-lba new-sector) new-sector) ; insert a new one
+              (disk-clock-hand-set! disk (modulo (++ clock-hand) DISK-CACHE-MAX-SZ))) ; new value
+             (begin
+              (sector-has-chance?-set! sect #f) ; eat the chance
+              (search (modulo (++ clock-hand) DISK-CACHE-MAX-SZ))))) ; forward
+           )))
 
       (define (disk-fetch-and-set! disk lba)
         (let* ((mut (disk-mut disk))
-              (cache (disk-cache disk))
-              (used (table-length cache))
-              ;; todo: check overflow
-              (dev (disk-ide-device disk)))
+               (cache (disk-cache disk))
+               (chance-vect (disk-chance-vect disk))
+               (clock-hand (disk-clock-hand disk))
+               (dev (disk-ide-device disk))
+               (used (table-length cache))
+               (cleanup (lambda () (mutex-unlock! mut))))
           (mutex-lock! mut)
-          (if (= used DISK-CACHE-MAX-SZ)
-            (evict-from-cache cache))
-          (let ((cleanup (lambda () (mutex-unlock! mut))))
           (ide-read-sectors
             dev
             lba
             1
             (lambda (raw-vect)
               (let ((sect (create-sector raw-vect lba disk)))
-                (table-set! cache lba sect)
+                (if (= used DISK-CACHE-MAX-SZ)
+                    (evict-and-replace disk sect)
+                    (begin
+                      (vector-set! chance-vect clock-hand lba)
+                      (disk-clock-hand-set! disk (modulo (++ clock-hand) DISK-CACHE-MAX-SZ))
+                      (table-set! cache lba sect)))
                 (cleanup)
                 sect))
             (lambda (err)
               (cleanup)
               err))
-          )))
+          ))
 
       (define (disk-read-sector disk lba)
         (let* ((cache (disk-cache disk))
@@ -186,26 +188,26 @@
           0
           (lambda () disk)
           #f
-          0))
+          #t))
 
       (define (create-disk dev type)
         (make-disk
           dev
           (make-mutex)
+          0
           (make-table size: DISK-CACHE-MAX-SZ)
+          (make-vector DISK-CACHE-MAX-SZ #f)
           type
-          0))
+          ))
 
       (define (disk-acquire-block disk lba mode)
         (let* ((sector (disk-read-sector disk lba))
-               (age (sector-age sector))
                (refs (sector-ref-count sector))
                (mut (sector-mut sector)))
           (mutex-lock! mut)
           (if (eq? MODE-READ-WRITE mode)
            (sector-dirty?-set! sector #t))
-          (sector-age-set! sector (max age (disk-get-older disk)))
-          (sector-ref-count-set! sector (++ refs))
+          (sector-has-chance?-set! sector #t)
           (mutex-unlock! mut)
           sector))
 
