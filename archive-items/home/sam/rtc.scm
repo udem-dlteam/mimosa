@@ -14,6 +14,7 @@
   (begin
     ;; Definitions for MC 146818 real-time clock chip.
     ;;
+    (define RTC-UIP-SLEEP 0.000250)
     (define RTC-PORT-ADDR #x70)
     (define RTC-PORT-DATA #x71)
     (define RTC-IRQ 8)
@@ -27,10 +28,10 @@
     (define RTC-DAY-IN-MONTH 7)
     (define RTC-MONTH        8)
     (define RTC-YEAR         9)
-    (define RTC-REGA         10)
-    (define RTC-REGB         11)
-    (define RTC-REGC         12)
-    (define RTC-REGD         13)
+    (define RTC-REG-A         10)
+    (define RTC-REG-B         11)
+    (define RTC-REG-C         12)
+    (define RTC-REG-D         13)
     (define RTC-REGA-UIP     (fxarithmetic-shift 1 7))
     (define RTC-REGA-OSC     (fxarithmetic-shift 7 4))
     (define RTC-REGA-OSC-ON  (fxarithmetic-shift 2 4))
@@ -88,6 +89,17 @@
        (outb ,data RTC-PORT-ADDR)
        (bcd->binary (inb RTC-PORT-DATA))))
 
+    ; Fetches some data from the RTC. The result
+    ; is a list of results with the first argument being a boolean indicating
+    ; if the UIP flag was raised
+    (define (rtc-commands-with-uip . commands)
+      (let ((results (map
+                       (lambda (data)
+                         (outb data RTC-PORT-ADDR)
+                         (bcd->binary (inb RTC-PORT-DATA)))
+                       commands)))
+        (cons (mask (inb RTC-REG-A) RTC-REGA-UIP) results)))
+
     (define pp-time
      (lambda (secs mins hours)
       (string-append
@@ -101,16 +113,27 @@
     ; Get the current time from the real time clock
     ; The result is passed to the C continuation in the format
     ; sec min hour
-    (define (rtc-current-time c)
-      (let ((secs (atomic (rtc-command RTC-SEC)))
-            (mins (atomic (rtc-command RTC-MIN)))
-            (hours (atomic (rtc-command RTC-HOUR))))
-        (c secs mins hours)))
+   (define (rtc-current-time c)
+     (let ((data (atomic (rtc-commands-with-uip
+                           RTC-SEC
+                           RTC-MIN
+                           RTC-HOUR))))
+      (if (car data)
+       (begin
+        (thread-sleep! RTC-UIP-SLEEP)
+        (rtc-current-time c))
+       (apply c (cdr data)))))
 
    (define (rtc-current-date c)
-     (let ((day (atomic (rtc-command RTC-DAY-IN-MONTH)))
-           (month (atomic (rtc-command RTC-MONTH)))
-           (y-in-century (atomic (rtc-command RTC-YEAR))))
-       (c day month (+ 2000 y-in-century))))
+     (let ((data (atomic (rtc-commands-with-uip
+                           RTC-DAY-IN-MONTH
+                           RTC-MONTH
+                           RTC-YEAR
+                           ))))
+      (if (car data)
+       (begin
+        (thread-sleep! RTC-UIP-SLEEP)
+        (rtc-current-date c))
+       (c (cadr data) (caddr data) (+ 2000 (cadddr data))))))
 
     ))
