@@ -8,9 +8,7 @@
   (gambit)
   (low-level)
   (utils)
-  (intr)
-  (debug))
-(export 
+  (intr) (debug)) (export
   handle-uart-int
   uart-do-init)
 (begin
@@ -80,7 +78,7 @@
   (define UART-8250-LSR-OE (fxarithmetic-shift 1 1))
   (define UART-8250-LSR-DR (fxarithmetic-shift 1 0))
 
-  ; Line Status Register (LSR) interrupt cause 
+  ; Line Status Register (LSR) interrupt cause
   (define (UART-LSR-DATA-AVAILABLE x) (fxand x UART-8250-LSR-DR))
   (define (UART-LSR-OVERRUN-ERROR x) (fxand x UART-8250-LSR-OE))
   (define (UART-LSR-PARITY-ERROR x) (fxand x UART-8250-LSR-PE))
@@ -138,7 +136,7 @@
 
   ; 0 : the COM port number
   (define UART-PORT-DATA-COM-IDX 0)
-  ; 1 : if the port is opened 
+  ; 1 : if the port is opened
   (define UART-PORT-DATA-STT 1)
   ; 2 : the write queue (goes out)
   (define UART-PORT-DATA-WRITE-Q-IDX 2)
@@ -189,14 +187,14 @@
     (uart-struct-there-pipe port-data))
 
   ; ---------------------------------------------
-  ;                 IN PORT 
+  ;                 IN PORT
   ; ---------------------------------------------
   ; Check if the uart port has been opened
   (define (uart-opened? port-data)
     (uart-struct-opened? port-data))
 
   ; ---------------------------------------------
-  ;                 OUT PORT 
+  ;                 OUT PORT
   ; ---------------------------------------------
   ; Read a character in the in buffer
   (define (uart-port-next-char-out port-data)
@@ -287,6 +285,7 @@
            (port-data (get-port-data cpu-port))
            (endpoint (port-data-get-endpoint port-data))
            (c (integer->char data)))
+      (debug-write (string-append "Received: " (string c)))
       (write-char c endpoint)
     )) ;; Write to the endpoint
 
@@ -398,7 +397,7 @@
 
   (define (make-repl-thread-body com-port endpoint)
     (lambda ()
-      (gambit-set-repl-channels! endpoint endpoint endpoint) 
+      (gambit-set-repl-channels! endpoint endpoint endpoint)
       (##repl-debug-main)))
   (define (make-repl-thread com-port repl-endpoint)
     (let ((body (make-repl-thread-body com-port repl-endpoint))

@@ -97,8 +97,8 @@
 
       ; Combine two functions (\circ)
       (define (o g f)
-        (lambda (n)
-          (g (f n))))
+        (lambda params
+          (g (apply f params))))
 
       ; Combine many functions (\circ with many parameters)
       (define (O fns)

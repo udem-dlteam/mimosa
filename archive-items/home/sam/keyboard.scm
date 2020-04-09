@@ -174,7 +174,7 @@
   (define KBD-SCANCODE-RWINDOW   #x5C )
   (define KBD-SCANCODE-MENU      #x5D )
   (define scancodes
-    (vector 
+    (vector
       0 DEAD DEAD DEAD NULL  ; not a valid scan code
       #x011b #x011b #x011b #x0100 NULL  ; ESC
       #x0231 #x0221 DEAD #x7800 NULL   ; 1
@@ -187,87 +187,86 @@
       #x0938 #x092a DEAD #x7f00 NULL  ; 8
       #x0a39 #x0a28 DEAD #x8000 NULL  ; 9
       #x0b30 #x0b29 DEAD #x8100 NULL   ;0
-      #x0c2d #x0c5f #x0c1f #x8200 NULL  
-      #x0d3d #x0d2b DEAD #x8300 NULL  
-      #x0e08 #x0e08 #x0e7f DEAD NULL  
-      #x0f09 #x0f00 DEAD DEAD NULL  
-      #x1071 #x1051 #x1011 #x1000 NULL  
-      #x1177 #x1157 #x1117 #x1100 NULL  
-      #x1265 #x1245 #x1205 #x1200 NULL  
-      #x1372 #x1352 #x1312 #x1300 NULL  
-      #x1474 #x1454 #x1414 #x1400 NULL  
-      #x1579 #x1559 #x1519 #x1500 NULL  
-      #x1675 #x1655 #x1615 #x1600 NULL  
-      #x1769 #x1749 #x1709 #x1700 NULL  
-      #x186f #x184f #x180f #x1800 NULL  
-      #x1970 #x1950 #x1910 #x1900 NULL  
-      #x1a5b #x1a7b #x1a1b DEAD NULL  
-      #x1b5d #x1b7d #x1b1d DEAD NULL  
-      #x1c0d #x1c0d #x1c0a DEAD NULL  
-      DEAD DEAD DEAD DEAD NULL  
-      #x1e61 #x1e41 #x1e01 #x1e00 NULL  
-      #x1f73 #x1f53 #x1f13 #x1f00 NULL  
-      #x2064 #x2044 #x2004 #x2000 NULL  
-      #x2166 #x2146 #x2106 #x2100 NULL  
-      #x2267 #x2247 #x2207 #x2200 NULL  
-      #x2368 #x2348 #x2308 #x2300 NULL  
-      #x246a #x244a #x240a #x2400 NULL  
-      #x256b #x254b #x250b #x2500 NULL  
-      #x266c #x264c #x260c #x2600 NULL  
-      #x273b #x273a DEAD DEAD NULL  
-      #x2827 #x2822 DEAD DEAD NULL  
-      #x2960 #x297e DEAD DEAD NULL  
-      DEAD DEAD DEAD DEAD NULL  
-      #x2b5c #x2b7c #x2b1c DEAD NULL  
-      #x2c7a #x2c5a #x2c1a #x2c00 NULL  
-      #x2d78 #x2d58 #x2d18 #x2d00 NULL  
-      #x2e63 #x2e43 #x2e03 #x2e00 NULL  
-      #x2f76 #x2f56 #x2f16 #x2f00 NULL  
-      #x3062 #x3042 #x3002 #x3000 NULL  
-      #x316e #x314e #x310e #x3100 NULL  
-      #x326d #x324d #x320d #x3200 NULL  
-      #x332c #x333c DEAD DEAD NULL  
-      #x342e #x343e DEAD DEAD NULL  
-      #x352f #x353f DEAD DEAD NULL  
-      DEAD DEAD DEAD DEAD NULL  
-      #x372a #x372a DEAD DEAD NULL  
-      DEAD DEAD DEAD DEAD NULL  
-      #x3920 #x3920 #x3900 #x3920 NULL  
-      DEAD DEAD DEAD DEAD NULL  
-      #x3b00 #x5400 #x5e00 #x6800 "\033OP"  
-      #x3c00 #x5500 #x5f00 #x6900 "\033OQ"  
-      #x3d00 #x5600 #x6000 #x6a00 "\033OR"  
-      #x3e00 #x5700 #x6100 #x6b00 "\033OS"  
-      #x3f00 #x5800 #x6200 #x6c00 "\033[15~"  
-      #x4000 #x5900 #x6300 #x6d00 "\033[17~"  
-      #x4100 #x5a00 #x6400 #x6e00 "\033[18~"  
-      #x4200 #x5b00 #x6500 #x6f00 "\033[19~"  
-      #x4300 #x5c00 #x6600 #x7000 "\033[20~"  
-      #x4400 #x5d00 #x6700 #x7100 "\033[21~"  
-      DEAD DEAD DEAD DEAD NULL  
-      DEAD DEAD DEAD DEAD NULL  
-      #x4700 #x4737 #x7700 DEAD "\033[H"  
-      #x4800 #x4838 DEAD DEAD "\033[A"  
-      #x4900 #x4939 #x8400 DEAD NULL  
-      #x4a2d #x4a2d DEAD DEAD NULL  
-      #x4b00 #x4b34 #x7300 DEAD "\033[D"  
-      #x4c00 #x4c35 DEAD DEAD NULL  
-      #x4d00 #x4d36 #x7400 DEAD "\033[C"  
-      #x4e2b #x4e2b DEAD DEAD NULL  
-      #x4f00 #x4f31 #x7500 DEAD "\033[F"  
-      #x5000 #x5032 DEAD DEAD "\033[B"  
-      #x5100 #x5133 #x7600 DEAD NULL  
-      #x5200 #x5230 DEAD DEAD "\033[2~"  
-      #x5300 #x532e DEAD DEAD NULL  
-      DEAD DEAD DEAD DEAD NULL  
-      DEAD DEAD DEAD DEAD NULL  
-      DEAD DEAD DEAD DEAD NULL  
-      DEAD DEAD DEAD DEAD "\033[23~"  
+      #x0c2d #x0c5f #x0c1f #x8200 NULL
+      #x0d3d #x0d2b DEAD #x8300 NULL
+      #x0e08 #x0e08 #x0e7f DEAD NULL
+      #x0f09 #x0f00 DEAD DEAD NULL
+      #x1071 #x1051 #x1011 #x1000 NULL
+      #x1177 #x1157 #x1117 #x1100 NULL
+      #x1265 #x1245 #x1205 #x1200 NULL
+      #x1372 #x1352 #x1312 #x1300 NULL
+      #x1474 #x1454 #x1414 #x1400 NULL
+      #x1579 #x1559 #x1519 #x1500 NULL
+      #x1675 #x1655 #x1615 #x1600 NULL
+      #x1769 #x1749 #x1709 #x1700 NULL
+      #x186f #x184f #x180f #x1800 NULL
+      #x1970 #x1950 #x1910 #x1900 NULL
+      #x1a5b #x1a7b #x1a1b DEAD NULL
+      #x1b5d #x1b7d #x1b1d DEAD NULL
+      #x1c0d #x1c0d #x1c0a DEAD NULL
+      DEAD DEAD DEAD DEAD NULL
+      #x1e61 #x1e41 #x1e01 #x1e00 NULL
+      #x1f73 #x1f53 #x1f13 #x1f00 NULL
+      #x2064 #x2044 #x2004 #x2000 NULL
+      #x2166 #x2146 #x2106 #x2100 NULL
+      #x2267 #x2247 #x2207 #x2200 NULL
+      #x2368 #x2348 #x2308 #x2300 NULL
+      #x246a #x244a #x240a #x2400 NULL
+      #x256b #x254b #x250b #x2500 NULL
+      #x266c #x264c #x260c #x2600 NULL
+      #x273b #x273a DEAD DEAD NULL
+      #x2827 #x2822 DEAD DEAD NULL
+      #x2960 #x297e DEAD DEAD NULL
+      DEAD DEAD DEAD DEAD NULL
+      #x2b5c #x2b7c #x2b1c DEAD NULL
+      #x2c7a #x2c5a #x2c1a #x2c00 NULL
+      #x2d78 #x2d58 #x2d18 #x2d00 NULL
+      #x2e63 #x2e43 #x2e03 #x2e00 NULL
+      #x2f76 #x2f56 #x2f16 #x2f00 NULL
+      #x3062 #x3042 #x3002 #x3000 NULL
+      #x316e #x314e #x310e #x3100 NULL
+      #x326d #x324d #x320d #x3200 NULL
+      #x332c #x333c DEAD DEAD NULL
+      #x342e #x343e DEAD DEAD NULL
+      #x352f #x353f DEAD DEAD NULL
+      DEAD DEAD DEAD DEAD NULL
+      #x372a #x372a DEAD DEAD NULL
+      DEAD DEAD DEAD DEAD NULL
+      #x3920 #x3920 #x3900 #x3920 NULL
+      DEAD DEAD DEAD DEAD NULL
+      #x3b00 #x5400 #x5e00 #x6800 "\033OP"
+      #x3c00 #x5500 #x5f00 #x6900 "\033OQ"
+      #x3d00 #x5600 #x6000 #x6a00 "\033OR"
+      #x3e00 #x5700 #x6100 #x6b00 "\033OS"
+      #x3f00 #x5800 #x6200 #x6c00 "\033[15~"
+      #x4000 #x5900 #x6300 #x6d00 "\033[17~"
+      #x4100 #x5a00 #x6400 #x6e00 "\033[18~"
+      #x4200 #x5b00 #x6500 #x6f00 "\033[19~"
+      #x4300 #x5c00 #x6600 #x7000 "\033[20~"
+      #x4400 #x5d00 #x6700 #x7100 "\033[21~"
+      DEAD DEAD DEAD DEAD NULL
+      DEAD DEAD DEAD DEAD NULL
+      #x4700 #x4737 #x7700 DEAD "\033[H"
+      #x4800 #x4838 DEAD DEAD "\033[A"
+      #x4900 #x4939 #x8400 DEAD NULL
+      #x4a2d #x4a2d DEAD DEAD NULL
+      #x4b00 #x4b34 #x7300 DEAD "\033[D"
+      #x4c00 #x4c35 DEAD DEAD NULL
+      #x4d00 #x4d36 #x7400 DEAD "\033[C"
+      #x4e2b #x4e2b DEAD DEAD NULL
+      #x4f00 #x4f31 #x7500 DEAD "\033[F"
+      #x5000 #x5032 DEAD DEAD "\033[B"
+      #x5100 #x5133 #x7600 DEAD NULL
+      #x5200 #x5230 DEAD DEAD "\033[2~"
+      #x5300 #x532e DEAD DEAD NULL
+      DEAD DEAD DEAD DEAD NULL
+      DEAD DEAD DEAD DEAD NULL
+      DEAD DEAD DEAD DEAD NULL
+      DEAD DEAD DEAD DEAD "\033[23~"
       DEAD DEAD DEAD DEAD "\033[24~"
       ))
 
   (define key-modifier-normal 0 )
-
   (define key-modifier-with-shift 1)
   (define key-modifier-with-ctrl 2)
   (define key-modifier-with-alt 3)
@@ -312,7 +311,7 @@
           (write-char-stdin (integer->char (fxand code #xFF))))))
 
   (define (handle-kbd-int data)
-    (cond ((fx<= KBD-SCANCODE-ESC data KBD-SCANCODE-F12) 
+    (cond ((fx<= KBD-SCANCODE-ESC data KBD-SCANCODE-F12)
            (begin
              (handle-visible-key data)))
           ((fx>= (fxior KBD-SCANCODE-F12 #x80) data (fxior KBD-SCANCODE-ESC #x80))

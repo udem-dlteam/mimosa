@@ -66,6 +66,23 @@
     (define RTC-REGC-UF     (fxarithmetic-shift 1 4)) ;; Update Ended Interrupt Flag
     (define RTC-REGD-VRT    (fxarithmetic-shift 1 7)) ;; Valid Ram and Time
 
+    ; Block of instructions that are executed
+    ; atomically; no runtime or system interrupts
+    ; are allowed during the block. The expression
+    ; evaluates to the last expression.
+    (define-macro (atomic . exprs)
+     (let ((r (gensym)))
+      `(begin
+             (##disable-interrupts!) ;; Gambit ints
+             (disable-interrupts) ;; System ints
+             (let ((,r (begin
+                        ,@exprs
+                        )))
+               (enable-interrupts)
+               (##enable-interrupts!)
+               ,r
+               ))))
+
     (define-macro (rtc-command data)
      `(begin
        (outb ,data RTC-PORT-ADDR)
@@ -85,19 +102,15 @@
     ; The result is passed to the C continuation in the format
     ; sec min hour
     (define (rtc-current-time c)
-      ; (disable-interrupts) ; System interrupts
-      (let ((secs (rtc-command RTC-SEC))
-            (mins (rtc-command RTC-MIN))
-            (hours (rtc-command RTC-HOUR)))
-        ; (enable-interrupts) ; System interrupts
+      (let ((secs (atomic (rtc-command RTC-SEC)))
+            (mins (atomic (rtc-command RTC-MIN)))
+            (hours (atomic (rtc-command RTC-HOUR))))
         (c secs mins hours)))
 
    (define (rtc-current-date c)
-    ; (disable-interrupts)
-    (let ((day (rtc-command RTC-DAY-IN-MONTH))
-          (month (rtc-command RTC-MONTH))
-          (y-in-century (rtc-command RTC-YEAR)))
-      ; (enable-interrupts)
-      (c day month (+ 2000 y-in-century))))
+     (let ((day (atomic (rtc-command RTC-DAY-IN-MONTH)))
+           (month (atomic (rtc-command RTC-MONTH)))
+           (y-in-century (atomic (rtc-command RTC-YEAR))))
+       (c day month (+ 2000 y-in-century))))
 
     ))
