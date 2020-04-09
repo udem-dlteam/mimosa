@@ -49,7 +49,7 @@
 (define INT-WITH-ARG-TABLE
   (list
     (cons KEYBOARD-INT keyboard#handle-kbd-int)
-    ; (cons IDE-INT ide#handle-ide-int)
+    (cons IDE-INT ide#handle-ide-int)
     (cons UART-INT uart#handle-uart-int)))
 
 (define (handle-int int-no args)
