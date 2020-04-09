@@ -419,7 +419,7 @@
               (seconds (fxand #x1F fat-time)))
           (fn hours minutes seconds)))
 
-      (define (make-fat-date year month day)
+      (define (make-fat-date day month year)
         ; According to the FAT specification, the FAT date is set that way:
         ; Bits 15-9: Year relative to 1980
         ; Bits 8-5: Month
@@ -1256,14 +1256,23 @@
           (vector-map integer->char (read-bytes! file len fail))))
 
       (define (file-read! file len fail)
-        (let ((m (fat-file-mode file)))
+        (let ((today (rtc-current-date make-fat-date))
+              (entry (fat-file-entry file))
+              (m (fat-file-mode file)))
+          (logical-entry-last-access-date-set! entry today)
           (if (mask m FILE-MODE-BINARY)
               (read-bytes! file len fail)
               (read-string! file len fail))))
 
-      (define (update-file-len file new-len)
-        (fat-file-len-set! file new-len)
-        (let* ((fs (fat-file-fs file))
+      ; Update the transient information of a file entry
+      ; on the disk
+      (define (update-file-entry file)
+        (let* ((len (fat-file-len file))
+               (entry (fat-file-entry file))
+               (last-access-date (logical-entry-last-access-date entry))
+               (last-write-time (logical-entry-last-write-time entry))
+               (last-write-date (logical-entry-last-write-date entry))
+               (fs (fat-file-fs file))
                (entry-cluster (fat-file-entry-cluster file))
                (entry-offset (fat-file-entry-offset file))
                (lba (cluster+offset->lba fs entry-cluster entry-offset))
@@ -1272,31 +1281,47 @@
             (filesystem-disk fs)
             lba
             MRW
-            (lambda (vect)
-              ; Only update the length to avoid changing file information
-              (wint32 vect (+ offset entry-width -4) new-len)))))
+            (lambda (vect) ; update all but name
+              ; Only update the transient fields to avoid changing file information that
+              ; might be hard to update (mainly the name since the algorithm for name generation is painful)
+              (win16 vect (+ offset entry-width -14) last-access-date)
+              (win16 vect (+ offset entry-width -10) last-write-time)
+              (win16 vect (+ offset entry-width -8) last-write-date)
+              (wint32 vect (+ offset entry-width -4) len)))))
 
       (define (file-write! file vect offset len fail)
-        (let ((result (write-bytes! file vect offset len fail)))
-          (let ((pos (fat-file-pos file))
+        (let ((result (write-bytes! file vect offset len fail))
+              (now (rtc-current-time make-fat-time))
+              (today (rtc-current-date make-fat-date)))
+          (let ((entry (fat-file-entry file))
+                (pos (fat-file-pos file))
                 (max-len (fat-file-len file)))
-            (if (>= pos max-len)
-                (update-file-len file (++ pos))))
+            (logical-entry-last-write-time-set! entry now)
+            (logical-entry-last-write-date-set! entry today)
+            (fat-file-len-set! file (if (>= pos max-len)
+                                     (++ pos)
+                                     max-len))
+            (update-file-entry file))
           result))
 
       ; Truncate a file
       ; This involves two things: erasing the cluster chain to free the blocks,
       ; and setting the file length to zero.
       (define (truncate-file file)
-        (let* ((fs (fat-file-fs file))
+        (let* ((now (rtc-current-time make-fat-time))
+               (today (rtc-current-date make-fat-date))
+               (fs (fat-file-fs file))
                (chain (filesystem-fat-cache fs))
                (cluster (fat-file-first-clus file))
                (link (table-ref chain cluster))
-               (next (cache-link-next link)))
-          (if (not (mask FAT-32-EOF next))
-              ; We want to keep the current block
+               (next (cache-link-next link))
+               (entry (fat-file-entry file)))
+          (if (not (mask FAT-32-EOF next)) ; We want to keep the current block
               (unlink-chain fs chain next))
-          (update-file-len file 0)))
+          (logical-entry-last-write-time-set! entry now)
+          (logical-entry-last-write-date-set! entry today)
+          (fat-file-len-set! file 0)
+          (update-file-entry file)))
 
       ; Parse the file opening mode
       ; r, r+ : read, read-write from start respectively
@@ -1348,22 +1373,6 @@
             (iota entry-chain-l))
           (write-bytes-aux fs cluster pos v 0 vector-len c ID)))
 
-      (define (flush-fat-entry-to-disk file entry)
-        (let* ((fs (fat-file-fs file))
-               (entry-cluster (fat-file-entry-cluster file))
-               (entry-offset (fat-file-entry-offset file))
-               (lba (cluster+offset->lba fs entry-cluster entry-offset))
-               (offset (modulo entry-offset (<< 1 (filesystem-lg2bps fs)))))
-          (with-sector
-            (filesystem-disk fs)
-            lba
-            MRW
-            (lambda (vect)
-              (unpack-entry
-                entry
-                vect
-                offset)))))
-
       (define (make-empty-fat-file
                 fs
                 parent
@@ -1373,6 +1382,8 @@
         (let* ((bpb (filesystem-bpb fs))
                (bps (BPB-bps bpb))
                (root-clus (BPB-root-cluster bpb))
+               (now (rtc-current-time make-fat-time))
+               (today (rtc-current-date make-fat-date))
                (sec-per-cluster (BPB-sec-per-cluster bpb)))
           (make-fat-file
             fs
@@ -1389,12 +1400,12 @@
               (if (eq? type TYPE-FOLDER) FAT-ATTR-DIRECTORY 0)
               0 ; ntres (leave at 0)
               0 ; create time tenth
-              0 ; create time
-              0 ; create date
-              0 ; last access date
+              now ; create time
+              today ; create date
+              today ; last access date
               (fxand #xFF (>> clus 16)) ; cluster high
-              0 ; last write time
-              0 ; last write date
+              now ; last write time
+              now ; last write date
               (fxand #xFF clus) ; cluster low
               0
               (> (string-length name) FAT-NAME-LENGTH)
