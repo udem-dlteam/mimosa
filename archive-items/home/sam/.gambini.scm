@@ -2,11 +2,11 @@
 ; Scheme executor bridge
 (import (errors)
         (keyboard)
-        ; (ide)
-        ; (disk)
+        (ide)
+        (disk)
         (utils)
         (rtc)
-        ; (fat32)
+        (fat32)
         (low-level)
         (uart)
         (debug))
@@ -23,17 +23,6 @@
 (define reader-offset 0)
 (define SHARED-MEMORY-AREA 33554432)
 (define SHARED-MEMORY-AREA-LEN 32768)
-
-; (define RTC_PORT_ADDR #x70)
-; (define RTC_PORT_DATA #x71)
-
-; (define RTC_SEC  0)
-; (define RTC_MIN  2)
-; (define RTC_HOUR 4)
-
-; (define (get-RTC_SEC)
-;   (outb RTC_SEC RTC_PORT_ADDR) ;; select seconds reg
-;   (inb RTC_PORT_DATA))         ;; read the register
 
 ;;;----------------------------------------------------
 ;;;                      IMPORTs
@@ -130,13 +119,13 @@
 ;;;                     INIT SYSTEM
 ;;;----------------------------------------------------
 
-; (ide#setup)
-; (ide#switch-over-driver)
+(ide#setup)
+(ide#switch-over-driver)
 
-; (init-disks)
-; (define main-disk (car disk-list))
-; (mount-partitions disk-list)
-; (define fs (car filesystem-list))
+(init-disks)
+(define main-disk (car disk-list))
+(mount-partitions disk-list)
+(define fs (car filesystem-list))
 
 (debug-write "AFTER INIT")
 (for-each (o uart#uart-do-init ++) (iota 4))
