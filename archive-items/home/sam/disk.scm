@@ -22,12 +22,15 @@
                         disk-absent?
                         sector-vect)
     (begin
+      (define READ-AHEAD #t)
+      ; Not a scientific measure, just a big number
+      (define DISK-LIFE-EXPECTENCY (arithmetic-shift 1 32))
       (define BIG-READ-THRESH 5)
       (define MRO 'MODE-READ-ONLY)
       (define MRW 'MODE-READ-WRITE)
       (define MODE-READ-ONLY MRO)
       (define MODE-READ-WRITE MRW)
-      (define DISK-CACHE-MAX-SZ 4098)
+      (define DISK-CACHE-MAX-SZ 1024)
       (define DISK-IDE 0)
       (define MAX-NB-DISKS 32)
       (define DISK-LOG2-BLOCK-SIZE 9)
@@ -45,24 +48,53 @@
                    ref-count
                    disk-l
                    flush-cont
+                   age
                    )
 
       (define-type disk
                    ide-device
                    mut
                    cache
-                   cache-used
                    type
-                   )
+                   time)
 
       (define disk-list (make-list MAX-NB-DISKS 'NO-DISK))
 
+      (define (disk-get-older disk)
+        (let ((time (disk-time disk)))
+          (disk-time-set! disk (modulo (++ time) DISK-LIFE-EXPECTENCY))
+          time))
+
+      (define (evict-from-cache cache)
+       (debug-write "Evicting")
+       ; A better implementation would be a red black tree
+       ; While it will take constant time evicting since it is a
+       ; fixed size table, this is not a great implementation
+       (let ((youngest-lba -1)
+             (youth (++ DISK-LIFE-EXPECTENCY)))
+        (table-for-each
+         (lambda (lba sector)
+          (let ((age (sector-age sector)))
+           (if (< age youth)
+            (begin
+             (debug-write age)
+             (set! youngest-lba lba)
+             (set! youth age)))))
+         cache)
+        (if (< youngest-lba 0)
+         (debug-write "Failed to find an entry to evict"))
+        (table-set! cache youngest-lba) ; remove from cache
+        ))
+
       (define (disk-fetch-and-set! disk lba)
-        (let ((mut (disk-mut disk))
+        (let* ((mut (disk-mut disk))
               (cache (disk-cache disk))
-              (used (disk-cache-used disk));; todo: check overflow
+              (used (table-length cache))
+              ;; todo: check overflow
               (dev (disk-ide-device disk)))
           (mutex-lock! mut)
+          (if (= used DISK-CACHE-MAX-SZ)
+            (evict-from-cache cache))
           (let ((cleanup (lambda () (mutex-unlock! mut))))
           (ide-read-sectors
             dev
@@ -71,7 +103,6 @@
             (lambda (raw-vect)
               (let ((sect (create-sector raw-vect lba disk)))
                 (table-set! cache lba sect)
-                (disk-cache-used-set! disk (++ used))
                 (cleanup)
                 sect))
             (lambda (err)
@@ -154,23 +185,26 @@
           v
           0
           (lambda () disk)
-          #f))
+          #f
+          0))
 
       (define (create-disk dev type)
         (make-disk
           dev
           (make-mutex)
           (make-table size: DISK-CACHE-MAX-SZ)
-          0
-          type))
+          type
+          0))
 
       (define (disk-acquire-block disk lba mode)
         (let* ((sector (disk-read-sector disk lba))
+               (age (sector-age sector))
                (refs (sector-ref-count sector))
                (mut (sector-mut sector)))
           (mutex-lock! mut)
           (if (eq? MODE-READ-WRITE mode)
            (sector-dirty?-set! sector #t))
+          (sector-age-set! sector (max age (disk-get-older disk)))
           (sector-ref-count-set! sector (++ refs))
           (mutex-unlock! mut)
           sector))
