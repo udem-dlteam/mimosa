@@ -308,6 +308,24 @@ static void setup_bss() {
 
 extern "C" void __rtlib_entry() {
   setup_bss();
+
+  uint16 no_of_entries = *CAST(uint16 *, MEMORY_ZONES_COUNT_START);
+  memory_zone *zones = CAST(memory_zone *, MEMORY_ZONES_START);
+
+  debug_write("Memory layout:");
+  for (uint8 i = 0; i < no_of_entries; ++i) {
+    memory_zone z = zones[i];
+    __debug_write(z.base);
+    __debug_write("+");
+    __debug_write(z.length);
+    __debug_write(":");
+    if (z.type == MEMORY_ZONE_USUABLE) {
+      debug_write("UNUSABLE");
+    } else {
+      debug_write("RESERVED");
+    }
+  }
+
   setup_kheap();
   setup_appheap();
   setup_intr();
