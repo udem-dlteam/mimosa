@@ -11,8 +11,8 @@
 
 //-----------------------------------------------------------------------------
 
-#include "general.h"
 #include "../drivers/filesystem/include/stdstream.h"
+#include "general.h"
 
 //-----------------------------------------------------------------------------
 extern native_string COM1_PATH;
@@ -34,9 +34,9 @@ extern native_string COM4_PATH;
 #define COM2_PORT_BASE 0x2f8
 #define COM2_IRQ 3
 /* COM3 */
-#define COM3_PORT_BASE 0x3e8 
+#define COM3_PORT_BASE 0x3e8
 #define COM3_IRQ 4
- /* COM4 */
+/* COM4 */
 #define COM4_PORT_BASE 0x2e8
 #define COM4_IRQ 3
 
@@ -69,15 +69,15 @@ extern native_string COM4_PATH;
 #define UART_8250_LSR_OE (1 << 1)
 #define UART_8250_LSR_DR (1 << 0)
 
-// Line Status Register (LSR) interrupt cause 
-#define UART_LSR_DATA_AVAILABLE(x) ((x) & UART_8250_LSR_DR)
-#define UART_LSR_OVERRUN_ERROR(x) ((x) & UART_8250_LSR_OE)
-#define UART_LSR_PARITY_ERROR(x) ((x) & UART_8250_LSR_PE)
-#define UART_LSR_FRAMING_ERROR(x) ((x) & UART_8250_LSR_FE)
-#define UART_LSR_BREAK_INTERRUPT(x) ((x) & UART_8250_LSR_BI)
-#define UART_LSR_CAN_RECEIVE(x) ((x) & UART_8250_LSR_THRE)
-#define UART_LSR_ALL_CAR_TRANSMITTED(x) ((x) & UART_8250_LSR_TEMT)
-#define UART_LSR_ERROR_IN_RECEIVED_FIFO(x) ((x) & UART_8250_LSR_ERF)
+// Line Status Register (LSR) interrupt cause
+#define UART_LSR_DATA_AVAILABLE(x) ((x)&UART_8250_LSR_DR)
+#define UART_LSR_OVERRUN_ERROR(x) ((x)&UART_8250_LSR_OE)
+#define UART_LSR_PARITY_ERROR(x) ((x)&UART_8250_LSR_PE)
+#define UART_LSR_FRAMING_ERROR(x) ((x)&UART_8250_LSR_FE)
+#define UART_LSR_BREAK_INTERRUPT(x) ((x)&UART_8250_LSR_BI)
+#define UART_LSR_CAN_RECEIVE(x) ((x)&UART_8250_LSR_THRE)
+#define UART_LSR_ALL_CAR_TRANSMITTED(x) ((x)&UART_8250_LSR_TEMT)
+#define UART_LSR_ERROR_IN_RECEIVED_FIFO(x) ((x)&UART_8250_LSR_ERF)
 
 // Modem Status Register (MSR) bit flags
 #define UART_8250_MSR_CD (1 << 7)
@@ -90,14 +90,14 @@ extern native_string COM4_PATH;
 #define UART_8250_MSR_DCTS (1 << 0)
 
 // Modem Status Register (MSR) interrupt causes
-#define UART_MSR_CARRIER_DETECT(x) ((x) & UART_8250_MSR_CD)
-#define UART_MSR_RING_INDICATOR(x) ((x) & UART_8250_MSR_RI)
-#define UART_MSR_DATA_SET_READY(x) ((x) & UART_8250_MSR_DSR)
-#define UART_MSR_CLEAR_TO_SEND(x) ((x) & UART_8250_MSR_CTS)
-#define UART_MSR_DELTA_DATA_CARRIER_DETECT(x) ((x) & UART_8250_MSR_DDCD)
-#define UART_MSR_TRAILING_EDGE_RING_INDICATOR(x) ((x) & UART_8250_MSR_TERI)
-#define UART_MSR_DELTA_DATA_SET_READY(x) ((x) & UART_8250_MSR_DDSR)
-#define UART_MSR_DELTA_CLEAR_TO_SEND(x) ((x) & UART_8250_MSR_DCTS)
+#define UART_MSR_CARRIER_DETECT(x) ((x)&UART_8250_MSR_CD)
+#define UART_MSR_RING_INDICATOR(x) ((x)&UART_8250_MSR_RI)
+#define UART_MSR_DATA_SET_READY(x) ((x)&UART_8250_MSR_DSR)
+#define UART_MSR_CLEAR_TO_SEND(x) ((x)&UART_8250_MSR_CTS)
+#define UART_MSR_DELTA_DATA_CARRIER_DETECT(x) ((x)&UART_8250_MSR_DDCD)
+#define UART_MSR_TRAILING_EDGE_RING_INDICATOR(x) ((x)&UART_8250_MSR_TERI)
+#define UART_MSR_DELTA_DATA_SET_READY(x) ((x)&UART_8250_MSR_DDSR)
+#define UART_MSR_DELTA_CLEAR_TO_SEND(x) ((x)&UART_8250_MSR_DCTS)
 
 #define UART_IIR_PENDING(x) (!((x) & (1 << 0)))
 #define UART_IIR_IS_64_BIT_FIFO(x) ((x) & (1 << 5))

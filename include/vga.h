@@ -1,6 +1,6 @@
 // file: "vga.h"
 
-// Copyright (c) 2001 by Marc Feeley and Université de Montréal, All
+// Copyright (c) 2001 by Marc Feeley and Universit? de Montr?al, All
 // Rights Reserved.
 //
 // Revision History

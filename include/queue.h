@@ -1,5 +1,5 @@
 /* file: "queue.h" */
-#include "term.h"////////////
+#include "term.h" ////////////
 
 /*
  * Copyright (c) 2001 by Marc Feeley and Universit� de Montr�al, All
@@ -53,59 +53,52 @@
  * Priority queue implementation using doubly-linked lists.
  */
 
-
-inline void NAMESPACE_PREFIX(init) (QUEUETYPE* queue)
-{
-  NEXT_SET (CAST(NODETYPE*,queue), CAST(NODETYPE*,queue));
-  PREV_SET (CAST(NODETYPE*,queue), CAST(NODETYPE*,queue));
+inline void NAMESPACE_PREFIX(init)(QUEUETYPE *queue) {
+  NEXT_SET(CAST(NODETYPE *, queue), CAST(NODETYPE *, queue));
+  PREV_SET(CAST(NODETYPE *, queue), CAST(NODETYPE *, queue));
 }
 
-
-inline void NAMESPACE_PREFIX(detach) (ELEMTYPE* elem)
-{
-  NEXT_SET (CAST(NODETYPE*,elem), CAST(NODETYPE*,elem));
-  PREV_SET (CAST(NODETYPE*,elem), CAST(NODETYPE*,elem));
+inline void NAMESPACE_PREFIX(detach)(ELEMTYPE *elem) {
+  NEXT_SET(CAST(NODETYPE *, elem), CAST(NODETYPE *, elem));
+  PREV_SET(CAST(NODETYPE *, elem), CAST(NODETYPE *, elem));
 }
 
+inline ELEMTYPE *NAMESPACE_PREFIX(head)(QUEUETYPE *queue) {
+  NODETYPE *head = NEXT(CAST(NODETYPE *, queue));
 
-inline ELEMTYPE* NAMESPACE_PREFIX(head) (QUEUETYPE* queue)
-{
-  NODETYPE* head = NEXT (CAST(NODETYPE*,queue));
-
-  if (head != CAST(NODETYPE*,queue))
-    return CAST(ELEMTYPE*,head);
+  if (head != CAST(NODETYPE *, queue))
+    return CAST(ELEMTYPE *, head);
 
   return NULL;
 }
 
-extern condvar* circular_buffer_cv;
+extern condvar *circular_buffer_cv;
 
-inline void NAMESPACE_PREFIX(insert) (ELEMTYPE* elem, QUEUETYPE* queue)
-{
-  NODETYPE* node2 = CAST(NODETYPE*,queue);
-  NODETYPE* node1 = PREV (node2);
+inline void NAMESPACE_PREFIX(insert)(ELEMTYPE *elem, QUEUETYPE *queue) {
+  NODETYPE *node2 = CAST(NODETYPE *, queue);
+  NODETYPE *node1 = PREV(node2);
 
   if (NULL == queue) {
-      debug_write("Q IS NULL");
+    debug_write("Q IS NULL");
   }
 
   if (NULL == node1) {
-      debug_write("N1 is NULL");
+    debug_write("N1 is NULL");
   }
 
   if (NULL == node2) {
-      debug_write("N2 is NULL");
+    debug_write("N2 is NULL");
   }
 
   int i = 0;
-  while (node1 != CAST(NODETYPE*, queue) &&
-         BEFORE(elem, CAST(ELEMTYPE*, node1))) {
-      if (i >= 5) {
-          while(1) {
-              NOP();
-        }
+  while (node1 != CAST(NODETYPE *, queue) &&
+         BEFORE(elem, CAST(ELEMTYPE *, node1))) {
+    if (i >= 5) {
+      while (1) {
+        NOP();
       }
-      debug_write("INSERT L");
+    }
+    debug_write("INSERT L");
     node2 = node1;
     node1 = PREV(node2);
     ++i;
@@ -113,25 +106,22 @@ inline void NAMESPACE_PREFIX(insert) (ELEMTYPE* elem, QUEUETYPE* queue)
 
   // insert elem between node1 and node2
 
-  NEXT_SET (node1, CAST(NODETYPE*,elem));
-  PREV_SET (CAST(NODETYPE*,elem), node1);
+  NEXT_SET(node1, CAST(NODETYPE *, elem));
+  PREV_SET(CAST(NODETYPE *, elem), node1);
 
-  NEXT_SET (CAST(NODETYPE*,elem), node2);
-  PREV_SET (node2, CAST(NODETYPE*,elem));
+  NEXT_SET(CAST(NODETYPE *, elem), node2);
+  PREV_SET(node2, CAST(NODETYPE *, elem));
 }
 
+inline void NAMESPACE_PREFIX(remove)(ELEMTYPE *elem) {
+  NODETYPE *prev_node = PREV(CAST(NODETYPE *, elem));
+  NODETYPE *next_node = NEXT(CAST(NODETYPE *, elem));
 
-inline void NAMESPACE_PREFIX(remove) (ELEMTYPE* elem)
-{
-  NODETYPE* prev_node = PREV (CAST(NODETYPE*,elem));
-  NODETYPE* next_node = NEXT (CAST(NODETYPE*,elem));
-
-  NEXT_SET (prev_node, next_node);
-  PREV_SET (next_node, prev_node);
+  NEXT_SET(prev_node, next_node);
+  PREV_SET(next_node, prev_node);
 }
 
 #endif
-
 
 /*---------------------------------------------------------------------------*/
 
@@ -177,373 +167,336 @@ inline void NAMESPACE_PREFIX(remove) (ELEMTYPE* elem)
 
 #define MAINTAIN_LEFTMOST
 
-#define BLACKEN(node,queue) COLOR_SET (node, queue)
-#define IS_BLACK(node) COLOR (node) != NULL
+#define BLACKEN(node, queue) COLOR_SET(node, queue)
+#define IS_BLACK(node) COLOR(node) != NULL
 
-#define REDEN(node) COLOR_SET (node, NULL)
-#define IS_RED(node) COLOR (node) == NULL
+#define REDEN(node) COLOR_SET(node, NULL)
+#define IS_RED(node) COLOR(node) == NULL
 
-#define COPY_COLOR(dst_node,src_node) \
-COLOR_SET (dst_node, COLOR (src_node))
+#define COPY_COLOR(dst_node, src_node) COLOR_SET(dst_node, COLOR(src_node))
 
-#define EXCHANGE_COLOR(node1,node2) \
-do { \
-     QUEUETYPE* tempcolor = COLOR (node1); \
-     COLOR_SET (node1, COLOR (node2)); \
-     COLOR_SET (node2, tempcolor); \
-   } while (0)
+#define EXCHANGE_COLOR(node1, node2)                                           \
+  do {                                                                         \
+    QUEUETYPE *tempcolor = COLOR(node1);                                       \
+    COLOR_SET(node1, COLOR(node2));                                            \
+    COLOR_SET(node2, tempcolor);                                               \
+  } while (0)
 
-#define UPDATE_PARENT(parent_node,old_node,new_node) \
-do { \
-     if (old_node == LEFT (parent_node)) \
-       LEFT_SET (parent_node, new_node); \
-     else \
-       RIGHT_SET (parent_node, new_node); \
-   } while (0)
+#define UPDATE_PARENT(parent_node, old_node, new_node)                         \
+  do {                                                                         \
+    if (old_node == LEFT(parent_node))                                         \
+      LEFT_SET(parent_node, new_node);                                         \
+    else                                                                       \
+      RIGHT_SET(parent_node, new_node);                                        \
+  } while (0)
 
-#define ROTATE(node,side1,side1_set,side2,side2_set) \
-do { \
-     NODETYPE* x = node; \
-     NODETYPE* side2_x; \
-     NODETYPE* side1_side2_x; \
-     NODETYPE* parent_x; \
-     side2_x = side2 (x); \
-     side1_side2_x = side1 (side2_x); \
-     side2_set (x, side1_side2_x); \
-     PARENT_SET (side1_side2_x, x); \
-     parent_x = PARENT (x); \
-     side1_set (side2_x, x); \
-     PARENT_SET (x, side2_x); \
-     PARENT_SET (side2_x, parent_x); \
-     UPDATE_PARENT (parent_x, x, side2_x); \
-   } while (0)
+#define ROTATE(node, side1, side1_set, side2, side2_set)                       \
+  do {                                                                         \
+    NODETYPE *x = node;                                                        \
+    NODETYPE *side2_x;                                                         \
+    NODETYPE *side1_side2_x;                                                   \
+    NODETYPE *parent_x;                                                        \
+    side2_x = side2(x);                                                        \
+    side1_side2_x = side1(side2_x);                                            \
+    side2_set(x, side1_side2_x);                                               \
+    PARENT_SET(side1_side2_x, x);                                              \
+    parent_x = PARENT(x);                                                      \
+    side1_set(side2_x, x);                                                     \
+    PARENT_SET(x, side2_x);                                                    \
+    PARENT_SET(side2_x, parent_x);                                             \
+    UPDATE_PARENT(parent_x, x, side2_x);                                       \
+  } while (0)
 
-#define ROTATE_LEFT(node) ROTATE(node,LEFT,LEFT_SET,RIGHT,RIGHT_SET)
-#define ROTATE_RIGHT(node) ROTATE(node,RIGHT,RIGHT_SET,LEFT,LEFT_SET)
+#define ROTATE_LEFT(node) ROTATE(node, LEFT, LEFT_SET, RIGHT, RIGHT_SET)
+#define ROTATE_RIGHT(node) ROTATE(node, RIGHT, RIGHT_SET, LEFT, LEFT_SET)
 
-#define GET_QUEUE(node,var) \
-do { \
-     var = COLOR (node); \
-     if (var == NULL) \
-       var = COLOR (PARENT (node)); \
-   } while (0)
+#define GET_QUEUE(node, var)                                                   \
+  do {                                                                         \
+    var = COLOR(node);                                                         \
+    if (var == NULL)                                                           \
+      var = COLOR(PARENT(node));                                               \
+  } while (0)
 
-
-inline void NAMESPACE_PREFIX(init) (QUEUETYPE* queue)
-{
+inline void NAMESPACE_PREFIX(init)(QUEUETYPE *queue) {
   //  cout << "[init]";////////////////
-  PARENT_SET (CAST(NODETYPE*,queue), CAST(NODETYPE*,queue));
-  LEFT_SET (CAST(NODETYPE*,queue), CAST(NODETYPE*,queue));
-  BLACKEN (CAST(NODETYPE*,queue), queue);
+  PARENT_SET(CAST(NODETYPE *, queue), CAST(NODETYPE *, queue));
+  LEFT_SET(CAST(NODETYPE *, queue), CAST(NODETYPE *, queue));
+  BLACKEN(CAST(NODETYPE *, queue), queue);
 
 #ifdef MAINTAIN_LEFTMOST
-  LEFTMOST_SET (queue, CAST(NODETYPE*,queue));
+  LEFTMOST_SET(queue, CAST(NODETYPE *, queue));
 #endif
 
 #ifdef MAINTAIN_RIGHTMOST
-  RIGHTMOST_SET (queue, CAST(NODETYPE*,queue));
+  RIGHTMOST_SET(queue, CAST(NODETYPE *, queue));
 #endif
 }
 
-
-inline ELEMTYPE* NAMESPACE_PREFIX(head) (QUEUETYPE* queue)
-{
+inline ELEMTYPE *NAMESPACE_PREFIX(head)(QUEUETYPE *queue) {
   //  cout << "[head]";////////////////
-  NODETYPE* head = LEFTMOST (queue);
+  NODETYPE *head = LEFTMOST(queue);
 
-  if (head != CAST(NODETYPE*,queue))
-    return CAST(ELEMTYPE*,head);
+  if (head != CAST(NODETYPE *, queue))
+    return CAST(ELEMTYPE *, head);
 
   return NULL;
 }
 
-
-inline void NAMESPACE_PREFIX(insert) (ELEMTYPE* elem, QUEUETYPE* queue)
-{
+inline void NAMESPACE_PREFIX(insert)(ELEMTYPE *elem, QUEUETYPE *queue) {
   //  cout << "[insert]";////////////////
-  NODETYPE* node = CAST(NODETYPE*,elem);
-  NODETYPE* x;
-  NODETYPE* side_x;
+  NODETYPE *node = CAST(NODETYPE *, elem);
+  NODETYPE *x;
+  NODETYPE *side_x;
 
-  REDEN (node);
-  LEFT_SET (node, CAST(NODETYPE*,queue));
-  RIGHT_SET (node, CAST(NODETYPE*,queue));
+  REDEN(node);
+  LEFT_SET(node, CAST(NODETYPE *, queue));
+  RIGHT_SET(node, CAST(NODETYPE *, queue));
 
-  x = CAST(NODETYPE*,queue);
+  x = CAST(NODETYPE *, queue);
 
   goto insert_left;
 
-  for (;;)
-    {
-      x = side_x;
-      if (BEFORE (CAST(ELEMTYPE*,node), CAST(ELEMTYPE*,x)))
-        {
-        insert_left:
+  for (;;) {
+    x = side_x;
+    if (BEFORE(CAST(ELEMTYPE *, node), CAST(ELEMTYPE *, x))) {
+    insert_left:
 
-          side_x = LEFT (x);
+      side_x = LEFT(x);
 
-          if (side_x == CAST(NODETYPE*,queue))
-            {
-              LEFT_SET (x, node);
-              PARENT_SET (node, x);
+      if (side_x == CAST(NODETYPE *, queue)) {
+        LEFT_SET(x, node);
+        PARENT_SET(node, x);
 #ifdef MAINTAIN_LEFTMOST
-              if (x == LEFTMOST (queue))
-                LEFTMOST_SET (queue, node);
+        if (x == LEFTMOST(queue))
+          LEFTMOST_SET(queue, node);
 #endif
-              break;
-            }
-        }
-      else
-        {
-          side_x = RIGHT (x);
+        break;
+      }
+    } else {
+      side_x = RIGHT(x);
 
-          if (side_x == CAST(NODETYPE*,queue))
-            {
-              RIGHT_SET (x, node);
-              PARENT_SET (node, x);
+      if (side_x == CAST(NODETYPE *, queue)) {
+        RIGHT_SET(x, node);
+        PARENT_SET(node, x);
 #ifdef MAINTAIN_RIGHTMOST
-              if (x == RIGHTMOST (queue))
-                RIGHTMOST_SET (queue, node);
+        if (x == RIGHTMOST(queue))
+          RIGHTMOST_SET(queue, node);
 #endif
-              break;
-            }
-        }
+        break;
+      }
     }
+  }
 
   /* fixup the tree so that it remains properly balanced */
 
   x = node;
 
-  for (;;)
-    {
-      NODETYPE* parent_x = PARENT (x);
-      NODETYPE* parent_parent_x;
+  for (;;) {
+    NODETYPE *parent_x = PARENT(x);
+    NODETYPE *parent_parent_x;
 
-      if (IS_BLACK (parent_x))
-        break;
+    if (IS_BLACK(parent_x))
+      break;
 
-      parent_parent_x = PARENT (parent_x);
+    parent_parent_x = PARENT(parent_x);
 
-#define INSERT_BODY(side1,rotate_side1,side2,rotate_side2) \
-{ /* "do ... while (0)" can't be used because the body contains "break" */ \
-  NODETYPE* side2_parent_parent_x = side2 (parent_parent_x); \
-  if (IS_BLACK (side2_parent_parent_x)) \
-    { \
-      NODETYPE* y; \
-      NODETYPE* parent_y; \
-      if (x == side2 (parent_x)) \
-        { \
-          rotate_side1 (parent_x); \
-          y = PARENT (parent_x); \
-        } \
-      else \
-        y = PARENT (x); \
-      BLACKEN (y, queue); \
-      parent_y = PARENT (y); \
-      REDEN (parent_y); \
-      rotate_side2 (parent_y); \
-      break; \
-    } \
-  BLACKEN (parent_x, queue); \
-  BLACKEN (side2_parent_parent_x, queue); \
-  REDEN (parent_parent_x); \
-  x = parent_parent_x; \
+#define INSERT_BODY(side1, rotate_side1, side2, rotate_side2)                  \
+  { /* "do ... while (0)" can't be used because the body contains "break" */   \
+    NODETYPE *side2_parent_parent_x = side2(parent_parent_x);                  \
+    if (IS_BLACK(side2_parent_parent_x)) {                                     \
+      NODETYPE *y;                                                             \
+      NODETYPE *parent_y;                                                      \
+      if (x == side2(parent_x)) {                                              \
+        rotate_side1(parent_x);                                                \
+        y = PARENT(parent_x);                                                  \
+      } else                                                                   \
+        y = PARENT(x);                                                         \
+      BLACKEN(y, queue);                                                       \
+      parent_y = PARENT(y);                                                    \
+      REDEN(parent_y);                                                         \
+      rotate_side2(parent_y);                                                  \
+      break;                                                                   \
+    }                                                                          \
+    BLACKEN(parent_x, queue);                                                  \
+    BLACKEN(side2_parent_parent_x, queue);                                     \
+    REDEN(parent_parent_x);                                                    \
+    x = parent_parent_x;                                                       \
+  }
+
+    if (parent_x == LEFT(parent_parent_x))
+      INSERT_BODY(LEFT, ROTATE_LEFT, RIGHT, ROTATE_RIGHT) /* no ; needed */
+    else
+      INSERT_BODY(RIGHT, ROTATE_RIGHT, LEFT, ROTATE_LEFT) /* no ; needed */
+  }
+
+  BLACKEN(LEFT(CAST(NODETYPE *, queue)), queue);
+  PARENT_SET(CAST(NODETYPE *, queue), CAST(NODETYPE *, queue));
 }
 
-      if (parent_x == LEFT (parent_parent_x))
-        INSERT_BODY (LEFT, ROTATE_LEFT, RIGHT, ROTATE_RIGHT) /* no ; needed */
-      else
-        INSERT_BODY (RIGHT, ROTATE_RIGHT, LEFT, ROTATE_LEFT) /* no ; needed */
-    }
-
-  BLACKEN (LEFT (CAST(NODETYPE*,queue)), queue);
-  PARENT_SET (CAST(NODETYPE*,queue), CAST(NODETYPE*,queue));
-}
-
-
-inline void NAMESPACE_PREFIX(remove) (ELEMTYPE* elem)
-{
+inline void NAMESPACE_PREFIX(remove)(ELEMTYPE *elem) {
   //  cout << "[remove]";////////////////
-  NODETYPE* node = CAST(NODETYPE*,elem);
-  QUEUETYPE* queue;
-  NODETYPE* parent_node;
-  NODETYPE* left_node;
-  NODETYPE* right_node;
+  NODETYPE *node = CAST(NODETYPE *, elem);
+  QUEUETYPE *queue;
+  NODETYPE *parent_node;
+  NODETYPE *left_node;
+  NODETYPE *right_node;
 
-  GET_QUEUE (node, queue);
+  GET_QUEUE(node, queue);
 
-  parent_node = PARENT (node);
-  left_node = LEFT (node);
-  right_node = RIGHT (node);
+  parent_node = PARENT(node);
+  left_node = LEFT(node);
+  right_node = RIGHT(node);
 
-  PARENT_SET (node, NULL); /* to avoid dangling references */
-  LEFT_SET (node, NULL);
-  RIGHT_SET (node, NULL);
+  PARENT_SET(node, NULL); /* to avoid dangling references */
+  LEFT_SET(node, NULL);
+  RIGHT_SET(node, NULL);
 
-  if (left_node == CAST(NODETYPE*,queue))
-    {
+  if (left_node == CAST(NODETYPE *, queue)) {
 #ifdef MAINTAIN_LEFTMOST
 
-      /* check if leftmost must be updated */
+    /* check if leftmost must be updated */
 
-      if (node == LEFTMOST (queue))
-        {
-          if (right_node == CAST(NODETYPE*,queue))
-            LEFTMOST_SET (queue, parent_node);
-          else
-            LEFTMOST_SET (queue, right_node);
-        }
+    if (node == LEFTMOST(queue)) {
+      if (right_node == CAST(NODETYPE *, queue))
+        LEFTMOST_SET(queue, parent_node);
+      else
+        LEFTMOST_SET(queue, right_node);
+    }
 
 #endif
 
-      PARENT_SET (right_node, parent_node);
-      UPDATE_PARENT (parent_node, node, right_node);
+    PARENT_SET(right_node, parent_node);
+    UPDATE_PARENT(parent_node, node, right_node);
 
-      if (IS_RED (node))
-        goto rbtree_is_balanced;
+    if (IS_RED(node))
+      goto rbtree_is_balanced;
 
-      REDEN (node); /* to avoid dangling references */
-      node = right_node;
-    }
-  else if (right_node == CAST(NODETYPE*,queue))
-    {
+    REDEN(node); /* to avoid dangling references */
+    node = right_node;
+  } else if (right_node == CAST(NODETYPE *, queue)) {
 #ifdef MAINTAIN_RIGHTMOST
 
-      /* check if rightmost must be updated */
+    /* check if rightmost must be updated */
 
-      if (node == RIGHTMOST (queue))
-        RIGHTMOST_SET (queue, left_node);
+    if (node == RIGHTMOST(queue))
+      RIGHTMOST_SET(queue, left_node);
 
 #endif
 
-      PARENT_SET (left_node, parent_node);
-      UPDATE_PARENT (parent_node, node, left_node);
+    PARENT_SET(left_node, parent_node);
+    UPDATE_PARENT(parent_node, node, left_node);
 
-      /* 
-       * At this point we know that the node is black.  This is
-       * because the right child is nil and the left child is red (if
-       * the left child was black the tree would not be balanced).
-       */
+    /*
+     * At this point we know that the node is black.  This is
+     * because the right child is nil and the left child is red (if
+     * the left child was black the tree would not be balanced).
+     */
 
-      REDEN (node); /* to avoid dangling references */
-      node = left_node;
+    REDEN(node); /* to avoid dangling references */
+    node = left_node;
+  } else {
+    NODETYPE *x = right_node;
+    NODETYPE *parent_x = node;
+
+    for (;;) {
+      NODETYPE *left_x = LEFT(x);
+      //  cout << "[1]";////////////////
+
+      if (left_x == CAST(NODETYPE *, queue))
+        break;
+
+      parent_x = x;
+      x = left_x;
     }
-  else
-    {
-      NODETYPE* x = right_node;
-      NODETYPE* parent_x = node;
 
-      for (;;)
-        {
-          NODETYPE* left_x = LEFT (x);
-          //  cout << "[1]";////////////////
+    EXCHANGE_COLOR(x, node);
+    PARENT_SET(left_node, x);
+    LEFT_SET(x, left_node);
+    PARENT_SET(x, parent_node);
+    UPDATE_PARENT(parent_node, node, x);
 
-          if (left_x == CAST(NODETYPE*,queue))
-            break;
+    if (x == right_node) {
+      if (IS_RED(node))
+        goto rbtree_is_balanced;
 
-          parent_x = x;
-          x = left_x;
-        }
+      REDEN(node); /* to avoid dangling references */
+      parent_node = x;
+      node = RIGHT(x);
+    } else {
+      NODETYPE *right_x = RIGHT(x);
 
-      EXCHANGE_COLOR (x, node);
-      PARENT_SET (left_node, x);
-      LEFT_SET (x, left_node);
-      PARENT_SET (x, parent_node);
-      UPDATE_PARENT (parent_node, node, x);
+      PARENT_SET(right_x, parent_x);
+      LEFT_SET(parent_x, right_x);
+      PARENT_SET(right_node, x);
+      RIGHT_SET(x, right_node);
 
-      if (x == right_node)
-        {
-          if (IS_RED (node))
-            goto rbtree_is_balanced;
+      if (IS_RED(node))
+        goto rbtree_is_balanced;
 
-          REDEN (node); /* to avoid dangling references */
-          parent_node = x;
-          node = RIGHT (x);
-        }
-      else
-        {
-          NODETYPE* right_x = RIGHT (x);
-
-          PARENT_SET (right_x, parent_x);
-          LEFT_SET (parent_x, right_x);
-          PARENT_SET (right_node, x);
-          RIGHT_SET (x, right_node);
-
-          if (IS_RED (node))
-            goto rbtree_is_balanced;
-
-          REDEN (node); /* to avoid dangling references */
-          parent_node = parent_x;
-          node = right_x;
-        }
+      REDEN(node); /* to avoid dangling references */
+      parent_node = parent_x;
+      node = right_x;
     }
+  }
 
   /* fixup the tree so that it remains properly balanced */
 
-#define REMOVE_BODY(side1,rotate_side1,side2,rotate_side2) \
-{ /* "do ... while (0)" can't be used because the body contains "break" */ \
-  NODETYPE* x; \
-  NODETYPE* side1_x; \
-  NODETYPE* side2_parent_node = side2 (parent_node); \
-  if (IS_RED (side2_parent_node)) \
-    { \
-      BLACKEN (side2_parent_node, queue); \
-      REDEN (parent_node); \
-      rotate_side1 (parent_node); \
-      x = side2 (parent_node); \
-    } \
-  else \
-    x = side2_parent_node; \
-  if (IS_RED (side2 (x))) \
-    { \
-      COMMON_CASE (x, side2, rotate_side1); \
-      break; \
-    } \
-  side1_x = side1 (x); \
-  if (IS_RED (side1_x)) \
-    { \
-      BLACKEN (side1_x, queue); \
-      REDEN (x); \
-      rotate_side2 (x); \
-      COMMON_CASE (side2 (parent_node), side2, rotate_side1); \
-      break; \
-    } \
-  REDEN (x); \
-  node = parent_node; \
-  parent_node = PARENT (parent_node); \
-}
+#define REMOVE_BODY(side1, rotate_side1, side2, rotate_side2)                  \
+  { /* "do ... while (0)" can't be used because the body contains "break" */   \
+    NODETYPE *x;                                                               \
+    NODETYPE *side1_x;                                                         \
+    NODETYPE *side2_parent_node = side2(parent_node);                          \
+    if (IS_RED(side2_parent_node)) {                                           \
+      BLACKEN(side2_parent_node, queue);                                       \
+      REDEN(parent_node);                                                      \
+      rotate_side1(parent_node);                                               \
+      x = side2(parent_node);                                                  \
+    } else                                                                     \
+      x = side2_parent_node;                                                   \
+    if (IS_RED(side2(x))) {                                                    \
+      COMMON_CASE(x, side2, rotate_side1);                                     \
+      break;                                                                   \
+    }                                                                          \
+    side1_x = side1(x);                                                        \
+    if (IS_RED(side1_x)) {                                                     \
+      BLACKEN(side1_x, queue);                                                 \
+      REDEN(x);                                                                \
+      rotate_side2(x);                                                         \
+      COMMON_CASE(side2(parent_node), side2, rotate_side1);                    \
+      break;                                                                   \
+    }                                                                          \
+    REDEN(x);                                                                  \
+    node = parent_node;                                                        \
+    parent_node = PARENT(parent_node);                                         \
+  }
 
-#define COMMON_CASE(node,side2,rotate_side1) \
-do { \
-     NODETYPE* y = node; \
-     COPY_COLOR (y, parent_node); \
-     BLACKEN (parent_node, queue); \
-     BLACKEN (side2 (y), queue); \
-     rotate_side1 (parent_node); \
-     BLACKEN (LEFT (CAST(NODETYPE*,queue)), queue); \
-   } while (0)
+#define COMMON_CASE(node, side2, rotate_side1)                                 \
+  do {                                                                         \
+    NODETYPE *y = node;                                                        \
+    COPY_COLOR(y, parent_node);                                                \
+    BLACKEN(parent_node, queue);                                               \
+    BLACKEN(side2(y), queue);                                                  \
+    rotate_side1(parent_node);                                                 \
+    BLACKEN(LEFT(CAST(NODETYPE *, queue)), queue);                             \
+  } while (0)
 
-  for (;;)
-    {
-      //  cout << "[2]";////////////////
-      if (parent_node == CAST(NODETYPE*,queue) || IS_RED (node))
-        {
-          BLACKEN (node, queue);
-          break;
-        }
-      if (node == LEFT (parent_node))
-        REMOVE_BODY (LEFT, ROTATE_LEFT, RIGHT, ROTATE_RIGHT) /* no ; needed */
-      else
-        REMOVE_BODY (RIGHT, ROTATE_RIGHT, LEFT, ROTATE_LEFT) /* no ; needed */
+  for (;;) {
+    //  cout << "[2]";////////////////
+    if (parent_node == CAST(NODETYPE *, queue) || IS_RED(node)) {
+      BLACKEN(node, queue);
+      break;
     }
+    if (node == LEFT(parent_node))
+      REMOVE_BODY(LEFT, ROTATE_LEFT, RIGHT, ROTATE_RIGHT) /* no ; needed */
+    else
+      REMOVE_BODY(RIGHT, ROTATE_RIGHT, LEFT, ROTATE_LEFT) /* no ; needed */
+  }
 
- rbtree_is_balanced:
+rbtree_is_balanced:
 
-  PARENT_SET (CAST(NODETYPE*,queue), CAST(NODETYPE*,queue));
+  PARENT_SET(CAST(NODETYPE *, queue), CAST(NODETYPE *, queue));
 }
 
 #endif
 
-
 /*---------------------------------------------------------------------------*/
-

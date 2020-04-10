@@ -1,6 +1,6 @@
 // file: "pic.h"
 
-// Copyright (c) 2001 by Marc Feeley and Université de Montréal, All
+// Copyright (c) 2001 by Marc Feeley and Universit? de Montr?al, All
 // Rights Reserved.
 //
 // Revision History
@@ -30,24 +30,24 @@
 #define PIC_PORT_MASTER_ICW4 0x21
 #define PIC_PORT_SLAVE_ICW4 0xa1
 
-#define PIC_ICW1(params) ((1<<4)|(params))
-#define PIC_ICW1_LTIM (1<<3) // Level triggered mode
-#define PIC_ICW1_SNGL (1<<1) // Single PIC in system
-#define PIC_ICW1_ICW4 (1<<0) // ICW4 necessary
+#define PIC_ICW1(params) ((1 << 4) | (params))
+#define PIC_ICW1_LTIM (1 << 3) // Level triggered mode
+#define PIC_ICW1_SNGL (1 << 1) // Single PIC in system
+#define PIC_ICW1_ICW4 (1 << 0) // ICW4 necessary
 
-#define PIC_ICW2(offset) ((offset)<<3)
+#define PIC_ICW2(offset) ((offset) << 3)
 
 #define PIC_MASTER_ICW3(slaves) (slaves)
-#define PIC_MASTER_ICW3_SLAVE(id) (1<<(id))
+#define PIC_MASTER_ICW3_SLAVE(id) (1 << (id))
 
 #define PIC_SLAVE_ICW3(id) (id)
 
 #define PIC_ICW4(params) (params)
-#define PIC_ICW4_SFNM (1<<4)   // Operation in Special Fully Nested Mode
-#define PIC_ICW4_BUF (1<<3)    // Operation in Buffered Mode
-#define PIC_ICW4_MASTER (1<<2) // Master PIC
-#define PIC_ICW4_AEOI (1<<1)   // Automatic EOI
-#define PIC_ICW4_8086 (1<<0)   // Operation in 8086 mode
+#define PIC_ICW4_SFNM (1 << 4)   // Operation in Special Fully Nested Mode
+#define PIC_ICW4_BUF (1 << 3)    // Operation in Buffered Mode
+#define PIC_ICW4_MASTER (1 << 2) // Master PIC
+#define PIC_ICW4_AEOI (1 << 1)   // Automatic EOI
+#define PIC_ICW4_8086 (1 << 0)   // Operation in 8086 mode
 
 // For Operation Command Words (OCW)
 
@@ -58,10 +58,10 @@
 #define PIC_PORT_MASTER_OCW3 0x20
 #define PIC_PORT_SLAVE_OCW3 0xa0
 
-#define PIC_OCW1_MASK(n) (1<<(n))
+#define PIC_OCW1_MASK(n) (1 << (n))
 
-#define PIC_OCW2_NONSPECIFIC_EOI (1<<5)
-#define PIC_OCW2_SPECIFIC_EOI(level) ((3<<5)+(level))
+#define PIC_OCW2_NONSPECIFIC_EOI (1 << 5)
+#define PIC_OCW2_SPECIFIC_EOI(level) ((3 << 5) + (level))
 
 // For Interrupt Mask Register
 
@@ -79,8 +79,8 @@
 #define PIC_MASTER_IRQ6 6 // Floppy Disk Controller
 #define PIC_MASTER_IRQ7 7 // Parallel Port (or a master "lost interrupt")
 
-#define PIC_SLAVE_IRQ8  0 // Real Time Clock
-#define PIC_SLAVE_IRQ9  1 // ?
+#define PIC_SLAVE_IRQ8 0  // Real Time Clock
+#define PIC_SLAVE_IRQ9 1  // ?
 #define PIC_SLAVE_IRQ10 2 // ?
 #define PIC_SLAVE_IRQ11 3 // ?
 #define PIC_SLAVE_IRQ12 4 // PS/2 Mouse

@@ -11,10 +11,9 @@
 
 //-----------------------------------------------------------------------------
 
-#include "general.h"
 #include "asm.h"
+#include "general.h"
 #include "pit.h"
-
 
 const uint32 min_in_sec = 60;
 const uint16 hour_in_sec = min_in_sec * 60;
@@ -22,101 +21,103 @@ const uint32 day_in_sec = hour_in_sec * 24;
 
 //-----------------------------------------------------------------------------
 
-typedef struct { uint32 num, den; } rational;
+typedef struct {
+  uint32 num, den;
+} rational;
 
 //-----------------------------------------------------------------------------
 
-struct timeval
-  {
-    uint32 tv_sec;   // Seconds
-    uint32 tv_usec;  // Microseconds
-  };
+struct timeval {
+  uint32 tv_sec;  // Seconds
+  uint32 tv_usec; // Microseconds
+};
 
-struct timezone
-  {
-    int32 tz_minuteswest;  // Minutes west of GMT
-    int32 tz_dsttime;      // Nonzero if DST is ever in effect
-  };
+struct timezone {
+  int32 tz_minuteswest; // Minutes west of GMT
+  int32 tz_dsttime;     // Nonzero if DST is ever in effect
+};
 
 // Initialization of time manager.
 
-void setup_time ();
+void setup_time();
 
 // The function "gettimeofday" retrieves the time elapsed since the
 // ``Epoch'' (00:00:00 on the 1st of january 1970, UTC).
 
-int gettimeofday (struct timeval *tv, struct timezone *tz);
+int gettimeofday(struct timeval *tv, struct timezone *tz);
 
-void get_current_time(uint8* hour, uint8* min, uint8* sec);
+void get_current_time(uint8 *hour, uint8 *min, uint8 *sec);
 
-void get_current_date(int16* year, uint8* month, uint8* day);
+void get_current_date(int16 *year, uint8 *month, uint8 *day);
 
 uint32 days_from_civil(int16 y, uint16 m, uint16 d);
 // High resolution time datatype.
 
 #ifdef USE_IRQ8_FOR_TIME
 
-typedef struct time { uint64 n; } time;
+typedef struct time {
+  uint64 n;
+} time;
 
-#define current_time() \
-({ \
-   time val; \
-   disable_interrupts (); \
-   val.n = _irq8_counter; \
-   enable_interrupts (); \
-   val; \
-})
+#define current_time()                                                         \
+  ({                                                                           \
+    time val;                                                                  \
+    disable_interrupts();                                                      \
+    val.n = _irq8_counter;                                                     \
+    enable_interrupts();                                                       \
+    val;                                                                       \
+  })
 
-#define current_time_no_interlock() \
-({ \
-   time val; \
-   val.n = _irq8_counter; \
-   val; \
-})
+#define current_time_no_interlock()                                            \
+  ({                                                                           \
+    time val;                                                                  \
+    val.n = _irq8_counter;                                                     \
+    val;                                                                       \
+  })
 
-#define seconds_to_time(x) \
-({ \
-   time val; \
-   val.n = CAST(uint64,x)*IRQ8_COUNTS_PER_SEC; \
-   val; \
-})
+#define seconds_to_time(x)                                                     \
+  ({                                                                           \
+    time val;                                                                  \
+    val.n = CAST(uint64, x) * IRQ8_COUNTS_PER_SEC;                             \
+    val;                                                                       \
+  })
 
-#define nanoseconds_to_time(x) \
-({ \
-   time val; \
-   val.n = CAST(uint64,x)*IRQ8_COUNTS_PER_SEC/1000000000; \
-   val; \
-})
+#define nanoseconds_to_time(x)                                                 \
+  ({                                                                           \
+    time val;                                                                  \
+    val.n = CAST(uint64, x) * IRQ8_COUNTS_PER_SEC / 1000000000;                \
+    val;                                                                       \
+  })
 
-#define frequency_to_time(x) \
-({ \
-   time val; \
-   val.n = IRQ8_COUNTS_PER_SEC / (x); \
-   val; \
-})
+#define frequency_to_time(x)                                                   \
+  ({                                                                           \
+    time val;                                                                  \
+    val.n = IRQ8_COUNTS_PER_SEC / (x);                                         \
+    val;                                                                       \
+  })
 
-#define time_to_pit_counts(x) \
-((x).n * PIT_COUNTS_PER_SEC / IRQ8_COUNTS_PER_SEC)
+#define time_to_pit_counts(x) ((x).n * PIT_COUNTS_PER_SEC / IRQ8_COUNTS_PER_SEC)
 
-#define time_to_apic_timer_counts(x) \
-((x).n * _tsc_counts_per_sec * _cpu_bus_multiplier.den / (APIC_TIMER_DIVIDER*IRQ8_COUNTS_PER_SEC*_cpu_bus_multiplier.num))
+#define time_to_apic_timer_counts(x)                                           \
+  ((x).n * _tsc_counts_per_sec * _cpu_bus_multiplier.den /                     \
+   (APIC_TIMER_DIVIDER * IRQ8_COUNTS_PER_SEC * _cpu_bus_multiplier.num))
 
-#define add_time(x,y) \
-({ \
-   time val; \
-   val.n = (x).n + (y).n; \
-   val; \
-})
+#define add_time(x, y)                                                         \
+  ({                                                                           \
+    time val;                                                                  \
+    val.n = (x).n + (y).n;                                                     \
+    val;                                                                       \
+  })
 
-#define subtract_time(x,y) \
-({ \
-   time val; \
-   val.n = (x).n - (y).n; \
-   val; \
-})
+#define subtract_time(x, y)                                                    \
+  ({                                                                           \
+    time val;                                                                  \
+    val.n = (x).n - (y).n;                                                     \
+    val;                                                                       \
+  })
 
-#define equal_time(x,y) ((x).n == (y).n)
-#define less_time(x,y) ((x).n < (y).n)
+#define equal_time(x, y) ((x).n == (y).n)
+#define less_time(x, y) ((x).n < (y).n)
 
 extern volatile uint64 _irq8_counter;
 extern time pos_infinity;
@@ -126,64 +127,67 @@ extern time neg_infinity;
 
 #ifdef USE_TSC_FOR_TIME
 
-typedef struct time { uint64 n; } time;
+typedef struct time {
+  uint64 n;
+} time;
 
-#define current_time() \
-({ \
-   time val; \
-   val.n = rdtsc (); \
-   val; \
-})
-
-#define current_time_no_interlock() \
-  ({                                \
-    time val;                       \
-    val.n = rdtsc();                \
-    val;                            \
+#define current_time()                                                         \
+  ({                                                                           \
+    time val;                                                                  \
+    val.n = rdtsc();                                                           \
+    val;                                                                       \
   })
 
-#define seconds_to_time(x)                         \
-  ({                                               \
-    time val;                                      \
-    val.n = CAST(uint64, x) * _tsc_counts_per_sec; \
-    val;                                           \
+#define current_time_no_interlock()                                            \
+  ({                                                                           \
+    time val;                                                                  \
+    val.n = rdtsc();                                                           \
+    val;                                                                       \
   })
 
-#define nanoseconds_to_time(x)                                  \
-  ({                                                            \
-    time val;                                                   \
-    val.n = CAST(uint64, x) * _tsc_counts_per_sec / 1000000000; \
-    val;                                                        \
+#define seconds_to_time(x)                                                     \
+  ({                                                                           \
+    time val;                                                                  \
+    val.n = CAST(uint64, x) * _tsc_counts_per_sec;                             \
+    val;                                                                       \
   })
 
-#define frequency_to_time(x)           \
-  ({                                   \
-    time val;                          \
-    val.n = _tsc_counts_per_sec / (x); \
-    val;                               \
+#define nanoseconds_to_time(x)                                                 \
+  ({                                                                           \
+    time val;                                                                  \
+    val.n = CAST(uint64, x) * _tsc_counts_per_sec / 1000000000;                \
+    val;                                                                       \
   })
 
-#define time_to_pit_counts(x) \
-((x).n * PIT_COUNTS_PER_SEC / _tsc_counts_per_sec)
+#define frequency_to_time(x)                                                   \
+  ({                                                                           \
+    time val;                                                                  \
+    val.n = _tsc_counts_per_sec / (x);                                         \
+    val;                                                                       \
+  })
 
-#define time_to_apic_timer_counts(x) ((x).n*_cpu_bus_multiplier.den/(APIC_TIMER_DIVIDER*_cpu_bus_multiplier.num))
+#define time_to_pit_counts(x) ((x).n * PIT_COUNTS_PER_SEC / _tsc_counts_per_sec)
 
-#define add_time(x,y) \
-({ \
-   time val; \
-   val.n = (x).n + (y).n; \
-   val; \
-})
+#define time_to_apic_timer_counts(x)                                           \
+  ((x).n * _cpu_bus_multiplier.den /                                           \
+   (APIC_TIMER_DIVIDER * _cpu_bus_multiplier.num))
 
-#define subtract_time(x,y) \
-({ \
-   time val; \
-   val.n = (x).n - (y).n; \
-   val; \
-})
+#define add_time(x, y)                                                         \
+  ({                                                                           \
+    time val;                                                                  \
+    val.n = (x).n + (y).n;                                                     \
+    val;                                                                       \
+  })
 
-#define equal_time(x,y) ((x).n == (y).n)
-#define less_time(x,y) ((x).n < (y).n)
+#define subtract_time(x, y)                                                    \
+  ({                                                                           \
+    time val;                                                                  \
+    val.n = (x).n - (y).n;                                                     \
+    val;                                                                       \
+  })
+
+#define equal_time(x, y) ((x).n == (y).n)
+#define less_time(x, y) ((x).n < (y).n)
 
 extern uint32 _tsc_counts_per_sec;
 extern time pos_infinity;

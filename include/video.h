@@ -49,30 +49,31 @@
 // particular the PC's VGA card "mode 17" which has a resolution of
 // 640 by 480 and where byte 0 is at physical address 0xa0000.
 
-#define BITMAP_WORD_SELECT(b8,b16) b8 // how many bits per word
-#define MOUSE_WIDTH  8
-#define MOUSE_WIDTH_IN_BITMAP_WORDS ((MOUSE_WIDTH+BITMAP_WORD_WIDTH-1) >> LOG2_BITMAP_WORD_WIDTH)
+#define BITMAP_WORD_SELECT(b8, b16) b8 // how many bits per word
+#define MOUSE_WIDTH 8
+#define MOUSE_WIDTH_IN_BITMAP_WORDS                                            \
+  ((MOUSE_WIDTH + BITMAP_WORD_WIDTH - 1) >> LOG2_BITMAP_WORD_WIDTH)
 #define MOUSE_HEIGHT 12
-#define LOG2_BITMAP_WORD_WIDTH BITMAP_WORD_SELECT(3,4) // log2(word width)
-#define BITMAP_WORD_WIDTH BITMAP_WORD_SELECT(8,16)
-typedef BITMAP_WORD_SELECT(uint8,uint16) bitmap_word;
-typedef BITMAP_WORD_SELECT(uint32,uint64) bitmap_quad_word; // to be able to
-                                                            // shift 4 words
-                                                            // at a time
+#define LOG2_BITMAP_WORD_WIDTH BITMAP_WORD_SELECT(3, 4) // log2(word width)
+#define BITMAP_WORD_WIDTH BITMAP_WORD_SELECT(8, 16)
+typedef BITMAP_WORD_SELECT(uint8, uint16) bitmap_word;
+typedef BITMAP_WORD_SELECT(uint32, uint64) bitmap_quad_word; // to be able to
+                                                             // shift 4 words
+                                                             // at a time
 
 //-----------------------------------------------------------------------------
 // Pattern
 
 typedef struct pattern {
-  bitmap_word* _words;
+  bitmap_word *_words;
   int _height;
   int _depth;
-//  int _bpp;
+  //  int _bpp;
 } pattern;
 
-pattern new_pattern(bitmap_word* words, int height, int depth);
+pattern new_pattern(bitmap_word *words, int height, int depth);
 
-bitmap_word pattern_get_word(pattern* self, int y, int layer);
+bitmap_word pattern_get_word(pattern *self, int y, int layer);
 
 //-----------------------------------------------------------------------------
 
@@ -80,35 +81,36 @@ bitmap_word pattern_get_word(pattern* self, int y, int layer);
 // raw_bitmap
 
 typedef struct raw_bitmap_vtable {
-  void (* hide_mouse)(void* self);
-  void (* show_mouse)(void* self);
-  bitmap_word* (* _select_layer)(void* self, int layer);
+  void (*hide_mouse)(void *self);
+  void (*show_mouse)(void *self);
+  bitmap_word *(*_select_layer)(void *self, int layer);
 } raw_bitmap_vtable;
 
 typedef struct raw_bitmap {
-  raw_bitmap_vtable* vtable;
+  raw_bitmap_vtable *vtable;
   int _width;
   int _height;
   int _depth;
 } raw_bitmap_c;
 
-void raw_bitmap_bitblt(raw_bitmap* self, int x, int y, int x_end, int y_end,
-                            raw_bitmap* src, int src_x, int src_y,
-                            pattern* foreground, pattern* background);
+void raw_bitmap_bitblt(raw_bitmap *self, int x, int y, int x_end, int y_end,
+                       raw_bitmap *src, int src_x, int src_y,
+                       pattern *foreground, pattern *background);
 
-void raw_bitmap_fill_rect(raw_bitmap* self, int x, int y, int x_end,
-                          int y_end, pattern* foreground);
+void raw_bitmap_fill_rect(raw_bitmap *self, int x, int y, int x_end, int y_end,
+                          pattern *foreground);
 
-void raw_bitmap_frame_rect(raw_bitmap* self, int x, int y, int x_end,
-                           int y_end, int border, pattern* foreground);
+void raw_bitmap_frame_rect(raw_bitmap *self, int x, int y, int x_end, int y_end,
+                           int border, pattern *foreground);
 
-void raw_bitmap_show_mouse(void* self);
+void raw_bitmap_show_mouse(void *self);
 
-void raw_bitmap_hide_mouse(void* self);
+void raw_bitmap_hide_mouse(void *self);
 
-bitmap_word* _raw_bitmap_select_layer(void* self, int layer);
+bitmap_word *_raw_bitmap_select_layer(void *self, int layer);
 
-void raw_bitmap_invert_rect(raw_bitmap* self, int x, int y, int x_end, int y_end);
+void raw_bitmap_invert_rect(raw_bitmap *self, int x, int y, int x_end,
+                            int y_end);
 
 //-----------------------------------------------------------------------------
 
@@ -117,21 +119,21 @@ void raw_bitmap_invert_rect(raw_bitmap* self, int x, int y, int x_end, int y_end
 
 typedef struct raw_bitmap_in_memory {
   raw_bitmap super;
-  bitmap_word* _start;
+  bitmap_word *_start;
 } raw_bitmap_in_memory;
 
-#define literal_raw_bitmap_in_memory(start,width,height,depth) \
-{ { &_raw_bitmap_in_memory_vtable, width, height, depth }, start }
+#define literal_raw_bitmap_in_memory(start, width, height, depth)              \
+  { {&_raw_bitmap_in_memory_vtable, width, height, depth}, start }
 
-raw_bitmap_in_memory* raw_bitmap_in_memory_init(raw_bitmap_in_memory* self,
-                                                bitmap_word* start, int width,
+raw_bitmap_in_memory *raw_bitmap_in_memory_init(raw_bitmap_in_memory *self,
+                                                bitmap_word *start, int width,
                                                 int height, int depth);
 
-void raw_bitmap_in_memory_hide_mouse(void* self);
+void raw_bitmap_in_memory_hide_mouse(void *self);
 
-void raw_bitmap_in_memory_show_mouse(void* self);
+void raw_bitmap_in_memory_show_mouse(void *self);
 
-bitmap_word* _raw_bitmap_in_memory_select_layer(void* self, int layer);
+bitmap_word *_raw_bitmap_in_memory_select_layer(void *self, int layer);
 
 //-----------------------------------------------------------------------------
 
@@ -141,28 +143,26 @@ bitmap_word* _raw_bitmap_in_memory_select_layer(void* self, int layer);
 typedef struct video {
   raw_bitmap super;
   int _mode;
-  bitmap_word* _start;
+  bitmap_word *_start;
   int _mouse_x;
   int _mouse_y;
   int _mouse_hides;
 } video;
 
-video* video_init(video* self);
+video *video_init(video *self);
 
-void video_move_mouse(video* self, int dx, int dy);
+void video_move_mouse(video *self, int dx, int dy);
 
-void video_hide_mouse(void* self);
+void video_hide_mouse(void *self);
 
-void video_show_mouse(void* self);
+void video_show_mouse(void *self);
 
-bitmap_word* video_select_layer(void* self, int layer);
+bitmap_word *video_select_layer(void *self, int layer);
 
-void video_get_mouse_rect(video* self, int* width, int* height);
+void video_get_mouse_rect(video *self, int *width, int *height);
 
-void video_draw_mouse(video* self);
+void video_draw_mouse(video *self);
 //-----------------------------------------------------------------------------
-
-
 
 //-----------------------------------------------------------------------------
 // Font
@@ -170,35 +170,31 @@ typedef struct font_c {
   int _max_width;
   int _height;
   int _nb_chars;
-  uint16* _char_map;
-  uint32* _char_end;
-  raw_bitmap* _raw;
+  uint16 *_char_map;
+  uint32 *_char_end;
+  raw_bitmap *_raw;
 } font_c;
 
-#define literal_font(max_width,height,nb_chars,char_map,char_end,raw) \
-{ max_width, height, nb_chars, char_map, char_end, CAST(raw_bitmap*,raw) }
+#define literal_font(max_width, height, nb_chars, char_map, char_end, raw)     \
+  { max_width, height, nb_chars, char_map, char_end, CAST(raw_bitmap *, raw) }
 
-font_c* font_init(font_c* self, int max_width, int height, int nb_chars,
-                  uint16* char_map, uint32* char_end, raw_bitmap* raw);
+font_c *font_init(font_c *self, int max_width, int height, int nb_chars,
+                  uint16 *char_map, uint32 *char_end, raw_bitmap *raw);
 
-int font_get_max_width(font_c* self);
+int font_get_max_width(font_c *self);
 
-int font_get_height(font_c* self);
+int font_get_height(font_c *self);
 
-int font_draw_text(font_c* self, raw_bitmap* dst, int x, int y,
-                   unicode_char* text, int count, pattern* foreground,
-                   pattern* background);
+int font_draw_text(font_c *self, raw_bitmap *dst, int x, int y,
+                   unicode_char *text, int count, pattern *foreground,
+                   pattern *background);
 
-int font_draw_string(font_c* self, raw_bitmap* dst, int x, int y,
-                     unicode_string str, pattern* foreground,
-                     pattern* background);
+int font_draw_string(font_c *self, raw_bitmap *dst, int x, int y,
+                     unicode_string str, pattern *foreground,
+                     pattern *background);
 
-void _font_get_char_data(font_c* self, unicode_char c, int& start, int& width);
+void _font_get_char_data(font_c *self, unicode_char c, int &start, int &width);
 //-----------------------------------------------------------------------------
-
-
-
-
 
 //-----------------------------------------------------------------------------
 // Extern declarations for statics
@@ -257,69 +253,69 @@ extern raw_bitmap_vtable _video_vtable;
 /* VBE structures. */
 
 struct VBE_info {
-  char   Signature[4];      /* 'VESA' 4 byte signature */
-  uint16 Version;           /* vbe version number */
-  uint32 OEMStringPointer;  /* Pointer to OEM string */
-  uint32 Capabilities;      /* Capabilities of video card */
-  uint32 VideoModePointer;  /* Pointer to supported modes */
-  uint16 TotalMemory;       /* Number of 64kb memory blocks */
+  char Signature[4];       /* 'VESA' 4 byte signature */
+  uint16 Version;          /* vbe version number */
+  uint32 OEMStringPointer; /* Pointer to OEM string */
+  uint32 Capabilities;     /* Capabilities of video card */
+  uint32 VideoModePointer; /* Pointer to supported modes */
+  uint16 TotalMemory;      /* Number of 64kb memory blocks */
   uint16 OEMSoftwareRevision;
   uint32 OEMVendorNamePointer;
   uint32 OEMProductNamePointer;
   uint32 OEMProductRevisionPointer;
-  uint8  Reserved[222];
-  uint8  OEMData[256];
+  uint8 Reserved[222];
+  uint8 OEMData[256];
 };
 
 struct VBE_mode_info {
   uint16 ModeAttributes;
-  uint8  WindowAAttributes;
-  uint8  WindowBAttributes;
-  uint16 WindowGranularity;  /* Granularity in kb */
-  uint16 WindowSize;         /* Size in kb */
+  uint8 WindowAAttributes;
+  uint8 WindowBAttributes;
+  uint16 WindowGranularity; /* Granularity in kb */
+  uint16 WindowSize;        /* Size in kb */
   uint16 WindowASegment;
   uint16 WindowBSegment;
-  uint32 WindowBankPointer;  /* Pointer to bank switching function */
+  uint32 WindowBankPointer; /* Pointer to bank switching function */
   uint16 BytesPerScanLine;
   /* VBE 1.2 */
   uint16 XResolution;
   uint16 YResolution;
-  uint8  XCharSize;
-  uint8  YCharSize;
-  uint8  NumberOfPlanes;
-  uint8  BitsPerPixel;
-  uint8  NumberOfBanks;
-  uint8  MemoryModel;
-  uint8  BankSize;
-  uint8  NumberOfImagePages;
-  uint8  Reserved0;
-  uint8  RedMaskSize;
-  uint8  RedFieldPosition;
-  uint8  GreenMaskSize;
-  uint8  GreenFieldPosition;
-  uint8  BlueMaskSize;
-  uint8  BlueFieldPosition;
-  uint8  ReservedMaskSize;
-  uint8  ReservedFieldPosition;
-  uint8  DirectColorModeAttributes;
+  uint8 XCharSize;
+  uint8 YCharSize;
+  uint8 NumberOfPlanes;
+  uint8 BitsPerPixel;
+  uint8 NumberOfBanks;
+  uint8 MemoryModel;
+  uint8 BankSize;
+  uint8 NumberOfImagePages;
+  uint8 Reserved0;
+  uint8 RedMaskSize;
+  uint8 RedFieldPosition;
+  uint8 GreenMaskSize;
+  uint8 GreenFieldPosition;
+  uint8 BlueMaskSize;
+  uint8 BlueFieldPosition;
+  uint8 ReservedMaskSize;
+  uint8 ReservedFieldPosition;
+  uint8 DirectColorModeAttributes;
   /* VBE 2.0 */
   uint32 PhysicalBasePtr;    /* Physical address for flat frame buffer  */
   uint32 ScreenMemoryOffset; /* Pointer to start of off screen memory   */
   uint16 ScreenMemorySize;   /* Amount of off screen memory in 1k units */
   /* VBE 3.0 */
   uint16 LinearBytesPerScanLine;
-  uint8  BankNumberOfPages;
-  uint8  LinearNumberOfPages;
-  uint8  LinearRedMaskSize;
-  uint8  LinearRedFieldPosition;
-  uint8  LinearGreenMaskSize;
-  uint8  LinearGreenFieldPosition;
-  uint8  LinearBlueMaskSize;
-  uint8  LinearBlueFieldPosition;
-  uint8  LinearReservedMaskSize;
-  uint8  LinearReservedFieldPosition;
+  uint8 BankNumberOfPages;
+  uint8 LinearNumberOfPages;
+  uint8 LinearRedMaskSize;
+  uint8 LinearRedFieldPosition;
+  uint8 LinearGreenMaskSize;
+  uint8 LinearGreenFieldPosition;
+  uint8 LinearBlueMaskSize;
+  uint8 LinearBlueFieldPosition;
+  uint8 LinearReservedMaskSize;
+  uint8 LinearReservedFieldPosition;
   uint32 MaxPixelClock;
-  uint8  Reserved1[190];
+  uint8 Reserved1[190];
 };
 
 #endif

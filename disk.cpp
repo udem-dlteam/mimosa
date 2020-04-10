@@ -37,8 +37,9 @@ disk *disk_alloc() {
 }
 
 disk *disk_find(uint32 index) {
-  if (index < disk_mod.nb_disks)
+  if (index < disk_mod.nb_disks) {
     return &disk_mod.disk_table[index];
+  }
   return NULL;
 }
 

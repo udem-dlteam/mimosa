@@ -20,7 +20,6 @@
 //-----------------------------------------------------------------------------
 
 // Rational arithmetic routines.
-
 #ifdef USE_TSC_FOR_TIME
 #ifdef USE_APIC_FOR_TIMER
 
@@ -96,8 +95,9 @@ static rational rational_rationalize(rational x, rational y) {
   rational diff = rational_subtract(y, x);
   rational sum = rational_add(y, x);
 
-  if (rational_less_than(diff, sum))
+  if (rational_less_than(diff, sum)) {
     return rational_rationalize2(diff, sum);
+  }
 
   return diff;
 }
