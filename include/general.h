@@ -16,7 +16,7 @@
 #define TRUE 1
 #define FALSE 0
 
-#define CAST(type,value) ((type)(value))
+#define CAST(type, value) ((type)(value))
 
 typedef signed char int8;       // 8 bit signed integers
 typedef signed short int16;     // 16 bit signed integers
@@ -28,22 +28,21 @@ typedef unsigned short uint16;     // 16 bit unsigned integers
 typedef unsigned int uint32;       // 32 bit unsigned integers
 typedef unsigned long long uint64; // 64 bit unsigned integers (gcc specific)
 
-//typedef __wchar_t unicode_char;
+// typedef __wchar_t unicode_char;
 typedef wchar_t unicode_char;
-//typedef typeof (*L"") unicode_char;
-typedef unicode_char* unicode_string;
+// typedef typeof (*L"") unicode_char;
+typedef unicode_char *unicode_string;
 
 typedef char native_char;
-typedef native_char* native_string;
+typedef native_char *native_string;
 
 typedef uint32 size_t;
 typedef int32 ssize_t;
 
-#define as_uint16(x) \
-((CAST(uint16,(x)[1])<<8)+(x)[0])
+#define as_uint16(x) ((CAST(uint16, (x)[1]) << 8) + (x)[0])
 
-#define as_uint32(x) \
-((((((CAST(uint32,(x)[3])<<8)+(x)[2])<<8)+(x)[1])<<8)+(x)[0])
+#define as_uint32(x)                                                           \
+  ((((((CAST(uint32, (x)[3]) << 8) + (x)[2]) << 8) + (x)[1]) << 8) + (x)[0])
 
 #define as_uint8(x, i) (((x) & ((0xFF) << ((i) << 3))) >> ((i) << 3))
 
@@ -67,7 +66,10 @@ typedef int32 error_code;
 #define EXISTS_ERR (-10)
 #define RESSOURCE_BUSY_ERR (-11)
 
-#define NOP() do { __asm__ __volatile__ ("NOP" : : : "memory");} while(0)
+#define NOP()                                                                  \
+  do {                                                                         \
+    __asm__ __volatile__("NOP" : : : "memory");                                \
+  } while (0)
 
 #define HAS_NO_ERROR(x) ((x) >= 0)
 #define ERROR(x) ((x) < 0)
@@ -89,7 +91,7 @@ typedef int32 error_code;
 #endif
 
 #ifdef USE_APIC_FOR_TIMER
-#define APIC_TIMER_DIVIDER 16  // power of 2, from 1 to 128
+#define APIC_TIMER_DIVIDER 16 // power of 2, from 1 to 128
 #endif
 
 // For keeping track of elapsed time we can use the real-time clock
@@ -131,13 +133,13 @@ typedef int32 error_code;
 
 // #define REMOTE_COM
 
-// When you change the REPL, you should force a 
+// When you change the REPL, you should force a
 // `make clean`. It seems that some parts of the
 // code that should be regenerated are not.
 #define GAMBIT_REPL
 // #define MIMOSA_REPL
 
-// #define BIOS_CALL_TEST 
+// #define BIOS_CALL_TEST
 
 #ifdef GAMBIT_REPL
 #ifdef MIMOSA_REPL
@@ -156,13 +158,14 @@ typedef int32 error_code;
 
 #ifdef KIND_MALLOC
 
-#warning "Kind malloc has been activated. This is a debug declaration and it will slow down the execution"
+#warning                                                                       \
+    "Kind malloc has been activated. This is a debug declaration and it will slow down the execution"
 
 #endif
 
 #ifdef SHOW_HEARTBEAT
 
-#define HEARTBEAT_FREQ 20 
+#define HEARTBEAT_FREQ 20
 
 #endif
 
@@ -181,13 +184,13 @@ typedef int32 error_code;
 #define RED_PANIC_SCREEN
 // #define ENABLE_DEBUG_WRITE
 #define ENABLE_DEBUG_MARKER
+#define PRINT_MEMORY_LAYOUT
 // #define ENABLE_MOUSE
 
 // BUSY_WAIT_INSTEAD_OF_SLEEP uses a simple for loop
 // to perform sleep operations. This is bad, but it might
 // help to debug some timer problems
 // #define BUSY_WAIT_INSTEAD_OF_SLEEP
-
 
 // #define ENABLE_LIBC_TRACE
 //-----------------------------------------------------------------------------
@@ -199,7 +202,7 @@ typedef int32 error_code;
 #endif
 
 #define USE_MIMOSA
-#define GAMBIT_GSTATE 
+#define GAMBIT_GSTATE
 
 #endif
 

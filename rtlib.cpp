@@ -160,8 +160,8 @@ static void setup_kheap() {
             32 * (1 << 20) - GAMBIT_SHARED_MEM_LEN);
 }
 
-static void setup_appheap() {
-  heap_init(&appheap, CAST(void *, 64 * (1 << 20)), 1024 * (1 << 20));
+static void setup_appheap(void *start, uint64 len) {
+  heap_init(&appheap, CAST(void *, start), len);
 }
 
 extern "C" void *memcpy(void *dest, const void *src, size_t n) {
@@ -312,22 +312,44 @@ extern "C" void __rtlib_entry() {
   uint16 no_of_entries = *CAST(uint16 *, MEMORY_ZONES_COUNT_START);
   memory_zone *zones = CAST(memory_zone *, MEMORY_ZONES_START);
 
+#ifdef PRINT_MEMORY_LAYOUT
   debug_write("Memory layout:");
-  for (uint8 i = 0; i < no_of_entries; ++i) {
+#endif
+  uint16 index = 0;
+  uint64 m = 0;
+  for (uint16 i = 0; i < no_of_entries; ++i) {
     memory_zone z = zones[i];
+#ifdef PRINT_MEMORY_LAYOUT
     __debug_write(z.base);
     __debug_write("+");
     __debug_write(z.length);
-    __debug_write(":");
-    if (z.type == MEMORY_ZONE_USUABLE) {
-      debug_write("UNUSABLE");
+    __debug_write(" : ");
+#endif
+    if (z.type == MEMORY_ZONE_USABLE) {
+      if (MEMORY_ZONE_CONTAINS(z, END_KERNEL_HEAP)) {
+        index = i;
+      }
+#ifdef PRINT_MEMORY_LAYOUT
+      debug_write("USABLE");
+#endif
     } else {
+#ifdef PRINT_MEMORY_LAYOUT
       debug_write("RESERVED");
+#endif
     }
   }
 
+  memory_zone heap_zone = zones[index];
+  uint64 base = heap_zone.base;
+  uint64 len = heap_zone.length;
+  uint64 tot = base + len;
+
+  void *app_heap_start = CAST(void *, END_KERNEL_HEAP);
+  uint64 app_heap_len = (tot - END_KERNEL_HEAP);
+
   setup_kheap();
-  setup_appheap();
+  setup_appheap(app_heap_start, app_heap_len);
+
   setup_intr();
   setup_time();
 

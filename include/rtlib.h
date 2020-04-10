@@ -16,11 +16,13 @@
 #define MEMORY_ZONES_COUNT_START 0x21000
 #define MEMORY_ZONES_START (0x21000 + (8 * sizeof(uint32)))
 
-#define MEMORY_ZONE_USUABLE 1
+#define MEMORY_ZONE_USABLE 1
 #define MEMORY_ZONE_RSVD 2
 #define MEMORY_ZONE_ACPI_RECLAIM 3
 #define MEMORY_ZONE_ACPI_NVS 4
 #define MEMORY_ZONE_BAD 5
+#define MEMORY_ZONE_CONTAINS(mz_t, addr)                                       \
+  (((mz_t.base) <= (addr)) && ((mz_t.base) + (mz_t.length) >= (addr)))
 
 typedef struct {
   uint64 base;     // Base address of the memory zone
