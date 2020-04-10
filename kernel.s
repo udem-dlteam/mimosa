@@ -7,8 +7,7 @@
 # 22 Sep 01  initial version (Marc Feeley)
 #------------------------------------------------------------------------------
 
-  .globl kernel_entry
-
+  .globl kernel_entry 
 kernel_entry:  # this is the kernel's entry point
 
   # Note: the second stage / kernel is loaded by the boot sector at "KERNEL_START".
@@ -747,6 +746,43 @@ init_paging:
 # >>> Not yet implemented!
 
 #------------------------------------------------------------------------------
+
+detect_memory:
+  # The process is described here:https://wiki.osdev.org/Detecting_Memory_(x86)#BIOS_Function:_INT_0x15.2C_EAX_.3D_0xE820
+  # The idea is that each 24 bytes read through the interrupt routines places
+  # a data structure in memory at ES:DI. The structure may not be 24 bytes, it depends
+  # on the configuration of the machine. We can safely ignore the case where it is
+  # not 24 bytes (it will be only 20) and simply imagine we had 24 to preserve alignement
+  # Some special stop conditions are handled. 
+  pusha # this routine smashes registers
+  # Load the result of the BIOS call in the scratch area
+  xorw %bp, %bp
+  movw %ds, %ax
+  movw %ax, %es
+  movw $0x1020, %di # skip 32 bits (keep align)
+  # The first call requires ebx to be cleared
+  xorl %ebx, %ebx 
+  jmp detect_memory_read
+prepare_next_call:
+  incw %bp
+  addw $24, %di
+detect_memory_read:
+  # bigger moves than strictly required but the bios expects the top parts to be
+  # zeroed.
+  movl $0xE820, %eax # Perform the BIOS function: INT 0x15, EAX = 0xE820
+  movl $24, %ecx # We want to read 24 bytes from the zone list
+  movl $0x534D4150, %edx # Magic number to perform the call
+  int $0x15 # Call
+  test %ebx, %ebx # if ebx is zero, we are done reading
+  jc detect_memory_fill_information # possibly ebx is not zero but an error occured,
+# carry flag will be set
+  jnz prepare_next_call
+
+detect_memory_fill_information:
+  # place the number of read entries in the scratch buffer
+  movw $0x1000, %di
+  movw %bp, (%di)
+  popa # reset to a known state of register
 
 switch_to_32bit_protected_mode:
 

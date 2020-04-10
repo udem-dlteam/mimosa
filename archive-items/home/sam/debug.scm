@@ -9,10 +9,21 @@
             (str-debug-write obj))
            ((vector? obj)
             (vector-debug-write obj))
+           ((list? obj)
+            (for-each debug-write obj))
            ((number? obj)
             (number-debug-write obj))
+           ((symbol? obj)
+            (debug-write (symbol->string obj)))
+           ((boolean? obj)
+            (bool-debug-write obj))
            (else
              (str-debug-write (string obj)))))
+
+    (define (bool-debug-write obj)
+     (debug-write (if obj
+                      "true"
+                      "false")))
 
     (define (str-debug-write str)
       (let ((str (string-append "[SCM] " str "\n")))

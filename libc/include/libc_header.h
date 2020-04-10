@@ -12,26 +12,25 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <termios.h>
-#include <time.h>
-#include <unistd.h>
 #include <sys/resource.h>
 #include <sys/stat.h>
 #include <sys/time.h>
+#include <termios.h>
+#include <time.h>
+#include <unistd.h>
 
 #endif
 
-#ifdef GAMBIT_GSTATE 
+#ifdef GAMBIT_GSTATE
 
 #define ___DONT_HAVE_LIMITS_H
 #define ___DONT_HAVE_WCHAR_H
 #define ___DONT_HAVE_FLOAT_H
 #define ___DONT_HAVE_SIGNAL_H
-#define ___DONT_HAVE_NEW 
+#define ___DONT_HAVE_NEW
 #define ___DONT_HAVE_MATH_H
 
-
-#include "gambit.h"
+#include "modifiedgambit.h"
 
 //#undef ___GSTATE
 //#define ___GSTATE ___local_gstate

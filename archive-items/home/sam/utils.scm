@@ -1,46 +1,76 @@
 ;; The mimosa project
 (define-library (utils)
                 (import (gambit))
-                (export 
-                  //
+                (export
                   ++
-                  >>
+                  --
+                  //
                   <<
-                  s>>
-                  s<<
+                  >>
+                  ID
                   O
                   TIME-UNIT-MICROSECS
                   TIME-UNIT-MS
                   TIME-UNIT-NSECS
-                  TIME-UNIT-SECONDS 
-                  assock 
+                  TIME-UNIT-SECONDS
+                  TODO
+                  assock
                   assocv
                   b-chop
+                  bcd->binary
+                  bipartition
+                  both
                   build-vector
+                  day-month-year->days-since-epoch
+                  day-month-year->epoch-seconds
+                  displayn
+                  fields
                   filter
+                  first-index
+                  flatten
                   fxhalve
                   gambit-set-repl-channels!
+                  hour-minute-seconds->seconds
+                  if-not
+                  ilog2
                   lwrap
                   mask
                   o
-                  string-trim
-                  until-has-elapsed
-                  zip
-                  flatten
-                  TODO
-                  ilog2
-                  fields
-                  uint32
-                  uint16
-                  uint8
-                  both
-                  ID
+                  replace-error
+                  s<<
+                  s>>
                   split-string
-                  ; define-struct-fill
+                  string->u8vector
+                  string-trim
+                  u8vector->string
+                  uint16
+                  uint32
+                  uint8
+                  until-has-elapsed
+                  wint16
+                  wint32
+                  wint8
+                  zip
                   )
     (begin
       (define (// a b)
         (floor (/ a b)))
+
+      (define (hour-minute-seconds->seconds h m s)
+       (+ (* 3600 h) (* 60 m) s))
+
+      ; This wonderful algorithm has been translated to Scheme,
+      ; by me, from https://howardhinnant.github.io/date_algorithms.html
+      (define (day-month-year->days-since-epoch d m y)
+        (let* ((y (- y (if (<= m 2) m 0)))
+               (era (// (- y 399) 400))
+               (yoe (- y (* 400 era)))
+               (doy (+ (// (+ 2 (* 153 (+ m (if (> m 2) -3 9 )))) 5) d -1))
+               (doe (+ doy (- (// yoe 100))  (// yoe 4) (* 365 yoe))))
+          (+ doe -719468 (* era 146097))))
+
+      (define (day-month-year->epoch-seconds d m y)
+       (* 24 3600 (day-month-year->days-since-epoch d m y)))
 
       (define (<< n shl)
         (fxarithmetic-shift n shl))
@@ -59,7 +89,6 @@
           (display "STUB")
           #t))
 
-
       (define (assock key tbl)
         (car (assoc key tbl)))
 
@@ -68,8 +97,8 @@
 
       ; Combine two functions (\circ)
       (define (o g f)
-        (lambda (n)
-          (g (f n))))
+        (lambda params
+          (g (apply f params))))
 
       ; Combine many functions (\circ with many parameters)
       (define (O fns)
@@ -84,12 +113,14 @@
 
       (define ++ (incn 1))
 
+      (define -- (incn -1))
+
       (define CURRENT-THREAD-CHANNELS-ADDR 28)
 
       ; Set the channels on the thread's current repl
       ; it takes three channels (in, out, err)
       (define (gambit-set-repl-channels! chan1 chan2 chan3)
-        (##vector-set! (current-thread) CURRENT-THREAD-CHANNELS-ADDR 
+        (##vector-set! (current-thread) CURRENT-THREAD-CHANNELS-ADDR
          (##make-repl-channel-ports chan1 chan2 chan3)))
 
       (define (nanoseconds->time nsecs)
@@ -121,7 +152,7 @@
         (list->string (list-trim (string->list msg))))
 
       ; Why does this not work...
-      (define-macro (lwrap expr) 
+      (define-macro (lwrap expr)
                     `(lambda () ,expr))
 
       (define TIME-UNIT-SECONDS seconds->time)
@@ -138,7 +169,7 @@
         (fx> (fxand v m) 0))
 
       (define (b-chop v)
-        (fxand 255 v))
+        (bitwise-and #xFF v))
 
       (define (fxhalve n)
         (fxarithmetic-shift-right n 1))
@@ -192,6 +223,14 @@
                                     (list 'arithmetic-shift
                                           (list 'vector-ref 'vec (list '+ 'offset i))
                                           (* i 8))) (iota w))))
+
+      (define-macro (write-uint vec offset val w)
+                    `(begin
+                       ,@(map
+                           (lambda (i)
+                             `(vector-set! ,vec (+ offset ,i) (fxand #xFF (arithmetic-shift val ,(- 0 (* i 8))))))
+                           (iota w))))
+
       (define (uint32 vec offset)
         (extract-uint vec offset 4))
 
@@ -201,56 +240,86 @@
       (define (uint8 vec offset)
         (extract-uint vec offset 1))
 
+      (define (wint32 vec offset val)
+        (write-uint vec offset val 4)
+        vec)
+
+      (define (wint16 vec offset val)
+        (write-uint vec offset val 2)
+        vec)
+
+      (define (wint8 vec offset val)
+        (write-uint vec offset val 1)
+        vec)
+
       (define (both) a b (lambda (n)
                            (begin
                              (a n)
                              (b n))))
 
-    (define (split-string separator str)
-      (fold-right 
-        (lambda (c r)
-          (if (eq? c separator)
-              (cons "" r)
-              (cons (string-append (string c) (car r)) (cdr r)) 
-              ))
-        (list "") 
-        (string->list str)))
+      (define (first-index-aux l comp e i default)
+        (cond ((not (pair? l))
+               default)
+              ((comp e (car l))
+               i)
+              (else
+                (first-index (cdr l) e (++ i) default))))
+
+      (define (first-index l comp e default)
+        (first-index-aux l comp e 0 default))
+
+      (define (split-string separator str)
+        (fold-right
+          (lambda (c r)
+            (if (eq? c separator)
+                (cons "" r)
+                (cons (string-append (string c) (car r)) (cdr r))
+                ))
+          (list "")
+          (string->list str)))
 
       (define (ID i) i)
 
-      (define (byte-vector->string v)
-       (vector->string (vector-map integer->char v)))
+      (define (u8vector->string v)
+        (vector->string (vector-map integer->char v)))
 
-      ; (define-macro (define-struct-fill name fields)
-      ;               (let ((fill-struct (string-append "fill-" (symbol->string name)))
-      ;                     (make-struct (string-append "make-" (symbol->string name)))
-      ;                     (vect-idx 0))
-      ;                 (begin
-      ;                   (define flatten
-      ;                     (lambda (ipt)
-      ;                       (if (null? ipt)
-      ;                           '()
-      ;                           (let ((c (car ipt)))
-      ;                             (if (pair? c)
-      ;                                 c
-      ;                                 (cons c (flatten (cdr ipt))))))))
+      (define (string->u8vector s)
+        (vector-map (o (lambda (int) (bitwise-and #xFF int)) char->integer) (string->vector s)))
 
-      ;                   (list 'define (list (string->symbol fill-struct) 'vec)
-      ;                         (cons 
-      ;                           (string->symbol make-struct)
-      ;                           (map (lambda (extract)
-      ;                                  (let ((offset vect-idx)
-      ;                                        (next-offset (+ vect-idx extract)))
-      ;                                    (set! vect-idx next-offset) 
-      ;                                    (if (<= extract 4)
-      ;                                        (cons 'fxior (map (lambda (i)
-      ;                                                            (list 'fxarithmetic-shift
-      ;                                                                  (list 'vector-ref 'vec (+ offset i))
-      ;                                                                  (* i 8)
-      ;                                                                  )) (iota extract)))
+      (define (displayn obj)
+        (begin
+          (display obj)
+          (newline)))
 
-      ;                                        (list 'build-vector extract  
-      ;                                              (list 'lambda (list 'i) (list 'vector-ref 'vec 'i)))
-      ;                                        )))
-      ;                                fields))))))
-      )) 
+      (define (replace-error err)
+        (lambda (cancelled)
+          err))
+
+      ; Partition a list 'l' in two parts according to the truth of predicate 'p'
+      ; and call the continuation 'c' with the two lists as the only two arguments,
+      ; where the first list satisfies the predicate and the second does not.
+      ; It preserves the order elements are found in the list
+      (define (bipartition l p c)
+        (let ((len (length l)))
+          (if (= 0 len)
+              (c '() '())
+              (let ((e (car l)))
+                (bipartition
+                  (cdr l)
+                  p
+                  (lambda (yes no)
+                    (if (p e)
+                        (c (cons e yes) no)
+                        (c yes (cons e no)))))))))
+
+
+      (define (if-not val sym f)
+       (if (eq? val sym)
+        sym
+        (f val)))
+
+      (define (partials f .args)
+       (lambda (.other-args)
+        (apply f (concat args other-args))))
+
+      ))

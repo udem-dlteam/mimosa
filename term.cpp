@@ -8,11 +8,11 @@
 
 //-----------------------------------------------------------------------------
 
-#include "term.h"
 #include "drivers/filesystem/include/stdstream.h"
 #include "drivers/filesystem/include/vfs.h"
 #include "ps2.h"
 #include "rtlib.h"
+#include "term.h"
 #include "thread.h"
 
 //-----------------------------------------------------------------------------

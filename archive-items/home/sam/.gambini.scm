@@ -1,56 +1,60 @@
 ; The MIMOSA project
 ; Scheme executor bridge
-(import (ide)
+(import (errors)
+        (keyboard)
+        (ide)
         (disk)
         (utils)
+        (rtc)
         (fat32)
         (low-level)
+        (uart)
         (debug))
 
+(define (reboot)
+  (let wait-loop ()
+    (let ((temp (inb #x64)))
+      (if (mask temp #x01)
+          (inb #x60)
+          (if (mask temp #x02)
+              (wait-loop)))))
+  (outb #xFE #x64))
+
 (define reader-offset 0)
-(define SHARED-MEMORY-AREA #x300000)
-(define SHARED-MEMORY-AREA-LEN 512)
-
-; (define RTC_PORT_ADDR #x70)
-; (define RTC_PORT_DATA #x71)
-
-; (define RTC_SEC  0)
-; (define RTC_MIN  2)
-; (define RTC_HOUR 4)
-
-; (define (get-RTC_SEC)
-;   (outb RTC_SEC RTC_PORT_ADDR) ;; select seconds reg
-;   (inb RTC_PORT_DATA))         ;; read the register
+(define SHARED-MEMORY-AREA 33554432)
+(define SHARED-MEMORY-AREA-LEN 32768)
 
 ;;;----------------------------------------------------
-;;;                      IMPORTs 
+;;;                      IMPORTs
 ;;;----------------------------------------------------
 
-(load "mimosa_io.scm")
-(load "intr.scm")
-; (load "edit.scm")
-(load "int_handle.scm") ; must be loaded after all drivers
+(load "edit.scm")
 
 ;;;----------------------------------------------------
-;;;                    INIT SYS 
+;;;                    INIT SYS
 ;;;----------------------------------------------------
 
 (define int-mutex (make-mutex))
 (define int-condvar (make-condition-variable))
-
-; (for-each (o uart-do-init ++) (iota 4))
-
-(ide#setup)
-(ide#switch-over-driver)
-
-(init-disks)
-(define main-disk (car disk-list))
-
 (define (t) (f-tests main-disk))
 
 ;;;----------------------------------------------------
-;;;                 INTERRUPT HANDLING 
+;;;                 INTERRUPT HANDLING
 ;;;----------------------------------------------------
+
+(define KEYBOARD-INT #x1)
+(define UART-INT #x2)
+(define IDE-INT #x3)
+
+(define INT-WITH-ARG-TABLE
+  (list
+    (cons KEYBOARD-INT keyboard#handle-kbd-int)
+    (cons IDE-INT ide#handle-ide-int)
+    (cons UART-INT uart#handle-uart-int)))
+
+(define (handle-int int-no args)
+  (let ((fn (assocv int-no INT-WITH-ARG-TABLE)))
+     (apply fn args)))
 
 (define (read-at . offset)
  (+ SHARED-MEMORY-AREA (modulo (fold + 0 offset) SHARED-MEMORY-AREA-LEN)))
@@ -78,19 +82,18 @@
           ))))
 
 ;;;----------------------------------------------------
-;;;                  INTERRUPT WIRING 
+;;;                  INTERRUPT WIRING
 ;;;----------------------------------------------------
 
-(##interrupt-vector-set! 5 (lambda () 
-                            ; Signal the int pump threadi
+(##interrupt-vector-set! 5 (lambda ()
+                            ; Signal the int pump thread
                             ; to pump the fifo into the scheme fifo
                             (mutex-lock! int-mutex)
                             (condition-variable-signal! int-condvar)
                             (mutex-unlock! int-mutex)))
 
-
 ;;;----------------------------------------------------
-;;;              INTERRUPT EXEC ROUTINE 
+;;;              INTERRUPT EXEC ROUTINE
 ;;;----------------------------------------------------
 
 (define (exec)
@@ -98,16 +101,32 @@
     (let* ((packed (read unhandled-interrupts)))
       (handle-int (car packed) (cadr packed))
       (exec)))
-    
+
 (define (int-clear)
   (mutex-unlock! int-mutex int-condvar 30) ; wait on condvar, timeout
   (mimosa-interrupt-handler)
   (int-clear))
 
 (define (idle)
-  (thread-yield!) 
+  (thread-yield!)
   (idle))
 
 (thread-start! (make-thread exec "int execution g-tread"))
 (thread-start! (make-thread int-clear "Mimosa interrupt clearing thread"))
 (thread-start! (make-thread idle "Mimosa idle green thread"))
+
+;;;----------------------------------------------------
+;;;                     INIT SYSTEM
+;;;----------------------------------------------------
+
+(ide#setup)
+(ide#switch-over-driver)
+
+(init-disks)
+(define main-disk (car disk-list))
+(mount-partitions disk-list)
+(define fs (car filesystem-list))
+
+(debug-write "AFTER INIT")
+(for-each (o uart#uart-do-init ++) (iota 4))
+(debug-write "DONE INIT")

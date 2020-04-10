@@ -8,9 +8,9 @@
 
 //-----------------------------------------------------------------------------
 
-#include "chrono.h"
 #include "apic.h"
 #include "asm.h"
+#include "chrono.h"
 #include "intr.h"
 #include "rtc.h"
 #include "rtlib.h"
@@ -24,18 +24,16 @@
 #ifdef USE_TSC_FOR_TIME
 #ifdef USE_APIC_FOR_TIMER
 
-static rational make_rational (uint64 num, uint64 den)
-{
+static rational make_rational(uint64 num, uint64 den) {
   rational result;
   uint64 x = num;
   uint64 y = den;
 
-  while (y != 0)
-    {
-      int64 t = x;
-      x = y;
-      y = t % y;
-    }
+  while (y != 0) {
+    int64 t = x;
+    x = y;
+    y = t % y;
+  }
 
   result.num = num / x;
   result.den = den / x;
@@ -43,8 +41,7 @@ static rational make_rational (uint64 num, uint64 den)
   return result;
 }
 
-static rational rational_floor (rational x)
-{
+static rational rational_floor(rational x) {
   rational result;
 
   result.num = x.num / x.den;
@@ -53,64 +50,54 @@ static rational rational_floor (rational x)
   return result;
 }
 
-static rational rational_inverse (rational x)
-{
-  return make_rational (x.den, x.num);
+static rational rational_inverse(rational x) {
+  return make_rational(x.den, x.num);
 }
 
-static bool rational_less_than (rational x, rational y)
-{
-  return CAST(uint64,x.num) * y.den < CAST(uint64,y.num) * x.den;
+static bool rational_less_than(rational x, rational y) {
+  return CAST(uint64, x.num) * y.den < CAST(uint64, y.num) * x.den;
 }
 
-static rational rational_add (rational x, rational y)
-{
-  return make_rational
-           (CAST(uint64,x.num) * y.den + CAST(uint64,y.num) * x.den,
-            CAST(uint64,x.den) * y.den);
+static rational rational_add(rational x, rational y) {
+  return make_rational(CAST(uint64, x.num) * y.den +
+                           CAST(uint64, y.num) * x.den,
+                       CAST(uint64, x.den) * y.den);
 }
 
-static rational rational_subtract (rational x, rational y)
-{
-  return make_rational
-           (CAST(uint64,x.num) * y.den - CAST(uint64,y.num) * x.den,
-            CAST(uint64,x.den) * y.den);
+static rational rational_subtract(rational x, rational y) {
+  return make_rational(CAST(uint64, x.num) * y.den -
+                           CAST(uint64, y.num) * x.den,
+                       CAST(uint64, x.den) * y.den);
 }
 
-static rational rational_rationalize2 (rational x, rational y)
-{
-  rational fx = rational_floor (x);
-  rational fy = rational_floor (y);
+static rational rational_rationalize2(rational x, rational y) {
+  rational fx = rational_floor(x);
+  rational fy = rational_floor(y);
 
-  if (!rational_less_than (fx, x))
+  if (!rational_less_than(fx, x))
     return fx;
 
-  if (rational_less_than (fx, fy) || rational_less_than (fy, fx))
-    return rational_add (fx, make_rational (1, 1));
+  if (rational_less_than(fx, fy) || rational_less_than(fy, fx))
+    return rational_add(fx, make_rational(1, 1));
 
-  return rational_add
-           (fx,
-            rational_inverse
-              (rational_rationalize2
-                 (rational_inverse (rational_subtract (y, fy)),
-                  rational_inverse (rational_subtract (x, fx)))));
+  return rational_add(fx, rational_inverse(rational_rationalize2(
+                              rational_inverse(rational_subtract(y, fy)),
+                              rational_inverse(rational_subtract(x, fx)))));
 }
 
-static rational rational_rationalize (rational x, rational y)
-{
-  if (rational_less_than (y, x))
-    {
-      rational t;
-      t = y;
-      y = x;
-      x = t;
-    }
+static rational rational_rationalize(rational x, rational y) {
+  if (rational_less_than(y, x)) {
+    rational t;
+    t = y;
+    y = x;
+    x = t;
+  }
 
-  rational diff = rational_subtract (y, x);
-  rational sum = rational_add (y, x);
+  rational diff = rational_subtract(y, x);
+  rational sum = rational_add(y, x);
 
-  if (rational_less_than (diff, sum))
-    return rational_rationalize2 (diff, sum);
+  if (rational_less_than(diff, sum))
+    return rational_rationalize2(diff, sum);
 
   return diff;
 }
@@ -122,8 +109,8 @@ static rational rational_rationalize (rational x, rational y)
 
 #define EPOCH 1970
 
-#define DAYS_SINCE_JAN_1_2000(year)                                          \
-  (((year)-1) * 365 + ((year)-1) / 4 - ((year)-1) / 100 + ((year)-1) / 400 - \
+#define DAYS_SINCE_JAN_1_2000(year)                                            \
+  (((year)-1) * 365 + ((year)-1) / 4 - ((year)-1) / 100 + ((year)-1) / 400 -   \
    730119)
 
 static uint16 days_since_jan1[12] = {0,   31,  59,  90,  120, 151,
@@ -132,18 +119,16 @@ static uint16 days_since_jan1[12] = {0,   31,  59,  90,  120, 151,
 #ifdef USE_IRQ8_FOR_TIME
 
 volatile uint64 _irq8_counter = 0;
-time pos_infinity = { 18446744073709551615ULL };
-time neg_infinity = { 0 };
+time pos_infinity = {18446744073709551615ULL};
+time neg_infinity = {0};
 
-extern "C"
-void irq8 ()
-{
+extern "C" void irq8() {
   ACKNOWLEDGE_IRQ(8);
 
   _irq8_counter++;
 
-  outb (RTC_REGC, RTC_PORT_ADDR); // must also read register C to
-  inb (RTC_PORT_DATA);            // acknowledge RTC interrupt
+  outb(RTC_REGC, RTC_PORT_ADDR); // must also read register C to
+  inb(RTC_PORT_DATA);            // acknowledge RTC interrupt
 }
 
 #endif
@@ -152,8 +137,8 @@ void irq8 ()
 
 static uint64 tsc_at_refpoint = 0;
 uint32 _tsc_counts_per_sec = 0; // NOTE: works up to a 4.2 GHz processor clock
-time pos_infinity = { 18446744073709551615ULL };
-time neg_infinity = { 0 };
+time pos_infinity = {18446744073709551615ULL};
+time neg_infinity = {0};
 
 #ifdef USE_APIC_FOR_TIMER
 
@@ -170,9 +155,8 @@ uint8 bcd_to_int(uint8 bcd) {
   return 10 * (bcd >> 4) + (bcd & 15);
 }
 
-void setup_time ()
-{
-  // Interrupts needs to be disabled to 
+void setup_time() {
+  // Interrupts needs to be disabled to
   // prevents accuracy issues
   ASSERT_INTERRUPTS_DISABLED();
 
@@ -267,13 +251,13 @@ void setup_time ()
 
           tsc_at_refpoint = new_tsc;
           _tsc_counts_per_sec = new_tsc - old_tsc;
-          
+
 #ifdef USE_APIC_FOR_TIMER
 
           _cpu_bus_multiplier = rational_rationalize(
-              make_rational(
-                  _tsc_counts_per_sec >> 10,
-                  (old_apic_timer_count - new_apic_timer_count) >> 10),
+              make_rational(_tsc_counts_per_sec >> 10,
+                            (old_apic_timer_count - new_apic_timer_count) >>
+                                10),
               make_rational(1, 16));
 #endif
 #endif
@@ -322,7 +306,7 @@ void setup_time ()
 
   day_in_year = days_since_jan1[month - 1] + day_in_month;
 
-  if (month > 2) {  // after february count back from january 1st of next year
+  if (month > 2) { // after february count back from january 1st of next year
     year++;
     day_in_year -= 365;
   }
@@ -348,7 +332,7 @@ void setup_time ()
 #endif
 }
 
-int gettimeofday(struct timeval* tv, struct timezone* tz) {
+int gettimeofday(struct timeval *tv, struct timezone *tz) {
   if (tv != NULL) {
 #ifdef USE_IRQ8_FOR_TIME
 
@@ -356,9 +340,9 @@ int gettimeofday(struct timeval* tv, struct timezone* tz) {
     uint64 n = _irq8_counter;
     /* enable_interrupts(); */
 
-      tv->tv_sec = secs_since_epoch_at_refpoint + (n / IRQ8_COUNTS_PER_SEC);
-      tv->tv_usec = (n % IRQ8_COUNTS_PER_SEC) * (1000000/2)
-                    / (IRQ8_COUNTS_PER_SEC/2);
+    tv->tv_sec = secs_since_epoch_at_refpoint + (n / IRQ8_COUNTS_PER_SEC);
+    tv->tv_usec =
+        (n % IRQ8_COUNTS_PER_SEC) * (1000000 / 2) / (IRQ8_COUNTS_PER_SEC / 2);
 
 #endif
 
@@ -383,7 +367,7 @@ int gettimeofday(struct timeval* tv, struct timezone* tz) {
   return 0;
 }
 
-void get_current_time(uint8* hour, uint8* min, uint8* sec) {
+void get_current_time(uint8 *hour, uint8 *min, uint8 *sec) {
   outb(RTC_SEC, RTC_PORT_ADDR);
   *sec = bcd_to_int(inb(RTC_PORT_DATA));
 
@@ -394,7 +378,7 @@ void get_current_time(uint8* hour, uint8* min, uint8* sec) {
   *hour = bcd_to_int(inb(RTC_PORT_DATA));
 }
 
-void get_current_date(int16* year, uint8* month, uint8* day) {
+void get_current_date(int16 *year, uint8 *month, uint8 *day) {
   uint8 year_in_century;
 
   outb(RTC_DAY_IN_MONTH, RTC_PORT_ADDR);
@@ -412,9 +396,9 @@ void get_current_date(int16* year, uint8* month, uint8* day) {
 uint32 days_from_civil(int16 y, uint16 m, uint16 d) {
   y -= m <= 2;
   uint32 era = (y >= 0 ? y : y - 399) / 400;
-  uint16 yoe = static_cast<unsigned>(y - era * 400);            // [0, 399]
-  uint16 doy = (153 * (m + (m > 2 ? -3 : 9)) + 2) / 5 + d - 1;  // [0, 365]
-  uint32 doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;           // [0, 146096]
+  uint16 yoe = static_cast<unsigned>(y - era * 400);           // [0, 399]
+  uint16 doy = (153 * (m + (m > 2 ? -3 : 9)) + 2) / 5 + d - 1; // [0, 365]
+  uint32 doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;          // [0, 146096]
   return era * 146097 + doe - 719468;
 }
 

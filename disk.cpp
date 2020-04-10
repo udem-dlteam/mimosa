@@ -21,27 +21,28 @@
 typedef struct disk_module_struct {
   disk disk_table[MAX_NB_DISKS];
   uint32 nb_disks;
-  mutex* cache_mut;
-  condvar* cache_cv;
+  mutex *cache_mut;
+  condvar *cache_cv;
   cache_block_deq LRU_deq;
   cache_block_deq cache_block_hash_table[CACHE_BLOCK_HASH_TABLE_SIZE];
 } disk_module;
 
 static disk_module disk_mod;
 
-disk* disk_alloc() {
+disk *disk_alloc() {
   if (disk_mod.nb_disks < MAX_NB_DISKS) {
     return &disk_mod.disk_table[disk_mod.nb_disks++];
   }
   return NULL;
 }
 
-disk* disk_find(uint32 index) {
-  if (index < disk_mod.nb_disks) return &disk_mod.disk_table[index];
+disk *disk_find(uint32 index) {
+  if (index < disk_mod.nb_disks)
+    return &disk_mod.disk_table[index];
   return NULL;
 }
 
-uint32 disk_BIOS_CHS_to_LBA(disk* d, uint8 BIOS_CHS[3]) {
+uint32 disk_BIOS_CHS_to_LBA(disk *d, uint8 BIOS_CHS[3]) {
   uint16 C = ((CAST(uint16, BIOS_CHS[1]) & 0xc0) << 2) + BIOS_CHS[2];
   uint8 H = BIOS_CHS[0];
   uint8 S = BIOS_CHS[1] & 0x3f;
@@ -58,7 +59,7 @@ uint32 disk_BIOS_CHS_to_LBA(disk* d, uint8 BIOS_CHS[3]) {
   return lba;
 }
 
-uint32 disk_max_BIOS_CHS_to_LBA(disk* d) {
+uint32 disk_max_BIOS_CHS_to_LBA(disk *d) {
   uint32 cyls = 0;
   uint32 shift = 0, lba = 0;
 
@@ -68,7 +69,8 @@ uint32 disk_max_BIOS_CHS_to_LBA(disk* d) {
 
   cyls = d->_.ide.dev->cylinders_per_disk >> shift;
 
-  if (cyls > 1024) cyls = 1024;
+  if (cyls > 1024)
+    cyls = 1024;
 
   lba = (cyls * d->_.ide.dev->heads_per_cylinder *
          d->_.ide.dev->sectors_per_track);
@@ -77,17 +79,17 @@ uint32 disk_max_BIOS_CHS_to_LBA(disk* d) {
   return lba;
 }
 
-error_code disk_read_sectors(disk* d, uint32 lba, void* buf, uint32 count) {
+error_code disk_read_sectors(disk *d, uint32 lba, void *buf, uint32 count) {
   error_code err = NO_ERROR;
   if (lba < d->partition_length && lba + count <= d->partition_length) {
     switch (d->kind) {
-      case DISK_IDE:
-        err = ide_read_sectors(d->_.ide.dev, d->partition_start + lba, buf,
-                               count);
-        break;
-      default:
-        err = UNIMPL_ERROR;
-        break;
+    case DISK_IDE:
+      err =
+          ide_read_sectors(d->_.ide.dev, d->partition_start + lba, buf, count);
+      break;
+    default:
+      err = UNIMPL_ERROR;
+      break;
     }
   } else {
     err = ARG_ERROR;
@@ -96,18 +98,18 @@ error_code disk_read_sectors(disk* d, uint32 lba, void* buf, uint32 count) {
   return err;
 }
 
-error_code disk_write_sectors(disk* d, uint32 lba, void* buff, uint32 count) {
+error_code disk_write_sectors(disk *d, uint32 lba, void *buff, uint32 count) {
   error_code err = UNKNOWN_ERROR;
 
   if (lba < d->partition_length && lba + count <= d->partition_length) {
     switch (d->kind) {
-      case DISK_IDE:
-        err = ide_write_sectors(d->_.ide.dev, d->partition_start + lba, buff,
-                                count);
-        break;
-      default:
-        err = UNIMPL_ERROR;
-        break;
+    case DISK_IDE:
+      err = ide_write_sectors(d->_.ide.dev, d->partition_start + lba, buff,
+                              count);
+      break;
+    default:
+      err = UNIMPL_ERROR;
+      break;
     }
   } else {
     err = ARG_ERROR;
@@ -116,14 +118,14 @@ error_code disk_write_sectors(disk* d, uint32 lba, void* buff, uint32 count) {
   return err;
 }
 
-error_code disk_cache_block_acquire(disk* d, uint32 sector_pos,
-                                    cache_block** block) {
+error_code disk_cache_block_acquire(disk *d, uint32 sector_pos,
+                                    cache_block **block) {
   error_code err;
-  cache_block* cb = NULL;
-  cache_block_deq* LRU_deq;
-  cache_block_deq* LRU_probe;
-  cache_block_deq* hash_bucket_deq;
-  cache_block_deq* hash_bucket_probe;
+  cache_block *cb = NULL;
+  cache_block_deq *LRU_deq;
+  cache_block_deq *LRU_probe;
+  cache_block_deq *hash_bucket_deq;
+  cache_block_deq *hash_bucket_probe;
 
 again:
 
@@ -139,16 +141,17 @@ again:
     hash_bucket_probe = hash_bucket_deq->next;
 
     while (hash_bucket_probe != hash_bucket_deq) {
-      cb = CAST(cache_block*,
-                CAST(uint8*, hash_bucket_probe) -
-                    (CAST(uint8*, &cb->hash_bucket_deq) - CAST(uint8*, cb)));
-      if (cb->d == d && cb->sector_pos == sector_pos) break;
+      cb = CAST(cache_block *,
+                CAST(uint8 *, hash_bucket_probe) -
+                    (CAST(uint8 *, &cb->hash_bucket_deq) - CAST(uint8 *, cb)));
+      if (cb->d == d && cb->sector_pos == sector_pos)
+        break;
       hash_bucket_probe = hash_bucket_probe->next;
     }
 
     if (hash_bucket_probe != hash_bucket_deq) {
-      cache_block_deq* n;
-      cache_block_deq* p;
+      cache_block_deq *n;
+      cache_block_deq *p;
 
       n = cb->hash_bucket_deq.next;
       p = cb->hash_bucket_deq.prev;
@@ -180,7 +183,7 @@ again:
       condvar_signal(cb->cv);
 
       if (ERROR(err)) {
-        disk_cache_block_release(cb);  // ignore error
+        disk_cache_block_release(cb); // ignore error
         goto again;
       }
 
@@ -190,24 +193,26 @@ again:
     LRU_probe = LRU_deq->prev;
 
     while (LRU_probe != &disk_mod.LRU_deq) {
-      cb = CAST(cache_block*,
-                CAST(uint8*, LRU_probe) -
-                    (CAST(uint8*, &cb->LRU_deq) - CAST(uint8*, cb)));
+      cb = CAST(cache_block *,
+                CAST(uint8 *, LRU_probe) -
+                    (CAST(uint8 *, &cb->LRU_deq) - CAST(uint8 *, cb)));
 
 #ifdef USE_BLOCK_REF_COUNTER_FREE
-      if (cb->refcount == 0) break;
+      if (cb->refcount == 0)
+        break;
 #else
       // If we dont use the reference counting,
       // we cannot allocate dirty blocks
-      if ((cb->refcount == 0) && (!cb->dirty)) break;
+      if ((cb->refcount == 0) && (!cb->dirty))
+        break;
 #endif
 
       LRU_probe = LRU_probe->prev;
     }
 
     if (LRU_probe != LRU_deq) {
-      cache_block_deq* n;
-      cache_block_deq* p;
+      cache_block_deq *n;
+      cache_block_deq *p;
 
       n = cb->hash_bucket_deq.next;
       p = cb->hash_bucket_deq.prev;
@@ -242,9 +247,9 @@ again:
 
       if (ERROR(err)) {
         mutex_lock(disk_mod.cache_mut);
-        cb->d = NULL;  // so that this cache block can't be found again
+        cb->d = NULL; // so that this cache block can't be found again
         mutex_unlock(disk_mod.cache_mut);
-        disk_cache_block_release(cb);  // ignore error
+        disk_cache_block_release(cb); // ignore error
         return err;
       }
 
@@ -259,30 +264,30 @@ again:
   return NO_ERROR;
 }
 
-static error_code flush_block(cache_block* block, time timeout) {
+static error_code flush_block(cache_block *block, time timeout) {
   error_code err = NO_ERROR;
 
   if (!block->dirty) {
     return err;
   }
 
-  if (mutex_lock_or_timeout(CAST(mutex*, block->mut), timeout)) {
+  if (mutex_lock_or_timeout(CAST(mutex *, block->mut), timeout)) {
     // Make sure it hasn't been cleaned in the wait
     if (block->dirty) {
       if (HAS_NO_ERROR(err = disk_write_sectors(block->d, block->sector_pos,
                                                 block->buf, 1))) {
         block->dirty = 0;
-        err = 1;  // We flushed a single block
+        err = 1; // We flushed a single block
       }
     }
 
-    mutex_unlock(CAST(mutex*, block->mut));
+    mutex_unlock(CAST(mutex *, block->mut));
   }
 
   return err;
 }
 
-error_code disk_cache_block_release(cache_block* block) {
+error_code disk_cache_block_release(cache_block *block) {
   error_code err = NO_ERROR;
   uint32 n = 0;
 
@@ -303,7 +308,7 @@ error_code disk_cache_block_release(cache_block* block) {
   }
 #endif
 
-  if(HAS_NO_ERROR(err)) {
+  if (HAS_NO_ERROR(err)) {
     mutex_lock(disk_mod.cache_mut);
     { n = --block->refcount; }
     mutex_unlock(disk_mod.cache_mut);
@@ -320,8 +325,9 @@ error_code disk_cache_block_release(cache_block* block) {
 
 static native_string partition_name_from_type(uint8 type) {
   uint32 i;
-  size_t total_entries = sizeof(partition_type_table) / sizeof(partition_type_table[0]);
-  
+  size_t total_entries =
+      sizeof(partition_type_table) / sizeof(partition_type_table[0]);
+
   for (i = 0; i < total_entries; i++) {
     if (partition_type_table[i].type == type) {
       return partition_type_table[i].name;
@@ -338,7 +344,7 @@ static void disk_print_path(uint32 path) {
   }
 }
 
-void disk_print_id(disk* d) {
+void disk_print_id(disk *d) {
   if (d->_.ide.dev->kind == IDE_DEVICE_ATA) {
     term_write(cout, "ATA");
   } else {
@@ -387,20 +393,20 @@ typedef struct Master_Boot_Record_struct {
 
 void disk_add_all_partitions() {
   uint32 index = 0;
-  disk* d;
+  disk *d;
 
   while ((d = disk_find(index)) != NULL) {
-    if (d->partition_type == 0      // whole disk
-        || d->partition_type == 5)  // extended partition
+    if (d->partition_type == 0     // whole disk
+        || d->partition_type == 5) // extended partition
     {
       Master_Boot_Record mbr;
       uint32 i;
       uint32 max_LBA_when_using_BIOS_CHS = disk_max_BIOS_CHS_to_LBA(d);
-      disk* part;
+      disk *part;
 
       if (!ERROR(disk_read_sectors(d, 0, &mbr, 1))) {
         for (i = 0; i < 4; i++) {
-          partition_table_entry* p = &mbr.partition_table[i];
+          partition_table_entry *p = &mbr.partition_table[i];
           uint8 type;
           uint32 start_LBA;
           uint32 end_LBA;
@@ -408,7 +414,8 @@ void disk_add_all_partitions() {
 
           type = p->type;
 
-          if (type == 0) continue;
+          if (type == 0)
+            continue;
 
           bool only_lba = partition_type_table[type].lba;
 
@@ -424,7 +431,8 @@ void disk_add_all_partitions() {
           }
 
           if (!only_lba) {
-            // CHS fields for LBA partitions are possibly erronous and should not be read
+            // CHS fields for LBA partitions are possibly erronous and should
+            // not be read
             if (((start_LBA < max_LBA_when_using_BIOS_CHS)
                      ? start_LBA
                      : max_LBA_when_using_BIOS_CHS) !=
@@ -469,7 +477,8 @@ void disk_add_all_partitions() {
 
           part = disk_alloc();
 
-          if (part == NULL) continue;
+          if (part == NULL)
+            continue;
 
           /////something like this would be better but bombs: *part = *d;
 
@@ -492,26 +501,28 @@ void setup_disk() {
 
   disk_mod.nb_disks = 0;
 
-  for (i = 0; i < MAX_NB_DISKS; i++) disk_mod.disk_table[i].id = i;
+  for (i = 0; i < MAX_NB_DISKS; i++)
+    disk_mod.disk_table[i].id = i;
 
-  disk_mod.cache_mut = new_mutex(CAST(mutex*, kmalloc(sizeof(mutex))));
-  disk_mod.cache_cv = new_condvar(CAST(condvar*, kmalloc(sizeof(condvar))));
+  disk_mod.cache_mut = new_mutex(CAST(mutex *, kmalloc(sizeof(mutex))));
+  disk_mod.cache_cv = new_condvar(CAST(condvar *, kmalloc(sizeof(condvar))));
 
   disk_mod.LRU_deq.next = &disk_mod.LRU_deq;
   disk_mod.LRU_deq.prev = &disk_mod.LRU_deq;
 
   for (i = 0; i < CACHE_BLOCK_HASH_TABLE_SIZE; i++) {
-    cache_block_deq* deq = &disk_mod.cache_block_hash_table[i];
+    cache_block_deq *deq = &disk_mod.cache_block_hash_table[i];
     deq->next = deq;
     deq->prev = deq;
   }
 
   for (i = 0; i < DISK_CACHE_SIZE; i++) {
-    cache_block_deq* LRU_deq;
-    cache_block_deq* hash_bucket_deq;
-    cache_block* cb = CAST(cache_block*, kmalloc(sizeof(cache_block)));
+    cache_block_deq *LRU_deq;
+    cache_block_deq *hash_bucket_deq;
+    cache_block *cb = CAST(cache_block *, kmalloc(sizeof(cache_block)));
 
-    if (cb == NULL) panic(L"can't allocate disk cache");
+    if (cb == NULL)
+      panic(L"can't allocate disk cache");
 
     LRU_deq = &cb->LRU_deq;
     hash_bucket_deq = &cb->hash_bucket_deq;
@@ -527,8 +538,8 @@ void setup_disk() {
     // cb->d and cb->sector_pos and cb->err can stay undefined
     cb->dirty = 0;
     cb->refcount = 0;
-    cb->mut = new_rwmutex(CAST(rwmutex*, kmalloc(sizeof(rwmutex))));
-    cb->cv = new_condvar(CAST(condvar*, kmalloc(sizeof(condvar))));
+    cb->mut = new_rwmutex(CAST(rwmutex *, kmalloc(sizeof(rwmutex))));
+    cb->cv = new_condvar(CAST(condvar *, kmalloc(sizeof(condvar))));
   }
 }
 
@@ -537,9 +548,9 @@ void setup_disk() {
 //-----------------------------------------------------------------------------
 
 void cache_block_maid_run() {
-  cache_block* cb;
-  cache_block_deq* deq;
-  cache_block_deq* lru_probe;
+  cache_block *cb;
+  cache_block_deq *deq;
+  cache_block_deq *lru_probe;
   for (;;) {
     thread_sleep_seconds(60);
 
@@ -549,7 +560,9 @@ void cache_block_maid_run() {
       lru_probe = deq->prev;
 
       while (lru_probe != deq) {
-        cb = CAST(cache_block*, CAST(uint8*, lru_probe) - (CAST(uint8*, &cb->LRU_deq) - CAST(uint8*, cb)));
+        cb = CAST(cache_block *,
+                  CAST(uint8 *, lru_probe) -
+                      (CAST(uint8 *, &cb->LRU_deq) - CAST(uint8 *, cb)));
         flush_block(cb, seconds_to_time(10));
         lru_probe = lru_probe->prev;
       }
@@ -561,4 +574,3 @@ void cache_block_maid_run() {
 }
 
 //-----------------------------------------------------------------------------
-

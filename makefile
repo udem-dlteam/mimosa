@@ -6,7 +6,7 @@ KERNEL_START = 0x20000
 KERNEL_OBJECTS = kernel.o libc/libc_os.o drivers/filesystem/vfs.o drivers/filesystem/stdstream.o main.o drivers/filesystem/fat.o drivers/ide.o disk.o thread.o chrono.o ps2.o term.o video.o intr.o rtlib.o uart.o heap.o bios.o $(NETWORK_OBJECTS)
 #NETWORK_OBJECTS =
 #NETWORK_OBJECTS = eepro100.o tulip.o timer2.o misc.o pci.o config.o net.o
-DEFS = -DINCLUDE_EEPRO100 
+DEFS = -DINCLUDE_EEPRO100
 
 TARGET_ARCH=i386
 GCC = gcc -m32 -Wno-write-strings -g -march=$(TARGET_ARCH)
@@ -14,7 +14,7 @@ GPP = g++ -m32 -Wno-write-strings -g -march=$(TARGET_ARCH)
 
 SPECIAL_OPTIONS =
 
-GCC_OPTIONS = $(SPECIAL_OPTIONS) $(DEFS) -DOS_NAME=$(OS_NAME) -DKERNEL_START=$(KERNEL_START) -fno-stack-protector -fomit-frame-pointer -fno-strict-aliasing -Wall -O3 -ffast-math -nostdinc -Iinclude -I/usr/local/Gambit/include -Ilibc -I/usr/include -I${HOME}/g4_9_3-devel/include -ffreestanding -nostdlib 
+GCC_OPTIONS = $(SPECIAL_OPTIONS) $(DEFS) -DOS_NAME=$(OS_NAME) -DKERNEL_START=$(KERNEL_START) -fno-stack-protector -fomit-frame-pointer -fno-strict-aliasing -Wall -O3 -ffast-math -nostdinc -Iinclude -Ilibc -I/usr/include -ffreestanding -nostdlib
 
 GPP_OPTIONS = $(GCC_OPTIONS) -fno-rtti -fno-builtin -fno-exceptions -nostdinc++
 
@@ -44,7 +44,7 @@ run:
 	qemu-system-i386 -s -m 1G -hda ./floppy.img -debugcon stdio
 
 run-with-serial:
-	qemu-system-i386 -s -m 1G -hda ./floppy.img -serial tcp:localhost:44555,server,nowait -serial pty -serial pty -debugcon stdio 
+	qemu-system-i386 -s -m 1G -hda ./floppy.img -serial tcp:localhost:44555,server,nowait -serial pty -serial pty -debugcon stdio
 
 debug:
 	qemu-system-i386 -s -S -m 1G -hda ./floppy.img -debugcon stdio
@@ -68,13 +68,17 @@ kernel.bss:
 	cat kernel.map | grep '\.bss ' | grep -v '\.o' | sed 's/.*0x/0x/'
 
 kernel.o: kernel.s
-	as --32 --defsym KERNEL_START=$(KERNEL_START) -o $*.o $*.s
+ifeq "$(shell uname)" "Darwin"
+	gcc -c -m32 -DKERNEL_START=$(KERNEL_START) -o $*.o $*.s;
+else
+	as --32 --defsym KERNEL_START=$(KERNEL_START) -o $*.o $*.s;
+endif
 
 .o.asm:
 	objdump --disassemble-all $*.o > $*.asm
 
 bootsect.o: bootsect.s kernel.bin
-	as --32 --defsym KERNEL_START=$(KERNEL_START) --defsym KERNEL_SIZE=`cat kernel.bin | wc --bytes | sed -e "s/ //g"` -o $*.o $*.s 
+	as --32 --defsym KERNEL_START=$(KERNEL_START) --defsym KERNEL_SIZE=`cat kernel.bin | wc --bytes | sed -e "s/ //g"` -o $*.o $*.s
 
 bootsect.bin: bootsect.o
 	ld $*.o -o $*.bin -Ttext 0x7c00 --omagic --entry=bootsect_entry -m elf_i386 --oformat binary -Map bootsect.map
@@ -151,7 +155,7 @@ timer2.o: timer2.c etherboot.h osdep.h include/asm.h include/general.h \
 tulip.o: tulip.c etherboot.h osdep.h include/asm.h include/general.h \
 	nic.h pci.h cards.h
 video.o: video.cpp include/video.h include/general.h include/asm.h \
-	include/vga.h include/term.h 
+	include/vga.h include/term.h
 
 heap.o: heap.cpp include/heap.h include/general.h include/rtlib.h
 

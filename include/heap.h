@@ -3,6 +3,8 @@
 
 #include "general.h"
 
+#define END_KERNEL_HEAP (64 * (1 << 20))
+
 typedef struct heap_struct heap;
 typedef struct mem_block_struct block;
 typedef struct free_block_struct free_block;

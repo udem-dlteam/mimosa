@@ -8,20 +8,19 @@
 
 //-----------------------------------------------------------------------------
 
+#include "bios.h"
 #include "chrono.h"
 #include "disk.h"
+#include "drivers/filesystem/include/fat.h"
 #include "drivers/filesystem/include/stdstream.h"
 #include "drivers/filesystem/include/vfs.h"
-#include "drivers/filesystem/include/fat.h"
 #include "general.h"
+#include "intr.h"
 #include "ps2.h"
 #include "rtlib.h"
 #include "term.h"
 #include "thread.h"
 #include "uart.h"
-#include "bios.h"
-#include "intr.h"
-
 
 int main() {
 #ifdef BIOS_CALL_TEST
@@ -43,7 +42,6 @@ int main() {
     ENABLE_IRQ(3);
     ENABLE_IRQ(4);
 
-
     term_write(cout, "MIMOSA V.1.0.0\n");
     native_string file_name = "/dsk1/gambit/bin/gsc.exe";
 
@@ -51,11 +49,11 @@ int main() {
     term_write(cout, file_name);
     term_writeline(cout);
 
-    file* prog = NULL;
+    file *prog = NULL;
     error_code fopen_error = NO_ERROR;
     if (NO_ERROR == (fopen_error = file_open(file_name, "r", &prog))) {
       uint32 len = file_len(prog);
-      uint8* code = (uint8*)GAMBIT_START;
+      uint8 *code = (uint8 *)GAMBIT_START;
       term_write(cout, "The len of the gambit file is: ");
       term_write(cout, len);
       term_writeline(cout);
@@ -68,17 +66,18 @@ int main() {
       term_write(cout, "Gambit file loaded...");
       term_writeline(cout);
 
-      program_thread* task =
-          CAST(program_thread*, kmalloc(sizeof(program_thread)));
-      new_program_thread(task, "/dsk1/home/sam/", CAST(libc_startup_fn, code), "Gambit");
-      thread_start(CAST(thread*, task));
+      program_thread *task =
+          CAST(program_thread *, kmalloc(sizeof(program_thread)));
+      new_program_thread(task, "/dsk1/home/sam/", CAST(libc_startup_fn, code),
+                         "Gambit");
+      thread_start(CAST(thread *, task));
 #ifdef REMOTE_COM
-        for(;;){
-          file_read(stdout, &i, sizeof(unicode_char));
-          native_char c = i & 0xFF;
-          // send_serial(COM1_PORT_BASE, c);
-          outb(c, COM1_PORT_BASE);
-        }
+      for (;;) {
+        file_read(stdout, &i, sizeof(unicode_char));
+        native_char c = i & 0xFF;
+        // send_serial(COM1_PORT_BASE, c);
+        outb(c, COM1_PORT_BASE);
+      }
 #endif
     } else {
       term_write(cout, "\r\n Failed to open Gambit.\r\n");
@@ -90,7 +89,7 @@ int main() {
 #endif
 
 #ifdef STREAM_STDOUT_TO_DEBUG_CONSOLE
-  file* __stdout;
+  file *__stdout;
   if (ERROR(file_open(STDOUT_PATH, "rx", &__stdout))) {
     panic(L"Failed to open STDOUT");
   }

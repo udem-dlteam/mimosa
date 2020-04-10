@@ -26,6 +26,7 @@ static void *heap_sbrk(heap *h, int32 size) {
   size_t a = h->alloc;
 
   if (size < 0) {
+    debug_write("Giving back");
   }
 
   // Maintain word alignment
@@ -142,8 +143,11 @@ static block *extend_heap(heap *h, size_t sz) {
 
   h->l = blk;
 
+
   return blk;
 }
+
+void heap_free(heap *h, void *ptr) {
 
 static void detach(heap *h, block *bl) {
 
@@ -164,6 +168,7 @@ static void detach(heap *h, block *bl) {
     h->lf = prev;
   }
 }
+
 
 static void mark_as_free(heap *h, block *bk) {
   bk->tail.free.next = NULL;
