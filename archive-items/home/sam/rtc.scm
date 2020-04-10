@@ -128,8 +128,7 @@
      (let ((data (atomic (rtc-commands-with-uip
                            RTC-DAY-IN-MONTH
                            RTC-MONTH
-                           RTC-YEAR
-                           ))))
+                           RTC-YEAR))))
       (if (car data)
        (begin
         (thread-sleep! RTC-UIP-SLEEP)

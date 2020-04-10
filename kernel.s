@@ -7,8 +7,7 @@
 # 22 Sep 01  initial version (Marc Feeley)
 #------------------------------------------------------------------------------
 
-  .globl kernel_entry
-
+  .globl kernel_entry 
 kernel_entry:  # this is the kernel's entry point
 
   # Note: the second stage / kernel is loaded by the boot sector at "KERNEL_START".

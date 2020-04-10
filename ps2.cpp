@@ -9,18 +9,17 @@
 
 //-----------------------------------------------------------------------------
 
-#include "ps2.h"
 #include "asm.h"
 #include "chrono.h"
 #include "drivers/filesystem/include/stdstream.h"
 #include "drivers/filesystem/include/vfs.h"
 #include "intr.h"
+#include "libc/include/libc_header.h"
+#include "ps2.h"
 #include "rtlib.h"
 #include "term.h"
 #include "thread.h"
 #include "video.h"
-#include "libc/include/libc_header.h"
-
 
 //-----------------------------------------------------------------------------
 
@@ -37,8 +36,8 @@ static void controller_auxb_command(uint8 command) {
 }
 
 static int32 controller_auxb_read() {
-  int32 timeout = 800000;  // 400000 works on our test machine, use twice
-                           // as much for safety
+  int32 timeout = 800000; // 400000 works on our test machine, use twice
+                          // as much for safety
   do {
     uint8 s = inb(PS2_PORT_STATUS);
     if (s & PS2_OUTB) {
@@ -53,21 +52,20 @@ static int32 controller_auxb_read() {
 
 #define DEAD 0
 
-extern void send_signal(int sig);  // from libc/src/signal.c
+extern void send_signal(int sig); // from libc/src/signal.c
 
 #ifdef USE_IRQ1_FOR_KEYBOARD
-
 
 void irq1() {
 #ifdef SHOW_INTERRUPTS
   term_write(cout, "\033[41m irq1 \033[0m");
 #endif
-    
+
   uint8 b = inb(PS2_PORT_A);
   uint8 params[1] = {b};
-  if(!send_gambit_int(GAMBIT_KEYBOARD_INT, params, 1)) {
-      // shrug
-  } 
+  if (!send_gambit_int(GAMBIT_KEYBOARD_INT, params, 1)) {
+    // shrug
+  }
   ACKNOWLEDGE_IRQ(1);
 }
 
@@ -101,10 +99,10 @@ static void process_mouse_data(uint8 data) {
   //        RB = 1 if right button is pressed, 0 otherwise
   //        LB = 1 if left button is pressed, 0 otherwise
 
-  if (mouse_buf_ptr == 0   // make sure that first byte of packet has a 1
-      && (data & 8) == 0)  // at the right place (this helps
-    return;                // resynchronize with the head of the mouse
-                           // packets when communication errors occur)
+  if (mouse_buf_ptr == 0  // make sure that first byte of packet has a 1
+      && (data & 8) == 0) // at the right place (this helps
+    return;               // resynchronize with the head of the mouse
+                          // packets when communication errors occur)
 
   if (mouse_buf_ptr >= PS2_MOUSE_BUFF_SIZE) {
     mouse_buf_ptr = mouse_buf_ptr % PS2_MOUSE_BUFF_SIZE;
@@ -123,10 +121,14 @@ static void process_mouse_data(uint8 data) {
   dx = b2;
   dy = b3;
 
-  if (b1 & (1 << 6)) dx = 128;
-  if (b1 & (1 << 7)) dy = 128;
-  if (b1 & (1 << 4)) dx -= 256;
-  if (b1 & (1 << 5)) dy -= 256;
+  if (b1 & (1 << 6))
+    dx = 128;
+  if (b1 & (1 << 7))
+    dy = 128;
+  if (b1 & (1 << 4))
+    dx -= 256;
+  if (b1 & (1 << 5))
+    dy -= 256;
 
   video_move_mouse(&screen, dx, -dy);
 }
@@ -167,8 +169,8 @@ error_code setup_ps2() {
   controller_auxb_command(PS2_MOUSE_CMD_RESET);
 
   if (controller_auxb_read() == PS2_MOUSE_ACK &&
-      controller_auxb_read() == PS2_MOUSE_BAT_ACK &&  // the mouse passed BAT
-      controller_auxb_read() == PS2_MOUSE_ID_PS2) {   // the mouse is a PS/2
+      controller_auxb_read() == PS2_MOUSE_BAT_ACK && // the mouse passed BAT
+      controller_auxb_read() == PS2_MOUSE_ID_PS2) {  // the mouse is a PS/2
     controller_auxb_command(PS2_MOUSE_CMD_ENABLE_REPORTING);
 
     if (controller_auxb_read() == PS2_MOUSE_ACK) {

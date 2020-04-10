@@ -8,84 +8,84 @@
 
 //-----------------------------------------------------------------------------
 
-#include "video.h"
 #include "asm.h"
-#include "vga.h"
 #include "term.h"
+#include "vga.h"
+#include "video.h"
 
 // "pattern" class implementation.
 
 static bitmap_word black_bitmap_words[] = {0x00, 0x00, 0x00, 0x00,
                                            0x00, 0x00, 0x00, 0x00};
 
-pattern pattern_black; 
+pattern pattern_black;
 
 static bitmap_word gray25_bitmap_words[] = {0x00, 0x55, 0x00, 0x55,
                                             0x00, 0x55, 0x00, 0x55};
 
-pattern pattern_gray25; 
+pattern pattern_gray25;
 
 static bitmap_word gray50_bitmap_words[] = {0xaa, 0x55, 0xaa, 0x55,
                                             0xaa, 0x55, 0xaa, 0x55};
 
-pattern pattern_gray50; 
+pattern pattern_gray50;
 
 static bitmap_word gray75_bitmap_words[] = {0xff, 0x55, 0xff, 0x55,
                                             0xff, 0x55, 0xff, 0x55};
 
-pattern pattern_gray75; 
+pattern pattern_gray75;
 
 static bitmap_word white_bitmap_words[] = {0xff, 0xff, 0xff, 0xff,
                                            0xff, 0xff, 0xff, 0xff};
 
-pattern pattern_white; 
+pattern pattern_white;
 
 static bitmap_word red_bitmap_words[] = {
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
     0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
 
-pattern pattern_red; 
+pattern pattern_red;
 
 static bitmap_word green_bitmap_words[] = {
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff,
     0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
 
-pattern pattern_green; 
+pattern pattern_green;
 
 static bitmap_word yellow_bitmap_words[] = {
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff,
     0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
     0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
 
-pattern pattern_yellow; 
+pattern pattern_yellow;
 
 static bitmap_word blue_bitmap_words[] = {
     0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
 
-pattern pattern_blue; 
+pattern pattern_blue;
 
 static bitmap_word magenta_bitmap_words[] = {
     0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00,
     0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
     0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
 
-pattern pattern_magenta; 
+pattern pattern_magenta;
 
 static bitmap_word cyan_bitmap_words[] = {
     0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
     0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
 
-pattern pattern_cyan; 
+pattern pattern_cyan;
 
 //-----------------------------------------------------------------------------
 
 // "raw_bitmap" class implementation.
-static void clip(int* x, int min_val, int max_val) {
+static void clip(int *x, int min_val, int max_val) {
   if (*x < min_val)
     *x = min_val;
   else if (*x > max_val)
@@ -98,9 +98,9 @@ static void clip(int* x, int min_val, int max_val) {
 #define COMBINE_BITS(src1, src2, mask) (((src1) & ~(mask)) | ((src2) & (mask)))
 #define COMBINE_WORDS(src1, src2) (src2)
 
-#define COMBINE_BITS_FG_BG(src1, src2, mask, fg, bg) \
+#define COMBINE_BITS_FG_BG(src1, src2, mask, fg, bg)                           \
   (((src1) & ~(mask)) | ((((fg) & (src2)) | ((bg) & ~(src2))) & (mask)))
-#define COMBINE_WORDS_FG_BG(src1, src2, fg, bg) \
+#define COMBINE_WORDS_FG_BG(src1, src2, fg, bg)                                \
   (((fg) & (src2)) | ((bg) & ~(src2)))
 //-----------------------------------------------------------------------------
 
@@ -121,7 +121,7 @@ extern uint16 video_mode;
 extern struct VBE_info vbe_info;
 extern struct VBE_mode_info vbe_mode_info;
 
-video* video_init(video* self) {
+video *video_init(video *self) {
 
   pattern_black = new_pattern(black_bitmap_words, 8, 1);
   pattern_gray25 = new_pattern(gray25_bitmap_words, 8, 1);
@@ -138,7 +138,7 @@ video* video_init(video* self) {
   self->super.vtable = &_video_vtable;
 
   self->_mode = video_mode;
-  self->_start = CAST(bitmap_word*, vbe_mode_info.PhysicalBasePtr);
+  self->_start = CAST(bitmap_word *, vbe_mode_info.PhysicalBasePtr);
   self->super._width = video_width;
   self->super._height = video_height;
   self->super._depth = video_planes;
@@ -151,8 +151,8 @@ video* video_init(video* self) {
   return self;
 }
 
-void video_hide_mouse(void* self) {
-  video* sself = (video*)self;
+void video_hide_mouse(void *self) {
+  video *sself = (video *)self;
   sself->_mouse_hides++;
 
   if (sself->_mouse_hides == 1) {
@@ -167,8 +167,8 @@ void video_hide_mouse(void* self) {
   }
 }
 
-void video_show_mouse(void* self) {
-  video* sself = (video*)self;
+void video_show_mouse(void *self) {
+  video *sself = (video *)self;
   if (sself->_mouse_hides == 1) {
     int width;
     int height;
@@ -185,8 +185,8 @@ void video_show_mouse(void* self) {
   sself->_mouse_hides--;
 }
 
-bitmap_word* video_select_layer(void* self, int layer) {
-  video* sself = (video*)self;
+bitmap_word *video_select_layer(void *self, int layer) {
+  video *sself = (video *)self;
 
   if (sself->super._depth != 1) {
     layer = layer % sself->super._depth;
@@ -199,8 +199,8 @@ bitmap_word* video_select_layer(void* self, int layer) {
   return sself->_start;
 }
 
-void video_move_mouse(video* self, int dx, int dy) {
-  self->super.vtable->hide_mouse((void*)self);
+void video_move_mouse(video *self, int dx, int dy) {
+  self->super.vtable->hide_mouse((void *)self);
 
   self->_mouse_x += dx;
   self->_mouse_y += dy;
@@ -208,10 +208,10 @@ void video_move_mouse(video* self, int dx, int dy) {
   clip(&self->_mouse_x, 0, self->super._width);
   clip(&self->_mouse_y, 0, self->super._height);
 
-  self->super.vtable->show_mouse((void*)self);
+  self->super.vtable->show_mouse((void *)self);
 }
 
-void video_get_mouse_rect(video* self, int* width, int* height) {
+void video_get_mouse_rect(video *self, int *width, int *height) {
   *width = self->super._width - self->_mouse_x;
   *height = self->super._height - self->_mouse_y;
 
@@ -219,7 +219,7 @@ void video_get_mouse_rect(video* self, int* width, int* height) {
   clip(height, 0, MOUSE_HEIGHT);
 }
 
-void video_draw_mouse(video* self) {
+void video_draw_mouse(video *self) {
 #define minimum(a, b) (((a) < (b)) ? (a) : (b))
 
   int x = self->_mouse_x;
@@ -229,41 +229,49 @@ void video_draw_mouse(video* self) {
 
   video_get_mouse_rect(self, &width, &height);
 
-  if (width < 1) return;
+  if (width < 1)
+    return;
   raw_bitmap_fill_rect(&self->super, x + 0, y + 0, x + 1,
                        y + minimum(11, height), &pattern_red);
 
-  if (width < 2) return;
+  if (width < 2)
+    return;
   raw_bitmap_fill_rect(&self->super, x + 1, y + 1, x + 2,
                        y + minimum(10, height), &pattern_red);
 
-  if (width < 3) return;
+  if (width < 3)
+    return;
   raw_bitmap_fill_rect(&self->super, x + 2, y + 2, x + 3,
                        y + minimum(9, height), &pattern_red);
 
-  if (width < 4) return;
+  if (width < 4)
+    return;
   raw_bitmap_fill_rect(&self->super, x + 3, y + 3, x + 4,
                        y + minimum(10, height), &pattern_red);
 
-  if (width < 5) return;
+  if (width < 5)
+    return;
   raw_bitmap_fill_rect(&self->super, x + 4, y + 4, x + 5,
                        y + minimum(12, height), &pattern_red);
 
-  if (width < 6) return;
+  if (width < 6)
+    return;
   raw_bitmap_fill_rect(&self->super, x + 5, y + 5, x + 6,
                        y + minimum(8, height), &pattern_red);
 
   raw_bitmap_fill_rect(&self->super, x + 5, y + 10, x + 6,
                        y + minimum(14, height), &pattern_red);
 
-  if (width < 7) return;
+  if (width < 7)
+    return;
   raw_bitmap_fill_rect(&self->super, x + 6, y + 6, x + 7,
                        y + minimum(8, height), &pattern_red);
 
   raw_bitmap_fill_rect(&self->super, x + 6, y + 12, x + 7,
                        y + minimum(14, height), &pattern_red);
 
-  if (width < 8) return;
+  if (width < 8)
+    return;
   raw_bitmap_fill_rect(&self->super, x + 7, y + 7, x + 8,
                        y + minimum(8, height), &pattern_red);
 }
@@ -272,8 +280,8 @@ void video_draw_mouse(video* self) {
 // raw_bitmap_in_memory
 //-----------------------------------------------------------------------------
 
-raw_bitmap_in_memory* raw_bitmap_in_memory_init(raw_bitmap_in_memory* self,
-                                                bitmap_word* start, int width,
+raw_bitmap_in_memory *raw_bitmap_in_memory_init(raw_bitmap_in_memory *self,
+                                                bitmap_word *start, int width,
                                                 int height, int depth) {
   self->super.vtable = &_raw_bitmap_in_memory_vtable;
 
@@ -285,12 +293,12 @@ raw_bitmap_in_memory* raw_bitmap_in_memory_init(raw_bitmap_in_memory* self,
   return self;
 }
 
-void raw_bitmap_in_memory_hide_mouse(void* self) { ; }
+void raw_bitmap_in_memory_hide_mouse(void *self) { ; }
 
-void raw_bitmap_in_memory_show_mouse(void* self) { ; }
+void raw_bitmap_in_memory_show_mouse(void *self) { ; }
 
-bitmap_word* _raw_bitmap_in_memory_select_layer(void* self, int layer) {
-  raw_bitmap_in_memory* sself = (raw_bitmap_in_memory*)self;
+bitmap_word *_raw_bitmap_in_memory_select_layer(void *self, int layer) {
+  raw_bitmap_in_memory *sself = (raw_bitmap_in_memory *)self;
   layer = layer % sself->super._depth;
   return sself->_start + (sself->super._width >> LOG2_BITMAP_WORD_WIDTH) *
                              sself->super._height * layer;
@@ -300,9 +308,9 @@ bitmap_word* _raw_bitmap_in_memory_select_layer(void* self, int layer) {
 // raw_bitmap
 //-----------------------------------------------------------------------------
 
-void raw_bitmap_bitblt(raw_bitmap_c* self, int x, int y, int x_end, int y_end,
-                       raw_bitmap_c* src, int src_x, int src_y,
-                       pattern* foreground, pattern* background) {
+void raw_bitmap_bitblt(raw_bitmap_c *self, int x, int y, int x_end, int y_end,
+                       raw_bitmap_c *src, int src_x, int src_y,
+                       pattern *foreground, pattern *background) {
 #if 0
   if (self == &screen.super) {
     bitmap_word* d = self->vtable->_select_layer(self, 0);
@@ -340,10 +348,10 @@ void raw_bitmap_bitblt(raw_bitmap_c* self, int x, int y, int x_end, int y_end,
           bitmap_word fg = pattern_get_word(foreground, y, layer);
           bitmap_word bg = pattern_get_word(background, y, layer);
 
-          bitmap_word* s =
+          bitmap_word *s =
               src->vtable->_select_layer(src, layer) +
               ((src_y * src->_width + src_x) >> LOG2_BITMAP_WORD_WIDTH);
-          bitmap_word* d = self->vtable->_select_layer(self, layer) +
+          bitmap_word *d = self->vtable->_select_layer(self, layer) +
                            ((y * self->_width + x) >> LOG2_BITMAP_WORD_WIDTH);
           bitmap_quad_word b;
           bitmap_word m;
@@ -375,10 +383,10 @@ void raw_bitmap_bitblt(raw_bitmap_c* self, int x, int y, int x_end, int y_end,
           bitmap_word fg = pattern_get_word(foreground, y, layer);
           bitmap_word bg = pattern_get_word(background, y, layer);
 
-          bitmap_word* s =
+          bitmap_word *s =
               src->vtable->_select_layer(src, layer) +
               ((src_y * src->_width + src_x) >> LOG2_BITMAP_WORD_WIDTH);
-          bitmap_word* d = self->vtable->_select_layer(self, layer) +
+          bitmap_word *d = self->vtable->_select_layer(self, layer) +
                            ((y * self->_width + x) >> LOG2_BITMAP_WORD_WIDTH);
           bitmap_quad_word b;
           bitmap_word m;
@@ -399,8 +407,8 @@ void raw_bitmap_bitblt(raw_bitmap_c* self, int x, int y, int x_end, int y_end,
   }
 }
 
-void raw_bitmap_fill_rect(raw_bitmap_c* self, int x, int y, int x_end,
-                          int y_end, pattern* foreground) {
+void raw_bitmap_fill_rect(raw_bitmap_c *self, int x, int y, int x_end,
+                          int y_end, pattern *foreground) {
 
   if (x < x_end && y < y_end) {
     int nb_words_per_row =
@@ -416,7 +424,7 @@ void raw_bitmap_fill_rect(raw_bitmap_c* self, int x, int y, int x_end,
         for (layer = self->_depth - 1; layer >= 0; layer--) {
           bitmap_word fg = pattern_get_word(foreground, y, layer);
 
-          bitmap_word* d = self->vtable->_select_layer(self, layer) +
+          bitmap_word *d = self->vtable->_select_layer(self, layer) +
                            ((y * self->_width + x) >> LOG2_BITMAP_WORD_WIDTH);
 
           bitmap_word m;
@@ -441,7 +449,7 @@ void raw_bitmap_fill_rect(raw_bitmap_c* self, int x, int y, int x_end,
       for (row = nb_rows; row > 0; row--) {
         for (layer = self->_depth - 1; layer >= 0; layer--) {
           bitmap_word fg = pattern_get_word(foreground, y, layer);
-          bitmap_word* d = self->vtable->_select_layer(self, layer) +
+          bitmap_word *d = self->vtable->_select_layer(self, layer) +
                            ((y * self->_width + x) >> LOG2_BITMAP_WORD_WIDTH);
           bitmap_word m;
 
@@ -457,8 +465,8 @@ void raw_bitmap_fill_rect(raw_bitmap_c* self, int x, int y, int x_end,
   }
 }
 
-void raw_bitmap_frame_rect(raw_bitmap_c* self, int x, int y, int x_end,
-                           int y_end, int border, pattern* foreground) {
+void raw_bitmap_frame_rect(raw_bitmap_c *self, int x, int y, int x_end,
+                           int y_end, int border, pattern *foreground) {
   self->vtable->hide_mouse(self);
   raw_bitmap_fill_rect(self, x, y, x_end, y + border, foreground);
   raw_bitmap_fill_rect(self, x, y + border, x + border, y_end - border,
@@ -469,7 +477,7 @@ void raw_bitmap_frame_rect(raw_bitmap_c* self, int x, int y, int x_end,
   self->vtable->show_mouse(self);
 }
 
-void raw_bitmap_invert_rect(raw_bitmap_c* self, int x, int y, int x_end,
+void raw_bitmap_invert_rect(raw_bitmap_c *self, int x, int y, int x_end,
                             int y_end) {
   self->vtable->hide_mouse(self);
   raw_bitmap_bitblt(self, x, y, x_end, y_end, self, x, y, &pattern_black,
@@ -477,17 +485,17 @@ void raw_bitmap_invert_rect(raw_bitmap_c* self, int x, int y, int x_end,
   self->vtable->show_mouse(self);
 }
 
-bitmap_word* _raw_bitmap_select_layer(void* self, int layer) { return NULL; }
+bitmap_word *_raw_bitmap_select_layer(void *self, int layer) { return NULL; }
 
-void raw_bitmap_show_mouse(void* self) { ; }
+void raw_bitmap_show_mouse(void *self) { ; }
 
-void raw_bitmap_hide_mouse(void* self) { ; }
+void raw_bitmap_hide_mouse(void *self) { ; }
 
 //-----------------------------------------------------------------------------
 // PATTERN
 //-----------------------------------------------------------------------------
 
-pattern new_pattern(bitmap_word* words, int height, int depth) {
+pattern new_pattern(bitmap_word *words, int height, int depth) {
   pattern pattern;
 
   pattern._words = words;
@@ -497,7 +505,7 @@ pattern new_pattern(bitmap_word* words, int height, int depth) {
   return pattern;
 }
 
-bitmap_word pattern_get_word(pattern* self, int y, int layer) {
+bitmap_word pattern_get_word(pattern *self, int y, int layer) {
   layer = layer % self->_depth;
   return self->_words[(y % self->_height) + self->_height * layer];
 }
@@ -534,8 +542,8 @@ bitmap_word pattern_get_word(pattern* self, int y, int layer) {
 
 #undef font
 
-font_c* font_init(font_c* self, int max_width, int height, int nb_chars,
-                  uint16* char_map, uint32* char_end, raw_bitmap* raw) {
+font_c *font_init(font_c *self, int max_width, int height, int nb_chars,
+                  uint16 *char_map, uint32 *char_end, raw_bitmap *raw) {
   self->_max_width = max_width;
   self->_height = height;
   self->_nb_chars = nb_chars;
@@ -546,11 +554,11 @@ font_c* font_init(font_c* self, int max_width, int height, int nb_chars,
   return self;
 }
 
-int font_get_max_width(font_c* self) { return self->_max_width; }
+int font_get_max_width(font_c *self) { return self->_max_width; }
 
-int font_get_height(font_c* self) { return self->_height; }
+int font_get_height(font_c *self) { return self->_height; }
 
-void _font_get_char_data(font_c* self, unicode_char c, int& start, int& width) {
+void _font_get_char_data(font_c *self, unicode_char c, int &start, int &width) {
   int i;
 
   if (c >= self->_nb_chars) {
@@ -568,9 +576,9 @@ void _font_get_char_data(font_c* self, unicode_char c, int& start, int& width) {
   width = self->_char_end[i] - start;
 }
 
-int font_draw_text(font_c* self, raw_bitmap* dst, int x, int y,
-                   unicode_char* text, int count, pattern* foreground,
-                   pattern* background) {
+int font_draw_text(font_c *self, raw_bitmap *dst, int x, int y,
+                   unicode_char *text, int count, pattern *foreground,
+                   pattern *background) {
   while (count-- > 0) {
     unicode_char c = *text++;
     int start;
@@ -587,12 +595,13 @@ int font_draw_text(font_c* self, raw_bitmap* dst, int x, int y,
   return x;
 }
 
-int font_draw_string(font_c* self, raw_bitmap* dst, int x, int y,
-                     unicode_string str, pattern* foreground,
-                     pattern* background) {
+int font_draw_string(font_c *self, raw_bitmap *dst, int x, int y,
+                     unicode_string str, pattern *foreground,
+                     pattern *background) {
   int n = 0;
 
-  while (str[n] != '\0') n++;
+  while (str[n] != '\0')
+    n++;
 
   return font_draw_text(self, dst, x, y, str, n, foreground, background);
 }

@@ -1,5 +1,5 @@
-#include "heap.h"
 #include "general.h"
+#include "heap.h"
 #include "rtlib.h"
 #include "term.h"
 
@@ -23,13 +23,13 @@ static void *heap_sbrk(heap *h, int32 size) {
 
   size_t a = h->alloc;
 
-  if(size < 0) {
-      debug_write("Giving back");
+  if (size < 0) {
+    debug_write("Giving back");
   }
 
   // Maintain word alignment
-  size = (size + sizeof(void*) - 1) & ~(sizeof(void*) - 1);
-    
+  size = (size + sizeof(void *) - 1) & ~(sizeof(void *) - 1);
+
   if (a + size > h->size) {
     return NULL;
   } else if (a + size < 0) {
@@ -38,15 +38,15 @@ static void *heap_sbrk(heap *h, int32 size) {
 
   h->alloc = a + size;
 
-  return CAST(void*,CAST(uint8*,h->start)+a);
+  return CAST(void *, CAST(uint8 *, h->start) + a);
 }
 
-static inline mem_block* get_block_ptr(void* ptr) {
-    return CAST(mem_block*, CAST(char*, ptr) - mem_block_size);
+static inline mem_block *get_block_ptr(void *ptr) {
+  return CAST(mem_block *, CAST(char *, ptr) - mem_block_size);
 }
 
-static inline void* get_data_ptr(mem_block* bk) {
-    return CAST(void*, CAST(char*, bk) + mem_block_size);
+static inline void *get_data_ptr(mem_block *bk) {
+  return CAST(void *, CAST(char *, bk) + mem_block_size);
 }
 
 // static mem_block* get_block(heap* h, size_t sz) {
@@ -105,7 +105,7 @@ static inline void* get_data_ptr(mem_block* bk) {
 //   return bk;
 // }
 
-void heap_free(heap* h, void* ptr) {
+void heap_free(heap *h, void *ptr) {
   // return;
   // mem_block* bk = get_block_ptr(ptr);
 
@@ -124,7 +124,7 @@ void heap_free(heap* h, void* ptr) {
   // }
 }
 
-void* heap_malloc(heap* h, size_t size) {
+void *heap_malloc(heap *h, size_t size) {
   return heap_sbrk(h, size);
 
   // void* bk = get_data_ptr(get_block(h, size));

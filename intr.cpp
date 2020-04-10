@@ -8,12 +8,12 @@
 
 //-----------------------------------------------------------------------------
 
-#include "intr.h"
-#include "asm.h"
-#include "pic.h"
 #include "apic.h"
-#include "term.h"
+#include "asm.h"
+#include "intr.h"
+#include "pic.h"
 #include "rtlib.h"
+#include "term.h"
 
 //-----------------------------------------------------------------------------
 
@@ -21,8 +21,7 @@
 // Interrupt handlers.
 //
 
-void setup_intr ()
-{
+void setup_intr() {
 #ifdef USE_APIC_FOR_TIMER
 
   // Make sure that the local APIC is mapped to the default memory
@@ -30,20 +29,19 @@ void setup_intr ()
 
   uint32 dummy, features;
 
-  cpuid (1, dummy, dummy, dummy, features);
+  cpuid(1, dummy, dummy, dummy, features);
 
-  if (features & HAS_MSR)
-    {
-      uint64 x = rdmsr (MSR_APIC);
-      x &= MSR_APIC_BSP;
-      x |= MSR_APIC_BASE | MSR_APIC_E;
-      wrmsr (MSR_APIC, x);
-    }
+  if (features & HAS_MSR) {
+    uint64 x = rdmsr(MSR_APIC);
+    x &= MSR_APIC_BSP;
+    x |= MSR_APIC_BASE | MSR_APIC_E;
+    wrmsr(MSR_APIC, x);
+  }
 
   uint32 x;
 
   x = APIC_SVR;
-  x |= APIC_SVR_SW_ENABLE; // Enable APIC
+  x |= APIC_SVR_SW_ENABLE;    // Enable APIC
   x &= ~APIC_SVR_FPC_DISABLE; // Enable Focus Processor Checking
   x &= ~APIC_SVR_VECTOR_MASK;
   x |= 0xcf; // low 4 bits of vector should be ones
@@ -58,7 +56,7 @@ void setup_intr ()
   APIC_LDR = x;
 
   x = APIC_DFR;
-  x |= APIC_DFR_CONFIG (0x0f); // Flat model
+  x |= APIC_DFR_CONFIG(0x0f); // Flat model
   APIC_DFR = x;
 
 #ifdef USE_APIC_FOR_TIMER
@@ -91,7 +89,7 @@ void setup_intr ()
   APIC_TIMER_DIVIDE_CONFIG = APIC_TIMER_DIV_CONF; // configure divider
 
   x = APIC_LVTT;
-  x |= APIC_LVT_MASKED; // Mask timer interrupt
+  x |= APIC_LVT_MASKED;     // Mask timer interrupt
   x &= ~APIC_LVTT_PERIODIC; // One-shot mode
   x &= ~APIC_LVT_VECTOR_MASK;
   x |= 0xa0;
@@ -109,9 +107,9 @@ void setup_intr ()
 
   x = APIC_LVT0;
   x |= APIC_LVT_MASKED; // Mask local interrupt 0 interrupt
-  x |= APIC_LVT_LTM; // Level trigger mode
-  x |= APIC_LVT_RIRR; // Remote IRR
-  x |= APIC_LVT_POL; // Interrupt input pin polarity = 1
+  x |= APIC_LVT_LTM;    // Level trigger mode
+  x |= APIC_LVT_RIRR;   // Remote IRR
+  x |= APIC_LVT_POL;    // Interrupt input pin polarity = 1
   x &= ~APIC_LVT_DM_MASK;
   x |= APIC_LVT_DM_EXTINT; // Delivery mode = ExtINT
   APIC_LVT0 = x;
@@ -128,17 +126,17 @@ void setup_intr ()
 
   // Initialize master and slave PICs.
 
-  outb (PIC_ICW1(PIC_ICW1_ICW4), PIC_PORT_MASTER_ICW1);
-  outb (PIC_ICW1(PIC_ICW1_ICW4), PIC_PORT_SLAVE_ICW1);
+  outb(PIC_ICW1(PIC_ICW1_ICW4), PIC_PORT_MASTER_ICW1);
+  outb(PIC_ICW1(PIC_ICW1_ICW4), PIC_PORT_SLAVE_ICW1);
 
-  outb (PIC_ICW2(0x16), PIC_PORT_MASTER_ICW2); // int. vectors 0xb0 .. 0xb7
-  outb (PIC_ICW2(0x17), PIC_PORT_SLAVE_ICW2);  // int. vectors 0xb8 .. 0xbf
+  outb(PIC_ICW2(0x16), PIC_PORT_MASTER_ICW2); // int. vectors 0xb0 .. 0xb7
+  outb(PIC_ICW2(0x17), PIC_PORT_SLAVE_ICW2);  // int. vectors 0xb8 .. 0xbf
 
-  outb (PIC_MASTER_ICW3(PIC_MASTER_ICW3_SLAVE(2)), PIC_PORT_MASTER_ICW3);
-  outb (PIC_SLAVE_ICW3(2), PIC_PORT_SLAVE_ICW3);
+  outb(PIC_MASTER_ICW3(PIC_MASTER_ICW3_SLAVE(2)), PIC_PORT_MASTER_ICW3);
+  outb(PIC_SLAVE_ICW3(2), PIC_PORT_SLAVE_ICW3);
 
-  outb (PIC_ICW4(PIC_ICW4_8086|PIC_ICW4_MASTER), PIC_PORT_MASTER_ICW4);
-  outb (PIC_ICW4(PIC_ICW4_8086), PIC_PORT_SLAVE_ICW4);
+  outb(PIC_ICW4(PIC_ICW4_8086 | PIC_ICW4_MASTER), PIC_PORT_MASTER_ICW4);
+  outb(PIC_ICW4(PIC_ICW4_8086), PIC_PORT_SLAVE_ICW4);
 
   // Disable interrupts on IRQ0, IRQ1, IRQ3 .. IRQ15
 
@@ -150,30 +148,22 @@ void setup_intr ()
   // interrupt handlers (in particular the timer interrupt handler
   // which drives the thread scheduler).
 
-  outb (PIC_OCW1_MASK(PIC_MASTER_IRQ0) |
-        PIC_OCW1_MASK(PIC_MASTER_IRQ1) |
-        PIC_OCW1_MASK(PIC_MASTER_IRQ3) |
-        PIC_OCW1_MASK(PIC_MASTER_IRQ4) |
-        PIC_OCW1_MASK(PIC_MASTER_IRQ5) |
-        PIC_OCW1_MASK(PIC_MASTER_IRQ6) |
-        PIC_OCW1_MASK(PIC_MASTER_IRQ7),
-        PIC_PORT_MASTER_OCW1);
+  outb(PIC_OCW1_MASK(PIC_MASTER_IRQ0) | PIC_OCW1_MASK(PIC_MASTER_IRQ1) |
+           PIC_OCW1_MASK(PIC_MASTER_IRQ3) | PIC_OCW1_MASK(PIC_MASTER_IRQ4) |
+           PIC_OCW1_MASK(PIC_MASTER_IRQ5) | PIC_OCW1_MASK(PIC_MASTER_IRQ6) |
+           PIC_OCW1_MASK(PIC_MASTER_IRQ7),
+       PIC_PORT_MASTER_OCW1);
 
-  outb (PIC_OCW1_MASK(PIC_SLAVE_IRQ8) |
-        PIC_OCW1_MASK(PIC_SLAVE_IRQ9) |
-        PIC_OCW1_MASK(PIC_SLAVE_IRQ10) |
-        PIC_OCW1_MASK(PIC_SLAVE_IRQ11) |
-        PIC_OCW1_MASK(PIC_SLAVE_IRQ12) |
-        PIC_OCW1_MASK(PIC_SLAVE_IRQ13) |
-        PIC_OCW1_MASK(PIC_SLAVE_IRQ14) |
-        PIC_OCW1_MASK(PIC_SLAVE_IRQ15),
-        PIC_PORT_SLAVE_OCW1);
+  outb(PIC_OCW1_MASK(PIC_SLAVE_IRQ8) | PIC_OCW1_MASK(PIC_SLAVE_IRQ9) |
+           PIC_OCW1_MASK(PIC_SLAVE_IRQ10) | PIC_OCW1_MASK(PIC_SLAVE_IRQ11) |
+           PIC_OCW1_MASK(PIC_SLAVE_IRQ12) | PIC_OCW1_MASK(PIC_SLAVE_IRQ13) |
+           PIC_OCW1_MASK(PIC_SLAVE_IRQ14) | PIC_OCW1_MASK(PIC_SLAVE_IRQ15),
+       PIC_PORT_SLAVE_OCW1);
 }
 
 #ifndef USE_PIT_FOR_TIMER
 
-void irq0 ()
-{
+void irq0() {
 #ifdef SHOW_INTERRUPTS
   term_write(cout, "\033[41m irq0 \033[0m");
 #endif
@@ -185,8 +175,7 @@ void irq0 ()
 
 #ifndef USE_IRQ1_FOR_KEYBOARD
 
-void irq1 ()
-{
+void irq1() {
 #ifdef SHOW_INTERRUPTS
   term_write(cout, "\033[41m irq1 \033[0m");
 #endif
@@ -196,8 +185,7 @@ void irq1 ()
 
 #endif
 
-void irq2 ()
-{
+void irq2() {
 #ifdef SHOW_INTERRUPTS
   term_write(cout, "\033[41m irq2 \033[0m");
 #endif
@@ -215,10 +203,9 @@ void irq3() {
 }
 #endif
 
-#ifndef USE_IRQ4_FOR_UART 
+#ifndef USE_IRQ4_FOR_UART
 
-void irq4 ()
-{
+void irq4() {
 #ifdef SHOW_INTERRUPTS
   term_write(cout, "\033[41m irq4 \033[0m");
 #endif
@@ -228,8 +215,7 @@ void irq4 ()
 
 #endif
 
-void irq5 ()
-{
+void irq5() {
 #ifdef SHOW_INTERRUPTS
   term_write(cout, "\033[41m irq5 \033[0m");
 #endif
@@ -237,8 +223,7 @@ void irq5 ()
   ACKNOWLEDGE_IRQ(5);
 }
 
-void irq6 ()
-{
+void irq6() {
 #ifdef SHOW_INTERRUPTS
   term_write(cout, "\033[41m irq6 \033[0m");
 #endif
@@ -246,8 +231,7 @@ void irq6 ()
   ACKNOWLEDGE_IRQ(6);
 }
 
-void irq7 ()
-{
+void irq7() {
 #ifdef SHOW_INTERRUPTS
   term_write(cout, "\033[41m irq7 \033[0m");
 #endif
@@ -257,8 +241,7 @@ void irq7 ()
 
 #ifndef USE_IRQ8_FOR_TIME
 
-void irq8 ()
-{
+void irq8() {
 #ifdef SHOW_INTERRUPTS
   term_write(cout, "\033[41m irq8 \033[0m");
 #endif
@@ -268,8 +251,7 @@ void irq8 ()
 
 #endif
 
-void irq9 ()
-{
+void irq9() {
 #ifdef SHOW_INTERRUPTS
   term_write(cout, "\033[41m irq9 \033[0m");
 #endif
@@ -277,8 +259,7 @@ void irq9 ()
   ACKNOWLEDGE_IRQ(9);
 }
 
-void irq10 ()
-{
+void irq10() {
 #ifdef SHOW_INTERRUPTS
   term_write(cout, "\033[41m irq10 \033[0m");
 #endif
@@ -286,8 +267,7 @@ void irq10 ()
   ACKNOWLEDGE_IRQ(10);
 }
 
-void irq11 ()
-{
+void irq11() {
 #ifdef SHOW_INTERRUPTS
   term_write(cout, "\033[41m irq11 \033[0m");
 #endif
@@ -297,8 +277,7 @@ void irq11 ()
 
 #ifndef USE_IRQ12_FOR_MOUSE
 
-void irq12 ()
-{
+void irq12() {
 #ifdef SHOW_INTERRUPTS
   term_write(cout, "\033[41m irq12 \033[0m");
 #endif
@@ -308,8 +287,7 @@ void irq12 ()
 
 #endif
 
-void irq13 ()
-{
+void irq13() {
 #ifdef SHOW_INTERRUPTS
   term_write(cout, "\033[41m irq13 \033[0m");
 #endif
@@ -319,8 +297,7 @@ void irq13 ()
 
 #ifndef USE_IRQ14_FOR_IDE0
 
-void irq14 ()
-{
+void irq14() {
 #ifdef SHOW_INTERRUPTS
   term_write(cout, "\033[41m irq14 \033[0m");
 #endif
@@ -332,8 +309,7 @@ void irq14 ()
 
 #ifndef USE_IRQ15_FOR_IDE1
 
-void irq15 ()
-{
+void irq15() {
 #ifdef SHOW_INTERRUPTS
   term_write(cout, "\033[41m irq15 \033[0m");
 #endif
@@ -345,8 +321,7 @@ void irq15 ()
 
 #ifndef USE_APIC_FOR_TIMER
 
-void APIC_timer_irq ()
-{
+void APIC_timer_irq() {
 #ifdef SHOW_INTERRUPTS
   term_write(cout, "\033[41m APIC timer irq \033[0m");
 #endif
@@ -356,8 +331,7 @@ void APIC_timer_irq ()
 
 #endif
 
-void APIC_spurious_irq ()
-{
+void APIC_spurious_irq() {
 #ifdef SHOW_INTERRUPTS
   term_write(cout, "\033[41m APIC spurious irq \033[0m");
 #endif
@@ -376,58 +350,58 @@ void interrupt_handle(interrupt_data data) {
   bool handled = FALSE;
 
   switch (data.int_no) {
-      case CPU_EX_DIV_BY_ZERO :
-          debug_write("CPU_EX_DIV_BY_ZERO");
-          break;
-      case CPU_EX_DEBUG :
-          debug_write("CPU_EX_DEBUG");
-          break;
-      case CPU_EX_NMI :
-          debug_write("CPU_EX_NMI");
-          break;
-      case CPU_EX_BREAKPOINT :
-          debug_write("CPU_EX_BREAKPOINT");
-          break;
-      case CPU_EX_OVERFLOW :
-          debug_write("CPU_EX_OVERFLOW");
-          break;
-      case CPU_EX_BOUND_RANGE_EXCEEDED :
-          debug_write("CPU_EX_BOUND_RANGE_EXCEEDED");
-          break;
-      case CPU_EX_INVALID_OPCODE :
-          debug_write("CPU_EX_INVALID_OPCODE");
-          break;
-      case CPU_EX_DEV_NOT_AVAIL :
-          debug_write("CPU_EX_DEV_NOT_AVAIL");
-          break;
-      case CPU_EX_DOUBLE_FAULT :
-          debug_write("CPU_EX_DOUBLE_FAULT");
-          break;
-      case CPU_EX_COPROC_SEG_OVERRUN :
-          debug_write("CPU_EX_COPROC_SEG_OVERRUN");
-          break;
-      case CPU_EX_INVALID_TSS :
-          debug_write("CPU_EX_INVALID_TSS");
-          break;
-      case CPU_EX_SEGMENT_NO_PRESENT :
-          debug_write("CPU_EX_SEGMENT_NO_PRESENT");
-          break;
-      case CPU_EX_STACK_SEGMENT_FAULT :
-          debug_write("CPU_EX_STACK_SEGMENT_FAULT");
-          break;
-      case CPU_EX_GENERAL_PROTECTION_FAULT :
-          debug_write("CPU_EX_GENERAL_PROTECTION_FAULT");
-          break;
-      case CPU_EX_PAGE_FAULT :
-          debug_write("CPU_EX_PAGE_FAULT");
-          break;
-      case CPU_EX_RESERVED :
-          debug_write("CPU_EX_RESERVED");
-          break;
-      default:
-          // All CPU faults not managed should crash the system
-          handled = FALSE;
-          break;
+  case CPU_EX_DIV_BY_ZERO:
+    debug_write("CPU_EX_DIV_BY_ZERO");
+    break;
+  case CPU_EX_DEBUG:
+    debug_write("CPU_EX_DEBUG");
+    break;
+  case CPU_EX_NMI:
+    debug_write("CPU_EX_NMI");
+    break;
+  case CPU_EX_BREAKPOINT:
+    debug_write("CPU_EX_BREAKPOINT");
+    break;
+  case CPU_EX_OVERFLOW:
+    debug_write("CPU_EX_OVERFLOW");
+    break;
+  case CPU_EX_BOUND_RANGE_EXCEEDED:
+    debug_write("CPU_EX_BOUND_RANGE_EXCEEDED");
+    break;
+  case CPU_EX_INVALID_OPCODE:
+    debug_write("CPU_EX_INVALID_OPCODE");
+    break;
+  case CPU_EX_DEV_NOT_AVAIL:
+    debug_write("CPU_EX_DEV_NOT_AVAIL");
+    break;
+  case CPU_EX_DOUBLE_FAULT:
+    debug_write("CPU_EX_DOUBLE_FAULT");
+    break;
+  case CPU_EX_COPROC_SEG_OVERRUN:
+    debug_write("CPU_EX_COPROC_SEG_OVERRUN");
+    break;
+  case CPU_EX_INVALID_TSS:
+    debug_write("CPU_EX_INVALID_TSS");
+    break;
+  case CPU_EX_SEGMENT_NO_PRESENT:
+    debug_write("CPU_EX_SEGMENT_NO_PRESENT");
+    break;
+  case CPU_EX_STACK_SEGMENT_FAULT:
+    debug_write("CPU_EX_STACK_SEGMENT_FAULT");
+    break;
+  case CPU_EX_GENERAL_PROTECTION_FAULT:
+    debug_write("CPU_EX_GENERAL_PROTECTION_FAULT");
+    break;
+  case CPU_EX_PAGE_FAULT:
+    debug_write("CPU_EX_PAGE_FAULT");
+    break;
+  case CPU_EX_RESERVED:
+    debug_write("CPU_EX_RESERVED");
+    break;
+  default:
+    // All CPU faults not managed should crash the system
+    handled = FALSE;
+    break;
   }
 
   debug_write("INT NO:");
@@ -438,7 +412,7 @@ void interrupt_handle(interrupt_data data) {
   debug_write(data.error_code);
   debug_write("\n\r");
 
-  if(!handled) {
+  if (!handled) {
     panic(L"Unhandled CPU exception");
   }
 }
