@@ -1,60 +1,62 @@
 ;; The mimosa project
-(define-library (utils)
-                (import (gambit))
-                (export
-                  ++
-                  --
-                  //
-                  <<
-                  >>
-                  ID
-                  O
-                  TIME-UNIT-MICROSECS
-                  TIME-UNIT-MS
-                  TIME-UNIT-NSECS
-                  TIME-UNIT-SECONDS
-                  TODO
-                  assock
-                  assocv
-                  b-chop
-                  bcd->binary
-                  bipartition
-                  both
-                  build-vector
-                  day-month-year->days-since-epoch
-                  day-month-year->epoch-seconds
-                  displayn
-                  fields
-                  filter
-                  first-index
-                  flatten
-                  fxhalve
-                  gambit-set-repl-channels!
-                  hour-minute-seconds->seconds
-                  if-not
-                  ilog2
-                  lwrap
-                  mask
-                  o
-                  replace-error
-                  s<<
-                  s>>
-                  split-string
-                  string->u8vector
-                  string-trim
-                  u8vector->string
-                  uint16
-                  uint32
-                  uint8
-                  until-has-elapsed
-                  wint16
-                  wint32
-                  wint8
-                  zip
-                  )
-    (begin
-      (define (// a b)
-        (floor (/ a b)))
+(define-library
+  (utils)
+  (import (gambit))
+  (export
+    ++
+    --
+    //
+    <<
+    >>
+    ID
+    O
+    TIME-UNIT-MICROSECS
+    TIME-UNIT-MS
+    TIME-UNIT-NSECS
+    TIME-UNIT-SECONDS
+    TODO
+    assock
+    assocv
+    b-chop
+    bcd->binary
+    bipartition
+    both
+    build-vector
+    day-month-year->days-since-epoch
+    day-month-year->epoch-seconds
+    displayn
+    fields
+    filter
+    first-index
+    flatten
+    fxhalve
+    gambit-set-repl-channels!
+    hour-minute-seconds->seconds
+    if-not
+    ilog2
+    lwrap
+    mask
+    o
+    partial
+    replace-error
+    s<<
+    s>>
+    split-string
+    string->u8vector
+    string-trim
+    u8vector->string
+    uint16
+    uint32
+    uint8
+    until-has-elapsed
+    wint16
+    wint32
+    wint8
+    zip
+    )
+  (begin
+    (define (// a b)
+      (floor (/ a b)))
 
       (define (hour-minute-seconds->seconds h m s)
        (+ (* 3600 h) (* 60 m) s))
@@ -318,7 +320,7 @@
         sym
         (f val)))
 
-      (define (partials f .args)
+      (define (partial f .args)
        (lambda (.other-args)
         (apply f (concat args other-args))))
 
