@@ -286,7 +286,7 @@
              (port-data (get-port-data cpu-port))
              (endpoint (port-data-get-endpoint port-data))
              (c (integer->char data)))
-        (debug-write (string-append "Received: " (string c)))
+        ; (debug-write (string-append "Received: " (string c)))
         (write-char c endpoint)
         )) ;; Write to the endpoint
 
@@ -319,16 +319,17 @@
     (define (uart-read-lsr cpu-port)
       (let* ((lsr-reg (fx+ cpu-port UART-8250-LSR))
              (e (inb lsr-reg)))
-        (cond ((UART-LSR-DATA-AVAILABLE e)
-               (uart-read-rhr cpu-port))
-              (else e))))
+        (if (UART-LSR-DATA-AVAILABLE e)
+            (uart-read-rhr cpu-port)
+            e)))
 
     (define (uart-handle-iir cpu-port iir)
       (if (mask #x1 iir)
           #t
           (begin
             (uart-handle-cause cpu-port (UART-IIR-GET-CAUSE iir))
-            (uart-handle-iir cpu-port (inb (fx+ cpu-port UART-8250-IIR))))))
+            (uart-handle-iir cpu-port (inb (fx+ cpu-port UART-8250-IIR)))
+            )))
 
     (define (uart-handle-cause cpu-port cause)
       (cond ((= cause UART-IIR-MODEM)
@@ -365,9 +366,7 @@
              ; reading receive Buffer Register(RHR)
              (uart-read-rhr cpu-port))
             ((= cause UART-IIR-TIMEOUT)
-             (begin
-               (debug-write "Timeout")
-               (uart-read-rhr cpu-port)))
+             (uart-read-rhr cpu-port))
             (else
               (debug-write "Unknown IIR status"))))
     ;(cause (UART-IIR-GET-CAUSE iir))
@@ -376,8 +375,12 @@
     ; We know there is a pending interrupt for the port
     ; We can start processing it immediately
     (define (handle-uart-int com-port iir)
-      (let* ((cpu-port (COM-PORT->CPU-PORT com-port)))
-        (uart-handle-iir cpu-port iir)))
+      (let* ((cpu-port (COM-PORT->CPU-PORT com-port))
+             (iir-reg (+ cpu-port UART-8250-IIR))
+             (new-iir (inb iir-reg)))
+        ; get a new value for the IIR; it might have changed since
+        ; we are operating in async. mode
+        (uart-handle-iir cpu-port new-iir)))
 
     (define (make-pump-thread-body com-port endpoint)
       (lambda ()
