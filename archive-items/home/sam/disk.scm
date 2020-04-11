@@ -1,7 +1,8 @@
 ;; The mimosa project
 ; TODO: I do not know if a table is sync safe
 ; Ill assume yes for now
-(define-library (disk)
+(define-library
+ (disk)
                 (import (gambit)
                         (errors)
                         (ide)
