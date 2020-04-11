@@ -296,9 +296,8 @@
         (for-each
           (lambda (ctrl)
             (for-each (lambda (dev)
-                        (begin
-                          (list-set! disk-list disk-idx (create-disk dev DISK-TYPE-IDE))
-                          (set! disk-idx (++ disk-idx))))
+                        (list-set! disk-list disk-idx (create-disk dev DISK-TYPE-IDE))
+                        (set! disk-idx (++ disk-idx)))
                       (filter (ide-controller-devices ctrl)
                               (o not device-absent?))))
           (vector->list IDE-CTRL-VECT))
