@@ -30,7 +30,11 @@
 #define ___DONT_HAVE_NEW
 #define ___DONT_HAVE_MATH_H
 
+#ifndef USE_LIBC_LINK
 #include "modifiedgambit.h"
+#else
+#include "gambit.h"
+#endif
 
 //#undef ___GSTATE
 //#define ___GSTATE ___local_gstate

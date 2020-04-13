@@ -631,7 +631,11 @@ int REDIRECT_NAME(printf)(const char *__format, ...) {
 
 #ifdef GAMBIT_GSTATE 
 
+#ifndef USE_LIBC_LINK
 #include "modifiedgambit.h"
+#else
+#include "gambit.h"
+#endif
 
 volatile struct ___global_state_struct *___local_gstate;
 
