@@ -7,6 +7,8 @@ gdb\.txt
 
 *.sys
 *.bin
+*.exe
+*.elf
 \.gdb_history
 
 mimosa-build/
@@ -14,7 +16,8 @@ mimosa-build/
 *.scratch
 
 \.code-workspace
-gambit
+# gambit why? we want the library
+gambit/bin
 
 *.o
 
@@ -28,16 +31,10 @@ gambit
 
 tags
 
-<<<<<<< HEAD
 utils/bootsectinspect/.idea/
-
 utils/bootsectinspector/.idea/
-
 utils/bootsectinspect/cmake-build-debug/
-=======
 libc/gambit-v4_9_3/
-
 libc/gambit-v4_9_3\.tgz
->>>>>>> master
 
 Session.vim
