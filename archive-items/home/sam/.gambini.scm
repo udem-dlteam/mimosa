@@ -2,11 +2,11 @@
 ; Scheme executor bridge
 (import (errors)
         (keyboard)
-        ; (ide)
-        ; (disk)
+        (ide)
+        (disk)
         (utils)
         (rtc)
-        ; (fat32)
+        (fat32)
         (low-level)
         (uart)
         (debug))
@@ -49,7 +49,7 @@
 (define INT-WITH-ARG-TABLE
   (list
     (cons KEYBOARD-INT keyboard#handle-kbd-int)
-    ; (cons IDE-INT ide#handle-ide-int)
+    (cons IDE-INT ide#handle-ide-int)
     (cons UART-INT uart#handle-uart-int)))
 
 (define (handle-int int-no args)
@@ -119,13 +119,13 @@
 ;;;                     INIT SYSTEM
 ;;;----------------------------------------------------
 
-; (ide#setup)
-; (ide#switch-over-driver)
+(ide#setup)
+(ide#switch-over-driver)
 
-; (init-disks)
-; (define main-disk (car disk-list))
-; (mount-partitions disk-list)
-; (define fs (car filesystem-list))
+(init-disks)
+(define main-disk (car disk-list))
+(mount-partitions disk-list)
+(define fs (car filesystem-list))
 
 (debug-write "AFTER INIT")
 (for-each (o uart#uart-do-init ++) (iota 4))
