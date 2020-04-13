@@ -94,7 +94,7 @@
     ; --------------------------------------------------
     ; --------------------------------------------------
     ; --------------------------------------------------
-    (define-macro (define-c-struct name . fields)
+    (define-macro (define-c-like-structure name . fields)
                   (let* ((symbol-name (symbol->string name))
                          (pack-struct
                            (string->symbol (string-append "pack-" symbol-name)))
@@ -178,6 +178,7 @@
                                                (lambda (i)
                                                  (vector-ref vec (+ ,offset i)))))))
                                     field-width))))))
+
       (define-macro (folder? ff)
                     `(eq? (fat-file-type ,ff) TYPE-FOLDER))
 
@@ -277,7 +278,7 @@
                         entry
                         )
 
-      (define-c-struct BPB
+      (define-c-like-structure BPB
                        (jmp-boot 3)
                        (oem-name 8)
                        (bps 2)
@@ -306,7 +307,7 @@
                        (vol-lab 11)
                        (fs-type 8))
 
-      (define-c-struct entry
+      (define-c-like-structure entry
                        (name 11)
                        (attr 1)
                        (ntres 1)
@@ -320,7 +321,7 @@
                        (cluster-lo 2)
                        (file-size 4))
 
-      (define-c-struct lfn
+      (define-c-like-structure lfn
                        (ord 1)
                        (name1 10)
                        (attr 1)

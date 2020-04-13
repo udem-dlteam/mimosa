@@ -88,7 +88,7 @@
 
 (define (module-path to)
   (path-expand
-   (or to "~~userlib")))
+   (or to "/dsk1/gambit/userlib")))
 
 ;; Protocols
 (define (https-proto mod)
@@ -247,7 +247,7 @@
       (usage)
       (let loop ((rest (cdr args))
                  (arg (car args))
-                 (to (path-expand "~~userlib")))
+                 (to (path-expand "/dsk1/gambit/userlib")))
         (cond
          ((string=? arg "-to")
           (if (or (null? rest) (null? (cdr rest)))
@@ -269,7 +269,7 @@
       (usage)
       (let loop ((rest (cdr args))
                  (arg (car args))
-                 (to (path-expand "~~userlib")))
+                 (to (path-expand "/dsk1/gambit/userlib")))
         (cond
          ((string=? arg "-to")
           (if (or (null? rest) (null? (cdr rest)))
@@ -290,7 +290,7 @@
     (usage)
     (let loop ((rest (cdr args))
                (arg (car args))
-               (to (path-expand "~~userlib")))
+               (to (path-expand "/dsk1/gambit/userlib")))
       (cond ((string=? arg "-to")
              (if (or (null? rest) (null? (cdr rest)))
                  (usage)
