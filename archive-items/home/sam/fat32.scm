@@ -245,7 +245,7 @@
                      ,mvmt
                      (lambda (new-cluster cluster-pos)
                        (fat-file-curr-clus-set! ,file new-cluster)
-                       (fat-file-pos-set! ,file (,fn (fat-file-pos ,file) ,mvmt)))))
+                       (fat-file-pos-set! ,file cluster-pos))))
 
     (define-macro (entry-deleted? entry)
                   `(fx=
@@ -682,7 +682,7 @@
                                                  spanned-clusters
                                                  (filesystem-fat-cache ,fs))))
                              (c new-cluster cluster-leftover)))
-                         (c ,cluster (,(if (eq? direction 'BACKWARDS) `- `+) section-pos ,rewind)))))
+                         (c ,cluster (+ section-pos ,rewind)))))
 
     (define (simulate-backward-move fs cluster pos rewind c)
       (simulate-direction-move 'BACKWARDS fs cluster pos rewind c))
@@ -857,8 +857,8 @@
     ; to allow
     ; This function resets the file cursor to 0 at the start.
     (define (look-for-n-available-entries! folder n succ fail)
-      (let ((ignored (file-set-cursor-absolute! folder 0))
-            (conseq 0))
+      (file-set-cursor-absolute! folder 0)
+      (let ((conseq 0))
         (read-entries
           folder
           (lambda (e next)
@@ -880,7 +880,6 @@
           (lambda (err)
             (fail
               err
-              ; WHY
               (cond ((eq? ERR-EOF err) ; we did not move the cursor
                      (- (fat-file-pos folder)
                         (* conseq entry-width)))
@@ -1301,10 +1300,12 @@
               (max-len (fat-file-len file)))
           (logical-entry-last-write-time-set! entry now)
           (logical-entry-last-write-date-set! entry today)
-          (fat-file-len-set! file (if (>= pos max-len)
-                                      (++ pos)
-                                      max-len))
-          (update-file-entry file))
+          (if (not (folder? file))
+              (begin
+                (fat-file-len-set! file (if (>= pos max-len)
+                                            (++ pos)
+                                            max-len))
+                (update-file-entry file))))
         result))
 
     ; Truncate a file
@@ -1462,7 +1463,10 @@
                     parent
                     n
                     wrt
-                    (lambda (err offset) (if (>= offset 0) (wrt offset) (ID err))))))
+                    (lambda (err offset)
+                      (if (>= offset 0)
+                          (wrt offset)
+                          (ID err))))))
               ID))
           (lambda (err)
             ERR-FNF))))
@@ -1544,7 +1548,7 @@
 
     (define (a)
      (let* ((fs (car filesystem-list))
-            (f (file-create! fs "home/sam/fun.scm" TYPE-FILE)))
+            (f (file-create! fs "fun.scm" TYPE-FILE)))
       (file-write-string! f "THIS IS A TEST IN CAPS" ID)
       f))
 
