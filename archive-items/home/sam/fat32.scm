@@ -40,6 +40,7 @@
     write-file
     user-load
     a
+    test-suite
     )
   (begin
     ; --------------------------------------------------
@@ -1541,11 +1542,27 @@
     (define (user-load fs path)
       (let ((s (file-read! (file-open! fs path "r") -1 ID)))
         (eval (read (open-input-string s)))
-        s))
+        (string-append "eval '(" s ")")))
 
     (define (a)
       (let* ((fs (car filesystem-list))
              (f (file-create! fs "home/sam/thisisafilewithalongname.scm" TYPE-FILE)))
         (file-write-string! f "THIS IS A TEST IN CAPS" ID) f))
+
+    (define (test-suite)
+     (let* ((fs (car filesystem-list))
+            (f (file-create! fs "home/sam/anewfile" TYPE-FILE)))
+        (if (not (fat-file? f))
+          (debug-write "Test 1 failed"))
+        (file-write-string! f "abcdefghijklmnopqrstuvwxyz")
+        (set! f (file-open! fs "home/sam/anewfile" "r"))
+        (if (not (string=?  "abcdefghijklmnopqrstuvwxyz" (file-read! f -1 ID)))
+         (debug-write "Test 2 failed"))
+        (file-set-cursor-absolute! f 0)
+        (if (not (string=?  "abcdefghijklmnopqrstuvwxyz" (file-read! f -1 ID)))
+         (debug-write "Test 3 failed"))
+
+
+      ))
 
     ))
