@@ -499,7 +499,7 @@
               (short-ext (remove-spaces ext)))
           (if (= 0 (length short-ext))
               (list->string short-name)
-              (list->string (append short-name (list ".") short-ext))))))
+              (list->string (append short-name (list #\.) short-ext))))))
 
     (define (lfn-name->string vect)
       (list->string (fold-right (lambda (c r)
@@ -1217,7 +1217,7 @@
               lba
               MRW
               ; write to vector
-              (lambda (v) (vector-copy! v dest-offset vect offset (+ offset len))))
+              (lambda (v) (vector-copy! v dest-offset vect offset (+ offset sz))))
             (if (= 0 (modulo (+ sz pos) bpc))
                 (fetch-or-allocate-next-cluster
                   fs
@@ -1548,8 +1548,8 @@
 
     (define (a)
      (let* ((fs (car filesystem-list))
-            (f (file-create! fs "home/sam/fun.scm" TYPE-FILE)))
-      (file-write-string! f "THIS IS A TEST IN CAPS" ID)
+            (f (file-create! fs "home/sam/thisisafilewithalongname.scm" TYPE-FILE)))
+      ; (file-write-string! f "THIS IS A TEST IN CAPS" ID)
       f))
 
     ))
