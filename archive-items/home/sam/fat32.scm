@@ -499,7 +499,7 @@
               (short-ext (remove-spaces ext)))
           (if (= 0 (length short-ext))
               (list->string short-name)
-              (list->string (append short-name short-ext))))))
+              (list->string (append short-name (list ".") short-ext))))))
 
     (define (lfn-name->string vect)
       (list->string (fold-right (lambda (c r)
@@ -1548,7 +1548,7 @@
 
     (define (a)
      (let* ((fs (car filesystem-list))
-            (f (file-create! fs "fun.scm" TYPE-FILE)))
+            (f (file-create! fs "home/sam/fun.scm" TYPE-FILE)))
       (file-write-string! f "THIS IS A TEST IN CAPS" ID)
       f))
 
