@@ -3,6 +3,7 @@
 
 #ifdef USE_MIMOSA
 
+mutex *allocator_mutex = NULL;
 #include "heap.h"
 
 #endif
@@ -27,7 +28,13 @@ void *REDIRECT_NAME(malloc)(size_t __size) {
 
 #ifdef USE_MIMOSA
 
-  return heap_malloc(&appheap, __size);
+  void* result;
+
+  mutex_lock(allocator_mutex);
+  result = heap_malloc(&appheap, __size);
+  mutex_unlock(allocator_mutex);
+
+  return result; 
 
 #else
 
@@ -35,7 +42,6 @@ void *REDIRECT_NAME(malloc)(size_t __size) {
 #define MB (1<<20)
 #define HEAP_SIZE 40*MB // needs to be at least 5*MB
 
-    debug_write("MANUAL HEAP ALLOC");
     static char heap[HEAP_SIZE];
     static int alloc = HEAP_SIZE;
 
@@ -73,8 +79,10 @@ void REDIRECT_NAME(free)(void *__ptr) {
 #else
 
 #ifdef USE_MIMOSA
-
-  return heap_free(&appheap, __ptr);
+  mutex_lock(allocator_mutex);
+  heap_free(&appheap, __ptr);
+  mutex_unlock(allocator_mutex);
+  return;
 
 #else
   // TODO: implement
@@ -163,7 +171,8 @@ int REDIRECT_NAME(system)(const char *__command) {
 #ifndef USE_LIBC_LINK
 
 void libc_init_stdlib(void) {
-
+  allocator_mutex = CAST(mutex*,kmalloc(sizeof(mutex)));
+  new_mutex(allocator_mutex);
 }
 
 #endif

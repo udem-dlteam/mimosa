@@ -686,6 +686,14 @@ void debug_write(uint32 x) {
   debug_write(str);
 }
 
+void debug_write(void *ptr) {
+  if (NULL == ptr) {
+    debug_write("NULL");
+  } else {
+    debug_write(CAST(uint32, ptr));
+  }
+}
+
 void __debug_write(uint32 x) {
   const int max_digits = 10; // 2^32 contains 10 decimal digits
   native_char buf[max_digits + 1];

@@ -84,6 +84,7 @@ term *term_write(term *self, void *x);
 term *term_write(term *self, native_string x);
 term *term_write(term *self, unicode_string x);
 
+void debug_write(void *ptr);
 void debug_write(uint32 x);
 void __debug_write(uint32 x);
 void debug_write(native_string x);
