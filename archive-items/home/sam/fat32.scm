@@ -1432,6 +1432,7 @@
                                    type
                                    file-name))
                        (entries (fat-file->entries new-file))
+                       (_ (display entries))
                        (bpc (filesystem-bpc fs))
                        (n (length entries))
                        (wrt (lambda (offset)
