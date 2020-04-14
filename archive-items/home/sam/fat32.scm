@@ -1173,8 +1173,7 @@
             (wint32 vect (<< offset 2) 0) ; erase on disk
             ; stack the env to flush to disk the minimal amount of time
             (if (not (mask FAT-32-EOF next))
-                (unlink-chain-aux fs cache next))
-            ))))
+                (unlink-chain-aux fs cache next))))))
 
     (define (unlink-chain fs cluster)
       (let ((mut (filesystem-cache-write-mut fs))
@@ -1289,7 +1288,7 @@
             (wint32 vect (+ offset entry-width -4) len)))))
 
     (define (file-write-string! file str fail)
-     (file-write! file (string->u8vector str) 0 (string-length str) fail))
+      (file-write! file (string->u8vector str) 0 (string-length str) fail))
 
     (define (file-write! file vect offset len fail)
       (let ((result (write-bytes! file vect offset len fail))
@@ -1302,9 +1301,7 @@
           (logical-entry-last-write-date-set! entry today)
           (if (not (folder? file))
               (begin
-                (fat-file-len-set! file (if (>= pos max-len)
-                                            (++ pos)
-                                            max-len))
+                (fat-file-len-set! file (if (>= pos max-len) (++ pos) max-len))
                 (update-file-entry file))))
         result))
 
@@ -1468,8 +1465,7 @@
                           (wrt offset)
                           (ID err))))))
               ID))
-          (lambda (err)
-            ERR-FNF))))
+          (lambda (err) ERR-FNF))))
 
     (define (mark-entry-deleted entry)
       (if (lfn? entry)
@@ -1543,13 +1539,13 @@
     ; This routines loads a file from
     ; disk and places it in executable context
     (define (user-load fs path)
-      (let ((f (file-open! fs path "r")))
-        (eval (quote (file-read! f -1 ID)))))
+      (let ((s (file-read! (file-open! fs path "r") -1 ID)))
+        (eval (read (open-input-string s)))
+        s))
 
     (define (a)
-     (let* ((fs (car filesystem-list))
-            (f (file-create! fs "home/sam/thisisafilewithalongname.scm" TYPE-FILE)))
-      ; (file-write-string! f "THIS IS A TEST IN CAPS" ID)
-      f))
+      (let* ((fs (car filesystem-list))
+             (f (file-create! fs "home/sam/thisisafilewithalongname.scm" TYPE-FILE)))
+        (file-write-string! f "THIS IS A TEST IN CAPS" ID) f))
 
     ))
