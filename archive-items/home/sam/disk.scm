@@ -223,7 +223,6 @@
                         (mutex-unlock! dmut)
                         (mutex-unlock! smut); todo not sure if necessary
                         #t)))
-        (debug-write "Flushing...")
         (mutex-lock! smut)
         (mutex-lock! dmut)
         (ide-write-sectors
@@ -264,6 +263,7 @@
         (if (eq? MODE-READ-WRITE mode)
             (sector-dirty?-set! sector #t))
         (sector-has-chance?-set! sector #t)
+        (sector-ref-count-set! sector (++ refs))
         (mutex-unlock! mut)
         sector))
 

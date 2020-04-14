@@ -19,6 +19,7 @@
     file-open!
     file-read!
     file-write!
+    file-write-string!
     filesystem-list
     list-directory
     look-for-n-available-entries!
@@ -777,9 +778,7 @@
                 fail)
               (let* ((logical-ents (entry-list->logical-entries (reverse (cons e lfns)))))
                 (if (string=? name (logical-entry-name (car logical-ents)))
-                    (begin
-                      (display e)
-                      (succ (car logical-ents)))
+                    (succ (car logical-ents))
                     (search-entry-aux file name '() succ fail))
                 )))
         fail))
@@ -1216,13 +1215,7 @@
               lba
               MRW
               ; write to vector
-              (lambda (v)
-                (vector-copy!
-                  v
-                  dest-offset
-                  vect
-                  offset
-                  (+ offset len))))
+              (lambda (v) (vector-copy! v dest-offset vect offset (+ offset len))))
             (if (= 0 (modulo (+ sz pos) bpc))
                 (fetch-or-allocate-next-cluster
                   fs
@@ -1292,6 +1285,9 @@
             (wint16 vect (+ offset entry-width -10) last-write-time)
             (wint16 vect (+ offset entry-width -8) last-write-date)
             (wint32 vect (+ offset entry-width -4) len)))))
+
+    (define (file-write-string! file str fail)
+     (file-write! file (string->u8vector str) 0 (string-length str) fail))
 
     (define (file-write! file vect offset len fail)
       (let ((result (write-bytes! file vect offset len fail))
