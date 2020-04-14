@@ -39,6 +39,7 @@
     stat-struct-type
     write-file
     user-load
+    a
     )
   (begin
     ; --------------------------------------------------
@@ -674,19 +675,20 @@
                           (spanned-clusters (>> diff lg2bpc)))
                      (if (> (abs spanned-clusters) 0)
                          ; need to go over boundary
-                         (let* ((cluster-leftover (modulo diff (<< 1 lg2bpc)))
-                                (new-cluster (traverse-fat-chain
-                                               ,cluster
-                                               spanned-clusters
-                                               (filesystem-fat-cache ,fs))))
-                           (c new-cluster cluster-leftover))
+                         (begin
+                           (let* ((cluster-leftover (modulo diff (<< 1 lg2bpc)))
+                                  (new-cluster (traverse-fat-chain
+                                                 ,cluster
+                                                 spanned-clusters
+                                                 (filesystem-fat-cache ,fs))))
+                             (c new-cluster cluster-leftover)))
                          (c ,cluster (,(if (eq? direction 'BACKWARDS) `- `+) section-pos ,rewind)))))
 
-    (define (simulate-backward-move fs cursor pos rewind c)
-      (simulate-direction-move 'BACKWARDS fs cursor pos rewind c))
+    (define (simulate-backward-move fs cluster pos rewind c)
+      (simulate-direction-move 'BACKWARDS fs cluster pos rewind c))
 
-    (define (simulate-forward-move fs cursor pos rewind c)
-      (simulate-direction-move 'FORWARDS fs cursor pos rewind c))
+    (define (simulate-forward-move fs cluster pos rewind c)
+      (simulate-direction-move 'FORWARDS fs cluster pos rewind c))
 
     (define (file-move-cursor-backward! file rewind)
       (relative-move-function file rewind -))
@@ -694,10 +696,10 @@
     (define (file-move-cursor-forward! file wind)
       (relative-move-function file wind +))
 
-    (define (simulate-move fs cursor pos delta c)
+    (define (simulate-move fs cluster pos delta c)
       (if (> delta 0)
-          (simulate-forward-move fs cursor pos delta c)
-          (simulate-backward-move fs cursor pos delta c)))
+          (simulate-forward-move fs cluster pos delta c)
+          (simulate-backward-move fs cluster pos delta c)))
 
     (define (file-move-cursor! file delta)
       (if (> delta 0)
@@ -710,13 +712,13 @@
         ; Update the new link
         (cache-link-next-set! link new-next)
         (if (and
-              (not (mask new-next FAT-32-EOF))
+              (not (>= new-next FAT-32-EOF))
               (> new-next 0))
             (let ((new-next-link (table-ref cache new-next)))
               (cache-link-prev-set! new-next-link clus)))
         ; If it was set to something, unset it
         (if (and
-              (not (mask previous-next-no FAT-32-EOF))
+              (not (>= previous-next-no FAT-32-EOF))
               (> previous-next-no 0))
             (let ((previous-next-link (table-ref cache previous-next-no)))
               (cache-link-prev-set! previous-next-link 0)))))
@@ -1190,6 +1192,7 @@
               fs
               (lambda (new-cluster link)
                 (set-next-cluster! fs cluster new-cluster)
+                ; (set-next)
                 (c new-cluster))
               fail)
             (c new-cluster))))
@@ -1432,7 +1435,6 @@
                                    type
                                    file-name))
                        (entries (fat-file->entries new-file))
-                       (_ (display entries))
                        (bpc (filesystem-bpc fs))
                        (n (length entries))
                        (wrt (lambda (offset)
@@ -1539,5 +1541,11 @@
     (define (user-load fs path)
       (let ((f (file-open! fs path "r")))
         (eval (quote (file-read! f -1 ID)))))
+
+    (define (a)
+     (let* ((fs (car filesystem-list))
+            (f (file-create! fs "home/sam/fun.scm" TYPE-FILE)))
+      (file-write-string! f "THIS IS A TEST IN CAPS" ID)
+      f))
 
     ))

@@ -525,7 +525,7 @@ uint8 send_gambit_int(uint8 int_no, uint8 *params, uint8 len) {
 
     if (i != required_len) {
       // This should be avoided at all cost
-      debug_write("Interrupt queue full. Discarding");
+      /* debug_write("Interrupt queue full. Discarding"); */
     } else {
       scout = gambit_writer;
       mem[scout % GAMBIT_SHARED_MEM_LEN] = int_no;
