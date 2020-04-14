@@ -1036,8 +1036,9 @@
     (define (find-first-free-cluster-aux cache index len succ fail)
       (if (< index len)
           (let* ((link (table-ref cache index))
-                 (link-next (cache-link-next link)))
-            (if (fx= link-next 0)
+                 (link-next (cache-link-next link))
+                 (link-prev (cache-link-next link)))
+            (if (and (fx= link-prev 0) (fx= link-next 0))
                 (succ index link)
                 (find-first-free-cluster-aux cache (++ index) len succ fail)))
           (fail ERR-EOF)))
@@ -1192,7 +1193,6 @@
               fs
               (lambda (new-cluster link)
                 (set-next-cluster! fs cluster new-cluster)
-                ; (set-next)
                 (c new-cluster))
               fail)
             (c new-cluster))))
@@ -1406,10 +1406,10 @@
             now ; create time
             today ; create date
             today ; last access date
-            (fxand #xFF (>> clus 16)) ; cluster high
+            (fxand #xFFFF (>> clus 16)) ; cluster high
             now ; last write time
             now ; last write date
-            (fxand #xFF clus) ; cluster low
+            (fxand #xFFFF clus) ; cluster low
             0
             (> (string-length name) FAT-NAME-LENGTH)
             ))))
