@@ -39,7 +39,6 @@
     stat-struct-type
     write-file
     user-load
-    a
     test-suite
     )
   (begin
@@ -430,7 +429,7 @@
       ; Bits 15-9: Year relative to 1980
       ; Bits 8-5: Month
       ; Bits 4-0: Day of month
-      (let ((year (max year 1980))) ; year below 1980 is incorrect
+      (let ((year (min (- year 1980) 1980))) ; year below 1980 is incorrect
         (fxior
           (<< (fxand year #x7F) 9)
           (<< (fxand month #xF) 5)
@@ -454,8 +453,11 @@
                     (lfn-name2 lfn)
                     (lfn-name3 lfn))))
         (fold-right
-          string-append "" (map lfn-name->string
-                                (map (lambda (v) (vector-map integer->char v)) text)))))
+          string-append
+          ""
+          (map
+            lfn-name->string
+            (map (lambda (v) (vector-map integer->char v)) text)))))
 
     ; Simplify a path and return it as a list of folder, possibly with a file at the end,
     ; that need to be traversed to get to the end of the path. Relative movements
@@ -564,7 +566,7 @@
                   (iota no-of-entries))
         cache))
 
-    (define (build-fs dsk)
+    (define (make-fs dsk)
       (let* ((bpb (with-sector dsk 0 MRO pack-BPB))
              (lg2bps (ilog2 (BPB-bps bpb)))
              (lg2spc (ilog2 (BPB-sec-per-cluster bpb)))
@@ -580,7 +582,7 @@
           (make-mutex) ; cache write mutex
           (make-fat-cache dsk bpb))))
 
-    (define (open-root-dir fs)
+    (define (root-directory fs)
       (let*
         ((bpb (filesystem-bpb fs))
          (bps (BPB-bps bpb))
@@ -601,7 +603,7 @@
     (define (mount-partition disk default)
       (if (disk-absent? disk)
           default
-          (let* ((fs (build-fs disk))
+          (let* ((fs (make-fs disk))
                  (bpb (filesystem-bpb fs))
                  (fs-type (u8vector->string (BPB-fs-type bpb))))
             (if (string=?
@@ -636,25 +638,20 @@
              (n (cache-link-next link)))
         (if (fx>= n FAT-32-EOF) EOF n)))
 
-    (define (previous-cluster file)
-      (let* ((link (get-cached-cluster file))
-             (n (cache-link-prev link)))
-        (if (fx>= n FAT-32-EOF) EOF n)))
-
-    (define (fat-reset-cursor! file)
+    (define (reset-cursor! file)
       (let* ((fs (fat-file-fs file))
              (lg2spc (filesystem-lg2spc fs))
-             (lg2bps (filesystem-lg2bps))
-             (first-cluster (fat-file-first-clus f)))
+             (lg2bps (filesystem-lg2bps fs))
+             (first-cluster (fat-file-first-clus file)))
         (fat-file-curr-clus-set! file first-cluster)
         (fat-file-pos-set! file 0)))
 
-    (define (file-set-cursor-absolute! file pos)
+    (define (set-cursor! file pos)
       (let ((current-pos (fat-file-pos file)))
         (cond ((= current-pos pos)
                #t)
               ((= 0 pos)
-               (file-reset-cursor! file))
+               (reset-cursor! file))
               (else
                 (let ((delta (- pos current-pos)))
                   (file-move-cursor! file delta))))))
@@ -859,7 +856,7 @@
     ; to allow
     ; This function resets the file cursor to 0 at the start.
     (define (look-for-n-available-entries! folder n succ fail)
-      (file-set-cursor-absolute! folder 0)
+      (set-cursor! folder 0)
       (let ((conseq 0))
         (read-entries
           folder
@@ -1151,11 +1148,7 @@
           d
           (+ lba-offset rsvd)
           MRW
-          (lambda (vect)
-            (wint32
-              vect
-              (<< offset 2)
-              (cache-link-next link))))))
+          (lambda (vect) (wint32 vect (<< offset 2) (cache-link-next link))))))
 
     (define (unlink-chain-aux fs cache cluster)
       (let* ((bpb (filesystem-bpb fs))
@@ -1420,7 +1413,7 @@
              (revd (reverse parts))
              (file-name (car revd))
              (parent-parts (reverse (cdr revd)))
-             (root (open-root-dir fs)))
+             (root (root-directory fs)))
         (follow-path
           root
           parent-parts
@@ -1438,7 +1431,7 @@
                        (bpc (filesystem-bpc fs))
                        (n (length entries))
                        (wrt (lambda (offset)
-                              (file-set-cursor-absolute! parent offset)
+                              (set-cursor! parent offset)
                               (flush-entry-list-to-disk
                                 fs
                                 (fat-file-curr-clus parent)
@@ -1478,7 +1471,7 @@
     (define (file-delete! fs path)
       (let* ((parts (simplify-path path))
              (chain (filesystem-fat-cache fs))
-             (root (open-root-dir fs)))
+             (root (root-directory fs)))
         (follow-path
           root
           parts
@@ -1503,7 +1496,7 @@
     ; Open a fat file
     (define (file-open! fs path mode)
       (let ((parts (simplify-path path))
-            (root (open-root-dir fs))
+            (root (root-directory fs))
             (mode (parse-modes mode)))
         (follow-path
           root
@@ -1512,7 +1505,7 @@
             (cond ((mask mode FILE-MODE-READ) ; r, r+
                    #t) ; nothing special
                   ((mask mode FILE-MODE-APPEND)
-                   (file-set-cursor-absolute! f (max 0 (-- (fat-file-len f)))))
+                   (set-cursor! f (max 0 (-- (fat-file-len f)))))
                   ((mask mode FILE-MODE-TRUNC)
                    (truncate-file f)))
             (fat-file-mode-set! f mode)
@@ -1545,25 +1538,53 @@
         (eval (read (open-input-string s)))
         (string-append "eval '(" s ")")))
 
-    (define (a)
-      (let* ((fs (car filesystem-list))
-             (f (file-create! fs "home/sam/thisisafilewithalongname.scm" TYPE-FILE)))
-        (file-write-string! f "THIS IS A TEST IN CAPS" ID) f))
-
     (define (test-suite)
      (let* ((fs (car filesystem-list))
             (f (file-create! fs "home/sam/anewfile" TYPE-FILE)))
         (if (not (fat-file? f))
           (debug-write "Test 1 failed"))
-        (file-write-string! f "abcdefghijklmnopqrstuvwxyz")
-        (set! f (file-open! fs "home/sam/anewfile" "r"))
-        (if (not (string=?  "abcdefghijklmnopqrstuvwxyz" (file-read! f -1 ID)))
-         (debug-write "Test 2 failed"))
-        (file-set-cursor-absolute! f 0)
-        (if (not (string=?  "abcdefghijklmnopqrstuvwxyz" (file-read! f -1 ID)))
+        (file-write-string!
+          f
+          "abcdefghijklmnopqrstuvwxyz" ID)
+
+        (set! f (file-open! fs "home/sam/ANEWFILE" "r"))
+        (if (not (fat-file? f))
+          (debug-write "Test 2 failed"))
+
+        (if (not (string=? "abcdefghijklmnopqrstuvwxyz" (file-read! f 26 ID)))
          (debug-write "Test 3 failed"))
 
+        (set-cursor! f 0)
+        (let ((s (file-read! f 26 ID)))
+          (debug-write (string-append "(" s ")"))
+          (if (not (string=? "abcdefghijklmnopqrstuvwxyz" s))
+              (begin
+                (debug-write "Test 4 failed")
+                (debug-write (string-append "(" s ")")))))
 
+        (set-cursor! f 5)
+        (let ((s (file-read! f 1 ID)))
+          (debug-write (string-append "(" s ")"))
+          (if (not (string=? "f" s))
+              (begin
+                (debug-write "Test 5 failed")
+                (debug-write (string-append "(" s ")")))))
+
+        (set-cursor! f 4)
+        (let ((s (file-read! f 1 ID)))
+          (debug-write (string-append "(" s ")"))
+          (if (not (string=? "e" s))
+              (begin
+                (debug-write "Test 6 failed")
+                (debug-write (string-append "(" s ")")))))
+
+        (set! f (file-open! fs "home/sam/ANEWFILE" "w+"))
+        (let ((s (file-read! f -1 ID)))
+          (debug-write (string-append "(" s ")"))
+          (if (not (string=? "" s))
+              (begin
+                (debug-write "Test 7 failed")
+                (debug-write (string-append s)))))
       ))
 
     ))
