@@ -475,10 +475,11 @@
     (define (string->short-name-vect str)
       (let ((split (split-string #\. str)))
         (let ((v (make-vector 11 (char->integer #\space)))
-              (name (string-upcase (car split)))
-              (ext (string-upcase (cadr split))))
+              (name (string-upcase (car split))))
           (vector-copy! v 0 (string->u8vector name) 0 (min 8 (string-length name)))
-          (vector-copy! v 8 (string->u8vector ext) 0 (min 3 (string-length ext)))
+          (if (> (length split) 1) ; extension is not necessary
+              (let ((ext (string-upcase (cadr split))))
+                (vector-copy! v 8 (string->u8vector ext) 0 (min 3 (string-length ext)))))
           v)))
 
     (define (remove-spaces v)
