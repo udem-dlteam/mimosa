@@ -44,3 +44,7 @@ Multiple debugging `make` commands are also available:
 - `make run-with-serial` passes through a serial port from the VM to the host on port 44555. It can be used in conjonction with the `telnet` or `netcat` utility to control a REPL from your host system.
 
 The createimg.sh script is used to create a FAT32 image that can be mounted and add necessary Scheme driver files to the archive. However, the folder `archive-items` will be entirely replicated on the image and so you can add other files to be accessible at boot.
+
+# Dependencies
+
+The kernel requires a compatible Gambit runtime. Currently, the modified Gambit runtime is located [here](https://github.com/SamuelYvon/gambit).
