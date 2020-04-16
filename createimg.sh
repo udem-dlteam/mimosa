@@ -16,11 +16,11 @@ fi
 
 # Admin routines
 admin-mount() {
-  sudo mount $@
+  sudo mount "$@"
 }
 
 admin-umount() {
-  : ${1:?"Expected path"}
+  : "${1:?"Expected path"}"
   sudo umount "$1"
 }
 
@@ -35,6 +35,10 @@ echo "Mounted"
 
 echo "Copying items to the disk..."
 cp kernel.bin "$TMPDIR/BOOT.SYS"
+# Copy the Scheme file to the archive
+mkdir -p ./archive-items/home/sam
+cp -r ./scheme/. ./archive-items/home/sam/.
+mv ./archive-items/home/sam/gambini.scm ./archive-items/home/sam/.gambini.scm
 cp -r ./archive-items/. "$TMPDIR"
 
 # mkdir /mnt/tmp/folder

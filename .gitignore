@@ -12,6 +12,7 @@ gdb\.txt
 \.gdb_history
 
 mimosa-build/
+archive-items/home/sam
 
 *.scratch
 
