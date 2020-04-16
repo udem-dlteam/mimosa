@@ -47,4 +47,16 @@ The createimg.sh script is used to create a FAT32 image that can be mounted and 
 
 # Dependencies
 
-The kernel requires a compatible Gambit runtime. Currently, the modified Gambit runtime is located [here](https://github.com/SamuelYvon/gambit).
+The kernel requires a compatible Gambit runtime. Currently, the modified Gambit runtime is located [here](https://github.com/SamuelYvon/gambit). In order to build a compatible runtime, you will need the Ubuntu VM provided in [this repository](https://github.com/udem-dlteam/ubuntu-6). Once running, you can then:
+```Shell
+./build-and-copy-gambit-to-vm.sh build
+ssh administrator@localhost:10022
+    cd libc/
+    tar xvf gambit*
+    mv gambit* gambit
+    ./build-mimosa-gambit
+    C-c # exit once completed
+./fetch-gambit-from-vm.sh
+```
+
+This will automatically place the built executable in the right folder, so a compile cycle will then execute properly.
