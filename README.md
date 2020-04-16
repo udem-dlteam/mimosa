@@ -1,5 +1,5 @@
 <img style="float:left" src="res/logo.png" width="80" >
-<h1 style="float:right">Mimosa</h1>
+<h1 style="float:right; display:inline-block">Mimosa</h1>
 
 <div style="clear:both"></div>
 
@@ -7,7 +7,7 @@
 
 # Introduction
 
-The Mimosa operating system consists of a minimal kernel built on C++ and Scheme. It contains a Scheme implementation of a hard drive (ATA) driver, keyboard (PS2), serial (8250 UART), FAT32 filesystem and a small real time clock manager.
+The Mimosa operating system consists of a minimal kernel built on C++ and Scheme. It contains a Scheme implementation of a hard drive (ATA) driver, keyboard (PS2), serial (8250 UART), FAT32 filesystem and a small real time clock manager. The project was built to experiment with developement of operating system using a high level functional language to study the developement process and the use of
 
 ## Project scope
 
