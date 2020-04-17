@@ -3,7 +3,7 @@
 
 <div style="clear:both"></div>
 
-<img src="res/mimosa_screenshot.png" width="600">
+<img src="res/mimosa-screenshot.png" width="600">
 
 # Introduction
 
