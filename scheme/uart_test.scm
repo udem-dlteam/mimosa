@@ -1,5 +1,6 @@
-;; The mimosa project
-
+; Mimosa
+; Université de Montréal
+; Marc Feeley, Samuel Yvon
 (define msg "This is a long message to send")
 
 (define (write-test)

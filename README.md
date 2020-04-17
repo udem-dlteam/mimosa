@@ -60,3 +60,7 @@ ssh administrator@localhost:10022
 ```
 
 This will automatically place the built executable in the right folder, so a compile cycle will then execute properly.
+
+# Developement
+
+The project has seen many codestyles and so some parts of the code are not formatted the same. The C++ code tries to use the "llvm" format (mainly in driver and kernel files), using the `clang-format` utility. The Scheme code does not follow a style that has a name that I know of. 

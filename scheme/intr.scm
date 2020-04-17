@@ -1,5 +1,6 @@
-;; The mimosa project
-;; Interrupt utils
+; Mimosa
+; Université de Montréal
+; Marc Feeley, Samuel Yvon
 (define-library (intr)
 (import
   (gambit)

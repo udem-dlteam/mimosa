@@ -571,13 +571,13 @@ void idle_thread_run() {
     if (0 == (heartbeat_counter % HEARTBEAT_FREQ)) {
       if (0 == heartbeat_cycle) {
         disable_interrupts();
-        raw_bitmap_fill_rect((raw_bitmap *)&screen, 610, 0, 640, 30,
+        raw_bitmap_fill_rect((raw_bitmap *)&screen, 610, 0, 630, 20,
                              &pattern_red);
         heartbeat_cycle = 1;
         enable_interrupts();
       } else {
         disable_interrupts();
-        raw_bitmap_fill_rect((raw_bitmap *)&screen, 610, 0, 640, 30,
+        raw_bitmap_fill_rect((raw_bitmap *)&screen, 610, 0, 630, 20,
                              &pattern_green);
         heartbeat_cycle = 0;
         enable_interrupts();

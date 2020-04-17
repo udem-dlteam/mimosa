@@ -1,5 +1,6 @@
-;; The mimosa project
-;; Ide controller base code
+; Mimosa
+; Université de Montréal
+; Marc Feeley, Samuel Yvon
 (define-library (ide)
 (import
   (errors)

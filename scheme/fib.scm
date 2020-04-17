@@ -1,3 +1,6 @@
+; Mimosa
+; Université de Montréal
+; Marc Feeley, Samuel Yvon
 (declare
   (standard-bindings)
   (extended-bindings)

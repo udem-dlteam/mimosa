@@ -1,5 +1,6 @@
-; The mimosa project
-; Limitation: root entry cluster must be two
+; Mimosa
+; Université de Montréal
+; Marc Feeley, Samuel Yvon
 (define-library
   (fat32)
   (import

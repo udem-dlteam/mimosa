@@ -1,5 +1,6 @@
-; The MIMOSA project
-; Scheme executor bridge
+; Mimosa
+; Université de Montréal
+; Marc Feeley, Samuel Yvon
 (import (errors)
         (keyboard)
         (ide)

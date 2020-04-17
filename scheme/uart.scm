@@ -1,6 +1,6 @@
-;; The mimosa project
-;; UART driver
-
+; Mimosa
+; Université de Montréal
+; Marc Feeley, Samuel Yvon
 (load "intr.scm")
 
 (define-library

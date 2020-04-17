@@ -1,4 +1,6 @@
-;; The mimosa project
+; Mimosa
+; Université de Montréal
+; Marc Feeley, Samuel Yvon
 (declare (not safe))
 (define-library
   (keyboard)

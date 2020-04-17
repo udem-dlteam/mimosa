@@ -1,3 +1,6 @@
+; Mimosa
+; Université de Montréal
+; Marc Feeley, Samuel Yvon
 ;;;----------------------------------------------------
 
 ;; Import functions for generating x86 machine code.

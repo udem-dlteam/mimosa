@@ -1,3 +1,6 @@
+; Mimosa
+; Université de Montréal
+; Marc Feeley, Samuel Yvon
 (define-library
   (low-level)
   (import (gambit))
