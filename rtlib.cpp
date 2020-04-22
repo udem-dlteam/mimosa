@@ -493,13 +493,19 @@ uint8 send_gambit_int(uint8 int_no, uint8 *params, uint8 len) {
   ASSERT_INTERRUPTS_DISABLED();
 
   if (BU) {
+    /*
+     * For more details in how the interrupt queue synchronizes itself with
+     * the Scheme layer, @see the ./scheme/gambini.scm file.
+     */
     uint8 *mem = CAST(uint8 *, GAMBIT_SHARED_MEM_CMD);
     /**
      * Interrupts arguments are sent to gambit in the following way:
      *  |                   |              |
      *  |  INTERRUPT NUMBER | SZ OF PARAMS | PARAM 0 | PARAM 1 | ...
      *  |                   |              |
-     * They are written in a circular buffer
+     *  This structure is called an interrupt frame. The interrupt number (and
+     * thus the frame) never starts by zero, which is how we can detect that the
+     * memory is accessible.
      */
     uint8 required_len = 2 + len; // number, size, + params
 
