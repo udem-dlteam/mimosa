@@ -85,17 +85,23 @@
   (define IDE-IRQ-2 12)
   (define IDE-CTRL-3 #x168)
   (define IDE-IRQ-3 10)
-  (define IDE-CONTROLLER-PORTS (list
-                                 IDE-CTRL-0
-                                 IDE-CTRL-1
-                                 IDE-CTRL-2
-                                 IDE-CTRL-3))
-  (define IDE-CONTROLLER-IRQS (list
-                                IDE-IRQ-0
-                                IDE-IRQ-1
-                                IDE-IRQ-2
-                                IDE-IRQ-3))
 
+  (define IDE-CONTROLLER-PORTS
+    (list
+      IDE-CTRL-0
+      IDE-CTRL-1
+      IDE-CTRL-2
+      IDE-CTRL-3))
+
+  (define IDE-CONTROLLER-IRQS
+    (list
+      IDE-IRQ-0
+      IDE-IRQ-1
+      IDE-IRQ-2
+      IDE-IRQ-3))
+
+  ; Verify that the status indicates that the disk
+  ; absent
   (define (not-absent? status)
     (let ((mask (fxior
                   IDE-STATUS-BSY
@@ -103,32 +109,35 @@
                   IDE-STATUS-DF
                   IDE-STATUS-DSC
                   IDE-STATUS-DRQ)))
-      (not (fx= (fxand status mask) mask))))
+      (not (fx= (fxand status mask) mask))
+      ))
 
   (define-type ide-device
-               id
-               kind
-               controller
-               serial
-               firmware-rev
-               model-num
-               ; ATA device information
-               cylinders-per-disks
-               heads-per-cylinder
-               sectors-per-track
-               total-sectors-chs
-               total-sectors)
+               id ; the ID of the device
+               kind ; the kind of device it is
+               controller ; the controller of the device
+               serial ; the serial number of the device
+               firmware-rev ; the firmware revision of the device
+               model-num ; the model number of the device
+               cylinders-per-disks ; the number of cylinders per disk of the device
+               heads-per-cylinder ; self explanatory
+               sectors-per-track ; the number of sectors per track
+               total-sectors-chs ; total sector in C/H/S notation
+               total-sectors ; the total number of sectors
+               )
 
   (define-type ide-controller
-               controller-id
-               cpu-port
-               irq
-               devices
-               continuations-queue
+               controller-id ; the id of the controller
+               cpu-port ; the cpu port of the IDE controller
+               irq ; IRQ associated with the controller
+               devices ; list of devices
+               continuations-queue ; queue of continuations that needs to be executed
                mut; condvar mutex
                cv ; condvar itself
                )
 
+  ; Handle an IDE read error with the CPU port of the controller as a way
+  ; to identify the port
   (define (ide-handle-read-err cpu-port)
     (let* ((err-reg (fx+ cpu-port IDE-ERROR-REG))
            (error (inb err-reg)))
@@ -149,7 +158,7 @@
 
       (if (mask error IDE-ERROR-AMNF)
           (debug-write "Data address mark not found after ID field")))
-      ERR-ARGS)
+    ERR-ARGS)
 
   ; Take a vector made of shorts and return a vector made
   ; of bytes (system endianness)
@@ -160,9 +169,7 @@
                                            (fxhalve i)
                                            (fxhalve (- i 1))))
                              (val (vector-ref wvector half-pos)))
-                        (b-chop (if (not even)
-                                    (>> val 8)
-                                    val))))))
+                        (b-chop (if (not even) (>> val 8) val))))))
       (build-vector (* 2 (vector-length wvector)) get-byte)))
 
   ; Take a vector of bytes and compresses it into a vector
@@ -266,11 +273,13 @@
               (c (expand-wvect word-vector))))
         (e ERR-ARGS)))
 
+  ; make a list of devices for a controller
   (define (ide-init-devices)
     (make-list
       IDE-DEVICES-PER-CONTROLLER
       IDE-DEVICE-ABSENT))
 
+  ; Check if the device is absent
   (define (device-absent? dev)
     (eq? dev IDE-DEVICE-ABSENT))
 
@@ -302,8 +311,7 @@
                 (debug-write "Failed to write to disk...")
                 (set! err ERR-HWD)))
           (condition-variable-signal! cv)
-          (mutex-unlock! mut)
-          )
+          (mutex-unlock! mut))
         q) ; nothing really to do, maybe add a signal later?
       (force-output q)
       (outb
@@ -570,9 +578,9 @@
     (for-each setup-controller (iota IDE-CONTROLLERS))
     #t)
 
- ; Create a list of ide devices
- (define (list-devices)
-  (filter (flatten (vector->list (vector-map ide-controller-devices IDE-CTRL-VECT)))
-          (o not device-absent?)))
+  ; Create a list of ide devices
+  (define (list-devices)
+    (filter (flatten (vector->list (vector-map ide-controller-devices IDE-CTRL-VECT)))
+            (o not device-absent?)))
 
-))
+  ))
