@@ -138,6 +138,9 @@
               (table-set! rh-queue lba cv)
               (thread-start!  (make-thread l))))))
 
+    ; Check if a sector identified by an address is
+    ; cached. If so, it will return the sector, otherwise
+    ; it will return false.
     (define (check-cache disk lba)
       (let* ((mut (disk-mut disk))
              (cache (disk-cache disk))
@@ -166,6 +169,7 @@
                     (clean-and-ret #f))
                 )))))
 
+    ; Read a sector identified by an address from a disk
     (define (disk-read-sector disk lba)
       (let* ((mut (disk-mut disk))
              (cache (disk-cache disk))
@@ -181,6 +185,8 @@
           (mutex-unlock! mut)
           result)))
 
+    ; Return the number of disk reads (of a sector) required to be made
+    ; to read count sectors starting from lba
     (define (queries-to-make lba count)
       (let* ((d (/ count IDE-MAX-SECTOR-READ))
              (q (floor d))
@@ -193,6 +199,7 @@
                 (cons (+ lba (* i IDE-MAX-SECTOR-READ)) r)))
           (iota t))))
 
+    ; Read multiples sectors from a disk
     (define (disk-read-sectors disk lba count)
       (let* ((dev (disk-ide-device disk))
              (q (queries-to-make lba count))
@@ -217,18 +224,19 @@
           (mutex-unlock! mut)
           r)))
 
+    ; Flush a cached sector to the disk
     (define (flush-block disk sector)
       (let* ((smut (sector-mut sector))
              (dmut (disk-mut disk))
              (dev (disk-ide-device disk))
              (lba (sector-lba sector))
              (v (sector-vect sector))
-             (cleanup (lambda ()
-                        (sector-flush-cont-set! sector #f)
-                        (sector-dirty?-set! sector #f)
-                        (mutex-unlock! dmut)
-                        (mutex-unlock! smut); todo not sure if necessary
-                        #t)))
+             (cleanup-and-ret (lambda (v)
+                                (sector-flush-cont-set! sector #f)
+                                (sector-dirty?-set! sector #f)
+                                (mutex-unlock! dmut)
+                                (mutex-unlock! smut); todo not sure if necessary
+                                v)))
         (mutex-lock! smut)
         (mutex-lock! dmut)
         (ide-write-sectors
@@ -236,20 +244,22 @@
           lba
           v
           1
-          cleanup
-          (lambda (err) (cleanup) err))))
+          (partial cleanup #t)
+          cleanup-and-ret)))
 
-    (define (create-sector v lba disk)
+    ; Create a sector caching block from a vector, an address and a disk
+    (define (create-sector vect lba disk)
       (make-sector
         lba
         #f
         (make-mutex)
-        v
+        vect
         0
-        (lambda () disk)
+        (lazy disk)
         #f
         #t))
 
+    ; Create a disk from a device and a disk-type
     (define (create-disk dev type)
       (make-disk
         dev
@@ -261,6 +271,9 @@
         (make-table) ; background q for read-ahead
         ))
 
+    ; Acquire a block from a disk. The mode
+    ; ensures that the flushing of the disk is done appropriately.
+    ; Prefered access are through `with-sector`
     (define (disk-acquire-block disk lba mode)
       (let* ((sector (disk-read-sector disk lba))
              (refs (sector-ref-count sector))
@@ -273,6 +286,8 @@
         (mutex-unlock! mut)
         sector))
 
+    ; Release a block acquired
+    ; Prefered access are through `with-sector`
     (define (disk-release-block sect)
       (let* ((lba (sector-lba sect))
              (mut (sector-mut sect))
@@ -286,6 +301,8 @@
         #t))
 
 
+    ; Prepare the flush of a sector so it can
+    ; be flushed asynchronously
     (define (prepare-flushing disk sect)
       (let ((c (sector-flush-cont sect))
             (mut (sector-mut sect)))
@@ -297,18 +314,8 @@
               (mutex-unlock! mut)
               (thread-start! t)))))
 
-    (define (init-disks)
-      (let ((disk-idx 0))
-        (for-each
-          (lambda (ctrl)
-            (for-each (lambda (dev)
-                        (list-set! disk-list disk-idx (create-disk dev DISK-TYPE-IDE))
-                        (set! disk-idx (++ disk-idx)))
-                      (filter (ide-controller-devices ctrl)
-                              (o not device-absent?))))
-          (vector->list IDE-CTRL-VECT))
-        disk-list))
-
+    ; Init the disk caching system.
+    ; This must be called before the disks are used.
     (define (init-disks)
       (let* ((ide-devices (ide#list-devices))
              (zipped (zip disk-list ide-devices)))
@@ -318,10 +325,13 @@
                                    e)) zipped))))
 
     ; For a disk, a block address, apply function
-    ; fn on the sector vector
+    ; fn on the sector vector. This is the best way
+    ; of accessing the disks since this safely wraps
+    ; the access to the diskss
     (define (with-sector dsk lba mode fn)
       (let* ((sect (disk-acquire-block dsk lba mode))
              (rslt (fn (sector-vect sect))))
         (disk-release-block sect)
         rslt))
+
     ))
