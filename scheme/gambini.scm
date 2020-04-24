@@ -12,6 +12,9 @@
         (uart)
         (debug))
 
+; Reboot the OS. Somehow, Gambit is
+; not loaded properly back on the system, so
+; there is not much of a point
 (define (reboot)
   (let wait-loop ()
     (let ((temp (inb #x64)))
@@ -21,8 +24,11 @@
               (wait-loop)))))
   (outb #xFE #x64))
 
+; Reader pointer for the interrupt queue
 (define reader-offset 0)
+; Pointer for the shared memory area
 (define SHARED-MEMORY-AREA 33554432)
+; Len of the shared memory area in bytes
 (define SHARED-MEMORY-AREA-LEN 32768)
 
 ;;;----------------------------------------------------
@@ -37,7 +43,6 @@
 
 (define int-mutex (make-mutex))
 (define int-condvar (make-condition-variable))
-(define (t) (f-tests main-disk))
 
 ;;;----------------------------------------------------
 ;;;                 INTERRUPT HANDLING
@@ -48,25 +53,28 @@
 (define IDE-INT #x3)
 
 (define INT-WITH-ARG-TABLE
-  (list
-    (cons KEYBOARD-INT keyboard#handle-kbd-int)
-    (cons IDE-INT ide#handle-ide-int)
-    (cons UART-INT uart#handle-uart-int)))
+  (list (cons KEYBOARD-INT keyboard#handle-kbd-int)
+        (cons IDE-INT ide#handle-ide-int)
+        (cons UART-INT uart#handle-uart-int)))
 
 (define (handle-int int-no args)
   (let ((fn (assocv int-no INT-WITH-ARG-TABLE)))
      (apply fn args)))
 
+; Compute a position from the current position
+; Offset is an array of integers that must be
+; added back to the start pointer
 (define (at . offset)
  (+ SHARED-MEMORY-AREA (modulo (apply + offset) SHARED-MEMORY-AREA-LEN)))
 
 (define (erase-and-move! total-len)
   ; See the following comment for why we erase backwards, and why this is important.
-  (for-each (lambda (i)
-              (write-i8 #f (at total-len -1 (- i) reader-offset) #x00))
-            (iota total-len))
+  (for-each
+    (lambda (i) (write-i8 #f (at total-len -1 (- i) reader-offset) #x00))
+    (iota total-len))
   (set! reader-offset (modulo (+ reader-offset total-len) SHARED-MEMORY-AREA-LEN)))
 
+; Vector-queue of unhandled interrupts
 (define unhandled-interrupts (open-vector))
 
 (define (mimosa-interrupt-pump)
@@ -159,7 +167,4 @@
 (define main-disk (car disk-list))
 (mount-partitions disk-list)
 (define fs (car filesystem-list))
-
-(debug-write "AFTER INIT")
 (for-each (o uart#uart-do-init ++) (iota 4))
-(debug-write "DONE INIT")
