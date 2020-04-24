@@ -31,16 +31,15 @@
     simplify-path
     stat
     stat-from-file
-    ; Stat struct functions
     stat-struct-creation-date
     stat-struct-creation-time
     stat-struct-last-access-date
     stat-struct-last-write-date
     stat-struct-last-write-time
     stat-struct-type
-    write-file
-    user-load
     test-suite
+    user-load
+    write-file
     )
   (begin
     (include "mimosa-macros.scm")
@@ -48,6 +47,7 @@
     ; --------------------------------------------------
     ; --------------------------------------------------
     ;         Definitions, constants and globals
+    ;    These are largely taken from the FAT.h file.
     ; --------------------------------------------------
     ; --------------------------------------------------
     ; --------------------------------------------------
@@ -1409,10 +1409,10 @@
                     c
                     p
                     new-lfn-chain
-                    (lambda (r c p) #t))))))
+                    (lazy #t))))))
           (lambda (err) ERR-FNF))))
 
-    ; Open a fat file
+    ; Open a fat file with a file system, a path and a mode string
     (define (file-open! fs path mode)
       (let ((parts (simplify-path path))
             (root (root-directory fs))
@@ -1431,10 +1431,12 @@
             f)
           (lambda (err) ERR-FNF))))
 
+    ; Create a stat structure from a filesystem + file
     (define (stat fs path)
       (let ((file (file-open! fs path "r")))
         (if-not file ERR-FNF stat-from-file)))
 
+    ; Create a stat structure for a file handler
     (define (stat-from-file file)
       (let* ((ent (fat-file-entry file))
              (create-time (logical-entry-create-time ent))
