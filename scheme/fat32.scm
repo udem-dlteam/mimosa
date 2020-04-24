@@ -188,19 +188,22 @@
     ; --------------------------------------------------
     ; --------------------------------------------------
 
+    ; Structure for a fat file handler
     (define-structure fat-file
-                      fs
-                      first-clus
-                      curr-clus
-                      pos
-                      len
+                      fs ; the filesystem that owns the file
+                      first-clus ; the first cluster of the file
+                      curr-clus ; the current cluster of the file
+                      pos ; the current position, in byte, inside the file
+                      len ; the length of the file
                       entry-cluster ; cluster where the entry is located
                       entry-offset ; offset within that cluster where the entry is located
-                      type
-                      mode
-                      entry
+                      type ; the type of the file (file or folder)
+                      mode ; the mode of the file
+                      entry ; the logical entry from the file
                       )
 
+    ; Structure for the boot block parameter that contains relevant
+    ; information on the disk structure
     (define-c-like-structure BPB
                              (jmp-boot 3)
                              (oem-name 8)
@@ -230,6 +233,7 @@
                              (vol-lab 11)
                              (fs-type 8))
 
+    ; Structure for a fat file in a directory
     (define-c-like-structure entry
                              (name 11)
                              (attr 1)
@@ -244,6 +248,7 @@
                              (cluster-lo 2)
                              (file-size 4))
 
+    ; Structure for a long file name entry
     (define-c-like-structure lfn
                              (ord 1)
                              (name1 10)
@@ -255,7 +260,8 @@
                              (name3 -4))
 
     ; A logical directory entry. The name is a string, and it abstracts
-    ; away the fact that it comes from a long file name
+    ; away the fact that it comes from a long file name and thus combines
+    ; an entry and the multiple associated LFNs
     (define-structure logical-entry
                       name
                       attr
@@ -271,28 +277,33 @@
                       file-size
                       lfn?)
 
+    ; File system present on a disk
     (define-structure filesystem
-                      disk
-                      bpb
-                      lg2bps
-                      lg2spc
-                      lg2bpc
-                      bpc
-                      first-data-sector
-                      cache-write-mut
+                      disk ; the disk it comes from
+                      bpb  ; the boot block
+                      lg2bps ; lg2 bytes per sector
+                      lg2spc ; lg2 sector per cluster
+                      lg2bpc ; lg2 bytes per cluster
+                      bpc ; bytes per cluster
+                      first-data-sector ; the first sector that contains data
+                      cache-write-mut ; mutex to control access to the cache
                       fat-cache) ; does not need to be a hash table... a vector would have been good
 
+    ; Structure that abstracts away the statistic of a file
     (define-structure stat-struct
-                      type
-                      creation-date
-                      creation-time
-                      last-access-date
-                      last-write-date
-                      last-write-time)
+                      type ; the file type
+                      creation-date ; date of creation of the file
+                      creation-time ; creation time of the file
+                      last-access-date ; last access to the file
+                      last-write-date ; last write date
+                      last-write-time ; last write time
+                      )
 
+    ; Structure that represents a cache link of the fat table
     (define-structure cache-link
-                      next
-                      prev)
+                      next ; the next cluster address as a number
+                      prev ; the previous cluster address as a number (the one for which the next field is this cache link)
+                      )
 
     ; --------------------------------------------------
     ; --------------------------------------------------
@@ -302,12 +313,14 @@
     ; --------------------------------------------------
     ; --------------------------------------------------
 
+    ; Substring that does not fail if end is past the string limit
     (define (safe-substring s start end)
       (let ((l (string-length s)))
         (if (>= start l)
             ""
             (substring s start (min l end)))))
 
+    ; FAT32 checksum for the string that represents the filename
     (define (checksum name)
       (fold
         (lambda (e r)
@@ -322,6 +335,7 @@
         0
         (vector->list name)))
 
+    ; Make a fat 16 bit integer for the hours, minute and seconds
     (define (make-fat-time hours minutes seconds)
       ; According to the FAT specification, the FAT time is set that way:
       ; Bits 15-11: the hour
@@ -343,6 +357,7 @@
             (seconds (fxand #x1F fat-time)))
         (fn hours minutes seconds)))
 
+    ; Make a fat 16 bit integer for the day, month and year
     (define (make-fat-date day month year)
       ; According to the FAT specification, the FAT date is set that way:
       ; Bits 15-9: Year relative to 1980
@@ -366,6 +381,8 @@
         (fxand #xF (>> fat-date 5))
         (fx+ 1980 (fxand #x7F (>> fat-date 9)))))
 
+    ; Extract the long file name string from
+    ; a long file name (assembles the text section)
     (define (extract-lfn-data lfn)
       (let ((text (list
                     (lfn-name1 lfn)
@@ -403,12 +420,11 @@
                 (vector-copy! v 8 (string->u8vector ext) 0 (min 3 (string-length ext)))))
           v)))
 
+    ; Remove spaces from a vector
     (define (remove-spaces v)
       (fold-right
         (lambda (e r)
-          (if (eq? e #\space)
-              r
-              (cons e r)))
+          (if (eq? e #\space) r (cons e r)))
         (list)
         (vector->list v)))
 
@@ -424,6 +440,8 @@
               (list->string short-name)
               (list->string (append short-name (list #\.) short-ext))))))
 
+    ; Transform a a long file name vector bit
+    ; in a string
     (define (lfn-name->string vect)
       (list->string (fold-right (lambda (c r)
                                   (if (or (eq? #\null c) (eq? #\xFF c))
@@ -457,6 +475,7 @@
     ; --------------------------------------------------
     ; --------------------------------------------------
 
+    ; Create a cache of the FAT tables of the disk
     (define (make-fat-cache dsk bpb)
       (let* ((fat-sz (BPB-fat-size-32 bpb))
              (rsvd (BPB-reserved-sector-count bpb))
@@ -485,6 +504,7 @@
                   (iota no-of-entries))
         cache))
 
+    ; Make a filesystem for a disk
     (define (make-fs dsk)
       (let* ((bpb (with-sector dsk 0 MRO pack-BPB))
              (lg2bps (ilog2 (BPB-bps bpb)))
@@ -501,12 +521,12 @@
           (make-mutex) ; cache write mutex
           (make-fat-cache dsk bpb))))
 
+    ; Get a root directory file-hande for the filesystem
     (define (root-directory fs)
-      (let*
-        ((bpb (filesystem-bpb fs))
-         (bps (BPB-bps bpb))
-         (root-clus (BPB-root-cluster bpb))
-         (sec-per-cluster (BPB-sec-per-cluster bpb)))
+      (let* ((bpb (filesystem-bpb fs))
+             (bps (BPB-bps bpb))
+             (root-clus (BPB-root-cluster bpb))
+             (sec-per-cluster (BPB-sec-per-cluster bpb)))
         (make-fat-file
           fs               ; fs
           root-clus        ; first cluster
@@ -519,6 +539,9 @@
           FILE-MODE-READ
           0)))
 
+    ; Mount a partition from a disk. If the
+    ; disk contains no partition, the default value is
+    ; returned
     (define (mount-partition disk default)
       (if (disk-absent? disk)
           default
@@ -531,6 +554,7 @@
                 fs
                 default))))
 
+    ; Mount partitions from a disk
     (define (mount-partitions disk-list)
       (let ((filesystems (fold (lambda (e r)
                                  (let ((fs (mount-partition e #f)))
@@ -548,15 +572,19 @@
     ; --------------------------------------------------
     ; --------------------------------------------------
 
+    ; Return the cached cluster (cache-link structure) for the file system
     (define (get-cached-cluster fs cluster)
       (let* ((cache (filesystem-fat-cache fs)))
         (table-ref cache cluster)))
 
+    ; Fetch the next cluster for a specific cluster, using the cache
     (define (next-cluster fs cluster)
       (let* ((link (get-cached-cluster fs cluster))
              (n (cache-link-next link)))
         (if (fx>= n FAT-32-EOF) EOF n)))
 
+    ; Reset the cursor of a file, placing the r/w cursor back to the beginning
+    ; of the dinner
     (define (reset-cursor! file)
       (let* ((fs (fat-file-fs file))
              (lg2spc (filesystem-lg2spc fs))
@@ -565,6 +593,7 @@
         (fat-file-curr-clus-set! file first-cluster)
         (fat-file-pos-set! file 0)))
 
+    ; Set the cursor of a file to an absolute byte position
     (define (set-cursor! file pos)
       (let ((current-pos (fat-file-pos file)))
         (cond ((= current-pos pos)
@@ -575,6 +604,8 @@
                 (let ((delta (- pos current-pos)))
                   (file-move-cursor! file delta))))))
 
+    ; Navigate the FAT chain, backwards or forward (according to the sign of mvmt)
+    ; It starts from the `relative-to` cluster.
     (define (traverse-fat-chain relative-to mvmt chain)
       (if (= mvmt 0)
           relative-to
@@ -602,28 +633,42 @@
                              (c new-cluster cluster-leftover)))
                          (c ,cluster (+ section-pos ,rewind)))))
 
+    ; Simulate a backward move of a file cursor from the a specific position
+    ; The continuation c receives the cluster and offset in the cluster where the
+    ; cursor would be
     (define (simulate-backward-move fs cluster pos rewind c)
       (simulate-direction-move 'BACKWARDS fs cluster pos rewind c))
 
+    ; Simulate a forward move of a file cursor from the a specific position
+    ; The continuation c receives the cluster and offset in the cluster where the
+    ; cursor would be
     (define (simulate-forward-move fs cluster pos rewind c)
       (simulate-direction-move 'FORWARDS fs cluster pos rewind c))
 
+    ; Perform a cursor move backwards
     (define (file-move-cursor-backward! file rewind)
       (relative-move-function file rewind -))
 
+    ; Perform a cursor move forward
     (define (file-move-cursor-forward! file wind)
       (relative-move-function file wind +))
 
+    ; Simulate a move from a position, with delta being
+    ; a positive or negative number, indicating the direction
     (define (simulate-move fs cluster pos delta c)
       (if (> delta 0)
           (simulate-forward-move fs cluster pos delta c)
           (simulate-backward-move fs cluster pos delta c)))
 
+    ; Perform a move for a file, with delta being
+    ; a positive or negative number, indicating the direction
     (define (file-move-cursor! file delta)
       (if (> delta 0)
           (file-move-cursor-forward! file delta)
           (file-move-cursor-backward! file delta)))
 
+    ; Update the next cluster for a cluster, both
+    ; in the cache and on disk
     (define (update-link-next cache clus new-next)
       (let* ((link (table-ref cache clus))
              (previous-next-no (cache-link-next link)))
@@ -639,7 +684,8 @@
               (not (>= previous-next-no FAT-32-EOF))
               (> previous-next-no 0))
             (let ((previous-next-link (table-ref cache previous-next-no)))
-              (cache-link-prev-set! previous-next-link 0)))))
+              (cache-link-prev-set! previous-next-link 0))
+            )))
 
     ; Set the next cluster, move to it and return the FAT array
     ; with the file as an argument
@@ -661,9 +707,8 @@
               disk
               lba
               MRW
-              (lambda (vect)
-                (wint32 vect (<< offset 2) next-clus)
-                next-clus)))))
+              (lambda (vect) (wint32 vect (<< offset 2) next-clus) next-clus)
+              ))))
 
     ; --------------------------------------------------
     ; --------------------------------------------------
@@ -682,7 +727,7 @@
         name
         (list)
         succ
-        (lambda (err-no) (fail ERR-FNF))
+        (lazy (fail ERR-FNF))
         ))
 
     (define (search-entry-aux file name lfns succ fail)
@@ -1016,12 +1061,7 @@
               (lambda (vect)
                 (for-each
                   (lambda (i)
-                    (vector-set!
-                      buff
-                      (+ i idx)
-                      (vector-ref
-                        vect
-                        (+ i offset))))
+                    (vector-set! buff (+ i idx) (vector-ref vect (+ i offset))))
                   (iota sz))))
             (if (= 0 (modulo (+ sz pos) bpc))
                 (let ((next-clus (next-cluster fs cluster)))
@@ -1097,7 +1137,6 @@
         (mutex-unlock! mut)))
 
     ; Fetch the next cluster
-    ; TODO: dont take a file
     (define (fetch-or-allocate-next-cluster fs cluster c fail)
       (let ((new-cluster (next-cluster fs cluster)))
         (if (eq? new-cluster EOF)
@@ -1163,10 +1202,12 @@
             vect)
           fail)))
 
+    ; Read a string from a file
     (define (read-string! file len fail)
       (vector->string
         (vector-map integer->char (read-bytes! file len fail))))
 
+    ; Read byte data (as a string) from a file
     (define (file-read! file len fail)
       (let ((today (rtc-current-date make-fat-date))
             (entry (fat-file-entry file))
@@ -1201,9 +1242,16 @@
             (wint16 vect (+ offset entry-width -8) last-write-date)
             (wint32 vect (+ offset entry-width -4) len)))))
 
+    ; Write a string to a file,
     (define (file-write-string! file str fail)
-      (file-write! file (string->u8vector str) 0 (string-length str) fail))
+      (file-write!
+        file
+        (string->u8vector str)
+        0
+        (string-length str)
+        fail))
 
+    ; Write the vect to the file, at offset 'offset' for len bytes
     (define (file-write! file vect offset len fail)
       (let ((result (write-bytes! file vect offset len fail))
             (now (rtc-current-time make-fat-time))
@@ -1288,12 +1336,8 @@
           (iota entry-chain-l))
         (write-bytes-aux fs cluster pos v 0 vector-len c ID)))
 
-    (define (make-empty-fat-file
-              fs
-              parent
-              clus
-              type
-              name)
+    ; Create an empty file structure that can be saved on file later
+    (define (make-empty-fat-file fs parent clus type name)
       (let* ((bpb (filesystem-bpb fs))
              (bps (BPB-bps bpb))
              (root-clus (BPB-root-cluster bpb))
@@ -1381,12 +1425,17 @@
               ID))
           (lambda (err) ERR-FNF))))
 
+    ; Mark an entry as deleted
     (define (mark-entry-deleted entry)
       (if (lfn? entry)
           (lfn-ord-set! entry FAT-DELETED-MARKER)
-          (entry-name-set! entry (vector-set (entry-name entry) 0 FAT-DELETED-MARKER)))
+          (entry-name-set!
+            entry
+            (vector-set (entry-name entry) 0 FAT-DELETED-MARKER)
+            ))
       entry)
 
+    ; Delete a file represented from a filesystem and a path
     (define (file-delete! fs path)
       (let* ((parts (simplify-path path))
              (chain (filesystem-fat-cache fs))
@@ -1460,20 +1509,20 @@
         (string-append "eval '(" s ")")))
 
     (define (test-suite)
-     (let* ((fs (car filesystem-list))
-            (f (file-create! fs "home/sam/anewfile" TYPE-FILE)))
+      (let* ((fs (car filesystem-list))
+             (f (file-create! fs "home/sam/anewfile" TYPE-FILE)))
         (if (not (fat-file? f))
-          (debug-write "Test 1 failed"))
+            (debug-write "Test 1 failed"))
         (file-write-string!
           f
           "abcdefghijklmnopqrstuvwxyz" ID)
 
         (set! f (file-open! fs "home/sam/ANEWFILE" "r"))
         (if (not (fat-file? f))
-          (debug-write "Test 2 failed"))
+            (debug-write "Test 2 failed"))
 
         (if (not (string=? "abcdefghijklmnopqrstuvwxyz" (file-read! f 26 ID)))
-         (debug-write "Test 3 failed"))
+            (debug-write "Test 3 failed"))
 
         (set-cursor! f 0)
         (let ((s (file-read! f 26 ID)))
@@ -1506,6 +1555,6 @@
               (begin
                 (debug-write "Test 7 failed")
                 (debug-write (string-append s)))))
-      ))
+        ))
 
     ))
