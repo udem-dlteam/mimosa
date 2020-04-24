@@ -175,7 +175,7 @@ double REDIRECT_NAME(ceil)(double __x) {
 #ifdef USE_HOST_LIBC
   return __x; // no ceil right now
 #else
-
+  return __x;
 #endif
 #endif
 }

@@ -199,7 +199,6 @@ static error_code stream_read(file* ff, void* buff, uint32 count) {
   error_code err = NO_ERROR;
   stream_file* f = CAST(stream_file*, ff);
   raw_stream* rs = f->_source;
-  condvar* streamcv = rs->readycv;
   uint8* stream_buff = CAST(uint8*, rs->buff);
   uint8* read_buff = CAST(uint8*, buff);
 

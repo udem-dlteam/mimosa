@@ -156,7 +156,7 @@ void *kmalloc(size_t size) { return heap_malloc(&kheap, size); }
 void kfree(void *ptr) { heap_free(&kheap, ptr); }
 
 static void setup_kheap() {
-  heap_init(&kheap, CAST(void *, 32 * (1 << 20)) + GAMBIT_SHARED_MEM_LEN,
+  heap_init(&kheap, CAST(void *, 32 * (1 << 20) + GAMBIT_SHARED_MEM_LEN),
             32 * (1 << 20) - GAMBIT_SHARED_MEM_LEN);
 }
 
@@ -316,7 +316,6 @@ extern "C" void __rtlib_entry() {
   debug_write("Memory layout:");
 #endif
   uint16 index = 0;
-  uint64 m = 0;
   for (uint16 i = 0; i < no_of_entries; ++i) {
     memory_zone z = zones[i];
 #ifdef PRINT_MEMORY_LAYOUT
