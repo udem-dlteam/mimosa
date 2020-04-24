@@ -3,72 +3,81 @@
 ; Marc Feeley, Samuel Yvon
 (define-library
   (disk)
-  (import (gambit)
-          (errors)
-          (ide)
-          (utils)
-          (debug)
-          (low-level))
-  (export disk-list
-          disk-ide-device
-          with-sector
-          disk-acquire-block
-          disk-release-block
-          disk-read-sectors
-          init-disks
-          MRO
-          MRW
-          MODE-READ-ONLY
-          MODE-READ-WRITE
-          disk-absent?
-          sector-vect)
+  (import
+    (gambit)
+    (errors)
+    (ide)
+    (utils)
+    (debug)
+    (low-level))
+  (export
+    disk-list
+    disk-ide-device
+    with-sector
+    disk-acquire-block
+    disk-release-block
+    disk-read-sectors
+    init-disks
+    MRO
+    MRW
+    MODE-READ-ONLY
+    MODE-READ-WRITE
+    disk-absent?
+    sector-vect)
   (begin
+    ; Enable read-ahead during disk reads
     (define READ-AHEAD #t)
-    (define BIG-READ-THRESH 5)
     (define MRO 'MODE-READ-ONLY)
+    ; The following two definitions are for controlling
+    ; the disc locks and control wether the cached block
+    ; is marked dirty
     (define MRW 'MODE-READ-WRITE)
     (define MODE-READ-ONLY MRO)
     (define MODE-READ-WRITE MRW)
+    ; Max size of the disk cache. It will start
+    ; evicting blocks after the limit is reached
     (define DISK-CACHE-MAX-SZ 1024)
-    (define DISK-IDE 0)
+    ; Maximum number of supported disks
     (define MAX-NB-DISKS 32)
     (define DISK-LOG2-BLOCK-SIZE 9)
 
     ; Disk types
     (define DISK-TYPE-IDE 'IDE-DISK)
-    (define (disk-absent? disk)
-      (eq? disk 'NO-DISK))
+
+    ; Disks that are not detected are flagged as 'NO-DISK
+    (define (disk-absent? disk) (eq? disk 'NO-DISK))
 
     (define-type sector
-                 lba
-                 dirty?
-                 mut
-                 vect
-                 ref-count
-                 disk-l
-                 flush-cont
-                 has-chance?
+                 lba ; the LBA of the cached sector
+                 dirty? ; if the vector is dirty
+                 mut ; the mutex for sector access
+                 vect ; the vector that contains the data from the sector; size of 2^{DISK-LOG2-BLOCK-SIZE}
+                 ref-count ; the number of references to the sector cache
+                 disk-l ; a lambda that wraps the disk; (disk-l) => disk structure
+                 flush-cont; continuation for disk flushing
+                 has-chance? ; if the sector has a chance before being evicted (second-chance algorithm)
                  )
 
     (define-type disk
-                 ide-device
-                 mut
-                 clock-hand
-                 cache
-                 chance-vect
-                 type
-                 read-ahead-queue)
+                 ide-device; the IDE device that represents the disk
+                 mut ; mut for access to the the disk
+                 clock-hand ; index in the chance-vect for what sector must be evicted
+                 cache ; the cache (a table) for the disk
+                 chance-vect ; vector of sectors used for managing the second chance algorithm
+                 type ; type of disk
+                 read-ahead-queue ; queue of read-ahead being performed
+                 )
 
+    ; All the disks that are detected are put in this list;
+    ; Disks that are not detected are set as 'NO-DISK
     (define disk-list (make-list MAX-NB-DISKS 'NO-DISK))
 
-    (define (disk-get-older disk)
-      (let ((time (disk-time disk)))
-        (disk-time-set! disk (modulo (++ time) DISK-LIFE-EXPECTENCY))
-        time))
-
+    ; This function takes a disk and a new sector cached block
+    ; and finds the least pertinent cached sector to evict and replace
+    ; it by the argument. It implements the "second chance" LRU approximation
+    ; algorithm.
+    ; See https://en.wikipedia.org/wiki/Page_replacement_algorithm#Second-chance
     (define (evict-and-replace disk new-sector)
-      ; Implementation of the "Second Chance" LRU approximation
-      ; algorithm
       (let ((chances (disk-chance-vect disk))
             (cache (disk-cache disk)))
         (let search ((clock-hand (disk-clock-hand disk)))
@@ -86,14 +95,16 @@
                   (search (modulo (++ clock-hand) DISK-CACHE-MAX-SZ))))) ; forward
           )))
 
-    (define (disk-fetch-and-set! disk lba)
+    ; Fetch a sector from a disk, identified by it's address,
+    ; and cache it into the disk cache.
+    (define (disk-fetch-and-cache! disk lba)
       (let* ((mut (disk-mut disk))
              (cache (disk-cache disk))
              (chance-vect (disk-chance-vect disk))
              (clock-hand (disk-clock-hand disk))
              (dev (disk-ide-device disk))
              (used (table-length cache))
-             (cleanup (lambda () (mutex-unlock! mut))))
+             (cleanup-and-ret (lambda (val) (mutex-unlock! mut) val)))
         (mutex-lock! mut)
         (ide-read-sectors
           dev
@@ -107,30 +118,25 @@
                     (vector-set! chance-vect clock-hand lba)
                     (disk-clock-hand-set! disk (modulo (++ clock-hand) DISK-CACHE-MAX-SZ))
                     (table-set! cache lba sect)))
-              (cleanup)
-              sect))
-          (lambda (err)
-            (cleanup)
-            err))))
-
-; (thread-start! (make-thread (lambda _ (disk-fetch-and-set! disk (++ lba)))))
+              (cleanup-and-ret sect)))
+          cleanup-and-ret)))
 
     ; Perform the read ahead, setup threading structures
     ; A call to this method expects and requires the disk mutex
     ; to be held
     (define (do-read-ahead disk lba)
-     (let ((rh-queue (disk-read-ahead-queue disk)))
-      (if (not (table-ref rh-queue lba #f)) ; if it's already there, ignore
-       (let* ((mut (disk-mut disk))
-              (cv (make-condition-variable))
-              (l (lambda _
-                  ; (debug-write "Disk thread started")
-                  (disk-fetch-and-set! disk lba)
-                  (mutex-lock! mut)
-                  (condition-variable-signal! cv)
-                  (mutex-unlock! mut))))
-        (table-set! rh-queue lba cv)
-        (thread-start!  (make-thread l))))))
+      (let ((rh-queue (disk-read-ahead-queue disk)))
+        (if (not (table-ref rh-queue lba #f)) ; if it's already there, ignore
+            (let* ((mut (disk-mut disk))
+                   (cv (make-condition-variable))
+                   (l (lambda _
+                        ; (debug-write "Disk thread started")
+                        (disk-fetch-and-cache! disk lba)
+                        (mutex-lock! mut)
+                        (condition-variable-signal! cv)
+                        (mutex-unlock! mut))))
+              (table-set! rh-queue lba cv)
+              (thread-start!  (make-thread l))))))
 
     (define (check-cache disk lba)
       (let* ((mut (disk-mut disk))
@@ -143,20 +149,20 @@
               (rh-queue (disk-read-ahead-queue disk)))
           (if cached
               (begin
-               (table-set! rh-queue lba)
-               (clean-and-ret cached))
+                (table-set! rh-queue lba)
+                (clean-and-ret cached))
               (let ((qued-cv (table-ref rh-queue lba #f)))
                 (if qued-cv
                     (let chk ((cached (table-ref cache lba #f)))
                       ; (debug-write "W8 for query to complete")
                       (if (not chk)
-                       (begin
-                        (mutex-unlock! mut qued-cv)
-                        (mutex-lock! mut)
-                        (chk (table-ref cache lba #f)))
-                        (begin
-                         (table-set! rh-queue lba) ; rmv
-                         (clean-and-ret cached))))
+                          (begin
+                            (mutex-unlock! mut qued-cv)
+                            (mutex-lock! mut)
+                            (chk (table-ref cache lba #f)))
+                          (begin
+                            (table-set! rh-queue lba) ; rmv
+                            (clean-and-ret cached))))
                     (clean-and-ret #f))
                 )))))
 
@@ -167,11 +173,11 @@
              (cached (check-cache disk lba)))
         (let ((result (if cached
                           cached
-                          (disk-fetch-and-set! disk lba))))
+                          (disk-fetch-and-cache! disk lba))))
           (mutex-lock! mut)
           (if (and READ-AHEAD (not (table-ref cache (++ lba) #f)))
-            ; Read it in background
-            (do-read-ahead disk (++ lba)))
+              ; Read it in background
+              (do-read-ahead disk (++ lba)))
           (mutex-unlock! mut)
           result)))
 
