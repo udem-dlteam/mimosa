@@ -48,18 +48,12 @@
 ;;;                 INTERRUPT HANDLING
 ;;;----------------------------------------------------
 
-(define KEYBOARD-INT #x1)
-(define UART-INT #x2)
-(define IDE-INT #x3)
-
-(define INT-WITH-ARG-TABLE
-  (list (cons KEYBOARD-INT keyboard#handle-kbd-int)
-        (cons IDE-INT ide#handle-ide-int)
-        (cons UART-INT uart#handle-uart-int)))
+(define INT-WITH-ARG-TABLE '())
 
 (define (handle-int int-no args)
-  (let ((fn (assocv int-no INT-WITH-ARG-TABLE)))
-     (apply fn args)))
+  (let ((int-pair (assoc int-no INT-WITH-ARG-TABLE)))
+     (if int-pair
+         (apply (cdr int-pair) args))))
 
 ; Compute a position from the current position
 ; Offset is an array of integers that must be
@@ -160,11 +154,34 @@
 ;;;                     INIT SYSTEM
 ;;;----------------------------------------------------
 
-(ide#setup)
-(ide#switch-over-driver)
+; Install a driver, setup is the setup
+; function for the driver. If the driver setup
+; function returns a pair, it must be on the form
+; (int-number . int-handling function)
+(define (install-driver setup)
+  (let ((r (setup)))
+    (if (pair? r)
+        (set! INT-WITH-ARG-TABLE (cons r INT-WITH-ARG-TABLE))
+        )))
 
-(init-disks)
-(define main-disk (car disk-list))
-(mount-partitions disk-list)
+(define-macro (setup-drivers . driver-names)
+ `(begin
+   ,@(map (lambda (driver-name)
+       `(install-driver ,(string->symbol
+                           (string-append
+                             (symbol->string driver-name)
+                             "#"
+                             (symbol->string driver-name)
+                             "-setup"))))
+     driver-names)))
+
+(setup-drivers
+ keyboard
+ ide
+ disk
+ fat32
+ uart
+)
+
 (define fs (car filesystem-list))
-(for-each (o uart#uart-do-init ++) (iota 4))
+(define main-disk (car disk-list))

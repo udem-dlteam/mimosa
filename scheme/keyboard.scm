@@ -9,8 +9,11 @@
     (utils)
     (debug)
     (low-level))
-  (export handle-kbd-int)
+  (export
+   handle-kbd-int
+   keyboard-setup)
   (begin
+    (define KEYBOARD-INT #x1)
     (define STDIN (open-output-file "/sys/stdin"))
     (define DEAD 'DEAD)
     (define NULL 'NULL)
@@ -322,4 +325,7 @@
              (update-active-modifier
                (fxand data #x7F)
                (lambda (mask key) (##fxand (##fxnot mask) key))))))
-    ))
+
+   (define (keyboard-setup)
+    (cons KEYBOARD-INT handle-kbd-int))
+))

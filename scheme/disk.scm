@@ -11,19 +11,20 @@
     (debug)
     (low-level))
   (export
-    disk-list
-    disk-ide-device
-    with-sector
-    disk-acquire-block
-    disk-release-block
-    disk-read-sectors
-    init-disks
-    MRO
-    MRW
     MODE-READ-ONLY
     MODE-READ-WRITE
+    MRO
+    MRW
     disk-absent?
-    sector-vect)
+    disk-acquire-block
+    disk-ide-device
+    disk-list
+    disk-read-sectors
+    disk-release-block
+    disk-setup
+    sector-vect
+    with-sector
+    )
   (begin
     ; Enable read-ahead during disk reads
     (define READ-AHEAD #t)
@@ -244,7 +245,7 @@
           lba
           v
           1
-          (partial cleanup #t)
+          (partial cleanup-and-ret #t)
           cleanup-and-ret)))
 
     ; Create a sector caching block from a vector, an address and a disk
@@ -316,13 +317,14 @@
 
     ; Init the disk caching system.
     ; This must be called before the disks are used.
-    (define (init-disks)
+    (define (disk-setup)
       (let* ((ide-devices (ide#list-devices))
              (zipped (zip disk-list ide-devices)))
         (set! disk-list (map (lambda (e)
                                (if (pair? e)
                                    (create-disk (cadr e) DISK-TYPE-IDE)
-                                   e)) zipped))))
+                                   e)) zipped))
+        #t))
 
     ; For a disk, a block address, apply function
     ; fn on the sector vector. This is the best way

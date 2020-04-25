@@ -15,6 +15,7 @@
     TYPE-FOLDER
     entry-name
     fat-file-exists?
+    fat32-setup
     file-create!
     file-delete!
     file-open!
@@ -25,7 +26,6 @@
     list-directory
     look-for-n-available-entries!
     make-lfns
-    mount-partitions
     pack-BPB
     pack-entry
     simplify-path
@@ -1557,4 +1557,8 @@
                 (debug-write (string-append s)))))
         ))
 
-    ))
+    (define (fat32-setup)
+      (mount-partitions disk-list)
+      #t)
+
+))

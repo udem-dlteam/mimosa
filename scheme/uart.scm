@@ -9,10 +9,13 @@
     (gambit)
     (low-level)
     (utils)
-    (intr) (debug)) (export
-    handle-uart-int
-    uart-do-init)
+    (intr)
+    (debug))
+  (export
+    uart-setup
+    handle-uart-int)
   (begin
+    (define UART-INT #x2)
     ; Source for writing 8250 UART drivers can be found at
     ; https://en.wikibooks.org/wiki/Serial-Programming/8250-UART-Programming
     (define DEFAULT-BAUD-RATE 115200)
@@ -48,9 +51,7 @@
             ((= cpu-port COM4-PORT-BASE)
              4)))
     (define (COM-PORT->IRQ-NO port)
-      (if (= (modulo port 2) 1)
-          4
-          3))
+      (if (= (modulo port 2) 1) 4 3))
     (define UART-8250-RHR 0)
     (define UART-8250-THR 0)
     (define UART-8250-IER 1)
@@ -61,15 +62,11 @@
     (define UART-8250-LSR 5)
     (define UART-8250-MSR 6)
     (define UART-8250-SCR 7)
-
     ; to set the DLAB you have to set last LCR byte to 0 or 1
-
     (define UART-8250-DLL 0) ;; divisor latch lo byte (needs DLAB at 0)
     (define UART-8250-DLH 1) ;; divisor latch hi byte (needs DLAB at 1)
-
     (define (DIV-DLH baud) (fxarithmetic-shift-right (/ 115200 baud) 8))
     (define (DIV-DLL baud) (fxand (/ 115200 baud) #xFF))
-
     (define UART-8250-LSR-ERF (fxarithmetic-shift 1 7))
     (define UART-8250-LSR-TEMT (fxarithmetic-shift 1 6))
     (define UART-8250-LSR-THRE #x20)
@@ -78,7 +75,6 @@
     (define UART-8250-LSR-PE (fxarithmetic-shift 1 2))
     (define UART-8250-LSR-OE (fxarithmetic-shift 1 1))
     (define UART-8250-LSR-DR (fxarithmetic-shift 1 0))
-
     ; Line Status Register (LSR) interrupt cause
     (define (UART-LSR-DATA-AVAILABLE x) (fxand x UART-8250-LSR-DR))
     (define (UART-LSR-OVERRUN-ERROR x) (fxand x UART-8250-LSR-OE))
@@ -88,7 +84,6 @@
     (define (UART-LSR-CAN-RECEIVE x) (fxand x UART-8250-LSR-THRE))
     (define (UART-LSR-ALL-CAR-TRANSMITTED x) (fxand x UART-8250-LSR-TEMT))
     (define (UART-LSR-ERROR-IN-RECEIVED-FIFO x) (fxand x UART-8250-LSR-ERF))
-
     ; Modem Status Register (MSR) bit flags
     (define UART-8250-MSR-CD (fxarithmetic-shift 1 7))
     (define UART-8250-MSR-RI (fxarithmetic-shift 1 6))
@@ -98,7 +93,6 @@
     (define UART-8250-MSR-TERI (fxarithmetic-shift 1 2))
     (define UART-8250-MSR-DDSR (fxarithmetic-shift 1 1))
     (define UART-8250-MSR-DCTS (fxarithmetic-shift 1 0))
-
     ; Modem Status Register (MSR) interrupt causes
     (define (UART-MSR-CARRIER-DETECT x) (fxand x UART-8250-MSR-CD))
     (define (UART-MSR-RING-INDICATOR x) (fxand x UART-8250-MSR-RI))
@@ -113,7 +107,6 @@
     (define (UART-IIR-GET-CAUSE x) (fxarithmetic-shift-right (fxand x #xE) 1))
     (define (UART-IIR-GET-FIFO-STATE x) (fxarithmetic-shift-right (fxand x #xC0) 6))
     (define (UART-THR-GET-ACTION x) (fxand x UART-8250-LSR-THRE))
-
     ; Interrupt Identification Register (IIR) interrupt cause
     (define UART-IIR-MODEM 0)
     (define UART-IIR-TRANSMITTER-HOLDING-REG 1)
@@ -125,7 +118,6 @@
     (define UART-IIR-FIFO-RESERVED 1)
     (define UART-IIR-FIFO-ENABLED-ERROR 2)
     (define UART-IIR-FIFO-ENABLED 3)
-
     (define COM-PORT-STATUS-EXISTS (fxarithmetic-shift 1 0))
     (define COM-PORT-STATUS-OPEN (fxarithmetic-shift 1 1))
     (define COM-PORT-STATUS-FULL (fxarithmetic-shift 1 2))
@@ -134,7 +126,6 @@
     (define COM-PORT-STATUS-READ-READY (fxarithmetic-shift 1 5))
     (define COM-PORT-STATUS-WRITE-READY (fxarithmetic-shift 1 6))
     (define COM-PORT-STATUS-RESERVED1 (fxarithmetic-shift 1 7))
-
     ; 0 : the COM port number
     (define UART-PORT-DATA-COM-IDX 0)
     ; 1 : if the port is opened
@@ -165,10 +156,7 @@
           uart-input
           uart-output)))
 
-    (define uart-struct-vect (vector (##make-port 1)
-                                     (##make-port 2)
-                                     (##make-port 3)
-                                     (##make-port 4)))
+    (define uart-struct-vect #f)
 
     ; Get the port data structure for the specified com port
     (define (get-port-data com-port)
@@ -431,9 +419,9 @@
         (thread-start! pump-thread)
         (thread-start! repl-thread)))
 
-    (define (uart-init-port port)
-      (if (and (fx>= port 1)
-               (fx<= port 4))
-          (uart-do-init port)
-          #f))
+    (define (uart-setup)
+      (set! uart-struct-vect (build-vector 4 (o ##make-port ++)))
+      (for-each (o uart#uart-do-init ++) (iota 4))
+      (cons UART-INT handle-uart-int))
+
     ))

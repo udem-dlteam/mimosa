@@ -4,8 +4,7 @@
 (define-library (intr)
 (import
   (gambit)
-  (low-level)
-  )
+  (low-level))
 (export
   enable-irq
   disable-irq

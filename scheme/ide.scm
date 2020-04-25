@@ -9,13 +9,14 @@
   (debug))
 (export
   IDE-MAX-SECTOR-READ
-  setup
-  switch-over-driver
   handle-ide-int
+  ide-read-sectors
   ide-write-sectors
   list-devices
-  ide-read-sectors)
+  ide-setup
+  )
 (begin
+  (define IDE-INT #x3)
   (define IDE-MAX-SECTOR-READ 255)
   (define IDE-DEVICE-ABSENT 'IDE-DEVICE-ABSENT)
   (define IDE-DEVICE-ATA    'IDE-DEVICE-ATA)
@@ -509,7 +510,9 @@
                             (list-set! devices device-no IDE-DEVICE-ATA)))))
                   (iota IDE-DEVICES-PER-CONTROLLER))
                 (thread-sleep! (until-has-elapsed 1 TIME-UNIT-MS))
-                (wait-loop (++ j) (<= candidates 0)))
+                (wait-loop
+                  (++ j)
+                  (<= candidates 0)))
               candidates))))
 
   ; Reset an IDE controller. Takes for input a controller, the devices
@@ -567,7 +570,7 @@
                                         (list-set! devices dev IDE-DEVICE-ABSENT))
                                     )))))
                       (iota IDE-DEVICES-PER-CONTROLLER))))
-      ; Setup command q
+      ; Setup command queue
       (let ((setup-device (partial setup-device controller devices)))
         (for-each setup-device (iota IDE-DEVICES-PER-CONTROLLER)))
       ; Enable ints on the controller
@@ -595,9 +598,11 @@
   (define (switch-over-driver)
     (open-input-file "/cut"))
 
-  ; Setup the IDE controller
-  (define (setup)
-    (for-each setup-controller (iota IDE-CONTROLLERS)) #t)
+  ; Setup the IDE driver
+  (define (ide-setup)
+    (for-each setup-controller (iota IDE-CONTROLLERS))
+    (switch-over-driver)
+    (cons IDE-INT handle-ide-int))
 
   ; Create a list of ide devices
   (define (list-devices)
