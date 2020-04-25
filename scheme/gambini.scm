@@ -55,20 +55,7 @@
      (if int-pair
          (apply (cdr int-pair) args))))
 
-; Compute a position from the current position
-; Offset is an array of integers that must be
-; added back to the start pointer
-(define (at . offset)
- (+ SHARED-MEMORY-AREA (modulo (apply + offset) SHARED-MEMORY-AREA-LEN)))
-
-(define (erase-and-move! total-len)
-  ; See the following comment for why we erase backwards, and why this is important.
-  (for-each
-    (lambda (i) (write-i8 #f (at total-len -1 (- i) reader-offset) #x00))
-    (iota total-len))
-  (set! reader-offset (modulo (+ reader-offset total-len) SHARED-MEMORY-AREA-LEN)))
-
-; Vector-queue of unhandled interrupts
+  ; Interrupts queue of things that need to be threated
 (define unhandled-interrupts (open-vector))
 
 (define (mimosa-interrupt-pump)
@@ -175,13 +162,7 @@
                              "-setup"))))
      driver-names)))
 
-(setup-drivers
- keyboard
- ide
- disk
- fat32
- uart
-)
+(setup-drivers keyboard ide disk fat32 uart)
 
 (define fs (car filesystem-list))
 (define main-disk (car disk-list))
