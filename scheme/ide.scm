@@ -1,6 +1,5 @@
 ; Mimosa
-; Université de Montréal
-; Marc Feeley, Samuel Yvon
+; Université de Montréal Marc Feeley, Samuel Yvon
 (define-library (ide)
 (import
   (errors)
@@ -158,9 +157,10 @@
 
       (if (mask error IDE-ERROR-AMNF)
           (debug-write "Data address mark not found after ID field")))
+
     ERR-ARGS)
 
-  ; Take a vector made of shorts and return a vector made
+  ; Take a vector made of shorts (16 bit wide ints) and return a vector made
   ; of bytes (system endianness)
   (define (expand-wvect wvector)
     (let ((get-byte (lambda (i)
@@ -173,7 +173,7 @@
       (build-vector (* 2 (vector-length wvector)) get-byte)))
 
   ; Take a vector of bytes and compresses it into a vector
-  ; of shorts (system endianness)
+  ; of shorts (16 bit wide ints)
   (define (compress-bvect b-vect)
     (let ((l (vector-length b-vect)))
       (build-vector
@@ -374,6 +374,8 @@
           (cont wanted-device)
           #f)))
 
+  ; Vectors of IDE controllers, it contains the controller present on the
+  ; system.
   (define IDE-CTRL-VECT (ide-init-controllers))
 
   (define (ide-delay cpu-port)
@@ -391,84 +393,87 @@
            (untrimmed (list->string (map (o integer->char extract-char) idcs))))
       (string-trim untrimmed)))
 
+  ; Dispatches IDE interrupts. It takes the continuation queue for a controller
+  ; and simply calls the first one
   (define (handle-ide-int controller-no)
     (let* ((ctrl (vector-ref IDE-CTRL-VECT controller-no))
            (q (ide-controller-continuations-queue ctrl))
            (cont (read q)))
-      (if cont (cont) #f)))
+      (call-if cont)))
 
-  (define (ide-make-device-setup-lambda controller devices)
-    (lambda (dev-no)
-      (let* ((cpu-port (ide-controller-cpu-port controller))
-             (head-reg (fx+ cpu-port IDE-DEV-HEAD-REG))
-             (cmd-reg (fx+ cpu-port IDE-COMMAND-REG))
-             (stt-reg (fx+ cpu-port IDE-STATUS-REG))
-             (data-reg (fx+ cpu-port IDE-DATA-REG))
-             (device-type (list-ref devices dev-no))
-             (err 0))
-        (if (not (eq? device-type IDE-DEVICE-ABSENT))
-            (begin
-              ; Identify device packet
-              (outb (fxior IDE-DEV-HEAD-IBM (IDE-DEV-HEAD-DEV dev-no)) head-reg)
-              (outb (if (eq? device-type IDE-DEVICE-ATA)
-                        IDE-IDENTIFY-DEVICE-CMD
-                        IDE-IDENTIFY-PACKET-DEVICE-CMD) cmd-reg)
-              (let wait-loop ((j 0))
-                (let ((status (inb stt-reg)))
-                  (if (not (mask status IDE-STATUS-BSY))
-                      (if (mask status IDE-STATUS-ERR)
-                          (set! err 1))
-                      (begin
-                        (thread-sleep! (until-has-elapsed 1 TIME-UNIT-MICROSECS))
-                        (wait-loop (+ j 1))))))
-              ; Device is not absent, we can continue the work
-              (if (> err 0)
-                  (list-set! devices dev-no IDE-DEVICE-ABSENT)
-                  (let* ((info-sz (<< 1 (- IDE-LOG2-SECTOR-SIZE 1)))
-                         (id-vect (build-vector info-sz (lambda (idx) (inw data-reg))))
-                         (serial-num (swap-and-trim id-vect 10 20))
-                         (firmware-rev (swap-and-trim id-vect 23 8))
-                         (model-num (swap-and-trim id-vect 27 40))
-                         (has-extended (mask (vector-ref id-vect 53) 1))
-                         (cyl-per-dsk (vector-ref id-vect (if has-extended 54 1)))
-                         (heads-per-cyl (vector-ref id-vect (if has-extended 55 3)))
-                         (sect-per-trk (vector-ref id-vect (if has-extended 56 6)))
-                         (total-sectors
-                           (fx+
-                             (<< (vector-ref id-vect 61) 16)
-                             (vector-ref id-vect 60)))
-                         (total-sectors-chs
-                           (if has-extended
-                               (fx+
-                                 (<< (vector-ref id-vect 58) 16)
-                                 (vector-ref id-vect 57)) 0))
-                         (device (make-ide-device
-                                   dev-no
-                                   (list-ref devices dev-no)
-                                   (lambda () controller)
-                                   serial-num
-                                   firmware-rev
-                                   model-num
-                                   cyl-per-dsk
-                                   heads-per-cyl
-                                   sect-per-trk
-                                   total-sectors-chs
-                                   total-sectors)))
-                    (ide-controller-set-device controller dev-no device))))))))
+  (define (setup-device controller devices dev-no)
+    (let* ((cpu-port (ide-controller-cpu-port controller))
+           (head-reg (fx+ cpu-port IDE-DEV-HEAD-REG))
+           (cmd-reg (fx+ cpu-port IDE-COMMAND-REG))
+           (stt-reg (fx+ cpu-port IDE-STATUS-REG))
+           (data-reg (fx+ cpu-port IDE-DATA-REG))
+           (device-type (list-ref devices dev-no))
+           (err 0))
+      (if (not (eq? device-type IDE-DEVICE-ABSENT))
+          (begin
+            ; Identify device packet
+            (outb (fxior IDE-DEV-HEAD-IBM (IDE-DEV-HEAD-DEV dev-no)) head-reg)
+            (outb (if (eq? device-type IDE-DEVICE-ATA)
+                      IDE-IDENTIFY-DEVICE-CMD
+                      IDE-IDENTIFY-PACKET-DEVICE-CMD) cmd-reg)
+            (let wait-loop ((j 0))
+              (let ((status (inb stt-reg)))
+                (if (not (mask status IDE-STATUS-BSY))
+                    (if (mask status IDE-STATUS-ERR)
+                        (set! err 1))
+                    (begin
+                      (thread-sleep! (until-has-elapsed 1 TIME-UNIT-MICROSECS))
+                      (wait-loop (+ j 1))))))
+            ; Device is not absent, we can continue the work
+            (if (> err 0)
+                (list-set! devices dev-no IDE-DEVICE-ABSENT)
+                (let* ((info-sz (<< 1 (- IDE-LOG2-SECTOR-SIZE 1)))
+                       (id-vect (build-vector info-sz (lambda (idx) (inw data-reg))))
+                       (serial-num (swap-and-trim id-vect 10 20))
+                       (firmware-rev (swap-and-trim id-vect 23 8))
+                       (model-num (swap-and-trim id-vect 27 40))
+                       ; If has extended options
+                       (has-extended
+                         (mask (vector-ref id-vect 53) 1))
+                       (cyl-per-dsk
+                         (vector-ref id-vect (if has-extended 54 1)))
+                       (heads-per-cyl
+                         (vector-ref id-vect (if has-extended 55 3)))
+                       (sect-per-trk
+                         (vector-ref id-vect (if has-extended 56 6)))
+                       (total-sectors
+                         (fx+ (<< (vector-ref id-vect 61) 16) (vector-ref id-vect 60)))
+                       (total-sectors-chs
+                         (if has-extended
+                             (fx+
+                               (<< (vector-ref id-vect 58) 16)
+                               (vector-ref id-vect 57)) 0))
+                       (device (make-ide-device
+                                 dev-no
+                                 (list-ref devices dev-no)
+                                 (lazy controller)
+                                 serial-num
+                                 firmware-rev
+                                 model-num
+                                 cyl-per-dsk
+                                 heads-per-cyl
+                                 sect-per-trk
+                                 total-sectors-chs
+                                 total-sectors)))
+                  (ide-controller-set-device controller dev-no device)))))))
 
   ; Make a lambda to detect if a device is present on the ide
   ; controller whoses CPU port is the cpu-port in parameters
-  (define (ide-make-device-detection-lambda controller controller-statuses cpu-port)
-    (lambda (dev-no)
-      (let* ((device-reg (fx+ cpu-port IDE-DEV-HEAD-REG)))
-        (outb (fxior IDE-DEV-HEAD-IBM (IDE-DEV-HEAD-DEV dev-no)) device-reg)
-        ; Send detection info
-        (ide-delay cpu-port)
-        (let* ((status (inb (fx+ cpu-port IDE-STATUS-REG))))
-          (vector-set! controller-statuses dev-no status)
-          (if (not-absent? status)
-              IDE-DEVICE-ATAPI
-              IDE-DEVICE-ABSENT)))))
+  (define (detect-device controller controller-statuses cpu-port dev-no)
+    (let* ((device-reg (fx+ cpu-port IDE-DEV-HEAD-REG)))
+      (outb (fxior IDE-DEV-HEAD-IBM (IDE-DEV-HEAD-DEV dev-no)) device-reg)
+      ; Send detection info
+      (ide-delay cpu-port)
+      (let* ((status (inb (fx+ cpu-port IDE-STATUS-REG))))
+        (vector-set! controller-statuses dev-no status)
+        (if (not-absent? status)
+            IDE-DEVICE-ATAPI
+            IDE-DEVICE-ABSENT))))
 
   ; Reset an ide device
   ; type: the type of the device
@@ -484,7 +489,32 @@
         (fx= (fxand (inb stt-reg) IDE-STATUS-BSY) 0)
         (eq? type IDE-DEVICE-ATAPI))))
 
-  (define (ide-reset-controller controller devices statuses candidates)
+  ; Confirm the devices that are really connected to the controller
+  ; Takes a controller, a list of the candidate devices and the number
+  ; of candidates, and return an updated number of candidates
+  (define (confirm-devices controller devices candidates)
+    (let ((cpu-port (ide-controller-cpu-port controller)))
+      (let wait-loop ((j 0)
+                      (break #f))
+          (if (and (not break)
+                   (< j 30000))
+              (begin
+                (for-each
+                  (lambda (device-no)
+                    (let ((dev-type (list-ref devices device-no)))
+                      ; add IDE device type
+                      (if (ide-reset-device dev-type cpu-port device-no)
+                          (begin
+                            (set! candidates (- candidates 1))
+                            (list-set! devices device-no IDE-DEVICE-ATA)))))
+                  (iota IDE-DEVICES-PER-CONTROLLER))
+                (thread-sleep! (until-has-elapsed 1 TIME-UNIT-MS))
+                (wait-loop (++ j) (<= candidates 0)))
+              candidates))))
+
+  ; Reset an IDE controller. Takes for input a controller, the devices
+  ; for the controller and the candidate devicess
+  (define (reset-controller controller devices statuses candidates)
     (let* ((cpu-port (ide-controller-cpu-port controller))
            (head-reg (fx+ cpu-port IDE-DEV-HEAD-REG))
            (ctrl-reg (fx+ cpu-port IDE-DEV-CTRL-REG))
@@ -505,19 +535,7 @@
       (thread-sleep! (until-has-elapsed 1 TIME-UNIT-MS))
       (inb err-reg)
       (thread-sleep! (short-sleep))
-      (for-each (lambda (j)
-                  (if (> candidates 0)
-                      (begin
-                        (for-each (lambda (device-no)
-                                    (let ((dev-type (list-ref devices device-no)))
-                                      ; add IDE device type
-                                      (if (ide-reset-device dev-type cpu-port device-no)
-                                          (begin
-                                            (set! candidates (- candidates 1))
-                                            (list-set! devices device-no IDE-DEVICE-ATA)))))
-                                  (iota IDE-DEVICES-PER-CONTROLLER))
-                        (thread-sleep! (until-has-elapsed 1 TIME-UNIT-MS)))))
-                (iota 30000))
+      (set! candidates (confirm-devices controller devices candidates))
       (if (> (apply + (map (lambda (dev) (if (eq? dev IDE-DEVICE-ATA) 1 0)) devices)) 0)
           ; There are candidates
           (begin
@@ -527,8 +545,7 @@
                           (ide-delay cpu-port)
                           (if (and (fx= (inb cyl-lo-reg) #x14)
                                    (fx= (inb cyl-hi-reg) #xeb)
-                                   (eq? (list-ref devices dev)
-                                        IDE-DEVICE-ATA))
+                                   (eq? (list-ref devices dev) IDE-DEVICE-ATA))
                               ; Update the list: this is an ATAPI device
                               (list-set! devices dev IDE-DEVICE-ATAPI))))
                       (iota IDE-DEVICES-PER-CONTROLLER))
@@ -547,10 +564,11 @@
                                     (outb #xA5 cyl-lo-reg)
                                     (if (or (fx= #x58 (inb err-reg))
                                             (not (fx= #xA5 (inb cyl-lo-reg))))
-                                        (list-set! devices dev IDE-DEVICE-ABSENT)))))))
+                                        (list-set! devices dev IDE-DEVICE-ABSENT))
+                                    )))))
                       (iota IDE-DEVICES-PER-CONTROLLER))))
       ; Setup command q
-      (let ((setup-device (ide-make-device-setup-lambda controller devices)))
+      (let ((setup-device (partial setup-device controller devices)))
         (for-each setup-device (iota IDE-DEVICES-PER-CONTROLLER)))
       ; Enable ints on the controller
       (outb 0 ctrl-reg)))
@@ -561,26 +579,30 @@
            (cpu-port (ide-controller-cpu-port controller))
            (irq (ide-controller-irq controller)))
       (let* ((statuses (make-vector IDE-DEVICES-PER-CONTROLLER 0))
-             (ide-detect-device (ide-make-device-detection-lambda no statuses cpu-port))
-             (devices (map ide-detect-device (iota IDE-DEVICES-PER-CONTROLLER)))
+             ; Detection function for the devices
+             (detect (partial detect-device no statuses cpu-port))
+             ; List of devices detected
+             (devices (map detect (iota IDE-DEVICES-PER-CONTROLLER)))
+             ; Number of devices that might be there (might turn out to not be later on)
              (candidates (apply + (map (lambda (device)
                                          (if (eq? device IDE-DEVICE-ABSENT) 0 1))
                                        devices))))
         (if (> candidates 0)
-            (ide-reset-controller controller devices statuses candidates)
+            (reset-controller controller devices statuses candidates)
             #f))))
 
   ; Switch the IDE management from the C kernel to the scheme kernel
   (define (switch-over-driver)
     (open-input-file "/cut"))
 
+  ; Setup the IDE controller
   (define (setup)
-    (for-each setup-controller (iota IDE-CONTROLLERS))
-    #t)
+    (for-each setup-controller (iota IDE-CONTROLLERS)) #t)
 
   ; Create a list of ide devices
   (define (list-devices)
-    (filter (flatten (vector->list (vector-map ide-controller-devices IDE-CTRL-VECT)))
+    (filter (flatten
+              (vector->list (vector-map ide-controller-devices IDE-CTRL-VECT)))
             (o not device-absent?)))
 
   ))

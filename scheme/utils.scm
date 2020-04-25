@@ -24,6 +24,7 @@
     bipartition
     both
     build-vector
+    call-if
     day-month-year->days-since-epoch
     day-month-year->epoch-seconds
     displayn
@@ -325,8 +326,13 @@
           sym
           (f val)))
 
-    (define (partial f .args)
-      (lambda (.other-args)
-        (apply f (concat args other-args))))
+    (define (partial f . args)
+      (lambda other-args
+        (apply f (append args other-args))))
+
+    (define (call-if function?)
+      (if function?
+          (function?)
+          #f))
 
     ))
