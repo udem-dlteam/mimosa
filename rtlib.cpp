@@ -306,6 +306,25 @@ static void setup_bss() {
     *p++ = 0;
 }
 
+/**
+ * Init a memory zone
+ **/
+void init(memory_zone *z) {
+  /*
+   * Cant access the lower addresses (like 0)
+   * and cannot clean up the unusable zones.
+   * All we really want to do is make sure Gambit runs
+   * on reboot anyways
+   */
+  if (z->base > 0 && z->type == MEMORY_ZONE_USABLE) {
+    uint8 *mem = CAST(uint8 *, z->base);
+    uint64 l = z->length;
+    for (uint64 i = 0; i < l; ++i) {
+      mem[i] = 0;
+    }
+  }
+}
+
 extern "C" void __rtlib_entry() {
   setup_bss();
 
@@ -328,6 +347,9 @@ extern "C" void __rtlib_entry() {
       if (MEMORY_ZONE_CONTAINS(z, END_KERNEL_HEAP)) {
         index = i;
       }
+
+      init(&z);
+
 #ifdef PRINT_MEMORY_LAYOUT
       debug_write("USABLE");
 #endif

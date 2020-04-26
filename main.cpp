@@ -8,9 +8,7 @@
 
 //-----------------------------------------------------------------------------
 
-#include "bios.h"
-#include "chrono.h"
-#include "disk.h"
+#include "bios.h" #include "chrono.h" #include "disk.h"
 #include "drivers/filesystem/include/fat.h"
 #include "drivers/filesystem/include/stdstream.h"
 #include "drivers/filesystem/include/vfs.h"
@@ -71,14 +69,6 @@ int main() {
       new_program_thread(task, "/dsk1/home/sam/", CAST(libc_startup_fn, code),
                          "Gambit");
       thread_start(CAST(thread *, task));
-#ifdef REMOTE_COM
-      for (;;) {
-        file_read(stdout, &i, sizeof(unicode_char));
-        native_char c = i & 0xFF;
-        // send_serial(COM1_PORT_BASE, c);
-        outb(c, COM1_PORT_BASE);
-      }
-#endif
     } else {
       term_write(cout, "\r\n Failed to open Gambit.\r\n");
       term_write(cout, "Error code is ");

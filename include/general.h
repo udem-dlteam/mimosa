@@ -192,7 +192,7 @@ typedef int32 error_code;
 // help to debug some timer problems
 // #define BUSY_WAIT_INSTEAD_OF_SLEEP
 
-// #define ENABLE_LIBC_TRACE
+#define ENABLE_LIBC_TRACE
 //-----------------------------------------------------------------------------
 
 #ifndef USE_CACHE_BLOCK_MAID

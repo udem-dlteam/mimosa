@@ -176,7 +176,12 @@
                              "-setup"))))
      driver-names)))
 
-(setup-drivers keyboard ide disk fat32 uart)
+(setup-drivers
+ keyboard
+ ide
+ disk
+ fat32
+ uart)
 
 (define fs (car filesystem-list))
 (define main-disk (car disk-list))
