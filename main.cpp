@@ -40,7 +40,7 @@ int main() {
     ENABLE_IRQ(3);
     ENABLE_IRQ(4);
 
-    term_write(cout, "MIMOSA V.1.0.0\n");
+    term_write(cout, "MIMOSA V.2.0\n");
     native_string file_name = "/dsk1/gambit/bin/gsc.exe";
 
     term_write(cout, "Starting ");

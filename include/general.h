@@ -182,6 +182,9 @@ typedef int32 error_code;
 #define USE_BLOCK_REF_COUNTER_FREE
 #define SHOW_UART_MESSAGES
 #define RED_PANIC_SCREEN
+// If the Gambit runtime is to be run in 'real time' high priority, never
+// context switching it unless it explicitely waits for an external ressource
+/* #define GAMBIT_HIGH_PRIO */
 // #define ENABLE_DEBUG_WRITE
 #define ENABLE_DEBUG_MARKER
 #define PRINT_MEMORY_LAYOUT
@@ -192,7 +195,7 @@ typedef int32 error_code;
 // help to debug some timer problems
 // #define BUSY_WAIT_INSTEAD_OF_SLEEP
 
-#define ENABLE_LIBC_TRACE
+/* #define ENABLE_LIBC_TRACE */
 //-----------------------------------------------------------------------------
 
 #ifndef USE_CACHE_BLOCK_MAID

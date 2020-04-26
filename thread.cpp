@@ -10,6 +10,7 @@
 #include "apic.h"
 #include "asm.h"
 #include "chrono.h"
+#include "general.h"
 #include "intr.h"
 #include "pic.h"
 #include "pit.h"
@@ -487,7 +488,9 @@ void virtual_program_thread_run(thread *sself) {
       NULL};
   int argc = sizeof(argv) / sizeof(argv[0]) - 1;
   static char *env[] = {NULL};
+#ifdef GAMBIT_HIGH_PRIO
   sself->_prio = high_priority;
+#endif
   self->_code(argc, argv, env);
   term_write(cout, "Program thread terminating\n");
 }

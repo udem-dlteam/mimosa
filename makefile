@@ -1,6 +1,6 @@
 # file: "makefile"
 
-OS_NAME = "\"MIMOSA version 1.2\""
+OS_NAME = "\"MIMOSA version 2.0\""
 KERNEL_START = 0x20000
 
 KERNEL_OBJECTS = kernel.o libc/libc_os.o drivers/filesystem/vfs.o drivers/filesystem/stdstream.o main.o drivers/filesystem/fat.o drivers/ide.o disk.o thread.o chrono.o ps2.o term.o video.o intr.o rtlib.o uart.o heap.o bios.o $(NETWORK_OBJECTS)
@@ -146,7 +146,7 @@ ps2.o: ps2.cpp include/asm.h include/chrono.h drivers/filesystem/include/stdstre
 chrono.o: chrono.cpp include/apic.h include/asm.h include/chrono.h include/intr.h include/rtc.h include/rtlib.h include/term.h include/thread.h
 disk.o: disk.cpp include/disk.h include/ide.h include/rtlib.h include/term.h
 rtlib.o: rtlib.cpp include/chrono.h include/disk.h drivers/filesystem/include/stdstream.h drivers/filesystem/include/vfs.h include/heap.h include/ide.h include/intr.h libc/include/libc_header.h include/ps2.h include/rtlib.h include/term.h include/thread.h include/video.h include/modifiedgambit.h
-thread.o: thread.cpp include/apic.h include/asm.h include/chrono.h include/intr.h include/pic.h include/pit.h include/rtlib.h include/term.h include/thread.h
+thread.o: thread.cpp include/apic.h include/asm.h include/chrono.h include/intr.h include/pic.h include/pit.h include/rtlib.h include/term.h include/thread.h include/general.h
 main.o: main.cpp include/bios.h include/chrono.h include/disk.h drivers/filesystem/include/fat.h drivers/filesystem/include/stdstream.h drivers/filesystem/include/vfs.h include/general.h include/intr.h include/ps2.h include/rtlib.h include/term.h include/thread.h include/uart.h
 video.o: video.cpp include/asm.h include/term.h include/vga.h include/video.h
 term.o: term.cpp drivers/filesystem/include/stdstream.h drivers/filesystem/include/vfs.h include/ps2.h include/rtlib.h include/term.h include/thread.h

@@ -98,7 +98,6 @@ inline void NAMESPACE_PREFIX(insert)(ELEMTYPE *elem, QUEUETYPE *queue) {
         NOP();
       }
     }
-    debug_write("INSERT L");
     node2 = node1;
     node1 = PREV(node2);
     ++i;
