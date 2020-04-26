@@ -487,8 +487,8 @@ void virtual_program_thread_run(thread *sself) {
       NULL};
   int argc = sizeof(argv) / sizeof(argv[0]) - 1;
   static char *env[] = {NULL};
+  sself->_prio = high_priority;
   self->_code(argc, argv, env);
-  /* sself->_prio = high_priority; */
   term_write(cout, "Program thread terminating\n");
 }
 
