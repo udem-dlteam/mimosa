@@ -55,7 +55,21 @@
      (if int-pair
          (apply (cdr int-pair) args))))
 
-  ; Interrupts queue of things that need to be threated
+; Compute a position from the current position
+; Interrupts queue of things that need to be threated
+; Offset is an array of integers that must be
+; added back to the start pointer
+(define (at . offset)
+ (+ SHARED-MEMORY-AREA (modulo (apply + offset) SHARED-MEMORY-AREA-LEN)))
+
+(define (erase-and-move! total-len)
+  ; See the following comment for why we erase backwards, and why this is important.
+  (for-each
+    (lambda (i) (write-i8 #f (at total-len -1 (- i) reader-offset) #x00))
+    (iota total-len))
+  (set! reader-offset (modulo (+ reader-offset total-len) SHARED-MEMORY-AREA-LEN)))
+
+; Interrupts queue of things that need to be threated
 (define unhandled-interrupts (open-vector))
 
 (define (mimosa-interrupt-pump)
