@@ -17,6 +17,7 @@
     TIME-UNIT-NSECS
     TIME-UNIT-SECONDS
     TODO
+    apply-on
     assock
     assocv
     b-chop
@@ -93,12 +94,16 @@
       (arithmetic-shift n (- shr)))
 
     (define (TODO)
-      (begin
-        (display "STUB")
-        #t))
+      (display "STUB")
+      #t)
 
     (define (assock key tbl)
-      (car (assoc key tbl)))
+      (let ((v (assoc key tbl)))
+        (if v (cdr v) v)))
+
+    (define (assocv key tbl)
+      (let ((v (assoc key tbl)))
+        (if v (car v) v)))
 
     (define (assocv key tbl)
       (cdr (assoc key tbl)))
@@ -294,15 +299,6 @@
     (define (string->u8vector s)
       (vector-map (o (lambda (int) (bitwise-and #xFF int)) char->integer) (string->vector s)))
 
-    (define (displayn obj)
-      (begin
-        (display obj)
-        (newline)))
-
-    (define (replace-error err)
-      (lambda (cancelled)
-        err))
-
     ; Partition a list 'l' in two parts according to the truth of predicate 'p'
     ; and call the continuation 'c' with the two lists as the only two arguments,
     ; where the first list satisfies the predicate and the second does not.
@@ -321,6 +317,8 @@
                       (c yes (cons e no)))))))))
 
 
+    ;; If 'val is not the sym symbol as 'sym, apply
+    ;; f to val, otherwise return it
     (define (if-not val sym f)
       (if (eq? val sym)
           sym
@@ -330,9 +328,17 @@
       (lambda other-args
         (apply f (append args other-args))))
 
+    ;; If the argument evals to #t, call it
     (define (call-if function?)
       (if function?
           (function?)
           #f))
+
+    ;; Create a lambda that will apply it's argument
+    ;; on the arguments of apply-on
+    (define (apply-on . args)
+      (lambda (fn)
+        (apply fn args)
+        ))
 
     ))
