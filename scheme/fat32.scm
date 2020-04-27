@@ -1,8 +1,7 @@
 ;; Mimosa
 ;; Université de Montréal
 ;; Marc Feeley, Samuel Yvon
-(define-library
-    (fat32)
+(define-library (fat32)
   (import
    (utils)
    (errors)
