@@ -22,18 +22,13 @@ build_gambit() {
     make -j $NPROC
     make dist
 
-    mv "./gsc/makefile.compile" "./gsc/makefile"
-    cp "../scheme/keyboard.c" "./gsc/keyboard.c"
-
-    ls -al
-
     mv "gambit-$GAMBIT_VERSION.tgz" ../libc
     cd -
 
     rm -rf gambit
 }
 
-if [ "x$1" != x ]; then
+if [ "x$1" != x ]; then # basically any arg
     echo "Building Gambit"
     build_gambit
 fi
