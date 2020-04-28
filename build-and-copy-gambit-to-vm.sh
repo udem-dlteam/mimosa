@@ -9,6 +9,7 @@ if [ $NPROC -gt 2 ]; then
 fi
 
 build_gambit() {
+    # Link should be eventually updated to the DL Team repo
     git clone https://github.com/SamuelYvon/gambit
     cd gambit
     GAMBIT_VERSION=$( git tag | grep -v bootstrap | tail -1 | sed 's/\./_/g')
@@ -20,6 +21,11 @@ build_gambit() {
     make bootclean
     make -j $NPROC
     make dist
+
+    mv "./gsc/makefile.compile" "./gsc/makefile"
+    cp "../scheme/keyboard.c" "./gsc/keyboard.c"
+
+    ls -al
 
     mv "gambit-$GAMBIT_VERSION.tgz" ../libc
     cd -
