@@ -92,13 +92,16 @@ bootsect.bin: bootsect.o
 .s.o: kernel.bin
 	as --32 --defsym OS_NAME=$(OS_NAME) --defsym KERNEL_START=$(KERNEL_START) --defsym KERNEL_SIZE=`cat kernel.bin | wc --bytes | sed -e "s/ //g"` -o $*.o $*.s
 
+clean-archive-items:
+	rm archive-items/home/sam/*
+
 clean-bin:
 	rm -f -- kernel.bin bootsect.bin kernel.elf
 
 clean-libc:
 	rm -f -- libc/libc_os.o
 
-clean: clean-libc
+clean: clean-libc clean-archive-items
 	rm -f -- *.o *.asm *.bin *.tmp *.d *.elf *.map floppy.img drivers/filesystem/stdstream.o drivers/filesystem/fat.o drivers/filesystem/vfs.o drivers/ide.o
 
 # dependencies:
