@@ -59,6 +59,8 @@ Including a compiled file is done differently than an interpreted one.
 - Inclusion of an interpreted file is done through `(import (my-lib))`
 - Inclusion of a compiled file is done with `(##load-module 'my-lib)`
 
+You also **need** to execute `make clean` before starting Mimosa, as otherwise you **will** end up with duplicated drivers.
+
 # Dependencies
 
 The kernel requires a compatible Gambit runtime. Currently, the modified Gambit runtime is located [here](https://github.com/SamuelYvon/gambit). In order to build a compatible runtime, you will need the Ubuntu VM provided in [this repository](https://github.com/udem-dlteam/ubuntu-6). Once running, you can then perform the following actions to create a working Gambit environement.

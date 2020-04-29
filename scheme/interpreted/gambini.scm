@@ -2,6 +2,7 @@
 ; Université de Montréal
 ; Marc Feeley, Samuel Yvon
 (##load-module 'keyboard)
+
 (import (errors)
         ; (keyboard)
         (ide)
@@ -11,11 +12,9 @@
         (fat32)
         (low-level)
         (uart)
-        (debug))
+        (debug)
+        )
 
-; Reboot the OS. Somehow, Gambit is
-; not loaded properly back on the system, so
-; there is not much of a point
 (define (reboot)
   (let wait-loop ()
     (let ((temp (inb #x64)))
@@ -182,7 +181,8 @@
  ide
  disk
  fat32
- uart)
+ uart
+ )
 
 (define fs (car filesystem-list))
 (define main-disk (car disk-list))
