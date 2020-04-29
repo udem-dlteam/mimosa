@@ -1,5 +1,7 @@
 ;; Mimosa
 
+(##load-module 'rtc)
+
 ;; Université de Montréal
 ;; Marc Feeley, Samuel Yvon
 (define-library (fat32)
@@ -8,8 +10,9 @@
    (errors)
    (disk)
    (gambit)
-   (rtc)
-   (debug))
+   ; (rtc)
+   (debug)
+   )
   (export
    TYPE-FILE
    TYPE-FOLDER

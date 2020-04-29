@@ -2,13 +2,12 @@
 ; Université de Montréal
 ; Marc Feeley, Samuel Yvon
 (##load-module 'keyboard)
+(##load-module 'rtc)
 
 (import (errors)
-        ; (keyboard)
         (ide)
         (disk)
         (utils)
-        (rtc)
         (fat32)
         (low-level)
         (uart)
@@ -184,5 +183,5 @@
  uart
  )
 
-(define fs (car filesystem-list))
-(define main-disk (car disk-list))
+(define fs (car fat32#filesystem-list))
+(define main-disk (car disk#disk-list))
