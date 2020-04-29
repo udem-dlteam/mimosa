@@ -3,10 +3,11 @@
 ; Marc Feeley, Samuel Yvon
 (##load-module 'keyboard)
 (##load-module 'rtc)
+(##load-module 'disk)
 
 (import (errors)
         (ide)
-        (disk)
+        ; (disk)
         (utils)
         (fat32)
         (low-level)

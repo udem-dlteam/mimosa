@@ -1,6 +1,7 @@
 ;; Mimosa
 
 (##load-module 'rtc)
+(##load-module 'disk)
 
 ;; Université de Montréal
 ;; Marc Feeley, Samuel Yvon
@@ -8,7 +9,7 @@
   (import
    (utils)
    (errors)
-   (disk)
+   ; (disk)
    (gambit)
    ; (rtc)
    (debug)
@@ -484,7 +485,7 @@
              (entries-per-sector (BPB-entries-per-sector bpb))
              (no-of-entries (* entries-per-sector fat-sz))
              (sectors (map (lambda (s)
-                             (with-sector dsk (+ s rsvd) MRO ID)) (iota fat-sz)))
+                             (disk#with-sector dsk (+ s rsvd) disk#MRO ID)) (iota fat-sz)))
              (cache (make-table)))
         ;; Cache is now filled in
         (for-each (lambda (l)
@@ -508,7 +509,7 @@
 
     ;; Make a filesystem for a disk
     (define (make-fs dsk)
-      (let* ((bpb (with-sector dsk 0 MRO pack-BPB))
+      (let* ((bpb (disk#with-sector dsk 0 disk#MRO pack-BPB))
              (lg2bps (ilog2 (BPB-bps bpb)))
              (lg2spc (ilog2 (BPB-sec-per-cluster bpb)))
              (lg2bpc (+ lg2bps lg2spc)))
@@ -545,7 +546,7 @@
     ;; disk contains no partition, the default value is
     ;; returned
     (define (mount-partition disk default)
-      (if (disk-absent? disk)
+      (if (disk#disk-absent? disk)
           default
           (let* ((fs (make-fs disk))
                  (bpb (filesystem-bpb fs))
@@ -705,10 +706,10 @@
             ;; Update in cache
             (update-link-next cache cluster next-clus)
             ;; Update on disk
-            (with-sector
+            (disk#with-sector
              disk
              lba
-             MRW
+             disk#MRW
              (lambda (vect) (wint32 vect (<< offset 2) next-clus) next-clus)
              ))))
 
@@ -1056,10 +1057,10 @@
                  (sz (min len left-in-cluster left-in-sector left-in-file))
                  (lba (cluster+offset->lba fs cluster cluster-pos))
                  (offset (modulo cluster-pos bps)))
-            (with-sector
+            (disk#with-sector
              disk
              lba
-             MRO
+             disk#MRO
              (lambda (vect)
                (for-each
                 (lambda (i)
@@ -1105,10 +1106,10 @@
              (offset (modulo cluster entries-per-sector))
              (lba-offset (// cluster entries-per-sector))
              (d (filesystem-disk fs)))
-        (with-sector
+        (disk#with-sector
          d
          (+ lba-offset rsvd)
-         MRW
+         disk#MRW
          (lambda (vect) (wint32 vect (<< offset 2) (cache-link-next link))))))
 
     (define (unlink-chain-aux fs cache cluster)
@@ -1120,10 +1121,10 @@
              (link (table-ref cache cluster))
              (next (cache-link-next link))
              (d (filesystem-disk fs)))
-        (with-sector
+        (disk#with-sector
          d
          (+ lba-offset rsvd)
-         MRW
+         disk#MRW
          (lambda (vect)
            (update-link-next (filesystem-fat-cache fs) cluster 0) ;; erase in the cache
            (wint32 vect (<< offset 2) 0) ;; erase on disk
@@ -1166,10 +1167,10 @@
                  (sz (min len left-in-cluster left-in-sector))
                  (lba (cluster+offset->lba fs cluster cluster-pos))
                  (dest-offset (modulo cluster-pos bps)))
-            (with-sector
+            (disk#with-sector
              disk
              lba
-             MRW
+             disk#MRW
              ;; write to vector
              (lambda (v) (vector-copy! v dest-offset vect offset (+ offset sz))))
             (if (= 0 (modulo (+ sz pos) bpc))
@@ -1232,10 +1233,10 @@
              (entry-offset (fat-file-entry-offset file))
              (lba (cluster+offset->lba fs entry-cluster entry-offset))
              (offset (modulo entry-offset (<< 1 (filesystem-lg2bps fs)))))
-        (with-sector
+        (disk#with-sector
          (filesystem-disk fs)
          lba
-         MRW
+         disk#MRW
          (lambda (vect) ;; update all but name
            ;; Only update the transient fields to avoid changing file information that
            ;; might be hard to update (mainly the name since the algorithm for name generation is painful)
@@ -1564,7 +1565,7 @@
         ))
 
     (define (fat32-setup)
-      (mount-partitions disk-list)
+      (mount-partitions disk#disk-list)
       #t)
 
     ))
