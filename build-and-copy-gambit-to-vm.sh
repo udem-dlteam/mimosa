@@ -50,6 +50,12 @@ build_gambit() {
     make -j $NPROC
     make dist
 
+    # Make dist does not include our C files
+    tar zxf "gambit-$GAMBIT_VERSION.tgz"
+    cp ./gsc/*.c "gambit-$GAMBIT_VERSION"/gsc/.
+    rm "gambit-$GAMBIT_VERSION.tgz"
+    tar -cvzf "gambit-$GAMBIT_VERSION.tgz" "gambit-$GAMBIT_VERSION"
+
     mv "gambit-$GAMBIT_VERSION.tgz" "../libc/gambit-$GAMBIT_VERSION.tgz"
     cd .. 
 
