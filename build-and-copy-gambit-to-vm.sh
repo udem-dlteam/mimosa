@@ -10,13 +10,33 @@ fi
 
 build_gambit() {
     # Link should be eventually updated to the DL Team repo
-    # git clone https://github.com/SamuelYvon/gambit
+    git clone https://github.com/SamuelYvon/gambit
     cd gambit
     GAMBIT_VERSION=$( git tag | grep -v bootstrap | tail -1 | sed 's/\./_/g')
     
     # Just in case
     ./configure
     make -j $NPROC
+
+    mkdir -p temp
+
+    cp -r ../scheme/interpreted/. ./temp/.
+    cp -r ../scheme/compiled/. ./temp/.
+
+    cd temp # in gambit/temp
+
+    for f in $( ls "../../scheme/compiled" )
+    do
+        echo "Compiling $f"
+        ../gsc/gsc -c . "$f"
+    done
+
+    exit 1
+
+
+    # rm -rf temp
+
+
     make bootstrap
     make bootclean
     make -j $NPROC
