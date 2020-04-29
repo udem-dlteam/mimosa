@@ -42,18 +42,18 @@ build_gambit() {
     rm gsc/makefile
 
     # Restart the process
-    make clean
+    rm -rf boot
+    ./configure
     make -j $NPROC
-
     make bootstrap
     make bootclean
     make -j $NPROC
     make dist
 
-    mv "gambit-$GAMBIT_VERSION.tgz" ../libc
-    cd -
+    mv "gambit-$GAMBIT_VERSION.tgz" "../libc/gambit-$GAMBIT_VERSION.tgz"
+    cd .. 
 
-    # rm -rf gambit
+    rm -rf gambit
 }
 
 if [ "x$1" != x ]; then # basically any arg
