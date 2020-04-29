@@ -31,10 +31,18 @@ build_gambit() {
         ../gsc/gsc -c . "$f"
     done
 
-    exit 1
+    cp *.c ../gsc/.
 
+    cd .. # in gambit
+    rm -rf temp
 
-    # rm -rf temp
+    cp gsc/makefile.compile gsc/makefile.in
+    rm gsc/makefile
+
+    exit 0
+
+    make clean
+    make -j $NPROC
 
 
     make bootstrap
