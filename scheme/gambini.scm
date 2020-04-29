@@ -1,8 +1,9 @@
 ; Mimosa
 ; Université de Montréal
 ; Marc Feeley, Samuel Yvon
+(##load-module 'keyboard)
 (import (errors)
-        (keyboard)
+        ; (keyboard)
         (ide)
         (disk)
         (utils)

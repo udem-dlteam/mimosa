@@ -10,7 +10,7 @@ fi
 
 build_gambit() {
     # Link should be eventually updated to the DL Team repo
-    git clone https://github.com/SamuelYvon/gambit
+    # git clone https://github.com/SamuelYvon/gambit
     cd gambit
     GAMBIT_VERSION=$( git tag | grep -v bootstrap | tail -1 | sed 's/\./_/g')
     
@@ -25,7 +25,7 @@ build_gambit() {
     mv "gambit-$GAMBIT_VERSION.tgz" ../libc
     cd -
 
-    rm -rf gambit
+    # rm -rf gambit
 }
 
 if [ "x$1" != x ]; then # basically any arg
