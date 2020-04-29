@@ -38,7 +38,7 @@ build_gambit() {
     cd .. # in gambit
     rm -rf temp
 
-    cp gsc/makefile.compile gsc/makefile.in
+    echo -e "$( ../cmkfh.sh )\n$(cat gsc/makefile.compile)" > gsc/makefile.in
     rm gsc/makefile
 
     # Restart the process

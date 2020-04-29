@@ -11,9 +11,11 @@ The Mimosa operating system consists of a minimal kernel built on C++ and Scheme
 
 # Organisation
 
-The projet is divided in folders:
+The projet is divided in the following folder structure:
 
 - `scheme` contains the Scheme sources for the drivers, utilitary functions and the `gambini.scm` file that loads up the Gambit system
+  - The `interpreted` folder contains Scheme sources that are meant to be intepreted by the runtime when the system runs
+  - The `compiled` folder contains Scheme sources that are meant to be compiled and executed as a compiled Scheme module
 - `archive-items` contains files folders that are placed into the built archive
 - `attic` contains deprected files kept for comparison or quick-access
 - `drivers` contains C++ drivers
@@ -45,9 +47,22 @@ Multiple debugging `make` commands are also available:
 
 The createimg.sh script is used to create a FAT32 image that can be mounted and add necessary Scheme driver files to the archive. However, the folder `archive-items` will be entirely replicated on the image and so you can add other files to be accessible at boot.
 
+You will need to have a special Gambit program compiled for the Mimosa operating system. See the next section for instructions on how to prepare the Gambit executable.
+
+## Compiled v.s interpreted Scheme drivers
+
+Mimosa provides support for both interpreted and compiled Scheme drivers and a mix and match as you desired. The `scheme` folder is divided in two subfolders, where files can be moved, to determine wether the drivers (or sources of various types) are to be compiled or interpreted. 
+
+Compiled files are loaded as Gambit-provided modules and thus a new compiled version of the Gambit runtime is required everytime a change to the method of execution of a file is changed. The `./build-and-copy-gambit-to-vm.sh` script will correctly build the runtime. Creating the runtime can take some time, as it requires building Gambit, compiling the Scheme sources to file with the built Gambit, and then rebuild (completely) the Gambit runtime, this time with the compiled `C` sources as part of the runtime. 
+
+Including a compiled file is done differently than an interpreted one. 
+- Inclusion of an interpreted file is done through `(import (my-lib))`
+- Inclusion of a compiled file is done with `(##load-module 'my-lib)`
+
 # Dependencies
 
 The kernel requires a compatible Gambit runtime. Currently, the modified Gambit runtime is located [here](https://github.com/SamuelYvon/gambit). In order to build a compatible runtime, you will need the Ubuntu VM provided in [this repository](https://github.com/udem-dlteam/ubuntu-6). Once running, you can then perform the following actions to create a working Gambit environement.
+
 ```Shell
 ./build-and-copy-gambit-to-vm.sh build
 ssh administrator@localhost:10022 # the running virtual machine
