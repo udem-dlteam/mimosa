@@ -25,6 +25,8 @@ build_gambit() {
 
     cd temp # in gambit/temp
 
+    # At this point, we can use the custom Gambit to compile
+    # our compiled files
     for f in $( ls "../../scheme/compiled" )
     do
         echo "Compiling $f"
@@ -39,11 +41,9 @@ build_gambit() {
     cp gsc/makefile.compile gsc/makefile.in
     rm gsc/makefile
 
-    exit 0
-
+    # Restart the process
     make clean
     make -j $NPROC
-
 
     make bootstrap
     make bootclean
