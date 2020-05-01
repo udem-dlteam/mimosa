@@ -10,11 +10,11 @@
 
 (##namespace ("_define-library/define-library-expand#"))
 
-(##include "define-library-expand#.scm")
-(##include "/dsk1/gambit/lib/gambit#.scm")
-(##include "/dsk1/gambit/lib/_gambit#.scm")
-(##include "/dsk1/gambit/lib/_module#.scm")
-(##include "/dsk1/gambit/lib/_prim#.scm")
+(##include "../../archive-items/gambit/lib/_define-library/define-library-expand#.scm")
+(##include "../../archive-items/gambit/lib/gambit#.scm")
+(##include "../../archive-items/gambit/lib/_gambit#.scm")
+(##include "../../archive-items/gambit/lib/_module#.scm")
+(##include "../../archive-items/gambit/lib/_prim#.scm")
 
 ;;;============================================================================
 

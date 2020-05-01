@@ -10,12 +10,12 @@
 
 (##define-syntax define-library
   (lambda (src)
-    (##import _define-library/define-library-expand)
+    (##load-module import _define-library/define-library-expand)
     (define-library-expand src)))
 
 (##define-syntax import
   (lambda (src)
-    (##import _define-library/define-library-expand)
+    (##load-module _define-library/define-library-expand)
     (import-expand src)))
 
 #;
@@ -30,7 +30,7 @@
 #;
 (##define-syntax syntax-rules
   (lambda (src)
-    (##import _define-library/define-library-expand)
+    (##load-module _define-library/define-library-expand)
     (syn#syntax-rules-form-transformer src)))
 
 ;;;============================================================================

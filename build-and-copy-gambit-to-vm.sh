@@ -22,6 +22,7 @@ build_gambit() {
 
     cp -r ../scheme/interpreted/. ./temp/.
     cp -r ../scheme/compiled/. ./temp/.
+    cp -r ../scheme/preload-compiled/. ./temp/.
 
     cd temp # in gambit/temp
 
@@ -31,6 +32,12 @@ build_gambit() {
     do
         echo "Compiling $f"
         ../gsc/gsc -c . "$f"
+    done
+
+    for f in $( ls "../../scheme/preload-compiled" )
+    do
+        echo "Compiling $f"
+        ../gsc/gsc -c -module-ref _define-library/define-library-expand . "$f"
     done
 
     cp *.c ../gsc/.
@@ -59,7 +66,7 @@ build_gambit() {
     mv "gambit-$GAMBIT_VERSION.tgz" "../libc/gambit-$GAMBIT_VERSION.tgz"
     cd .. 
 
-    rm -rf gambit
+    # rm -rf gambit
 }
 
 if [ "x$1" != x ]; then # basically any arg
@@ -70,6 +77,6 @@ fi
 
 echo "Copying to VM..."
 
-tar --exclude-vcs --exclude-vcs-ignore --exclude='*.img' -czf - ./libc | ssh administrator@localhost -p 10022 "rm -rf ./libc; tar xzf -;";
+tar --exclude-vcs --exclude-vcs-ignore --exclude='*.img' -czf - ./libc | ssh -oKexAlgorithms=+diffie-hellman-group1-sha1 administrator@localhost -p 10022 "rm -rf ./libc; tar xzf -;";
 
 echo "Done!"

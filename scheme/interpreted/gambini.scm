@@ -7,7 +7,6 @@
 
 (import (errors)
         (ide)
-        ; (disk)
         (utils)
         (fat32)
         (low-level)
@@ -34,8 +33,6 @@
 ;;;----------------------------------------------------
 ;;;                      IMPORTs
 ;;;----------------------------------------------------
-
-(load "edit.scm")
 
 ;;;----------------------------------------------------
 ;;;                    INIT SYS
@@ -186,3 +183,5 @@
 
 (define fs (car fat32#filesystem-list))
 (define main-disk (car disk#disk-list))
+
+; (##gc-report-set! #t)
