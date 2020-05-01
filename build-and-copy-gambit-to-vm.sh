@@ -37,7 +37,11 @@ build_gambit() {
     for f in $( ls "../../scheme/preload-compiled" )
     do
         echo "Compiling $f"
-        ../gsc/gsc -c -module-ref _define-library/define-library-expand . "$f"
+        if [[ "$f" == *"define-library-expand"* ]]; then # special case for define-lib
+            ../gsc/gsc -c -module-ref _define-library/define-library-expand . "$f"
+        else
+            ../gsc/gsc -c . "$f"
+        fi
     done
 
     cp *.c ../gsc/.
@@ -66,7 +70,7 @@ build_gambit() {
     mv "gambit-$GAMBIT_VERSION.tgz" "../libc/gambit-$GAMBIT_VERSION.tgz"
     cd .. 
 
-    # rm -rf gambit
+    rm -rf gambit
 }
 
 if [ "x$1" != x ]; then # basically any arg
