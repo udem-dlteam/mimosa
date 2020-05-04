@@ -93,7 +93,7 @@ bootsect.bin: bootsect.o
 	as --32 --defsym OS_NAME=$(OS_NAME) --defsym KERNEL_START=$(KERNEL_START) --defsym KERNEL_SIZE=`cat kernel.bin | wc --bytes | sed -e "s/ //g"` -o $*.o $*.s
 
 clean-archive-items:
-	rm archive-items/home/sam/*
+	rm -f archive-items/home/sam/*
 
 clean-bin:
 	rm -f -- kernel.bin bootsect.bin kernel.elf

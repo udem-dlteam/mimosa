@@ -1212,7 +1212,7 @@
 
     ;; Read byte data (as a string) from a file
     (define (file-read! file len fail)
-      (let ((today (rtc-current-date make-fat-date))
+      (let ((today (rtc#rtc-current-date make-fat-date))
             (entry (fat-file-entry file))
             (m (fat-file-mode file)))
         (logical-entry-last-access-date-set! entry today)
@@ -1257,8 +1257,8 @@
     ;; Write the vect to the file, at offset 'offset' for len bytes
     (define (file-write! file vect offset len fail)
       (let ((result (write-bytes! file vect offset len fail))
-            (now (rtc-current-time make-fat-time))
-            (today (rtc-current-date make-fat-date)))
+            (now (rtc#rtc-current-time make-fat-time))
+            (today (rtc#rtc-current-date make-fat-date)))
         (let ((entry (fat-file-entry file))
               (pos (fat-file-pos file))
               (max-len (fat-file-len file)))
@@ -1278,8 +1278,8 @@
     ;; This involves two things: erasing the cluster chain to free the blocks,
     ;; and setting the file length to zero.
     (define (truncate-file file)
-      (let* ((now (rtc-current-time make-fat-time))
-             (today (rtc-current-date make-fat-date))
+      (let* ((now (rtc#rtc-current-time make-fat-time))
+             (today (rtc#rtc-current-date make-fat-date))
              (fs (fat-file-fs file))
              (chain (filesystem-fat-cache fs))
              (cluster (fat-file-first-clus file))
@@ -1348,8 +1348,8 @@
       (let* ((bpb (filesystem-bpb fs))
              (bps (BPB-bps bpb))
              (root-clus (BPB-root-cluster bpb))
-             (now (rtc-current-time make-fat-time))
-             (today (rtc-current-date make-fat-date))
+             (now (rtc#rtc-current-time make-fat-time))
+             (today (rtc#rtc-current-date make-fat-date))
              (sec-per-cluster (BPB-sec-per-cluster bpb)))
         (make-fat-file
          fs
