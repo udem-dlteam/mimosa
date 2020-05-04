@@ -130,7 +130,7 @@
 ;;----------------------------------------------------
 
 (define (exec)
-    ; sleep if nothing
+  ;; sleep if nothing
     (let* ((packed (read unhandled-interrupts)))
       (handle-int (car packed) (cadr packed))
       (exec)))
