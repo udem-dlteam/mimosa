@@ -184,4 +184,4 @@
 (define fs (car fat32#filesystem-list))
 (define main-disk (car disk#disk-list))
 
-; (##gc-report-set! #t)
+;; (##gc-report-set! #t)

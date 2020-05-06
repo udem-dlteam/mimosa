@@ -48,7 +48,8 @@
     (define (bool-debug-write obj)
       (debug-write (if obj
                        "true"
-                       "false")))
+                       "false")
+                   ))
 
     (define (str-debug-write str)
       (let ((str (string-append "[SCM] " str "\n")))
@@ -62,11 +63,11 @@
       (str-debug-write (number->string nbr)))
 
     (define (vector-debug-write vect)
-      ; This is not great, as it only deals with vector of numbers
+                                        ; This is not great, as it only deals with vector of numbers
       (str-debug-write
-        (fold-right (lambda (cur rest) (string-append (number->string cur) " " rest))
-                    ""
-                    (vector->list vect))))
+       (fold-right (lambda (cur rest) (string-append (number->string cur) " " rest))
+                   ""
+                   (vector->list vect))))
 
     (define (char-debug-write char)
       (outb char DEBUG-WRITE-PORT))
