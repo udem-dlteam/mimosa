@@ -1,20 +1,20 @@
-; Mimosa
-; Université de Montréal
-; Marc Feeley, Samuel Yvon
+;; Mimosa
+;; Université de Montréal
+;; Marc Feeley, Samuel Yvon
 (define-library
-  (debug)
+    (debug)
   (import (gambit) (low-level))
   (export debug-write)
   (begin
     (define ENABLE-DEBUG? #t)
-    ; The debug port is the classic E9 fake device that outputs to the console
-    ; that runs qemu / bochs
-    ; see https://lists.gnu.org/archive/html/qemu-devel/2005-01/msg00169.html
+    ;; The debug port is the classic E9 fake device that outputs to the console
+    ;; that runs qemu / bochs
+    ;; see https://lists.gnu.org/archive/html/qemu-devel/2005-01/msg00169.html
     (define DEBUG-WRITE-PORT #xE9)
 
-    ; Ouputs to the console that runs the emulator
-    ; Formats the data according to the type
-    ; Is there define-multi in gambit?
+    ;; Ouputs to the console that runs the emulator
+    ;; Formats the data according to the type
+    ;; Is there define-multi in gambit?
     (define (debug-write obj)
       (if ENABLE-DEBUG?
           (cond ((string? obj)
@@ -34,7 +34,7 @@
                 ((procedure? obj)
                  (procedure-debug-write obj))
                 (else
-                  (str-debug-write (string obj))))))
+                 (str-debug-write (string obj))))))
 
     (define (pair-debug-write obj)
       (let ((a (car obj))
@@ -63,7 +63,7 @@
       (str-debug-write (number->string nbr)))
 
     (define (vector-debug-write vect)
-                                        ; This is not great, as it only deals with vector of numbers
+      ;; This is not great, as it only deals with vector of numbers
       (str-debug-write
        (fold-right (lambda (cur rest) (string-append (number->string cur) " " rest))
                    ""
