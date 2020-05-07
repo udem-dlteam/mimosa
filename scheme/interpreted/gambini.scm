@@ -4,11 +4,11 @@
 (##load-module 'keyboard)
 (##load-module 'rtc)
 (##load-module 'disk)
+(##load-module 'fat32)
+(##load-module 'ide)
 
 (import (errors)
-        (ide)
         (utils)
-        (fat32)
         (low-level)
         (uart)
         (debug)

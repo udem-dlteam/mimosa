@@ -1,12 +1,15 @@
 ; Mimosa
 ; Université de Montréal
 ; Marc Feeley, Samuel Yvon
+
+(##load-module 'ide)
+
 (define-library
   (disk)
   (import
     (gambit)
     (errors)
-    (ide)
+    ;; (ide)
     (utils)
     (debug)
     (low-level))
@@ -107,7 +110,7 @@
              (used (table-length cache))
              (cleanup-and-ret (lambda (val) (mutex-unlock! mut) val)))
         (mutex-lock! mut)
-        (ide-read-sectors
+        (ide#ide-read-sectors
           dev
           lba
           1
@@ -210,7 +213,7 @@
                    (lambda (query results)
                      (let ((lba (car query))
                            (qtt (cdr query)))
-                       (ide-read-sectors
+                       (ide#ide-read-sectors
                          dev
                          lba
                          qtt
@@ -240,7 +243,7 @@
                                 v)))
         (mutex-lock! smut)
         (mutex-lock! dmut)
-        (ide-write-sectors
+        (ide#ide-write-sectors
           dev
           lba
           v
