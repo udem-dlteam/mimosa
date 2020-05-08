@@ -13,7 +13,6 @@ build_gambit() {
     git clone https://github.com/SamuelYvon/gambit
     cd gambit
     GAMBIT_VERSION=$( git tag | grep -v bootstrap | tail -1 | sed 's/\./_/g')
-    
     # Just in case
     ./configure
     make -j $NPROC
@@ -68,19 +67,30 @@ build_gambit() {
     tar -cvzf "gambit-$GAMBIT_VERSION.tgz" "gambit-$GAMBIT_VERSION"
 
     mv "gambit-$GAMBIT_VERSION.tgz" "../libc/gambit-$GAMBIT_VERSION.tgz"
-    cd .. 
+    cd ..
+}
 
-    rm -rf gambit
+copy_to_vm() {
+    echo "Copying to VM..."
+
+    tar --exclude-vcs --exclude-vcs-ignore --exclude='*.img' -czf - ./libc | ssh -oKexAlgorithms=+diffie-hellman-group1-sha1 administrator@localhost -p 10022 "rm -rf ./libc; tar xzf -;";
+
+    echo "Done!"
 }
 
 if [ "x$1" != x ]; then # basically any arg
     echo "Building Gambit"
     build_gambit
+    cd gambit
+    version=$( git tag | grep -v bootstrap | tail -1 | sed 's/\./_/g')
+    cd ..
+    rm -rf gambit
+    copy_to_vm
+    ssh -oKexAlgorithms=+diffie-hellman-group1-sha1 administrator@localhost -p 10022 "cd libc; tar xvf gambit-$version.tgz; mv gambit-$version gambit; ./build-mimosa-gambit";
+    ./fetch-gambit-from-vm.sh
+else
+    copy_to_vm
 fi
 
 
-echo "Copying to VM..."
 
-tar --exclude-vcs --exclude-vcs-ignore --exclude='*.img' -czf - ./libc | ssh -oKexAlgorithms=+diffie-hellman-group1-sha1 administrator@localhost -p 10022 "rm -rf ./libc; tar xzf -;";
-
-echo "Done!"
