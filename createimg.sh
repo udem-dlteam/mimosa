@@ -37,9 +37,9 @@ echo "Copying items to the disk..."
 cp kernel.bin "$TMPDIR/BOOT.SYS"
 # Copy the Scheme file to the archive
 mkdir -p ./archive-items/home/sam
-cp -r ./scheme/interpreted/. ./archive-items/home/sam/.
+cp -a ./scheme/interpreted/. ./archive-items/home/sam/
 mv ./archive-items/home/sam/gambini.scm ./archive-items/home/sam/.gambini.scm
-cp -r ./archive-items/. "$TMPDIR"
+cp -a ./archive-items/. "$TMPDIR"
 
 # mkdir /mnt/tmp/folder
 # touch /mnt/tmp/folder/fif.tst
