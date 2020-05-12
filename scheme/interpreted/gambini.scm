@@ -62,7 +62,7 @@
 (define (erase-and-move! total-len)
   ; See the following comment for why we erase backwards, and why this is important.
   (for-each
-    (lambda (i) (write-i8 #f (at total-len -1 (- i) reader-offset) #x00))
+    (lambda (i) (store-u8 #f (at total-len -1 (- i) reader-offset) #x00))
     (iota total-len))
   (set! reader-offset (modulo (+ reader-offset total-len) SHARED-MEMORY-AREA-LEN)))
 
@@ -102,11 +102,11 @@
   ; 2,3,4, erasing the parameters of the interrupt.
   ; This is unlikely, but it would be very, very hard to debug.
   (let pmp ()
-    (let ((int-no (read-iu8 #f (at reader-offset))))
+    (let ((int-no (fetch-u8 #f (at reader-offset))))
       (if (fx= 0 int-no)
           #t; stop
-          (let* ((arr-len (read-iu8 #f (at 1 reader-offset)))
-                 (params (map (lambda (n) (read-iu8 #f (at 2 n reader-offset))) (iota arr-len)))
+          (let* ((arr-len (fetch-u8 #f (at 1 reader-offset)))
+                 (params (map (lambda (n) (fetch-u8 #f (at 2 n reader-offset))) (iota arr-len)))
                  (total-len (+ 2 arr-len)))
             (write (list int-no params) unhandled-interrupts)
             (force-output unhandled-interrupts)
@@ -144,9 +144,9 @@
   (thread-yield!)
   (idle))
 
-(thread-start! (make-thread exec "int execution g-tread"))
-(thread-start! (make-thread int-clear "Mimosa interrupt clearing thread"))
-(thread-start! (make-thread idle "Mimosa idle green thread"))
+(thread-start! (make-thread exec "execute-interrupts"))
+(thread-start! (make-thread int-clear "process-interrupts"))
+(thread-start! (make-thread idle "idle-thread"))
 
 ;;----------------------------------------------------
 ;;                     INIT SYSTEM

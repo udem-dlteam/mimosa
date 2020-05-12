@@ -379,7 +379,7 @@
 
     (define (make-pump-thread com-port endpoint)
       (let ((body (make-pump-thread-body com-port endpoint))
-            (name (string-append "UART pump thread " (number->string com-port))))
+            (name (string-append "UART pump thread (" (number->string com-port) ")")))
         (make-thread body name)))
 
     (define-macro (macro-repl-channel-input-port channel) `(##vector-ref ,channel 3))
@@ -419,9 +419,12 @@
         (thread-start! pump-thread)
         (thread-start! repl-thread)))
 
+    ;; Number of UART ports to start (1-4)
+    (define UART-TO-START 1)
+
     (define (uart-setup)
-      (set! uart-struct-vect (build-vector 4 (o ##make-port ++)))
-      (for-each (o uart#uart-do-init ++) (iota 4))
+      (set! uart-struct-vect (build-vector UART-TO-START (o ##make-port ++)))
+      (for-each (o uart#uart-do-init ++) (iota UART-TO-START))
       (cons UART-INT handle-uart-int))
 
     ))
