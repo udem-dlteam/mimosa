@@ -184,4 +184,12 @@
 (define fs (car fat32#filesystem-list))
 (define main-disk (car disk#disk-list))
 
+;; Test the timing of a one second wait
+(define (timing-test)
+  (let ((a (current-second)))
+    (thread-sleep! 1)
+    (let ((b (current-second)))
+      (exact (round (* (- b a) 1000))))))
+
+
 ;; (##gc-report-set! #t)
