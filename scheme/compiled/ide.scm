@@ -5,6 +5,7 @@
   (errors)
   (gambit)
   (utils)
+  (intr)
   (low-level)
   (debug))
 (export
@@ -400,6 +401,9 @@
     (let* ((ctrl (vector-ref IDE-CTRL-VECT controller-no))
            (q (ide-controller-continuations-queue ctrl))
            (cont (read q)))
+      (ack-irq (if (= controller-no 0)
+                   14
+                   15))
       (call-if cont)))
 
   (define (setup-device controller devices dev-no)

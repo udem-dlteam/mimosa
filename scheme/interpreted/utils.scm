@@ -46,6 +46,7 @@
     replace-error
     s<<
     s>>
+    safe-substring
     split-string
     string->u8vector
     string-trim
@@ -340,5 +341,11 @@
       (lambda (fn)
         (apply fn args)
         ))
+
+    (define (safe-substring s start end)
+      (let ((l (string-length s)))
+        (if (>= start l)
+            ""
+            (substring s start (min l end)))))
 
     ))

@@ -379,8 +379,8 @@
 
     (define (make-pump-thread com-port endpoint)
       (let ((body (make-pump-thread-body com-port endpoint))
-            (name (string-append "UART pump thread (" (number->string com-port) ")")))
-        (make-thread body name)))
+            (name (string-append "uart-pump-" (number->string com-port))))
+        (make-thread body (string->symbol name))))
 
     (define-macro (macro-repl-channel-input-port channel) `(##vector-ref ,channel 3))
     (define-macro (macro-repl-channel-input-port-set! channel port) `(##vector-set! ,channel 3 ,port))
@@ -393,8 +393,8 @@
         (##repl-debug-main)))
     (define (make-repl-thread com-port repl-endpoint)
       (let ((body (make-repl-thread-body com-port repl-endpoint))
-            (name (string-append "UART repl thread " (number->string com-port))))
-        (make-thread body name)))
+            (name (string-append "uart-repl-" (number->string com-port))))
+        (make-thread body (string->symbol name))))
 
     ; Perform the init sequence on a UART port
     (define (uart-do-init port)

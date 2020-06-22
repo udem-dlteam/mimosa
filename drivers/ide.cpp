@@ -8,9 +8,9 @@
 
 //-----------------------------------------------------------------------------
 
-#include "ide.h"
 #include "asm.h"
 #include "disk.h"
+#include "ide.h"
 #include "intr.h"
 #include "rtlib.h"
 #include "term.h"
@@ -34,40 +34,42 @@ typedef struct ide_module_struct {
 static ide_module ide_mod;
 
 static void ide_delay(uint16 port) {
-  for (int i = 0; i < 4; i++) inb(port + IDE_ALT_STATUS_REG);
+  for (int i = 0; i < 4; i++)
+    inb(port + IDE_ALT_STATUS_REG);
 }
 
-ide_cmd_queue_entry* ide_cmd_queue_alloc(ide_device* dev) {
+ide_cmd_queue_entry *ide_cmd_queue_alloc(ide_device *dev) {
   int32 i;
-  ide_controller* ctrl;
-  ide_cmd_queue_entry* entry;
+  ide_controller *ctrl;
+  ide_cmd_queue_entry *entry;
 
-  ASSERT_INTERRUPTS_DISABLED();  // Interrupts should be disabled at this point
+  ASSERT_INTERRUPTS_DISABLED(); // Interrupts should be disabled at this point
 
   ctrl = dev->ctrl;
 
   while ((i = ctrl->cmd_queue_freelist) < 0)
-   condvar_mutexless_wait(ctrl->cmd_queue_condvar);
+    condvar_mutexless_wait(ctrl->cmd_queue_condvar);
 
   entry = &ctrl->cmd_queue[i];
 
   entry->dev = dev;
-  entry->refcount = 2;  // the interrupt handler and the client have to free me
+  entry->refcount = 2; // the interrupt handler and the client have to free me
 
   i = entry->next;
 
   ctrl->cmd_queue_freelist = i;
 
-  if (i >= 0) condvar_mutexless_signal(ctrl->cmd_queue_condvar);
+  if (i >= 0)
+    condvar_mutexless_signal(ctrl->cmd_queue_condvar);
 
   return entry;
 }
 
-void ide_cmd_queue_free(ide_cmd_queue_entry* entry) {
-  ide_device* dev;
-  ide_controller* ctrl;
+void ide_cmd_queue_free(ide_cmd_queue_entry *entry) {
+  ide_device *dev;
+  ide_controller *ctrl;
 
-  ASSERT_INTERRUPTS_DISABLED();  // Interrupts should be disabled at this point
+  ASSERT_INTERRUPTS_DISABLED(); // Interrupts should be disabled at this point
 
   dev = entry->dev;
   ctrl = dev->ctrl;
@@ -79,22 +81,22 @@ void ide_cmd_queue_free(ide_cmd_queue_entry* entry) {
   }
 }
 
-void ide_irq(ide_controller* ctrl) {
+void ide_irq(ide_controller *ctrl) {
   uint8 s;
   uint32 i;
-  ide_cmd_queue_entry* entry;
+  ide_cmd_queue_entry *entry;
   uint16 base;
-  uint16* p = NULL;
+  uint16 *p = NULL;
 
-  entry = &ctrl->cmd_queue[0];  // We only handle one operation at a time
+  entry = &ctrl->cmd_queue[0]; // We only handle one operation at a time
   base = ide_controller_map[ctrl->id].base;
 
   cmd_type type = entry->cmd;
 
   if (type == cmd_read_sectors) {
-    p = CAST(uint16*, entry->_.read_sectors.buf);
+    p = CAST(uint16 *, entry->_.read_sectors.buf);
   } else if (type == cmd_write_sectors) {
-    p = CAST(uint16*, entry->_.write_sectors.buf);
+    p = CAST(uint16 *, entry->_.write_sectors.buf);
   } else if (type == cmd_flush_cache) {
     p = NULL;
   } else {
@@ -172,13 +174,12 @@ extern "C" void irq14() {
   term_write(cout, "\033[41m irq14 \033[0m");
 #endif
 
-  ACKNOWLEDGE_IRQ(14);
-
-  if(has_cut_ide_support()) {
-      uint8 params[1] = {0};
-      send_gambit_int(GAMBIT_IDE_INT, params, 1);
+  if (has_cut_ide_support()) {
+    uint8 params[1] = {0};
+    send_gambit_int(GAMBIT_IDE_INT, params, 1);
   } else {
-      ide_irq(&ide_mod.ide[0]);
+    ACKNOWLEDGE_IRQ(14);
+    ide_irq(&ide_mod.ide[0]);
   }
 }
 
@@ -191,33 +192,33 @@ extern "C" void irq15() {
   term_write(cout, "\033[41m irq15 \033[0m");
 #endif
 
-  ACKNOWLEDGE_IRQ(15);
-
-  if(bridge_up()) {
-      uint8 params[1] = {1};
-      send_gambit_int(GAMBIT_IDE_INT, params, 1);
-  } 
-
-  ide_irq (&ide_mod.ide[1]);
+  if (has_cut_ide_support()) {
+    uint8 params[1] = {1};
+    send_gambit_int(GAMBIT_IDE_INT, params, 1);
+  } else {
+    ACKNOWLEDGE_IRQ(15);
+    ide_irq(&ide_mod.ide[1]);
+  }
 }
 
 #endif
 
-error_code ide_read_sectors(ide_device* dev, uint32 lba, void* buf,
+error_code ide_read_sectors(ide_device *dev, uint32 lba, void *buf,
                             uint32 count) {
   error_code err = NO_ERROR;
 
-  ASSERT_INTERRUPTS_ENABLED();  // Interrupts should be enabled at this point
+  ASSERT_INTERRUPTS_ENABLED(); // Interrupts should be enabled at this point
 
   if (count > 0) {
-    ide_controller* ctrl = dev->ctrl;
+    ide_controller *ctrl = dev->ctrl;
     uint16 base = ide_controller_map[ctrl->id].base;
-    ide_cmd_queue_entry* entry;
+    ide_cmd_queue_entry *entry;
 
     disable_interrupts();
     entry = ide_cmd_queue_alloc(dev);
 
-    if (count > 256) count = 256;
+    if (count > 256)
+      count = 256;
 
     entry->cmd = cmd_read_sectors;
     entry->_.read_sectors.buf = buf;
@@ -243,27 +244,29 @@ error_code ide_read_sectors(ide_device* dev, uint32 lba, void* buf,
   return err;
 }
 
-error_code ide_write_sectors(ide_device* dev, uint32 lba, void* buf,
+error_code ide_write_sectors(ide_device *dev, uint32 lba, void *buf,
                              uint32 count) {
   error_code err = NO_ERROR;
 
-  ASSERT_INTERRUPTS_ENABLED();  // Interrupts should be enabled at this point
+  ASSERT_INTERRUPTS_ENABLED(); // Interrupts should be enabled at this point
 
   if (count > 0) {
-    ide_controller* ctrl = dev->ctrl;
+    ide_controller *ctrl = dev->ctrl;
     uint16 base = ide_controller_map[ctrl->id].base;
-    ide_cmd_queue_entry* entry;
+    ide_cmd_queue_entry *entry;
 
     disable_interrupts();
 
-    if(count != 1) panic(L"Only one sector supported...");
-    if (count > 256) count = 256;
+    if (count != 1)
+      panic(L"Only one sector supported...");
+    if (count > 256)
+      count = 256;
 
     entry = ide_cmd_queue_alloc(dev);
     entry->cmd = cmd_write_sectors;
     entry->_.write_sectors.buf = buf;
     entry->_.write_sectors.count = count;
-    entry->_.write_sectors.written = 1;  // We write a sector right now
+    entry->_.write_sectors.written = 1; // We write a sector right now
 
     outb(IDE_DEV_HEAD_LBA | IDE_DEV_HEAD_DEV(dev->id) | (lba >> 24),
          base + IDE_DEV_HEAD_REG);
@@ -277,19 +280,19 @@ error_code ide_write_sectors(ide_device* dev, uint32 lba, void* buf,
            !(inb(base + IDE_STATUS_REG) & IDE_STATUS_DRQ))
       ide_delay(base);
 
-    uint16* p = CAST(uint16*, entry->_.write_sectors.buf);
+    uint16 *p = CAST(uint16 *, entry->_.write_sectors.buf);
 
     // Write the first sector immediately
     for (uint16 i = (1 << (IDE_LOG2_SECTOR_SIZE - 1)); i > 0; i--) {
       outw(*p++, base + IDE_DATA_REG);
     }
 
-    entry->_.write_sectors.buf = p;  // So we can write from there
+    entry->_.write_sectors.buf = p; // So we can write from there
 
     condvar_mutexless_wait(entry->done);
     err = entry->_.write_sectors.err;
     ide_cmd_queue_free(entry);
-    
+
     // Flush the command buffer
     entry = ide_cmd_queue_alloc(dev);
     entry->cmd = cmd_flush_cache;
@@ -304,19 +307,20 @@ error_code ide_write_sectors(ide_device* dev, uint32 lba, void* buf,
   return err;
 }
 
-static void swap_and_trim(native_string dst, uint16* src, uint32 len) {
+static void swap_and_trim(native_string dst, uint16 *src, uint32 len) {
   uint32 i;
   uint32 end = 0;
 
   for (i = 0; i < len; i++) {
     dst[i] = CAST(native_char, (i & 1) ? src[i >> 1] : (src[i >> 1] >> 8));
-    if (dst[i] != ' ') end = i + 1;
+    if (dst[i] != ' ')
+      end = i + 1;
   }
 
   dst[end] = '\0';
 }
 
-static void setup_ide_device(ide_controller* ctrl, ide_device* dev, uint8 id) {
+static void setup_ide_device(ide_controller *ctrl, ide_device *dev, uint8 id) {
   uint32 i;
   uint32 j;
   uint16 ident[1 << (IDE_LOG2_SECTOR_SIZE - 1)];
@@ -325,7 +329,8 @@ static void setup_ide_device(ide_controller* ctrl, ide_device* dev, uint8 id) {
   dev->id = id;
   dev->ctrl = ctrl;
 
-  if (dev->kind == IDE_DEVICE_ABSENT) return;
+  if (dev->kind == IDE_DEVICE_ABSENT)
+    return;
 
   base = ide_controller_map[ctrl->id].base;
 
@@ -339,16 +344,17 @@ static void setup_ide_device(ide_controller* ctrl, ide_device* dev, uint8 id) {
     outb(IDE_IDENTIFY_PACKET_DEVICE_CMD, base + IDE_COMMAND_REG);
   }
 
-  for (j = 1000000; j > 0; j--)  // wait up to 1 second for a response
+  for (j = 1000000; j > 0; j--) // wait up to 1 second for a response
   {
     uint8 stat = inb(base + IDE_STATUS_REG);
 
     if (!(stat & IDE_STATUS_BSY)) {
-      if (stat & IDE_STATUS_ERR) j = 0;
+      if (stat & IDE_STATUS_ERR)
+        j = 0;
       break;
     }
 
-    thread_sleep(1000);  // 1 usec
+    thread_sleep(1000); // 1 usec
   }
 
   if (j == 0) {
@@ -364,7 +370,6 @@ static void setup_ide_device(ide_controller* ctrl, ide_device* dev, uint8 id) {
   swap_and_trim(dev->firmware_rev, ident + 23, 8);
   swap_and_trim(dev->model_num, ident + 27, 40);
 
-
   dev->cylinders_per_disk = 0;
   dev->heads_per_cylinder = 0;
   dev->sectors_per_track = 0;
@@ -372,18 +377,18 @@ static void setup_ide_device(ide_controller* ctrl, ide_device* dev, uint8 id) {
   dev->total_sectors = 0;
 
   if (dev->kind == IDE_DEVICE_ATA) {
-      dev->cylinders_per_disk = ident[1];
-      dev->heads_per_cylinder = ident[3];
-      dev->sectors_per_track = ident[6];
-      dev->total_sectors = (CAST(uint32, ident[61]) << 16) + ident[60];
+    dev->cylinders_per_disk = ident[1];
+    dev->heads_per_cylinder = ident[3];
+    dev->sectors_per_track = ident[6];
+    dev->total_sectors = (CAST(uint32, ident[61]) << 16) + ident[60];
 
-      if (ident[53] & (1 << 0)) {
-          dev->cylinders_per_disk = ident[54];
-          dev->heads_per_cylinder = ident[55];
-          dev->sectors_per_track = ident[56];
-          dev->total_sectors_when_using_CHS =
-              (CAST(uint32, ident[58]) << 16) + ident[57];
-      }
+    if (ident[53] & (1 << 0)) {
+      dev->cylinders_per_disk = ident[54];
+      dev->heads_per_cylinder = ident[55];
+      dev->sectors_per_track = ident[56];
+      dev->total_sectors_when_using_CHS =
+          (CAST(uint32, ident[58]) << 16) + ident[57];
+    }
   }
 
 #if 0
@@ -408,26 +413,22 @@ static void setup_ide_device(ide_controller* ctrl, ide_device* dev, uint8 id) {
   term_write(cout, "  word 47 hi (should be 128) = ");
   term_write(cout, (ident[47] >> 8));
   term_writeline(cout);
-  term_write(cout,
-             "  Maximum number of sectors that shall be transferred per "
-             "interrupt on READ/WRITE MULTIPLE commands = ");
+  term_write(cout, "  Maximum number of sectors that shall be transferred per "
+                   "interrupt on READ/WRITE MULTIPLE commands = ");
   term_write(cout, (ident[47] & 0xff));
   term_writeline(cout);
 
 #ifdef SHOW_IDE_INFO
 
-  if (dev->kind == IDE_DEVICE_ATA)
-    {
-      if ((ident[0] & (1<<15)) == 0)
-        term_write(cout, "  ATA device\n");
-    }
-  else
-    {
-      if ((ident[0] & (3<<14)) == (2<<14))
-        term_write(cout, "  ATAPI device\n");
-    }
+  if (dev->kind == IDE_DEVICE_ATA) {
+    if ((ident[0] & (1 << 15)) == 0)
+      term_write(cout, "  ATA device\n");
+  } else {
+    if ((ident[0] & (3 << 14)) == (2 << 14))
+      term_write(cout, "  ATAPI device\n");
+  }
 
-  if ((ident[0] & (1<<7)) == 1)
+  if ((ident[0] & (1 << 7)) == 1)
     term_write(cout, "  removable media device\n");
 
 #if 0
@@ -437,21 +438,20 @@ static void setup_ide_device(ide_controller* ctrl, ide_device* dev, uint8 id) {
 
 #endif
 
-  if ((ident[0] & (1<<2)) == 1)
+  if ((ident[0] & (1 << 2)) == 1)
     term_write(cout, "  response incomplete\n");
 
-  if (dev->kind == IDE_DEVICE_ATA)
-    {
-      term_write(cout, "  Number of logical cylinders = ");
-      term_write(cout, ident[1]);
-      term_write(cout, "\n");
-      term_write(cout, "  Number of logical heads = ");
-      term_write(cout, ident[3]);
-      term_write(cout, "\n");
-      term_write(cout, "  Number of logical sectors per logical track = ");
-      term_write(cout, ident[6]);
-      term_write(cout, "\n");
-    }
+  if (dev->kind == IDE_DEVICE_ATA) {
+    term_write(cout, "  Number of logical cylinders = ");
+    term_write(cout, ident[1]);
+    term_write(cout, "\n");
+    term_write(cout, "  Number of logical heads = ");
+    term_write(cout, ident[3]);
+    term_write(cout, "\n");
+    term_write(cout, "  Number of logical sectors per logical track = ");
+    term_write(cout, ident[6]);
+    term_write(cout, "\n");
+  }
 
   term_write(cout, "  Serial number = ");
   term_write(cout, dev->serial_num);
@@ -470,61 +470,60 @@ static void setup_ide_device(ide_controller* ctrl, ide_device* dev, uint8 id) {
 
 #endif
 
-  if (dev->kind == IDE_DEVICE_ATA)
-    {
-      if (ident[53] & (1<<0))
-        {
-          term_write(cout, "  Number of current logical cylinders = ");
-          term_write(cout, ident[54]);
-          term_write(cout, "\n");
-          term_write(cout, "  Number of current logical heads = ");
-          term_write(cout, ident[55]);
-          term_write(cout, "\n");
-          term_write(cout, "  Number of current logical sectors per track = ");
-          term_write(cout, ident[56]);
-          term_write(cout, "\n");
-          term_write(cout, "  Current capacity in sectors = ");
-          term_write(cout, (CAST(uint32,ident[58])<<16)+ident[57]);
-          term_write(cout, "\n");
-        }
-
-      term_write(cout, "  Total number of user addressable sectors (LBA mode only) = ");
-      term_write(cout, (CAST(uint32,ident[61])<<16)+ident[60]);
+  if (dev->kind == IDE_DEVICE_ATA) {
+    if (ident[53] & (1 << 0)) {
+      term_write(cout, "  Number of current logical cylinders = ");
+      term_write(cout, ident[54]);
+      term_write(cout, "\n");
+      term_write(cout, "  Number of current logical heads = ");
+      term_write(cout, ident[55]);
+      term_write(cout, "\n");
+      term_write(cout, "  Number of current logical sectors per track = ");
+      term_write(cout, ident[56]);
+      term_write(cout, "\n");
+      term_write(cout, "  Current capacity in sectors = ");
+      term_write(cout, (CAST(uint32, ident[58]) << 16) + ident[57]);
       term_write(cout, "\n");
     }
 
-  if (ident[63] & (1<<10))
+    term_write(cout,
+               "  Total number of user addressable sectors (LBA mode only) = ");
+    term_write(cout, (CAST(uint32, ident[61]) << 16) + ident[60]);
+    term_write(cout, "\n");
+  }
+
+  if (ident[63] & (1 << 10))
     term_write(cout, "  Multiword DMA mode 2 is selected\n");
 
-  if (ident[63] & (1<<9))
+  if (ident[63] & (1 << 9))
     term_write(cout, "  Multiword DMA mode 1 is selected\n");
 
-  if (ident[63] & (1<<8))
+  if (ident[63] & (1 << 8))
     term_write(cout, "  Multiword DMA mode 0 is selected\n");
 
-  if (ident[63] & (1<<2))
+  if (ident[63] & (1 << 2))
     term_write(cout, "  Multiword DMA mode 2 and below are supported\n");
 
-  if (ident[63] & (1<<1))
+  if (ident[63] & (1 << 1))
     term_write(cout, "  Multiword DMA mode 1 and below are supported\n");
 
-  if (ident[63] & (1<<0))
+  if (ident[63] & (1 << 0))
     term_write(cout, "  Multiword DMA mode 0 is supported\n");
 
   term_write(cout, "  Maximum queue depth � 1 = ");
-  term_write(cout, (ident[75]&31));
+  term_write(cout, (ident[75] & 31));
   term_write(cout, "\n");
 
-  if (ident[80] & (1<<5))
+  if (ident[80] & (1 << 5))
     term_write(cout, "  supports ATA/ATAPI-5\n");
 
-  if (ident[80] & (1<<4))
+  if (ident[80] & (1 << 4))
     term_write(cout, "  supports ATA/ATAPI-4\n");
 
-  if (ident[80] & (1<<3))
+  if (ident[80] & (1 << 3))
     term_write(cout, "  supports ATA-3\n");
 
-  if (ident[80] & (1<<2))
+  if (ident[80] & (1 << 2))
     term_write(cout, "  supports ATA-2\n");
 
   term_write(cout, "  Minor version number = ");
@@ -533,170 +532,171 @@ static void setup_ide_device(ide_controller* ctrl, ide_device* dev, uint8 id) {
 
   term_write(cout, "  supports:");
 
-  if (ident[82] & (1<<14))
+  if (ident[82] & (1 << 14))
     term_write(cout, " NOP command,");
 
-  if (ident[82] & (1<<13))
+  if (ident[82] & (1 << 13))
     term_write(cout, " READ BUFFER command,");
 
-  if (ident[82] & (1<<12))
+  if (ident[82] & (1 << 12))
     term_write(cout, " WRITE BUFFER command,");
 
-  if (ident[82] & (1<<10))
+  if (ident[82] & (1 << 10))
     term_write(cout, " Host Protected Area feature set,");
 
-  if (ident[82] & (1<<9))
+  if (ident[82] & (1 << 9))
     term_write(cout, " DEVICE RESET command,");
 
-  if (ident[82] & (1<<8))
+  if (ident[82] & (1 << 8))
     term_write(cout, " SERVICE interrupt,");
 
-  if (ident[82] & (1<<7))
+  if (ident[82] & (1 << 7))
     term_write(cout, " release interrupt,");
 
-  if (ident[82] & (1<<6))
+  if (ident[82] & (1 << 6))
     term_write(cout, " look-ahead,");
 
-  if (ident[82] & (1<<5))
+  if (ident[82] & (1 << 5))
     term_write(cout, " write cache,");
 
-  if (ident[82] & (1<<3))
+  if (ident[82] & (1 << 3))
     term_write(cout, " Power Management feature set,");
 
-  if (ident[82] & (1<<2))
+  if (ident[82] & (1 << 2))
     term_write(cout, " Removable Media feature set,");
 
-  if (ident[82] & (1<<1))
+  if (ident[82] & (1 << 1))
     term_write(cout, " Security Mode feature set,");
 
-  if (ident[82] & (1<<0))
+  if (ident[82] & (1 << 0))
     term_write(cout, " SMART feature set,");
 
-  if (ident[83] & (1<<8))
+  if (ident[83] & (1 << 8))
     term_write(cout, " SET MAX security extension,");
 
-  if (ident[83] & (1<<6))
-    term_write(cout, " SET FEATURES subcommand required to spinup after power-up,");
+  if (ident[83] & (1 << 6))
+    term_write(cout,
+               " SET FEATURES subcommand required to spinup after power-up,");
 
-  if (ident[83] & (1<<5))
+  if (ident[83] & (1 << 5))
     term_write(cout, " Power-Up In Standby feature set,");
 
-  if (ident[83] & (1<<4))
+  if (ident[83] & (1 << 4))
     term_write(cout, " Removable Media Status Notification feature set,");
 
-  if (ident[83] & (1<<3))
+  if (ident[83] & (1 << 3))
     term_write(cout, " Advanced Power Management feature set,");
 
-  if (ident[83] & (1<<2))
+  if (ident[83] & (1 << 2))
     term_write(cout, " CFA feature set,");
 
-  if (ident[83] & (1<<1))
+  if (ident[83] & (1 << 1))
     term_write(cout, " READ/WRITE DMA QUEUED,");
 
-  if (ident[83] & (1<<0))
+  if (ident[83] & (1 << 0))
     term_write(cout, " DOWNLOAD MICROCODE command,");
 
   term_write(cout, "\n");
 
   term_write(cout, "  enabled:");
 
-  if (ident[85] & (1<<14))
+  if (ident[85] & (1 << 14))
     term_write(cout, " NOP command,");
 
-  if (ident[85] & (1<<13))
+  if (ident[85] & (1 << 13))
     term_write(cout, " READ BUFFER command,");
 
-  if (ident[85] & (1<<12))
+  if (ident[85] & (1 << 12))
     term_write(cout, " WRITE BUFFER command,");
 
-  if (ident[85] & (1<<10))
+  if (ident[85] & (1 << 10))
     term_write(cout, " Host Protected Area feature set,");
 
-  if (ident[85] & (1<<9))
+  if (ident[85] & (1 << 9))
     term_write(cout, " DEVICE RESET command,");
 
-  if (ident[85] & (1<<8))
+  if (ident[85] & (1 << 8))
     term_write(cout, " SERVICE interrupt,");
 
-  if (ident[85] & (1<<7))
+  if (ident[85] & (1 << 7))
     term_write(cout, " release interrupt,");
 
-  if (ident[85] & (1<<6))
+  if (ident[85] & (1 << 6))
     term_write(cout, " look-ahead,");
 
-  if (ident[85] & (1<<5))
+  if (ident[85] & (1 << 5))
     term_write(cout, " write cache,");
 
-  if (ident[85] & (1<<3))
+  if (ident[85] & (1 << 3))
     term_write(cout, " Power Management feature set,");
 
-  if (ident[85] & (1<<2))
+  if (ident[85] & (1 << 2))
     term_write(cout, " Removable Media feature set,");
 
-  if (ident[85] & (1<<1))
+  if (ident[85] & (1 << 1))
     term_write(cout, " Security Mode feature set,");
 
-  if (ident[85] & (1<<0))
+  if (ident[85] & (1 << 0))
     term_write(cout, " SMART feature set,");
 
-  if (ident[86] & (1<<8))
+  if (ident[86] & (1 << 8))
     term_write(cout, " SET MAX security extension,");
 
-  if (ident[86] & (1<<6))
-    term_write(cout, " SET FEATURES subcommand required to spin-up after power-up,");
+  if (ident[86] & (1 << 6))
+    term_write(cout,
+               " SET FEATURES subcommand required to spin-up after power-up,");
 
-  if (ident[86] & (1<<5))
+  if (ident[86] & (1 << 5))
     term_write(cout, " Power-Up In Standby feature set,");
 
-  if (ident[86] & (1<<4))
+  if (ident[86] & (1 << 4))
     term_write(cout, " Removable Media Status Notification feature set,");
 
-  if (ident[86] & (1<<3))
+  if (ident[86] & (1 << 3))
     term_write(cout, " Advanced Power Management feature set,");
 
-  if (ident[86] & (1<<2))
+  if (ident[86] & (1 << 2))
     term_write(cout, " CFA feature set,");
 
-  if (ident[86] & (1<<1))
+  if (ident[86] & (1 << 1))
     term_write(cout, " READ/WRITE DMA QUEUED command,");
 
-  if (ident[86] & (1<<0))
+  if (ident[86] & (1 << 0))
     term_write(cout, " DOWNLOAD MICROCODE command,");
 
   term_write(cout, "\n");
 
-  if (ident[53] & (1<<2))
-    {
-      if (ident[88] & (1<<12))
-        term_write(cout, "  Ultra DMA mode 4 is selected\n");
+  if (ident[53] & (1 << 2)) {
+    if (ident[88] & (1 << 12))
+      term_write(cout, "  Ultra DMA mode 4 is selected\n");
 
-      if (ident[88] & (1<<11))
-        term_write(cout, "  Ultra DMA mode 3 is selected\n");
+    if (ident[88] & (1 << 11))
+      term_write(cout, "  Ultra DMA mode 3 is selected\n");
 
-      if (ident[88] & (1<<10))
-        term_write(cout, "  Ultra DMA mode 2 is selected\n");
+    if (ident[88] & (1 << 10))
+      term_write(cout, "  Ultra DMA mode 2 is selected\n");
 
-      if (ident[88] & (1<<9))
-        term_write(cout, "  Ultra DMA mode 1 is selected\n");
+    if (ident[88] & (1 << 9))
+      term_write(cout, "  Ultra DMA mode 1 is selected\n");
 
-      if (ident[88] & (1<<8))
-        term_write(cout, "  Ultra DMA mode 0 is selected\n");
+    if (ident[88] & (1 << 8))
+      term_write(cout, "  Ultra DMA mode 0 is selected\n");
 
-      if (ident[88] & (1<<4))
-        term_write(cout, "  Ultra DMA mode 4 and below are supported\n");
+    if (ident[88] & (1 << 4))
+      term_write(cout, "  Ultra DMA mode 4 and below are supported\n");
 
-      if (ident[88] & (1<<3))
-        term_write(cout, "  Ultra DMA mode 3 and below are supported\n");
+    if (ident[88] & (1 << 3))
+      term_write(cout, "  Ultra DMA mode 3 and below are supported\n");
 
-      if (ident[88] & (1<<2))
-        term_write(cout, "  Ultra DMA mode 2 and below are supported\n");
+    if (ident[88] & (1 << 2))
+      term_write(cout, "  Ultra DMA mode 2 and below are supported\n");
 
-      if (ident[88] & (1<<1))
-        term_write(cout, "  Ultra DMA mode 1 and below are supported\n");
+    if (ident[88] & (1 << 1))
+      term_write(cout, "  Ultra DMA mode 1 and below are supported\n");
 
-      if (ident[88] & (1<<0))
-        term_write(cout, "  Ultra DMA mode 0 is supported\n");
-    }
+    if (ident[88] & (1 << 0))
+      term_write(cout, "  Ultra DMA mode 0 is supported\n");
+  }
 
   if (ident[88] & (1 << 0))
     term_write(cout, "  Ultra DMA mode 0 is supported\n");
@@ -704,7 +704,7 @@ static void setup_ide_device(ide_controller* ctrl, ide_device* dev, uint8 id) {
 #endif
 }
 
-static void setup_ide_controller(ide_controller* ctrl, uint8 id) {
+static void setup_ide_controller(ide_controller *ctrl, uint8 id) {
   term_write(cout, "Setting up IDE controller no: ");
   term_write(cout, id);
   term_writeline(cout);
@@ -744,8 +744,8 @@ static void setup_ide_controller(ide_controller* ctrl, uint8 id) {
                     IDE_STATUS_DSC | IDE_STATUS_DRQ)) !=
         (IDE_STATUS_BSY | IDE_STATUS_RDY | IDE_STATUS_DF | IDE_STATUS_DSC |
          IDE_STATUS_DRQ)) {
-      ctrl->device[i].kind = IDE_DEVICE_ATAPI;  // for now means the device
-      candidates++;                             // is possibly present
+      ctrl->device[i].kind = IDE_DEVICE_ATAPI; // for now means the device
+      candidates++;                            // is possibly present
     } else {
       ctrl->device[i].kind = IDE_DEVICE_ABSENT;
     }
@@ -759,17 +759,17 @@ static void setup_ide_controller(ide_controller* ctrl, uint8 id) {
     ide_delay(base); // 400 nsecs
     inb(base + IDE_STATUS_REG);
 
-    thread_sleep(5000);  // 5 usecs
+    thread_sleep(5000); // 5 usecs
     outb(IDE_DEV_CTRL_nIEN, base + IDE_DEV_CTRL_REG);
-    thread_sleep(5000);  // 5 usecs
+    thread_sleep(5000); // 5 usecs
     outb(IDE_DEV_CTRL_nIEN | IDE_DEV_CTRL_SRST, base + IDE_DEV_CTRL_REG);
-    thread_sleep(5000);  // 5 usecs
+    thread_sleep(5000); // 5 usecs
     outb(IDE_DEV_CTRL_nIEN, base + IDE_DEV_CTRL_REG);
-    thread_sleep(2000000);  // 2 msecs
+    thread_sleep(2000000); // 2 msecs
     inb(base + IDE_ERROR_REG);
-    thread_sleep(5000);  // 5 usecs
+    thread_sleep(5000); // 5 usecs
 
-    for (j = 30000; j > 0; j--)  // wait up to 30 seconds for a response
+    for (j = 30000; j > 0; j--) // wait up to 30 seconds for a response
     {
       for (i = 0; i < IDE_DEVICES_PER_CONTROLLER; i++) {
         term_write(cout, "Reset of device ");
@@ -785,9 +785,10 @@ static void setup_ide_controller(ide_controller* ctrl, uint8 id) {
         }
       }
 
-      if (candidates == 0) break;
+      if (candidates == 0)
+        break;
 
-      thread_sleep(1000000);  // 1 msec
+      thread_sleep(1000000); // 1 msec
     }
 
     candidates = 0;
@@ -837,45 +838,46 @@ static void setup_ide_controller(ide_controller* ctrl, uint8 id) {
   for (i = 0; i < IDE_DEVICES_PER_CONTROLLER; i++) {
 #ifdef SHOW_IDE_INFO
 
-      if (ctrl->device[i].kind != IDE_DEVICE_ABSENT)
-        {
-          term_write(cout, "ide");
-          term_write(cout, ctrl->id);
-          term_write(cout, ".");
-          term_write(cout,i);
+    if (ctrl->device[i].kind != IDE_DEVICE_ABSENT) {
+      term_write(cout, "ide");
+      term_write(cout, ctrl->id);
+      term_write(cout, ".");
+      term_write(cout, i);
 
-          if (ctrl->device[i].kind == IDE_DEVICE_ATA)
-            term_write(cout, " is ATA\n");
-          else
-            term_write(cout, " is ATAPI\n");
-        }
+      if (ctrl->device[i].kind == IDE_DEVICE_ATA)
+        term_write(cout, " is ATA\n");
+      else
+        term_write(cout, " is ATAPI\n");
+    }
 
 #endif
 
     setup_ide_device(ctrl, &ctrl->device[i], i);
 
-    if (ctrl->device[i].kind != IDE_DEVICE_ABSENT) candidates++;
+    if (ctrl->device[i].kind != IDE_DEVICE_ABSENT)
+      candidates++;
   }
 
   // setup command queue
 
   for (i = 0; i < MAX_NB_IDE_CMD_QUEUE_ENTRIES; i++) {
-    ide_cmd_queue_entry* entry = &ctrl->cmd_queue[i];
+    ide_cmd_queue_entry *entry = &ctrl->cmd_queue[i];
     entry->id = i;
     entry->next = i + 1;
-    entry->done = new_condvar(CAST(condvar*, kmalloc(sizeof(condvar))));
+    entry->done = new_condvar(CAST(condvar *, kmalloc(sizeof(condvar))));
   }
 
   ctrl->cmd_queue[MAX_NB_IDE_CMD_QUEUE_ENTRIES - 1].next = -1;
 
   ctrl->cmd_queue_freelist = 0;
-  ctrl->cmd_queue_condvar = new_condvar(CAST(condvar*, kmalloc(sizeof(condvar))));
+  ctrl->cmd_queue_condvar =
+      new_condvar(CAST(condvar *, kmalloc(sizeof(condvar))));
 
   if (candidates > 0) {
     // enable interrupts
 
     outb(0, base + IDE_DEV_CTRL_REG);
-    thread_sleep(2000000);  // 2 msecs
+    thread_sleep(2000000); // 2 msecs
 
     ENABLE_IRQ(ide_controller_map[id].irq);
   }
@@ -892,7 +894,7 @@ void setup_ide() {
   for (i = 0; i < IDE_CONTROLLERS; i++)
     for (j = 0; j < IDE_DEVICES_PER_CONTROLLER; j++)
       if (ide_mod.ide[i].device[j].kind != IDE_DEVICE_ABSENT) {
-        disk* d = disk_alloc();
+        disk *d = disk_alloc();
         if (d != NULL) {
           d->kind = DISK_IDE;
           d->log2_sector_size = IDE_LOG2_SECTOR_SIZE;

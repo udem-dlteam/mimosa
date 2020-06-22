@@ -34,7 +34,8 @@
                 ((procedure? obj)
                  (procedure-debug-write obj))
                 (else
-                 (str-debug-write (string obj))))))
+                 (str-debug-write (string obj)))))
+      obj)
 
     (define (pair-debug-write obj)
       (let ((a (car obj))

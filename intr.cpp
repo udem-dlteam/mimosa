@@ -64,6 +64,8 @@ void setup_intr() {
 #if APIC_TIMER_DIVIDER == 1
 #define APIC_TIMER_DIV_CONF 0xb
 #endif
+
+
 #if APIC_TIMER_DIVIDER == 2
 #define APIC_TIMER_DIV_CONF 0x0
 #endif

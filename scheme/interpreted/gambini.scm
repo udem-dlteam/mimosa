@@ -17,6 +17,8 @@
 (define (reboot)
   (let wait-loop ()
     (let ((temp (inb #x64)))
+
+
       (if (mask temp #x01)
           (inb #x60)
           (if (mask temp #x02)
@@ -144,9 +146,9 @@
   (thread-yield!)
   (idle))
 
-(thread-start! (make-thread exec "execute-interrupts"))
-(thread-start! (make-thread int-clear "process-interrupts"))
-(thread-start! (make-thread idle "idle-thread"))
+(thread-start! (make-thread exec 'notification-dispatcher))
+(thread-start! (make-thread int-clear 'notification-pump))
+(thread-start! (make-thread idle 'idle-thread))
 
 ;;----------------------------------------------------
 ;;                     INIT SYSTEM
@@ -181,8 +183,67 @@
  uart
  )
 
-(define fs (car fat32#filesystem-list))
-(define main-disk (car disk#disk-list))
+;; (define fs (car fat32#filesystem-list))
+;; (define main-disk (car disk#disk-list))
+
+(define O-RDONLY #x00)
+(define O-WRONLY #x01)
+(define O-RDWR #x02)
+(define O-CREAT 0100)
+(define O-APPEND 2000)
+
+(define file-table (make-table))
+
+;; We ignore permissions in mimosa, so it simplifies
+;; the processing
+(define (mode_t->mode-string flags mode)
+  (string-append
+   (cond ((mask flags O-APPEND)
+          "a")
+         ((mask flags O-CREAT)
+          "w")
+         (else
+          "r"
+          ))
+   (cond ((mask flags O-RDONLY)
+          "r")
+         ((mask flags O-WRONLY)
+          "")
+         ((mask flags O-RDWR)
+          "+")
+         (else
+          ""))
+   ))
+
+(define (renormalize-path path)
+  (define PREFIX "/dsk1")
+  ;; Path used from the C Kernel use a VFS and so a dev prefix. We don't need one here
+  (let* ((l (string-length path))
+         (first-part (safe-substring path 0 (string-length PREFIX))))
+    (if (string=? first-part PREFIX)
+        (substring path (++ (string-length PREFIX)) (string-length path))
+        path
+        )))
+
+;; (define (##os-device-stream-open-path path flags mode)
+;;   (debug-write (mode_t->mode-string flags mode))
+;;   (debug-write (renormalize-path path))
+;;   (let* ((path (renormalize-path path))
+;;          (mode-string (mode_t->mode-string flags mode))
+;;          (f (fat32#file-open! fs path mode-string)))
+;;     (if (eq? f ERR-FNF)
+;;         ##err-code-ENOENT
+;;         (let ((l (table-length file-table)))
+;;           (table-set! file-table l f)
+;;           (##os-device-stream-open-predefined l flags))
+;;         )))
+
+;; (define (##os-device-stream-read dev-condvar buffer lo hi)
+;;   ;; (debug-write dev-condvar)
+;;   (debug-write buffer)
+;;   (debug-write lo)
+;;   (debug-write hi)
+;;   )
 
 ;; Test the timing of a one second wait
 (define (timing-test)
@@ -190,6 +251,5 @@
     (thread-sleep! 1)
     (let ((b (current-second)))
       (exact (round (* (- b a) 1000))))))
-
 
 ;; (##gc-report-set! #t)
