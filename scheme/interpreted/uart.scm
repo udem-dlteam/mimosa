@@ -15,7 +15,7 @@
     uart-setup
     handle-uart-int)
   (begin
-    (define UART-INT #x2)
+    (define UART-INT 2)
     ; Source for writing 8250 UART drivers can be found at
     ; https://en.wikibooks.org/wiki/Serial-Programming/8250-UART-Programming
     (define DEFAULT-BAUD-RATE 115200)
@@ -362,13 +362,37 @@
     ; Handle a UART interrupt
     ; We know there is a pending interrupt for the port
     ; We can start processing it immediately
-    (define (handle-uart-int com-port iir)
-      (let* ((cpu-port (COM-PORT->CPU-PORT com-port))
-             (iir-reg (+ cpu-port UART-8250-IIR))
-             (new-iir (inb iir-reg)))
-        ; get a new value for the IIR; it might have changed since
-        ; we are operating in async. mode
-        (uart-handle-iir cpu-port new-iir)))
+    (define (handle-uart-int int-no)
+      (debug-write "UART-INT")
+      (debug-write int-no)
+      (let ((first-port (if (odd? int-no)
+                            COM2-PORT-BASE
+                            COM1-PORT-BASE))
+            (second-port (if (odd? int-no)
+                             COM4-PORT-BASE
+                             COM3-PORT-BASE)))
+        (ack-irq int-no)
+        (let ((first-iir (inb (+ first-port UART-8250-IIR)))
+              (second-iir (inb (+ second-port UART-8250-IIR))))
+          (if (UART-IIR-PENDING first-iir)
+              (uart-handle-iir
+               first-port
+               first-iir))
+          (if (UART-IIR-PENDING second-iir)
+              (uart-handle-iir
+               second-port
+               second-iir))
+          )))
+
+
+    ;; (ack-irq (if (= (modulo com-port 2) 0) 3 4))
+    ;; (let* ((cpu-port (COM-PORT->CPU-PORT com-port))
+    ;;        (iir-reg (+ cpu-port UART-8250-IIR))
+    ;;        (new-iir (inb iir-reg)))
+    ;;   ; get a new value for the IIR; it might have changed since
+    ;;   ; we are operating in async. mode
+    ;;   (uart-handle-iir cpu-port new-iir))
+    ;; )
 
     (define (make-pump-thread-body com-port endpoint)
       (lambda ()
@@ -396,7 +420,7 @@
             (name (string-append "uart-repl-" (number->string com-port))))
         (make-thread body (string->symbol name))))
 
-    ; Perform the init sequence on a UART port
+                                        ; Perform the init sequence on a UART port
     (define (uart-do-init port)
       (let* ((cpu-port (COM-PORT->CPU-PORT port))
              (ier-reg (fx+ cpu-port UART-8250-IER))
@@ -415,7 +439,7 @@
         (outb #x8E iir-reg)
         (outb #x08 mcr-reg)
         (enable-irq (COM-PORT->IRQ-NO port))
-        ; Start the pump thread before the repl thread
+                                        ; Start the pump thread before the repl thread
         (thread-start! pump-thread)
         (thread-start! repl-thread)))
 
@@ -426,5 +450,4 @@
       (set! uart-struct-vect (build-vector UART-TO-START (o ##make-port ++)))
       (for-each (o uart#uart-do-init ++) (iota UART-TO-START))
       (cons UART-INT handle-uart-int))
-
     ))

@@ -12,6 +12,7 @@
         (low-level)
         (uart)
         (debug)
+        (intr)
         )
 
 (define (reboot)
@@ -52,7 +53,10 @@
 (define (handle-int int-no args)
   (let ((int-pair (assoc int-no INT-WITH-ARG-TABLE)))
      (if int-pair
-         (apply (cdr int-pair) args))))
+         (begin
+           (apply (cdr int-pair) args)
+                #t)
+         #f)))
 
 ; Compute a position from the current position
 ; Interrupts queue of things that need to be threated
@@ -134,7 +138,8 @@
 (define (exec)
   ;; sleep if nothing
     (let* ((packed (read unhandled-interrupts)))
-      (handle-int (car packed) (cadr packed))
+      (if (not (handle-int (car packed) (cadr packed)))
+          (ack-irq 4))
       (exec)))
 
 (define (int-clear)
@@ -183,8 +188,8 @@
  uart
  )
 
-;; (define fs (car fat32#filesystem-list))
-;; (define main-disk (car disk#disk-list))
+(define fs (car fat32#filesystem-list))
+(define main-disk (car disk#disk-list))
 
 (define O-RDONLY #x00)
 (define O-WRONLY #x01)
