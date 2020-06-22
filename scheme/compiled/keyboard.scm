@@ -5,6 +5,7 @@
 (define-library
   (keyboard)
   (import
+    (intr)
     (gambit)
     (utils)
     (debug)
@@ -324,7 +325,8 @@
             ((fx<= (fxior KBD-SCANCODE-ESC #x80) data (fxior KBD-SCANCODE-F12 #x80))
              (update-active-modifier
                (fxand data #x7F)
-               (lambda (mask key) (##fxand (##fxnot mask) key))))))
+               (lambda (mask key) (##fxand (##fxnot mask) key)))))
+      (ack-irq 1))
 
    (define (keyboard-setup)
     (cons KEYBOARD-INT handle-kbd-int))

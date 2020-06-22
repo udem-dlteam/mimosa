@@ -10,30 +10,33 @@
 
 void irq3() {
   ASSERT_INTERRUPTS_DISABLED();
-  ACKNOWLEDGE_IRQ(3);
+  /* ACKNOWLEDGE_IRQ(3); */
   // Interrupt 4 handles COM 2 and COM 4
   debug_write("\033[41m irq3 UART \033[0m");
 
-  uint8 com2_iir = inb(COM2_PORT_BASE + UART_8250_IIR);
-  uint8 com4_iir = inb(COM4_PORT_BASE + UART_8250_IIR);
+  /* uint8 com2_iir = inb(COM2_PORT_BASE + UART_8250_IIR); */
+  /* uint8 com4_iir = inb(COM4_PORT_BASE + UART_8250_IIR); */
 
-  bool caught_something = FALSE;
+  uint8 params[1] = {3};
+  send_gambit_int(GAMBIT_UART_INT, params, 1);
 
-  if (UART_IIR_PENDING(com2_iir)) {
-    caught_something = TRUE;
-    uint8 params[2] = {2, com2_iir};
-    send_gambit_int(GAMBIT_UART_INT, params, 2);
-  }
+  /* bool caught_something = FALSE; */
 
-  if (UART_IIR_PENDING(com4_iir)) {
-    caught_something = TRUE;
-    uint8 params[2] = {4, com4_iir};
-    send_gambit_int(GAMBIT_UART_INT, params, 2);
-  }
+  /* if (UART_IIR_PENDING(com2_iir)) { */
+  /*   caught_something = TRUE; */
+  /*   uint8 params[2] = {2, 0}; */
+  /*   send_gambit_int(GAMBIT_UART_INT, params, 2); */
+  /* } */
 
-  if (!(caught_something)) {
-    debug_write("Warning: ghost interrupt of IRQ3");
-  }
+  /* if (UART_IIR_PENDING(com4_iir)) { */
+  /*   caught_something = TRUE; */
+  /*   uint8 params[2] = {4, 0}; */
+  /*   send_gambit_int(GAMBIT_UART_INT, params, 2); */
+  /* } */
+
+  /* if (!(caught_something)) { */
+  /*   debug_write("Warning: ghost interrupt of IRQ3"); */
+  /* } */
 }
 
 /* void show_debug(uint8 iir) { */
@@ -62,28 +65,38 @@ void irq3() {
 
 void irq4() {
   ASSERT_INTERRUPTS_DISABLED();
-  ACKNOWLEDGE_IRQ(4);
 
-  uint8 com1_iir = inb(COM1_PORT_BASE + UART_8250_IIR);
-  uint8 com3_iir = inb(COM3_PORT_BASE + UART_8250_IIR);
+  debug_write("\033[41m irq4 UART \033[0m");
 
-  bool caught_something = FALSE;
+  /* uint8 com1_iir = inb(COM1_PORT_BASE + UART_8250_IIR); */
+  /* uint8 com3_iir = inb(COM3_PORT_BASE + UART_8250_IIR); */
 
-  if (UART_IIR_PENDING(com1_iir)) {
-    caught_something = TRUE;
-    uint8 params[2] = {1, com1_iir};
-    send_gambit_int(GAMBIT_UART_INT, params, 2);
-  }
+  /* ACKNOWLEDGE_IRQ(4); */
 
-  if (UART_IIR_PENDING(com3_iir)) {
-    caught_something = TRUE;
+  /* if (com1_iir != inb(COM1_PORT_BASE + UART_8250_IIR)) { */
+  /*   debug_write("OH!"); */
+  /* } */
 
-    uint8 params[2] = {3, com3_iir};
-    send_gambit_int(GAMBIT_UART_INT, params, 2);
-  }
+  /* com1_iir = inb(COM1_PORT_BASE + UART_8250_IIR); */
+  /* com3_iir = inb(COM3_PORT_BASE + UART_8250_IIR); */
 
-  if (!(caught_something)) {
-    debug_write("Warning: ghost interrupt of IRQ4");
-  }
+  /* bool caught_something = FALSE; */
+
+  /* if (UART_IIR_PENDING(com1_iir)) { */
+  /*   caught_something = TRUE; */
+  uint8 params[1] = {4};
+  send_gambit_int(GAMBIT_UART_INT, params, 1);
+  /* } */
+
+  /* if (UART_IIR_PENDING(com3_iir)) { */
+  /*   caught_something = TRUE; */
+  /*   uint8 params[2] = {3, 0}; */
+
+  /*   send_gambit_int(GAMBIT_UART_INT, params, 2); */
+  /* } */
+
+  /* if (!(caught_something)) { */
+  /*   debug_write("Warning: ghost interrupt of IRQ4"); */
+  /* } */
 }
 #endif

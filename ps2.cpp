@@ -64,9 +64,8 @@ void irq1() {
   uint8 b = inb(PS2_PORT_A);
   uint8 params[1] = {b};
   if (!send_gambit_int(GAMBIT_KEYBOARD_INT, params, 1)) {
-    // shrug
+    /* ACKNOWLEDGE_IRQ(1); // waste it */
   }
-  ACKNOWLEDGE_IRQ(1);
 }
 
 #endif
