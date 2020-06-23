@@ -94,6 +94,8 @@ int main();
 #define GAMBIT_UART_INT 0x2
 #define GAMBIT_IDE_INT 0x3
 
+#define FLOW_CONTROLLED(int_no) ((int_no) == GAMBIT_IDE_INT)
+
 void cut_ide_support();
 
 bool has_cut_ide_support();

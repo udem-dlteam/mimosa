@@ -16,11 +16,31 @@
 #include "intr.h"
 
 //-----------------------------------------------------------------------------
-
+//-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
+/**
+ * We categorize interrupts in two groups. Flow controlled interrupts are
+ * interrupts that we can slow down by only letting the next one come in once
+ * the 'ack' has been performed. This is the case of the IDE interrupt.
+ *
+ * Flow uncontrolled interrupts are interruts that need to be threated faster.
+ * We do some partial processing before to allow a greater throughput.
+ *
+ */
 #define GAMBIT_COMM_INT 5
 const uint32 GAMBIT_START = 0x100000;
-const uint32 GAMBIT_SHARED_MEM_CMD = 33554432;
+
 const uint32 GAMBIT_SHARED_MEM_LEN = 32768;
+const uint32 GAMBIT_SHARED_MEM_CMD = 33554432;
+
+const uint32 GAMBIT_FLOW_CONTROLLED_START = 33554432;
+const uint32 GAMBIT_FLOW_CONTROLLED_LEN = 120;
+
+const uint32 GAMBIT_FLOW_UNCONTROLLED_START = 33554552;
+/* GAMBIT_FLOW_CONTROLLED_START + GAMBIT_FLOW_CONTROLLED_LEN; */
+
+const uint32 GAMBIT_FLOW_UNCONTROLLED_LEN = 32648;
+/* GAMBIT_SHARED_MEM_LEN - GAMBIT_FLOW_CONTROLLED_LEN; */
 
 //-----------------------------------------------------------------------------
 

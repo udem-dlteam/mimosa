@@ -502,7 +502,8 @@ bool has_cut_ide_support() { return cut; }
 
 bool bridge_up() { return BU; }
 
-uint32 gambit_writer = 0;
+uint32 flow_uncontrolled_writer = 0;
+uint32 flow_controlled_writer = 0;
 
 /**
  * Send a Gambit interrupt. If
@@ -518,7 +519,21 @@ uint8 send_gambit_int(uint8 int_no, uint8 *params, uint8 len) {
      * For more details in how the interrupt queue synchronizes itself with
      * the Scheme layer, @see the ./scheme/gambini.scm file.
      */
-    uint8 *mem = CAST(uint8 *, GAMBIT_SHARED_MEM_CMD);
+
+    uint8 *mem = NULL;
+    uint32 *gambit_writer = NULL;
+    uint32 max_len = 0;
+
+    if (FLOW_CONTROLLED(int_no)) {
+      mem = CAST(uint8 *, GAMBIT_FLOW_CONTROLLED_START);
+      max_len = GAMBIT_FLOW_CONTROLLED_LEN;
+      gambit_writer = &flow_controlled_writer;
+    } else {
+      mem = CAST(uint8 *, GAMBIT_FLOW_UNCONTROLLED_START);
+      max_len = GAMBIT_FLOW_UNCONTROLLED_LEN;
+      gambit_writer = &flow_uncontrolled_writer;
+    }
+
     /**
      * Interrupts arguments are sent to gambit in the following way:
      *  |                   |              |
@@ -531,7 +546,7 @@ uint8 send_gambit_int(uint8 int_no, uint8 *params, uint8 len) {
     uint8 required_len = 2 + len; // number, size, + params
 
     // By convention, if the interrupt number is 0, we are ok
-    uint32 scout = gambit_writer;
+    uint32 scout = *gambit_writer;
 
     uint32 i;
 
@@ -543,8 +558,7 @@ uint8 send_gambit_int(uint8 int_no, uint8 *params, uint8 len) {
     /* } */
     /* debug_write("-----------------"); */
 
-    for (i = 0; i < required_len;
-         ++i, scout = (scout + 1) % GAMBIT_SHARED_MEM_LEN) {
+    for (i = 0; i < required_len; ++i, scout = (scout + 1) % max_len) {
       if (0 != mem[scout]) {
         break;
       }
@@ -554,15 +568,15 @@ uint8 send_gambit_int(uint8 int_no, uint8 *params, uint8 len) {
       // This should be avoided at all cost
       /* debug_write("Interrupt queue full. Discarding"); */
     } else {
-      scout = gambit_writer;
-      mem[scout % GAMBIT_SHARED_MEM_LEN] = int_no;
-      mem[(scout + 1) % GAMBIT_SHARED_MEM_LEN] = len;
+      scout = *gambit_writer;
+      mem[scout % max_len] = int_no;
+      mem[(scout + 1) % max_len] = len;
 
       for (uint8 i = 0; i < len; ++i) {
-        mem[(scout + 2 + i) % GAMBIT_SHARED_MEM_LEN] = params[i];
+        mem[(scout + 2 + i) % max_len] = params[i];
       }
 
-      gambit_writer = (gambit_writer + required_len) % GAMBIT_SHARED_MEM_LEN;
+      *gambit_writer = (*gambit_writer + required_len) % max_len;
     }
 
     // Tell Gambit something is ready. This interrupt
