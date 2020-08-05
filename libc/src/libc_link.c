@@ -134,19 +134,31 @@ void libc_init(void) {
   LIBC_LINK._set_gstate = REDIRECT_NAME(set_gstate);
 #endif
 
-
+  libc_trace("libc_init_dirent");
   libc_init_dirent();
+  libc_trace("libc_init_errno");
   libc_init_errno();
+  libc_trace("libc_init_math");
   libc_init_math();
+  libc_trace("libc_init_setjmp");
   libc_init_setjmp();
+  libc_trace("libc_init_signal");
   libc_init_signal();
+  libc_trace("libc_init_stdio");
   libc_init_stdio();
+  libc_trace("libc_init_stdlib");
   libc_init_stdlib();
+  libc_trace("libc_init_string");
   libc_init_string();
+  libc_trace("libc_init_termios");
   libc_init_termios();
+  libc_trace("libc_init_time");
   libc_init_time();
+  libc_trace("libc_init_unistd");
   libc_init_unistd();
+  libc_trace("libc_init_sys_time");
   libc_init_sys_time();
+  libc_trace("libc_init_sys_resource");
   libc_init_sys_resource();
 
   libc_trace("libc_init end");
