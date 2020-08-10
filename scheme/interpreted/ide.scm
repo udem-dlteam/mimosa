@@ -86,6 +86,7 @@
   (define IDE-IRQ-2 12)
   (define IDE-CTRL-3 #x168)
   (define IDE-IRQ-3 10)
+
   (define LOG-FILE 'NO-FILE)
 
   (define (log message)
@@ -116,8 +117,7 @@
                   IDE-STATUS-DF
                   IDE-STATUS-DSC
                   IDE-STATUS-DRQ)))
-      (not (fx= (fxand status mask) mask))
-      ))
+      (not (fx= (fxand status mask) mask))))
 
   (define-type ide-device
                id ; the ID of the device
@@ -137,7 +137,6 @@
                controller-id ; the id of the controller
                cpu-port ; the cpu port of the IDE controller
                irq ; IRQ associated with the controller
-               devices ; list of devices
                continuations-queue ; queue of continuations that needs to be executed
                mut; condvar mutex
                cv ; condvar itself
@@ -281,12 +280,6 @@
               (c (expand-wvect word-vector))))
         (e ERR-ARGS)))
 
-  ; make a list of devices for a controller
-  (define (ide-init-devices)
-    (make-list
-      IDE-DEVICES-PER-CONTROLLER
-      IDE-DEVICE-ABSENT))
-
   ; Check if the device is absent
   (define (device-absent? dev)
     (eq? dev IDE-DEVICE-ABSENT))
@@ -361,7 +354,6 @@
             i ; the id
             (list-ref IDE-CONTROLLER-PORTS i) ; the cpu-port
             (list-ref IDE-CONTROLLER-IRQS i) ; the irq
-            (ide-init-devices)
             (open-vector) ; make a 10 item queue
             (make-mutex)
             (make-condition-variable)))
@@ -659,29 +651,170 @@
     (open-input-file "/cut"))
 
   ; Setup the IDE driver
-  (define (ide-setup)
-    (set! LOG-FILE (open-file (list path: "IDE.txt" append: #t)))
-    (log "IDE")
-    (for-each setup-controller (iota IDE-CONTROLLERS))
-    (log "Overall summary")
-    (for-each
-     (lambda (dev)
-      (log "Device...")
-      (log (ide-device-id dev))
-      (log (ide-device-kind dev))
-      (log (ide-device-model-num dev))
-      )
-      (list-devices)
-     )
-    ; (switch-over-driver)
-    (cons IDE-INT handle-ide-int)
-    (close-port LOG-FILE)
-    (set! LOG-FILE 'NO-FILE))
+  ; (define (ide-setup)
+  ;   (set! LOG-FILE (open-file (list path: "ide.txt" append: #t)))
+  ;   (log "IDE")
+  ;   (for-each setup-controller (iota IDE-CONTROLLERS))
+  ;   (log "Overall summary")
+  ;   (for-each
+  ;    (lambda (dev)
+  ;     (log "Device...")
+  ;     (log (ide-device-id dev))
+  ;     (log (ide-device-kind dev))
+  ;     (log (ide-device-model-num dev))
+  ;     )
+  ;     (list-devices)
+  ;    )
+  ;   ; (switch-over-driver)
+  ;   (cons IDE-INT handle-ide-int)
+  ;   (close-port LOG-FILE)
+  ;   (set! LOG-FILE 'NO-FILE))
 
   ; Create a list of ide devices
   (define (list-devices)
     (filter (flatten
               (vector->list (vector-map ide-controller-devices IDE-CTRL-VECT)))
             (o not device-absent?)))
+
+  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  ;; REWRITE
+  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+  (define (make-head-command lba? master? head)
+   (fxior
+    (<< 1 7) ;; 1
+    (<< (if lba? 1 0) 6) ;; LBA?
+    (<< 1 5) ;; 1
+    (<< (if master? 0 1) 4) ;; DRV
+    (<< (if (mask head 8) 1 0) 3) ;; HEAD NO MSb
+    (<< (if (mask head 4) 1 0) 2)
+    (<< (if (mask head 2) 1 0) 1)
+    (<< (if (mask head 1) 1 0) 0) ;; HEAD NO LSb
+    ))
+
+  (define (master?-to-str master?)
+   (if master?
+    "MASTER"
+    "SLAVE"
+    ))
+
+  ; Vectors of IDE controllers, it contains the controller present on the
+  ; system.
+  (define IDE-CTRL-VECT (ide-init-controllers))
+
+  (define IVECT (vector 0 0 0 0 0 0 0 0))
+
+  (define (IVECT-get cont-num master?)
+    (let ((offset (if master? 0 1)))
+      (vector-ref IVECT (+ (* 2 cont-num) offset))
+      ))
+
+  (define (IVECT-set! cont-num master? v)
+    (let ((offset (if master? 0 1)))
+      (vector-set! IVECT (+ (* 2 cont-num) offset) v)
+      ))
+
+  ;; Allow a boolean function to be
+  ;; retried nth time before being
+  ;; given up
+  (define (with-retry nth predicate)
+    (if (= nth 0)
+        #f
+        (let ((r (predicate)))
+          (if r
+              #t
+              (begin
+                (thread-sleep! (until-has-elapsed 1 TIME-UNIT-MS))
+                (with-retry (- nth 1) predicate))))))
+
+
+
+  ;; Setup a device for the controller.
+  ;; It will read the device information
+  ;; and setup the cache
+  (define (setup-device cont master?)
+    (let* ((id (ide-controller-controller-id cont))
+           (cpu-port (ide-controller-cpu-port cont))
+           (head-reg (fx+ cpu-port IDE-DEV-HEAD-REG))
+           (status-reg (fx+ cpu-port IDE-STATUS-REG))
+           (sector-reg (fx+ cpu-port IDE-SECT-COUNT-REG))
+           (cy-lo-reg (fx+ cpu-port IDE-CYL-LO-REG))
+           (cy-hi-reg (fx+ cpu-port IDE-CYL-HI-REG))
+           (cmd-reg (fx+ cpu-port IDE-COMMAND-REG)))
+      (log
+        (string-append
+          "Setting up device "
+          (master?-to-str master?)
+          " of controller "
+          (number->string id)))
+      (if (with-retry 3000 (partial detect-device cont master?))
+       ;; Device is here...
+       ;; We read the magic signature to see if the drives
+       ;; are ATA or ATAPI. This OSDEV articles describes it well:
+       ;; https://wiki.osdev.org/ATAPI
+       ;; Controller just reset the drives, so they should have their
+       ;; signature.
+       (outb (make-head-command #f master? 0) head-reg) ;; Select the drive
+       (let* ((lo (inb cy-lo-reg))
+              (hi (inb cy-hi-reg))
+              (type (if (and (fx= #x14 lo) ;; Magic signature
+                             (fx= #xeb hi))
+                    IDE-DEVICE-ATAPI
+                    IDE-DEVICE-ATA)))
+         #t
+         ))))
+
+  ;; Detect an IDE device on a controller
+  ;; It reads the status register
+  ;; and detects if a device is present.
+  (define (detect-device cont master?)
+   (let* ((id (ide-controller-controller-id cont))
+          (cpu-port (ide-controller-cpu-port cont))
+          (head-reg (fx+ cpu-port IDE-DEV-HEAD-REG))
+          (status-reg (fx+ cpu-port IDE-STATUS-REG))
+          (cmd-reg (fx+ cpu-port IDE-COMMAND-REG)))
+    (outb (make-head-command #f master? 0) head-reg) ;; Set the disk
+    (outb #x00 cmd-reg) ;; Send a NO-OP
+    (ide-delay cpu-port) ;; wait...
+    (let* ((status (inb status-reg))) ;; check the status
+      (not-absent? status)
+      )))
+
+  (define (setup-controller cont)
+    (let* ((cpu-port (ide-controller-cpu-port cont))
+           (irq (ide-controller-irq cont))
+           (head-reg (fx+ cpu-port IDE-DEV-HEAD-REG))
+           (ctrl-reg (fx+ cpu-port IDE-DEV-CTRL-REG))
+           (stt-reg (fx+ cpu-port IDE-STATUS-REG))
+           (err-reg (fx+ cpu-port IDE-ERROR-REG))
+           (cyl-lo-reg (fx+ cpu-port IDE-CYL-LO-REG))
+           (cyl-hi-reg (fx+ cpu-port IDE-CYL-HI-REG))
+           (short-sleep (lambda () (until-has-elapsed 5 TIME-UNIT-MICROSECS))))
+    (if (or (detect-device cont #t)
+            (detect-device cont #f))
+     (begin
+        (log "Within the if...")
+        (outb IDE-DEV-CTRL-nIEN ctrl-reg) ;; disable interrupts
+        (thread-sleep! (short-sleep))
+        (outb
+          (fxior IDE-DEV-CTRL-nIEN IDE-DEV-CTRL-SRST)
+          ctrl-reg) ;; with interrupts disabled, reset the drives
+        (thread-sleep! (short-sleep))
+        (outb IDE-DEV-CTRL-nIEN ctrl-reg) ;; keep disabled interrupts, resume drive
+        (log "At the end of the if...")
+        (setup-device cont #t)
+        (setup-device cont #f)
+          ))))
+
+  (define (ide-setup)
+    (set! LOG-FILE (open-file (list path: "ide.txt" append: #t)))
+    (log "IDE")
+    (log "Testing the new setup...")
+    (for-each setup-controller (vector->list IDE-CTRL-VECT))
+    )
 
   ))
