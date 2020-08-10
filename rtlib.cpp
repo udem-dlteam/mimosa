@@ -382,6 +382,8 @@ extern "C" void __rtlib_entry() {
 
 //-----------------------------------------------------------------------------
 
+cpu c;
+
 static void identify_cpu() {
   uint32 max_fn;
   native_char vendor[13];
@@ -391,6 +393,10 @@ static void identify_cpu() {
         CAST(uint32 *, vendor)[1]);
   vendor[12] = '\0';
   cpuid(1, processor, dummy, dummy, features);
+
+  c.processor = processor;
+  c.dummy = dummy;
+  c.features = features;
 
 #ifdef SHOW_CPU_INFO
 
@@ -406,7 +412,6 @@ static void identify_cpu() {
 
   // For meaning of these values check:
   //   http://grafi.ii.pw.edu.pl/gbm/x86/cpuid.html
-
   if (features & HAS_FPU)
     term_write(cout, "  Floating Point Unit\n");
   if (features & HAS_VME)

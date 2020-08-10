@@ -24,6 +24,7 @@
 #define MEMORY_ZONE_CONTAINS(mz_t, addr)                                       \
   (((mz_t.base) <= (addr)) && ((mz_t.base) + (mz_t.length) >= (addr)))
 
+
 typedef struct {
   uint64 base;     // Base address of the memory zone
   uint64 length;   // length of the zone (in bytes)
@@ -31,6 +32,17 @@ typedef struct {
   uint32 acpi_ext; // ACPI extension. This field is ignored on Mimosa
   // and may not contain correct information
 } memory_zone;
+
+typedef struct {
+  uint32 processor;
+  uint32 dummy;
+  uint32 features;
+} cpu;
+
+//----------------------------------------------------------------------------
+// Globals
+
+extern cpu c;
 
 //-----------------------------------------------------------------------------
 
