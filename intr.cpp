@@ -65,7 +65,6 @@ void setup_intr() {
 #define APIC_TIMER_DIV_CONF 0xb
 #endif
 
-
 #if APIC_TIMER_DIVIDER == 2
 #define APIC_TIMER_DIV_CONF 0x0
 #endif
@@ -353,52 +352,52 @@ void interrupt_handle(interrupt_data data) {
 
   switch (data.int_no) {
   case CPU_EX_DIV_BY_ZERO:
-    debug_write("CPU_EX_DIV_BY_ZERO");
+    panic(L"CPU_EX_DIV_BY_ZERO");
     break;
   case CPU_EX_DEBUG:
-    debug_write("CPU_EX_DEBUG");
+    panic(L"CPU_EX_DEBUG");
     break;
   case CPU_EX_NMI:
-    debug_write("CPU_EX_NMI");
+    panic(L"CPU_EX_NMI");
     break;
   case CPU_EX_BREAKPOINT:
-    debug_write("CPU_EX_BREAKPOINT");
+    panic(L"CPU_EX_BREAKPOINT");
     break;
   case CPU_EX_OVERFLOW:
-    debug_write("CPU_EX_OVERFLOW");
+    panic(L"CPU_EX_OVERFLOW");
     break;
   case CPU_EX_BOUND_RANGE_EXCEEDED:
-    debug_write("CPU_EX_BOUND_RANGE_EXCEEDED");
+    panic(L"CPU_EX_BOUND_RANGE_EXCEEDED");
     break;
   case CPU_EX_INVALID_OPCODE:
-    debug_write("CPU_EX_INVALID_OPCODE");
+    panic(L"CPU_EX_INVALID_OPCODE");
     break;
   case CPU_EX_DEV_NOT_AVAIL:
-    debug_write("CPU_EX_DEV_NOT_AVAIL");
+    panic(L"CPU_EX_DEV_NOT_AVAIL");
     break;
   case CPU_EX_DOUBLE_FAULT:
-    debug_write("CPU_EX_DOUBLE_FAULT");
+    panic(L"CPU_EX_DOUBLE_FAULT");
     break;
   case CPU_EX_COPROC_SEG_OVERRUN:
-    debug_write("CPU_EX_COPROC_SEG_OVERRUN");
+    panic(L"CPU_EX_COPROC_SEG_OVERRUN");
     break;
   case CPU_EX_INVALID_TSS:
-    debug_write("CPU_EX_INVALID_TSS");
+    panic(L"CPU_EX_INVALID_TSS");
     break;
   case CPU_EX_SEGMENT_NO_PRESENT:
-    debug_write("CPU_EX_SEGMENT_NO_PRESENT");
+    panic(L"CPU_EX_SEGMENT_NO_PRESENT");
     break;
   case CPU_EX_STACK_SEGMENT_FAULT:
-    debug_write("CPU_EX_STACK_SEGMENT_FAULT");
+    panic(L"CPU_EX_STACK_SEGMENT_FAULT");
     break;
   case CPU_EX_GENERAL_PROTECTION_FAULT:
-    debug_write("CPU_EX_GENERAL_PROTECTION_FAULT");
+    panic(L"CPU_EX_GENERAL_PROTECTION_FAULT");
     break;
   case CPU_EX_PAGE_FAULT:
-    debug_write("CPU_EX_PAGE_FAULT");
+    panic(L"CPU_EX_PAGE_FAULT");
     break;
   case CPU_EX_RESERVED:
-    debug_write("CPU_EX_RESERVED");
+    panic(L"CPU_EX_RESERVED");
     break;
   default:
     // All CPU faults not managed should crash the system

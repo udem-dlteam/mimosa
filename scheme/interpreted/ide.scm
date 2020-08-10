@@ -37,25 +37,25 @@
   (define IDE-COMMAND-REG     7)
   (define IDE-DEV-CTRL-REG    #x206)
   (define IDE-DRIVE-ADDR-REG  #x207)
-  (define IDE-STATUS-BSY (<< 1 7))  ; Device busy bit
-  (define IDE-STATUS-RDY (<< 1 6))  ; Device ready bit
-  (define IDE-STATUS-DF (<< 1 5))   ; Device fault bit
-  (define IDE-STATUS-DSC (<< 1 4))  ; Drive seek complete bit
-  (define IDE-STATUS-DRQ (<< 1 3))  ; Data request bit
-  (define IDE-STATUS-CORR (<< 1 2))  ; Corrected data bit
-  (define IDE-STATUS-INDEX (<< 1 1))  ; Index bit
+  (define IDE-STATUS-BSY (expt 2 7))  ; Device busy bit
+  (define IDE-STATUS-RDY (expt 2 6))  ; Device ready bit
+  (define IDE-STATUS-DF (expt 2 5))   ; Device fault bit
+  (define IDE-STATUS-DSC (expt 2 4))  ; Drive seek complete bit
+  (define IDE-STATUS-DRQ (expt 2 3))  ; Data request bit
+  (define IDE-STATUS-CORR (expt 2 2))  ; Corrected data bit
+  (define IDE-STATUS-INDEX (expt 2 1))  ; Index bit
   (define IDE-STATUS-ERR 1)    ; Error bit
-  (define IDE-ERROR-BBK   (<< 1 7)) ; Bad block mark detected in sector's ID field
-  (define IDE-ERROR-UNC   (<< 1 6)) ; Uncorrectable data error encountered
-  (define IDE-ERROR-IDNF  (<< 1 4)) ; Requested sector's ID field not found
-  (define IDE-ERROR-ABRT  (<< 1 2)) ; Command aborted (status error or invalid cmd)
-  (define IDE-ERROR-TK0NF (<< 1 1)) ; Track 0 not found during recalibrate command
-  (define IDE-ERROR-AMNF  (<< 1 0)) ; Data address mark not found after ID field
-  (define IDE-DEV-CTRL-SRST (<< 1 2)) ; Software reset bit
-  (define IDE-DEV-CTRL-nIEN (<< 1 1)) ; Interrupt enable bit (0=enabled)
+  (define IDE-ERROR-BBK   (expt 2 7)) ; Bad block mark detected in sector's ID field
+  (define IDE-ERROR-UNC   (expt 2 6)) ; Uncorrectable data error encountered
+  (define IDE-ERROR-IDNF  (expt 2 4)) ; Requested sector's ID field not found
+  (define IDE-ERROR-ABRT  (expt 2 2)) ; Command aborted (status error or invalid cmd)
+  (define IDE-ERROR-TK0NF (expt 2 1)) ; Track 0 not found during recalibrate command
+  (define IDE-ERROR-AMNF  (expt 2 0)) ; Data address mark not found after ID field
+  (define IDE-DEV-CTRL-SRST (expt 2 2)) ; Software reset bit
+  (define IDE-DEV-CTRL-nIEN (expt 2 1)) ; Interrupt enable bit (0=enabled)
   (define IDE-DEV-HEAD-IBM #xa0)
-  (define IDE-DEV-HEAD-LBA (fxior (<< 1 6) IDE-DEV-HEAD-IBM)) ; LBA address
-  (define (IDE-DEV-HEAD-DEV x) (<< x 4)) ; Device index (0 or 1)
+  (define IDE-DEV-HEAD-LBA (fxior (expt 2 6) IDE-DEV-HEAD-IBM)) ; LBA address
+  (define (IDE-DEV-HEAD-DEV x) (* x (expt 2 4))) ; Device index (0 or 1)
   (define IDE-EXEC-DEVICE-DIAG-CMD       #x90)
   (define IDE-FLUSH-CACHE-CMD            #xe7)
   (define IDE-IDENTIFY-DEVICE-CMD        #xec)
@@ -594,6 +594,9 @@
              (candidates (apply + (map (lambda (device)
                                          (if (eq? device IDE-DEVICE-ABSENT) 0 1))
                                        devices))))
+        ; (for-each (lambda (candidate)
+        ;  (debug-write candidate))
+        ;  candidates)
         (if (> candidates 0)
             (reset-controller controller devices statuses candidates)
             #f))))

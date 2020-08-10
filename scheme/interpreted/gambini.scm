@@ -1,17 +1,21 @@
 ;; Mimosa
 ;; Université de Montréal
 ;; Marc Feeley, Samuel Yvon
-(##load-module 'keyboard)
-(##load-module 'rtc)
-(##load-module 'disk)
-(##load-module 'fat32)
-(##load-module 'ide)
+; (##load-module 'keyboard)
+; (##load-module 'rtc)
+; (##load-module 'disk)
+; (##load-module 'fat32)
+; (##load-module 'ide)
 
 (import (errors)
         (utils)
         (low-level)
         (uart)
         (debug)
+        (keyboard)
+        (rtc)
+        (disk)
+        (ide)
         )
 
 (define (reboot)
@@ -188,7 +192,7 @@
                 ,(string-append
                    (symbol->string driver-name)
                    "#"
-                   "interrupt-handler")
+                   "intr-handler")
                 ,(string->symbol
                   (string-append
                    (symbol->string driver-name)

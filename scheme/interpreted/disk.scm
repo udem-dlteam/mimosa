@@ -2,14 +2,14 @@
 ; Université de Montréal
 ; Marc Feeley, Samuel Yvon
 
-(##load-module 'ide)
+; (##load-module 'ide)
 
 (define-library
   (disk)
   (import
     (gambit)
     (errors)
-    ;; (ide)
+    (ide)
     (utils)
     (debug)
     (low-level))

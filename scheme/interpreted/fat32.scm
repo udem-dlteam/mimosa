@@ -1,7 +1,7 @@
 ;; Mimosa
 
-(##load-module 'rtc)
-(##load-module 'disk)
+; (##load-module 'rtc)
+; (##load-module 'disk)
 
 ;; Université de Montréal
 ;; Marc Feeley, Samuel Yvon
@@ -9,9 +9,9 @@
   (import
    (utils)
    (errors)
-   ; (disk)
+   (disk)
    (gambit)
-   ; (rtc)
+   (rtc)
    (debug)
    )
   (export
@@ -44,6 +44,7 @@
    test-suite
    user-load
    write-file
+   root-directory
    )
   (begin
     ;; Somehow, inclusion of macros through library includes do not work
