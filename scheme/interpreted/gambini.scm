@@ -14,6 +14,7 @@
         (debug)
         (keyboard)
         (rtc)
+        (fat32)
         (disk)
         (ide)
         )
@@ -210,8 +211,15 @@
  uart
  )
 
-(define fs (car fat32#filesystem-list))
-(define main-disk (car disk#disk-list))
+(define fs
+ (if (> (length fat32#filesystem-list) 0)
+     (car fat32#filesystem-list)
+     'NO-FILESYSTEM))
+
+(define main-disk
+  (if (> (length disk#disk-list) 0)
+      (car disk#disk-list)
+      'NO-DISK))
 
 (define O-RDONLY #x00)
 (define O-WRONLY #x01)
