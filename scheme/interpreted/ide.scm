@@ -480,8 +480,8 @@
   (define (detect-device controller controller-statuses cpu-port dev-no)
     (log (string-append "Detecting device at: " (number->string controller) ":" (number->string cpu-port) ":" (number->string dev-no)))
     (let* ((device-reg (fx+ cpu-port IDE-DEV-HEAD-REG)))
-      (outb (fxior IDE-DEV-HEAD-IBM (IDE-DEV-HEAD-DEV dev-no)) device-reg)
       ; Send detection info
+      (outb (fxior IDE-DEV-HEAD-IBM (IDE-DEV-HEAD-DEV dev-no)) device-reg)
       (ide-delay cpu-port)
       (let* ((status (inb (fx+ cpu-port IDE-STATUS-REG))))
         (vector-set! controller-statuses dev-no status)
@@ -581,18 +581,6 @@
           ; There are candidates
           (begin
             (log (string-append "Candidates found for controller" (number->string (ide-controller-controller-id controller))))
-            (for-each (lambda (dev)
-                        (outb (fxior IDE-DEV-HEAD-IBM (IDE-DEV-HEAD-DEV dev)) head-reg)
-                        (ide-delay cpu-port)
-                        (if (and (fx= (inb cyl-lo-reg) #x14)
-                                 (fx= (inb cyl-hi-reg) #xeb)
-                                 (eq? (list-ref devices dev) IDE-DEVICE-ATA))
-                            ; Update the list: this is an ATAPI device
-                            (begin
-                             (log (string-append "ATAPI device: " (number->string dev)))
-                             (list-set! devices dev IDE-DEVICE-ATAPI))
-                            (log (string-append "Not an ATAPI device: " (number->string dev)))))
-                      (iota IDE-DEVICES-PER-CONTROLLER))
             (for-each (lambda (dev)
                         (let ((dev-type (list-ref devices dev)))
                           (log (string-append "Inspect device " (number->string dev) ": " (symbol->string dev-type)))
@@ -728,10 +716,8 @@
           (if r
               #t
               (begin
-                (thread-sleep! (until-has-elapsed 1 TIME-UNIT-MS))
+                (thread-sleep! (until-has-elapsed 1 TIME-UNIT-MICROSECS))
                 (with-retry (- nth 1) predicate))))))
-
-
 
   ;; Setup a device for the controller.
   ;; It will read the device information
@@ -744,6 +730,9 @@
            (sector-reg (fx+ cpu-port IDE-SECT-COUNT-REG))
            (cy-lo-reg (fx+ cpu-port IDE-CYL-LO-REG))
            (cy-hi-reg (fx+ cpu-port IDE-CYL-HI-REG))
+           (data-reg (fx+ cpu-port IDE-DATA-REG))
+           (err-reg (fx+ cpu-port IDE-ERROR-REG))
+           (stt-reg (fx+ cpu-port IDE-STATUS-REG))
            (cmd-reg (fx+ cpu-port IDE-COMMAND-REG)))
       (log
         (string-append
@@ -751,22 +740,75 @@
           (master?-to-str master?)
           " of controller "
           (number->string id)))
-      (if (with-retry 3000 (partial detect-device cont master?))
-       ;; Device is here...
-       ;; We read the magic signature to see if the drives
-       ;; are ATA or ATAPI. This OSDEV articles describes it well:
-       ;; https://wiki.osdev.org/ATAPI
-       ;; Controller just reset the drives, so they should have their
-       ;; signature.
-       (outb (make-head-command #f master? 0) head-reg) ;; Select the drive
-       (let* ((lo (inb cy-lo-reg))
-              (hi (inb cy-hi-reg))
-              (type (if (and (fx= #x14 lo) ;; Magic signature
-                             (fx= #xeb hi))
-                    IDE-DEVICE-ATAPI
-                    IDE-DEVICE-ATA)))
-         #t
-         ))))
+      (if (with-retry 300 (partial detect-device cont master?))
+          (begin
+           (log "Device might be present. Reading type.")
+            ;; Device is here...
+            ;; We read the magic signature to see if the drives
+            ;; are ATA or ATAPI. This OSDEV articles describes it well:
+            ;; https://wiki.osdev.org/ATAPI
+            ;; Controller just reset the drives, so they should have their
+            ;; signature.
+            (debug-write "B4 SELECT")
+            (outb (make-head-command #f master? 0) head-reg) ;; Select the drive
+            (let* ((lo (inb cy-lo-reg))
+                   (hi (inb cy-hi-reg))
+                   (type (if (and (fx= #x14 lo) ;; Magic signature
+                                  (fx= #xeb hi))
+                             IDE-DEVICE-ATAPI
+                             IDE-DEVICE-ATA)))
+              (debug-write "AFTER INB")
+              (outb (make-head-command #f master? 0) head-reg) ;; Select again
+              (outb (if (eq? type IDE-DEVICE-ATA)
+                        IDE-IDENTIFY-DEVICE-CMD
+                        IDE-IDENTIFY-PACKET-DEVICE-CMD)
+                    cmd-reg)
+              (log (string-append  "Device is of type: " (symbol->string type)))
+              ;; Interrupts are disabled, we have to poll
+              ;; We can also read the status reg without fear
+              (if (with-retry 500 (lambda ()
+                                    (let ((status (inb stt-reg)))
+                                      (not (mask status IDE-STATUS-BSY)))))
+                  ;; The device is here. The ID packet is one sector long, but made
+                  ;; out of words (of 16 bytes), so we read 256 of them
+                  (begin
+                    (let* ((size (<< 1 (- IDE-LOG2-SECTOR-SIZE 1)))
+                           (id-vect (build-vector size (lambda _ (inw data-reg))))
+                           (serial-num (swap-and-trim id-vect 10 20))
+                           (firmware-rev (swap-and-trim id-vect 23 8))
+                           (model-num (swap-and-trim id-vect 27 40))
+                           ; If has extended options
+                           (has-extended
+                             (mask (vector-ref id-vect 53) 1))
+                           (cyl-per-dsk
+                             (vector-ref id-vect (if has-extended 54 1)))
+                           (heads-per-cyl
+                             (vector-ref id-vect (if has-extended 55 3)))
+                           (sect-per-trk
+                             (vector-ref id-vect (if has-extended 56 6)))
+                           (total-sectors
+                             (fx+ (<< (vector-ref id-vect 61) 16) (vector-ref id-vect 60)))
+                           (total-sectors-chs
+                             (if has-extended
+                                 (fx+
+                                   (<< (vector-ref id-vect 58) 16)
+                                   (vector-ref id-vect 57)) 0))
+                           (_ (debug-write "BEFORE dev"))
+                           (device (make-ide-device
+                                     master?
+                                     type
+                                     (lazy cont)
+                                     serial-num
+                                     firmware-rev
+                                     model-num
+                                     cyl-per-dsk
+                                     heads-per-cyl
+                                     sect-per-trk
+                                     total-sectors-chs
+                                     total-sectors)))
+                      (log (string-append "Device " (master?-to-str master?) " is here"))
+                      (IVECT-set! id master? device)
+                      ))))))))
 
   ;; Detect an IDE device on a controller
   ;; It reads the status register
@@ -776,15 +818,15 @@
           (cpu-port (ide-controller-cpu-port cont))
           (head-reg (fx+ cpu-port IDE-DEV-HEAD-REG))
           (status-reg (fx+ cpu-port IDE-STATUS-REG))
+          (err-reg (fx+ cpu-port IDE-ERROR-REG))
           (cmd-reg (fx+ cpu-port IDE-COMMAND-REG)))
     (outb (make-head-command #f master? 0) head-reg) ;; Set the disk
-    (outb #x00 cmd-reg) ;; Send a NO-OP
     (ide-delay cpu-port) ;; wait...
     (let* ((status (inb status-reg))) ;; check the status
-      (not-absent? status)
-      )))
+      (not-absent? status))))
 
   (define (setup-controller cont)
+    (log (string-append "Setting up controller " (number->string (ide-controller-controller-id cont))))
     (let* ((cpu-port (ide-controller-cpu-port cont))
            (irq (ide-controller-irq cont))
            (head-reg (fx+ cpu-port IDE-DEV-HEAD-REG))
@@ -794,27 +836,31 @@
            (cyl-lo-reg (fx+ cpu-port IDE-CYL-LO-REG))
            (cyl-hi-reg (fx+ cpu-port IDE-CYL-HI-REG))
            (short-sleep (lambda () (until-has-elapsed 5 TIME-UNIT-MICROSECS))))
-    (if (or (detect-device cont #t)
-            (detect-device cont #f))
-     (begin
-        (log "Within the if...")
-        (outb IDE-DEV-CTRL-nIEN ctrl-reg) ;; disable interrupts
-        (thread-sleep! (short-sleep))
-        (outb
-          (fxior IDE-DEV-CTRL-nIEN IDE-DEV-CTRL-SRST)
-          ctrl-reg) ;; with interrupts disabled, reset the drives
-        (thread-sleep! (short-sleep))
-        (outb IDE-DEV-CTRL-nIEN ctrl-reg) ;; keep disabled interrupts, resume drive
-        (log "At the end of the if...")
-        (setup-device cont #t)
-        (setup-device cont #f)
-          ))))
+      (if (or (detect-device cont #t)
+              (detect-device cont #f))
+          (begin
+            (log "Within the if...")
+            (outb IDE-DEV-CTRL-nIEN ctrl-reg) ;; disable interrupts
+            (thread-sleep! (short-sleep))
+            (outb
+              (fxior IDE-DEV-CTRL-nIEN IDE-DEV-CTRL-SRST)
+              ctrl-reg) ;; with interrupts disabled, reset the drives
+            (thread-sleep! (short-sleep))
+            (outb IDE-DEV-CTRL-nIEN ctrl-reg) ;; keep disabled interrupts, resume drive
+            (log "At the end of the if...")
+            (if (detect-device cont #t)
+                (setup-device cont #t))
+            (if (detect-device cont #f)
+                (setup-device cont #f))
+            (outb #x00 ctrl-reg) ;; reenable everything
+            ))))
 
   (define (ide-setup)
     (set! LOG-FILE (open-file (list path: "ide.txt" append: #t)))
     (log "IDE")
     (log "Testing the new setup...")
     (for-each setup-controller (vector->list IDE-CTRL-VECT))
-    )
+    (log "IDE Setup done")
+    (cons IDE-INT handle-ide-int))
 
   ))
