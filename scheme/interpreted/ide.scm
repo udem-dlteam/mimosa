@@ -90,9 +90,9 @@
   (define LOG-FILE 'NO-FILE)
 
   (define (log message)
-   (if (eq? LOG-FILE 'NO-FILE)
-    (debug-write "LOG Failure : No log file")
-    (write-string (string-append (debug-write message) "\n") LOG-FILE)))
+    (if (eq? LOG-FILE 'NO-FILE)
+        (debug-write "LOG Failure : No log file")
+        (write-string (string-append (debug-write message) "\n") LOG-FILE)))
 
   (define IDE-CONTROLLER-PORTS
     (list
@@ -467,12 +467,12 @@
                                  total-sectors-chs
                                  total-sectors)))
                   (log (string-append "Installing device "
-                        (number->string dev-no)
-                        " : "
-                        (symbol->string (list-ref devices dev-no))
-                        " : "
-                        model-num
-                        ))
+                                      (number->string dev-no)
+                                      " : "
+                                      (symbol->string (list-ref devices dev-no))
+                                      " : "
+                                      model-num
+                                      ))
                   (ide-controller-set-device controller dev-no device)))))))
 
   ; Make a lambda to detect if a device is present on the ide
@@ -487,8 +487,8 @@
         (vector-set! controller-statuses dev-no status)
         (log (string-append "Status is: " (number->string status)))
         (log (string-append "Absent?: " (if (not (not-absent? status))
-                                         "yes"
-                                         "no")))
+                                            "yes"
+                                            "no")))
         (if (not-absent? status)
             IDE-DEVICE-ATAPI
             IDE-DEVICE-ABSENT))))
@@ -514,22 +514,22 @@
       (let ((r (and
                  (fx= (fxand (inb stt-reg) IDE-STATUS-BSY) 0)
                  (eq? type IDE-DEVICE-ATAPI))))
-       (log (if r
-             "Reset OK"
-             "Reset failed"))
-       r)))
+        (log (if r
+                 "Reset OK"
+                 "Reset failed"))
+        r)))
 
   ; Confirm the devices that are really connected to the controller
   ; Takes a controller, a list of the candidate devices and the number
   ; of candidates, and return an updated number of candidates
   (define (confirm-devices controller devices candidates)
     (log
-     (string-append
-       "[confirm-devices] Confirming the presence of devices for "
-       (number->string (ide-controller-controller-id controller))
-       ", "
-       (number->string candidates)
-       " (candidates)"))
+      (string-append
+        "[confirm-devices] Confirming the presence of devices for "
+        (number->string (ide-controller-controller-id controller))
+        ", "
+        (number->string candidates)
+        " (candidates)"))
     (let ((cpu-port (ide-controller-cpu-port controller)))
       (let wait-loop
         ((j 0)
@@ -590,8 +590,8 @@
                                 (if (fx= 0 (vector-ref statuses dev))
                                     ; A zero status ATA is absent
                                     (begin
-                                     (log "Zero status: absent")
-                                     (list-set! devices dev IDE-DEVICE-ABSENT))
+                                      (log "Zero status: absent")
+                                      (list-set! devices dev IDE-DEVICE-ABSENT))
                                     ; Make sure the device is present
                                     (begin
                                       (log "Non-zero status: present")
@@ -673,22 +673,22 @@
   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
   (define (make-head-command lba? master? head)
-   (fxior
-    (<< 1 7) ;; 1
-    (<< (if lba? 1 0) 6) ;; LBA?
-    (<< 1 5) ;; 1
-    (<< (if master? 0 1) 4) ;; DRV
-    (<< (if (mask head 8) 1 0) 3) ;; HEAD NO MSb
-    (<< (if (mask head 4) 1 0) 2)
-    (<< (if (mask head 2) 1 0) 1)
-    (<< (if (mask head 1) 1 0) 0) ;; HEAD NO LSb
-    ))
+    (fxior
+      (<< 1 7) ;; 1
+      (<< (if lba? 1 0) 6) ;; LBA?
+      (<< 1 5) ;; 1
+      (<< (if master? 0 1) 4) ;; DRV
+      (<< (if (mask head 8) 1 0) 3) ;; HEAD NO MSb
+      (<< (if (mask head 4) 1 0) 2)
+      (<< (if (mask head 2) 1 0) 1)
+      (<< (if (mask head 1) 1 0) 0) ;; HEAD NO LSb
+      ))
 
   (define (master?-to-str master?)
-   (if master?
-    "MASTER"
-    "SLAVE"
-    ))
+    (if master?
+        "MASTER"
+        "SLAVE"
+        ))
 
   ; Vectors of IDE controllers, it contains the controller present on the
   ; system.
@@ -742,7 +742,7 @@
           (number->string id)))
       (if (with-retry 300 (partial detect-device cont master?))
           (begin
-           (log "Device might be present. Reading type.")
+            (log "Device might be present. Reading type.")
             ;; Device is here...
             ;; We read the magic signature to see if the drives
             ;; are ATA or ATAPI. This OSDEV articles describes it well:
@@ -814,16 +814,40 @@
   ;; It reads the status register
   ;; and detects if a device is present.
   (define (detect-device cont master?)
-   (let* ((id (ide-controller-controller-id cont))
-          (cpu-port (ide-controller-cpu-port cont))
-          (head-reg (fx+ cpu-port IDE-DEV-HEAD-REG))
-          (status-reg (fx+ cpu-port IDE-STATUS-REG))
-          (err-reg (fx+ cpu-port IDE-ERROR-REG))
-          (cmd-reg (fx+ cpu-port IDE-COMMAND-REG)))
-    (outb (make-head-command #f master? 0) head-reg) ;; Set the disk
-    (ide-delay cpu-port) ;; wait...
-    (let* ((status (inb status-reg))) ;; check the status
-      (not-absent? status))))
+    (let* ((id (ide-controller-controller-id cont))
+           (cpu-port (ide-controller-cpu-port cont))
+           (head-reg (fx+ cpu-port IDE-DEV-HEAD-REG))
+           (status-reg (fx+ cpu-port IDE-STATUS-REG))
+           (err-reg (fx+ cpu-port IDE-ERROR-REG))
+           (cmd-reg (fx+ cpu-port IDE-COMMAND-REG)))
+      (outb (make-head-command #f master? 0) head-reg) ;; Set the disk
+      (ide-delay cpu-port) ;; wait...
+      (let* ((status (inb status-reg))) ;; check the status
+        (not-absent? status))))
+
+  ;; More sophisticated method to detect the hardware,
+  ;; This does not seem to be documented anywhere but
+  ;; the current code base. We basically perform the same check
+  ;; but if the device is not busy, we assume it is not a real device
+  ;; This needs to be tried in a loop
+  (define (advanced-detect-device cont master?)
+    (let* ((id (ide-controller-controller-id cont))
+           (cpu-port (ide-controller-cpu-port cont))
+           (head-reg (fx+ cpu-port IDE-DEV-HEAD-REG))
+           (status-reg (fx+ cpu-port IDE-STATUS-REG))
+           (err-reg (fx+ cpu-port IDE-ERROR-REG))
+           (cmd-reg (fx+ cpu-port IDE-COMMAND-REG)))
+
+      (with-retry
+        3000
+        (lambda ()
+          ;; Set the disk
+          (outb (make-head-command #f master? 0) head-reg)
+          (ide-delay cpu-port)
+          (let* ((status (inb status-reg))) ;; check the status
+           ;; Device should NOT be busy
+           (fx= 0 (fxand status IDE-STATUS-BSY)))))
+      ))
 
   (define (setup-controller cont)
     (log (string-append "Setting up controller " (number->string (ide-controller-controller-id cont))))
@@ -848,9 +872,9 @@
             (thread-sleep! (short-sleep))
             (outb IDE-DEV-CTRL-nIEN ctrl-reg) ;; keep disabled interrupts, resume drive
             (log "At the end of the if...")
-            (if (detect-device cont #t)
+            (if (advanced-detect-device cont #t)
                 (setup-device cont #t))
-            (if (detect-device cont #f)
+            (if (advanced-detect-device cont #f)
                 (setup-device cont #f))
             (outb #x00 ctrl-reg) ;; reenable everything
             ))))
