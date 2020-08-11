@@ -756,59 +756,65 @@
                    (type (if (and (fx= #x14 lo) ;; Magic signature
                                   (fx= #xeb hi))
                              IDE-DEVICE-ATAPI
-                             IDE-DEVICE-ATA)))
-              (debug-write "AFTER INB")
-              (outb (make-head-command #f master? 0) head-reg) ;; Select again
-              (outb (if (eq? type IDE-DEVICE-ATA)
-                        IDE-IDENTIFY-DEVICE-CMD
-                        IDE-IDENTIFY-PACKET-DEVICE-CMD)
-                    cmd-reg)
-              (log (string-append  "Device is of type: " (symbol->string type)))
-              ;; Interrupts are disabled, we have to poll
-              ;; We can also read the status reg without fear
-              (if (with-retry 500 (lambda ()
-                                    (let ((status (inb stt-reg)))
-                                      (not (mask status IDE-STATUS-BSY)))))
-                  ;; The device is here. The ID packet is one sector long, but made
-                  ;; out of words (of 16 bytes), so we read 256 of them
+                             IDE-DEVICE-ATA))
+                   ;; Last presence check...
+                   (present (or (eq? type IDE-DEVICE-ATAPI)
+                                (not (fx= (inb stt-reg) 0))
+                                )))
+              (if present
                   (begin
-                    (let* ((size (<< 1 (- IDE-LOG2-SECTOR-SIZE 1)))
-                           (id-vect (build-vector size (lambda _ (inw data-reg))))
-                           (serial-num (swap-and-trim id-vect 10 20))
-                           (firmware-rev (swap-and-trim id-vect 23 8))
-                           (model-num (swap-and-trim id-vect 27 40))
-                           ; If has extended options
-                           (has-extended
-                             (mask (vector-ref id-vect 53) 1))
-                           (cyl-per-dsk
-                             (vector-ref id-vect (if has-extended 54 1)))
-                           (heads-per-cyl
-                             (vector-ref id-vect (if has-extended 55 3)))
-                           (sect-per-trk
-                             (vector-ref id-vect (if has-extended 56 6)))
-                           (total-sectors
-                             (fx+ (<< (vector-ref id-vect 61) 16) (vector-ref id-vect 60)))
-                           (total-sectors-chs
-                             (if has-extended
-                                 (fx+
-                                   (<< (vector-ref id-vect 58) 16)
-                                   (vector-ref id-vect 57)) 0))
-                           (_ (debug-write "BEFORE dev"))
-                           (device (make-ide-device
-                                     master?
-                                     type
-                                     (lazy cont)
-                                     serial-num
-                                     firmware-rev
-                                     model-num
-                                     cyl-per-dsk
-                                     heads-per-cyl
-                                     sect-per-trk
-                                     total-sectors-chs
-                                     total-sectors)))
-                      (log (string-append "Device " (master?-to-str master?) " is here"))
-                      (IVECT-set! id master? device)
-                      ))))))))
+                    (debug-write "AFTER INB")
+                    (outb (make-head-command #f master? 0) head-reg) ;; Select again
+                    (outb (if (eq? type IDE-DEVICE-ATA)
+                              IDE-IDENTIFY-DEVICE-CMD
+                              IDE-IDENTIFY-PACKET-DEVICE-CMD)
+                          cmd-reg)
+                    (log (string-append  "Device is of type: " (symbol->string type)))
+                    ;; Interrupts are disabled, we have to poll
+                    ;; We can also read the status reg without fear
+                    (if (with-retry 500 (lambda ()
+                                          (let ((status (inb stt-reg)))
+                                            (not (mask status IDE-STATUS-BSY)))))
+                        ;; The device is here. The ID packet is one sector long, but made
+                        ;; out of words (of 16 bytes), so we read 256 of them
+                        (begin
+                          (let* ((size (<< 1 (- IDE-LOG2-SECTOR-SIZE 1)))
+                                 (id-vect (build-vector size (lambda _ (inw data-reg))))
+                                 (serial-num (swap-and-trim id-vect 10 20))
+                                 (firmware-rev (swap-and-trim id-vect 23 8))
+                                 (model-num (swap-and-trim id-vect 27 40))
+                                 ; If has extended options
+                                 (has-extended
+                                   (mask (vector-ref id-vect 53) 1))
+                                 (cyl-per-dsk
+                                   (vector-ref id-vect (if has-extended 54 1)))
+                                 (heads-per-cyl
+                                   (vector-ref id-vect (if has-extended 55 3)))
+                                 (sect-per-trk
+                                   (vector-ref id-vect (if has-extended 56 6)))
+                                 (total-sectors
+                                   (fx+ (<< (vector-ref id-vect 61) 16) (vector-ref id-vect 60)))
+                                 (total-sectors-chs
+                                   (if has-extended
+                                       (fx+
+                                         (<< (vector-ref id-vect 58) 16)
+                                         (vector-ref id-vect 57)) 0))
+                                 (_ (debug-write "BEFORE dev"))
+                                 (device (make-ide-device
+                                           master?
+                                           type
+                                           (lazy cont)
+                                           serial-num
+                                           firmware-rev
+                                           model-num
+                                           cyl-per-dsk
+                                           heads-per-cyl
+                                           sect-per-trk
+                                           total-sectors-chs
+                                           total-sectors)))
+                            (log (string-append "Device " (master?-to-str master?) " is here"))
+                            (IVECT-set! id master? device)
+                            ))))))))))
 
   ;; Detect an IDE device on a controller
   ;; It reads the status register
@@ -837,9 +843,8 @@
            (status-reg (fx+ cpu-port IDE-STATUS-REG))
            (err-reg (fx+ cpu-port IDE-ERROR-REG))
            (cmd-reg (fx+ cpu-port IDE-COMMAND-REG)))
-
       (with-retry
-        3000
+        30000
         (lambda ()
           ;; Set the disk
           (outb (make-head-command #f master? 0) head-reg)
