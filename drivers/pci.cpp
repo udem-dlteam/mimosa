@@ -25,31 +25,31 @@ uint32 make_config_address(bool data, uint8 bus, uint8 device, uint8 func,
  * byte offset.
  * A device might have multiple roles. Thus the function (8 functions max)
  */
-uint32 read_conf(uint8 bus, uint8 device, uint8 func, uint8 offset) {
+uint32 pci_read_conf(uint8 bus, uint8 device, uint8 func, uint8 offset) {
   uint32 addr = make_config_address(TRUE, bus, device, func, offset);
   outl(addr, PCI_CONFIG_ADDR);
   return inl(PCI_CONFIG_DATA);
 }
 
-bool device_at(uint8 bus, uint8 device, uint8 function) {
+bool pci_device_at(uint8 bus, uint8 device, uint8 function) {
   /* Layout that exists at this address:
    * DEVICE ID (top 16) | VENDOR ID (bot 16)
    */
-  uint32 vendor = read_conf(bus, device, function, 0);
+  uint32 vendor = pci_read_conf(bus, device, function, 0);
   return vendor != 0xFFFFFFFF; // no device have such vendor
 }
 
 uint8 idx = 0;
 void found_ide(uint32 bus, uint32 device, uint8 function) {
-  uint32 header_line = read_conf(bus, device, function, 0xC0);
+  uint32 header_line = pci_read_conf(bus, device, function, 0xC0);
   uint8 header_packet = (header_line >> 16) && 0xFF;
 
   if (header_packet == 0x00) {
-    uint32 bar0 = read_conf(bus, device, function, 0x10);
+    uint32 bar0 = pci_read_conf(bus, device, function, 0x10);
     bar0 = (bar0 & 0xFFFFFFFC) + (0x1F0 * (!bar0)); // default
-    uint32 bar2 = read_conf(bus, device, function, 0x18);
+    uint32 bar2 = pci_read_conf(bus, device, function, 0x18);
     bar2 = (bar2 & 0xFFFFFFFC) + (0x170 * (!bar2)); // default
-    uint32 interrupt_line = read_conf(bus, device, function, 0x3C);
+    uint32 interrupt_line = pci_read_conf(bus, device, function, 0x3C);
     uint8 interrupt = interrupt_line & 0xFF;
 
     term_write(cout, (native_string) "IDE SETUP, reading BAR0:\n ");
@@ -71,16 +71,17 @@ void setup_pci() {
   term_write(cout, (native_string) "1.0.2\n");
 
   // Scan everything
+  // Output to console for debugging
   for (uint32 bus = 0; bus < 256; ++bus) {
     for (uint32 device = 0; device < 32; ++device) {
       for (uint8 function = 0; function < 8; ++function) {
-        if (device_at(bus, device, function)) {
+        if (pci_device_at(bus, device, function)) {
           debug_write((native_string) "Found device at:");
           debug_write(bus);
           debug_write(device);
           debug_write(function);
 
-          uint32 type_block = read_conf(bus, device, function, 0x08);
+          uint32 type_block = pci_read_conf(bus, device, function, 0x08);
           uint8 class_code = (type_block >> 24) & 0xFF;
           uint8 subclass = (type_block >> 16) & 0xFF;
           debug_write(class_code);

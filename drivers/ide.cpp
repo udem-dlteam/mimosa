@@ -11,6 +11,7 @@
 #include "asm.h"
 #include "disk.h"
 #include "ide.h"
+#include "include/pci.h"
 #include "intr.h"
 #include "rtlib.h"
 #include "term.h"
@@ -20,8 +21,8 @@
 
 // IDE controller ports and IRQs.
 
-controller ide_controller_map[4] = {
-    {0xF190, 11}, {0xF170, 11}, {0xF140, 15}, {0xF120, 15}};
+uint8 controller_count = 0;
+ide_controller ide_controller_map[IDE_CONTROLLERS];
 //-----------------------------------------------------------------------------
 
 typedef struct ide_module_struct {
@@ -910,28 +911,186 @@ static void setup_ide_controller(ide_controller *ctrl, uint8 id) {
   }
 }
 
+/**
+ * This function is called when an IDE controller is detected
+ * on a pci bus. The bus, device and function parameter
+ * corresponds to the device's PCI address.
+ *
+ */
+void ide_found_controller(uint16 bus, uint8 device, uint8 function,
+                          uint32 info) {
+
+#ifdef SHOW_IDE_INFO
+  term_write(cout, (native_string) "Found an IDE controller at ");
+  term_write(cout, bus);
+  term_write(cout, (native_string) " ");
+  term_write(cout, device);
+  term_write(cout, (native_string) " ");
+  term_write(cout, function);
+  term_writeline(cout);
+#endif
+
+  if (controller_count + 2 > IDE_CONTROLLERS) {
+#ifdef SHOW_IDE_INFO
+    term_write(cout, (native_string) "Discarding, full capacity\n");
+#endif
+    return; // Full capacity
+  }
+
+  uint32 pci_info =
+      pci_read_conf(bus, device, function, PCI_HEADER_PCI_INFO_OFFSET);
+
+  uint32 header_type = (pci_info >> 16) & 0xFF;
+
+  if (0x00 != header_type) {
+#ifdef SHOW_IDE_INFO
+    term_write(cout, (native_string) "Discarding, unknown header type ");
+    term_write(cout, header_type);
+    term_writeline(cout);
+#endif
+    // We expect PCI header type 0x00 for IDE controllers
+    return;
+  }
+
+  // Determine if this is IDE
+  uint8 prog_interface = (info >> 8) & 0xFF;
+
+#ifdef SHOW_IDE_INFO
+  term_write(cout, (native_string) "PROG-IF: ");
+  term_write(cout, prog_interface);
+  term_writeline(cout);
+#endif
+
+  uint32 manuf_info =
+      pci_read_conf(bus, device, function, PCI_HEADER_MANUFACTURER_OFFSET);
+
+  uint32 bars[6] = {
+      PCI_HEADER_0_BAR0, PCI_HEADER_0_BAR1, PCI_HEADER_0_BAR2,
+      PCI_HEADER_0_BAR3, PCI_HEADER_0_BAR4, PCI_HEADER_0_BAR5,
+  };
+
+  // Select IRQ
+  uint32 irq_line =
+      pci_read_conf(bus, device, function, PCI_HEADER_0_INT_OFFSET);
+  uint8 irq_no = irq_line & 0xFF; // if serial, they will have the same IRQ
+
+#ifdef SHOW_IDE_INFO
+  term_write(cout, (native_string) "IRQ: ");
+  term_write(cout, irq_no);
+  term_writeline(cout);
+#endif
+
+  bool pata = (!prog_interface) || (prog_interface & IDE_PCI_PATA_PROG_IF_A) ||
+              (prog_interface & IDE_PCI_PATA_PROG_IF_B);
+
+#ifdef SHOW_IDE_INFO
+  term_write(cout, (native_string) "Is PATA? ");
+  term_write(cout, pata);
+  term_writeline(cout);
+#endif
+
+  // Setup bars
+  for (uint8 bar = 0; bar < 6; ++bar) {
+    uint8 bar_offset = bars[bar];
+    bars[bar] = pci_read_conf(bus, device, function, bar_offset) & IDE_BAR_MASK;
+  }
+
+  // Set bar's value correctly, revert to default is 0
+  bars[0] = (bars[0]) + (IDE_PATA_FIRST_CONTROLLER_BASE * (!bars[0]));
+  bars[1] = (bars[1]) + (IDE_PATA_FIRST_CONTROLLER * (!bars[1]));
+  bars[2] = (bars[2]) + (IDE_PATA_SECOND_CONTROLLER_BASE * (!bars[2]));
+  bars[3] = (bars[3]) + (IDE_PATA_SECOND_CONTROLLER * (!bars[3]));
+
+#ifdef SHOW_IDE_INFO
+  term_write(cout, (native_string) "BARS: \n");
+  for (uint8 bar = 0; bar < 6; ++bar) {
+    term_write(cout, (native_string) "BAR");
+    term_write(cout, bar);
+    term_write(cout, (native_string) " : ");
+    term_writeline(cout);
+    term_write(cout, (void *)bars[bar]);
+    term_writeline(cout);
+  }
+#endif
+
+  // Primary
+  ide_controller_map[controller_count].enabled = TRUE;
+  ide_controller_map[controller_count].id = 0;
+  ide_controller_map[controller_count].base_port = bars[0];
+  ide_controller_map[controller_count].controller_port = bars[1];
+  ide_controller_map[controller_count].bus_master_port = bars[4];
+  ide_controller_map[controller_count].serial = !pata;
+  ide_controller_map[controller_count].irq =
+      (pata ? IDE_PATA_PRIMARY_IRQ : irq_no);
+
+  // Secondary
+  ide_controller_map[controller_count + 1].enabled = TRUE;
+  ide_controller_map[controller_count + 1].id = 1;
+  ide_controller_map[controller_count + 1].base_port = bars[2];
+  ide_controller_map[controller_count + 1].controller_port = bars[3];
+  ide_controller_map[controller_count + 1].bus_master_port = bars[4];
+  ide_controller_map[controller_count + 1].serial = !pata;
+  ide_controller_map[controller_count + 1].irq =
+      (pata ? IDE_PATA_SECONDARY_IRQ : irq_no);
+
+  controller_count += 2;
+}
+
+void ide_detect_controllers() {
+  // Scan PCI devices
+  for (uint16 bus = 0; bus < PCI_BUS_COUNT; ++bus) {
+    for (uint8 device = 0; device < PCI_DEV_PER_BUS; ++device) {
+      for (uint8 function = 0; function < PCI_FUNC_PER_DEVICE; ++function) {
+        if (pci_device_at(bus, device, function)) {
+          uint32 info =
+              pci_read_conf(bus, device, function, PCI_HEADER_INFO_OFFSET);
+          uint8 class_code = (info >> 24) && 0xFF;
+          uint8 subclass = (info >> 16) && 0xFF;
+          if (class_code == PCI_CLASS_MASS_STORAGE &&
+              subclass == PCI_SUBCLASS_IDE) {
+            ide_found_controller(bus, device, function, info);
+          }
+        }
+      }
+    }
+  }
+}
+
 void setup_ide() {
   uint32 i;
   uint32 j;
 
-  for (i = 0; i < IDE_CONTROLLERS; i++)
-    setup_ide_controller(&ide_mod.ide[i], i);
+  for (i = 0; i < IDE_CONTROLLERS; i++) {
+    ide_controller_map[i].enabled = FALSE;
+  }
+
+  ide_detect_controllers();
+
+  while (1) {
+    NOP();
+  }
+
+  for (i = 0; i < IDE_CONTROLLERS; i++) {
+    if (ide_controller_map[i].enabled) {
+      setup_ide_controller(&ide_mod.ide[i], i);
+    }
+  }
 
   /* Disk setup */
-  for (i = 0; i < IDE_CONTROLLERS; i++)
-    for (j = 0; j < IDE_DEVICES_PER_CONTROLLER; j++)
-      if (ide_mod.ide[i].device[j].kind != IDE_DEVICE_ABSENT) {
-        disk *d = disk_alloc();
-        if (d != NULL) {
-          d->kind = DISK_IDE;
-          d->log2_sector_size = IDE_LOG2_SECTOR_SIZE;
-          d->partition_type = 0;
-          d->partition_path = 0;
-          d->partition_start = 0;
-          d->partition_length = ide_mod.ide[i].device[j].total_sectors;
-          d->_.ide.dev = &ide_mod.ide[i].device[j];
-        }
-      }
+  /* for (i = 0; i < IDE_CONTROLLERS; i++) */
+  /*   for (j = 0; j < IDE_DEVICES_PER_CONTROLLER; j++) */
+  /*     if (ide_mod.ide[i].device[j].kind != IDE_DEVICE_ABSENT) { */
+  /*       disk *d = disk_alloc(); */
+  /*       if (d != NULL) { */
+  /*         d->kind = DISK_IDE; */
+  /*         d->log2_sector_size = IDE_LOG2_SECTOR_SIZE; */
+  /*         d->partition_type = 0; */
+  /*         d->partition_path = 0; */
+  /*         d->partition_start = 0; */
+  /*         d->partition_length = ide_mod.ide[i].device[j].total_sectors; */
+  /*         d->_.ide.dev = &ide_mod.ide[i].device[j]; */
+  /*       } */
+  /*     } */
 }
 
 //-----------------------------------------------------------------------------
