@@ -20,11 +20,8 @@
 
 // IDE controller ports and IRQs.
 
-static const struct {
-  uint16 base;
-  uint16 irq;
-} ide_controller_map[] = {{0x1f0, 14}, {0x170, 15}, {0x1e8, 12}, {0x168, 10}};
-
+controller ide_controller_map[4] = {
+    {0xF190, 11}, {0xF170, 11}, {0xF140, 15}, {0xF120, 15}};
 //-----------------------------------------------------------------------------
 
 typedef struct ide_module_struct {
@@ -730,12 +727,11 @@ static void setup_ide_controller(ide_controller *ctrl, uint8 id) {
 
     outb(IDE_DEV_HEAD_IBM | IDE_DEV_HEAD_DEV(i), base + IDE_DEV_HEAD_REG);
 #ifdef SHOW_IDE_INFO
-    term_write(cout, "[START] Sleeping 400 nsecs");
+    term_write(cout, "[START] Sleeping 400 nsecs\n");
 #endif
-
     ide_delay(base); // 400 nsecs
 #ifdef SHOW_IDE_INFO
-    term_write(cout, "[STOP ] Sleeping 400 nsecs");
+    term_write(cout, "[STOP ] Sleeping 400 nsecs\n");
 #endif
 
     stat[i] = inb(base + IDE_STATUS_REG);
@@ -753,21 +749,52 @@ static void setup_ide_controller(ide_controller *ctrl, uint8 id) {
 
   if (candidates > 0) {
     // perform a software RESET of the IDE controller
-    term_write(cout, "Resetting the IDE...");
+#ifdef SHOW_IDE_INFO
+    term_write(cout, "Resetting the IDE: ");
+    term_write(cout, candidates);
+    term_writeline(cout);
+#endif
+
+#ifdef SHOW_IDE_INFO
+    term_write(cout, "SELECT DISK 0\n");
+#endif
 
     outb(IDE_DEV_HEAD_IBM | IDE_DEV_HEAD_DEV(0), base + IDE_DEV_HEAD_REG);
     ide_delay(base); // 400 nsecs
     inb(base + IDE_STATUS_REG);
 
+#ifdef SHOW_IDE_INFO
+    term_write(cout, "READ STT\n");
+#endif
     thread_sleep(5000); // 5 usecs
     outb(IDE_DEV_CTRL_nIEN, base + IDE_DEV_CTRL_REG);
+#ifdef SHOW_IDE_INFO
+    term_write(cout, "A\n");
+#endif
     thread_sleep(5000); // 5 usecs
     outb(IDE_DEV_CTRL_nIEN | IDE_DEV_CTRL_SRST, base + IDE_DEV_CTRL_REG);
+#ifdef SHOW_IDE_INFO
+    term_write(cout, "B\n");
+#endif
     thread_sleep(5000); // 5 usecs
     outb(IDE_DEV_CTRL_nIEN, base + IDE_DEV_CTRL_REG);
-    thread_sleep(2000000); // 2 msecs
-    inb(base + IDE_ERROR_REG);
-    thread_sleep(5000); // 5 usecs
+#ifdef SHOW_IDE_INFO
+    term_write(cout, "C\n");
+#endif
+    /* thread_sleep(2000000); // 2 msecs */
+    /* inb(base + IDE_ERROR_REG); */
+#ifdef SHOW_IDE_INFO
+    term_write(cout, "D\n");
+    term_writeline(cout);
+    term_writeline(cout);
+    term_writeline(cout);
+    term_writeline(cout);
+#endif
+    /* thread_sleep(5000); // 5 usecs */
+
+#ifdef SHOW_IDE_INFO
+    term_write(cout, "Before LOOP\n");
+#endif
 
     for (j = 30000; j > 0; j--) // wait up to 30 seconds for a response
     {

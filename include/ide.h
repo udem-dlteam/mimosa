@@ -90,6 +90,14 @@
 
 #define MAX_NB_IDE_CMD_QUEUE_ENTRIES 1
 
+typedef struct {
+  uint16 base;
+  uint16 irq;
+  // Why at 0xE18 and 0x168?? Those are not standard IDE afaik
+} controller;
+
+extern controller ide_controller_map[4];
+
 typedef enum { cmd_read_sectors, cmd_write_sectors, cmd_flush_cache } cmd_type;
 
 typedef struct ide_cmd_queue_entry_struct {

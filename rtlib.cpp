@@ -12,6 +12,7 @@
 #include "disk.h"
 #include "drivers/filesystem/include/stdstream.h"
 #include "drivers/filesystem/include/vfs.h"
+#include "drivers/include/pci.h"
 #include "heap.h"
 #include "ide.h"
 #include "intr.h"
@@ -672,6 +673,9 @@ void __rtlib_setup() {
 
   term_write(cout, "Loading up disks...\n");
   setup_disk();
+
+  term_write(cout, "Initializing PCI...\n");
+  setup_pci();
 
   term_write(cout, "Loading up IDE controllers...\n");
   setup_ide();

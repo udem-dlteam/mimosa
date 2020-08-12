@@ -270,8 +270,8 @@ void irq10() {
 
 void irq11() {
 #ifdef SHOW_INTERRUPTS
-  term_write(cout, "\033[41m irq11 \033[0m");
 #endif
+  term_write(cout, "\033[41m irq11 \033[0m");
 
   ACKNOWLEDGE_IRQ(11);
 }
@@ -314,6 +314,7 @@ void irq15() {
 #ifdef SHOW_INTERRUPTS
   term_write(cout, "\033[41m irq15 \033[0m");
 #endif
+  term_write(cout, "\033[41m irq15 \033[0m");
 
   ACKNOWLEDGE_IRQ(15);
 }
