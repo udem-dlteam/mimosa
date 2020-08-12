@@ -25,17 +25,6 @@ uint8 controller_count = 0;
 ide_controller ide_controller_map[IDE_CONTROLLERS];
 //-----------------------------------------------------------------------------
 
-typedef struct ide_module_struct {
-  ide_controller ide[IDE_CONTROLLERS];
-} ide_module;
-
-static ide_module ide_mod;
-
-static void ide_delay(uint16 port) {
-  for (int i = 0; i < 4; i++)
-    inb(port + IDE_ALT_STATUS_REG);
-}
-
 ide_cmd_queue_entry *ide_cmd_queue_alloc(ide_device *dev) {
   int32 i;
   ide_controller *ctrl;
@@ -63,6 +52,86 @@ ide_cmd_queue_entry *ide_cmd_queue_alloc(ide_device *dev) {
   return entry;
 }
 
+/**
+ * Read an IDE register
+ *
+ * This is taken from OSdev, there does not seem to be a clear explanation
+ * that the code is correct, but it makes sense and maps back to the PATA spec.
+ */
+uint16 ide_read_register(ide_controller *ctrl, uint16 reg, bool wide) {
+  uint16 base = 0;
+  int16 offset = 0;
+  uint16 value = 0;
+
+  if (reg <= IDE_COMMAND_REG) {
+    base = ctrl->base_port;
+    offset = reg;
+  } else if (reg < IDE_DEV_CTRL_REG) {
+    base = ctrl->base_port;
+    offset = reg - 0x06;
+  } else if (reg < IDE_DRIVE_ADDR_REG) {
+    base = ctrl->controller_port;
+    offset = reg - 0x0A;
+  } else {
+    term_write(cout, (native_string) "Unknown REG READ...");
+  }
+
+  if (wide) {
+    value = inw(base + offset);
+  } else {
+    value = inb(base + offset);
+  }
+
+  return value;
+}
+
+uint8 ide_read_byte(ide_controller *ctrl, uint16 reg) {
+  return (uint8)ide_read_register(ctrl, reg, FALSE);
+}
+
+uint16 ide_read_short(ide_controller *ctrl, uint16 reg) {
+  return ide_read_register(ctrl, reg, TRUE);
+}
+
+void ide_write_register(ide_controller *ctrl, uint16 value, uint16 reg,
+                        bool wide) {
+  uint16 base = 0;
+  int16 offset = 0;
+
+  if (reg <= IDE_COMMAND_REG) {
+    base = ctrl->base_port;
+    offset = reg;
+  } else if (reg < IDE_DEV_CTRL_REG) {
+    base = ctrl->base_port;
+    offset = reg - 0x06;
+  } else if (reg < IDE_DRIVE_ADDR_REG) {
+    base = ctrl->controller_port;
+    offset = reg - 0x0A;
+  } else {
+    debug_write("Unknown REG WRITE...");
+  }
+
+  if (wide) {
+    outw(value, base + offset);
+  } else {
+    outb(value & 0xFF, base + offset);
+  }
+}
+
+void ide_write_byte(ide_controller *ctrl, uint8 byte, uint16 reg) {
+  ide_write_register(ctrl, byte, reg, FALSE);
+}
+
+void ide_write_short(ide_controller *ctrl, uint16 byte, uint16 reg) {
+  ide_write_register(ctrl, byte, reg, TRUE);
+}
+
+void ide_delay(ide_controller *ctrl) {
+  for (int i = 0; i < 4; i++) {
+    ide_read_byte(ctrl, IDE_ALT_STATUS_REG);
+  }
+}
+
 void ide_cmd_queue_free(ide_cmd_queue_entry *entry) {
   ide_device *dev;
   ide_controller *ctrl;
@@ -83,11 +152,9 @@ void ide_irq(ide_controller *ctrl) {
   uint8 s;
   uint32 i;
   ide_cmd_queue_entry *entry;
-  uint16 base;
   uint16 *p = NULL;
 
   entry = &ctrl->cmd_queue[0]; // We only handle one operation at a time
-  base = ide_controller_map[ctrl->id].base;
 
   cmd_type type = entry->cmd;
 
@@ -101,25 +168,40 @@ void ide_irq(ide_controller *ctrl) {
     panic(L"[IDE.CPP] Unknown command type...");
   }
 
-  s = inb(base + IDE_STATUS_REG);
+  s = ide_read_byte(ctrl, IDE_STATUS_REG);
 
   if (s & IDE_STATUS_ERR) {
     // #ifdef SHOW_DISK_INFO
-    uint8 err = inb(base + IDE_ERROR_REG);
-    term_write(cout, "***IDE ERROR***\n");
+    uint8 err = ide_read_byte(ctrl, IDE_ERROR_REG);
+    term_write(cout, (native_string) "***IDE ERROR***\n");
 
     if (err & IDE_ERROR_BBK)
-      term_write(cout, "Bad block mark detected in sector's ID field\n");
+      term_write(
+          cout,
+          (native_string) "Bad block mark detected in sector's ID field\n");
+
     if (err & IDE_ERROR_UNC)
-      term_write(cout, "Uncorrectable data error encountered\n");
+      term_write(cout,
+                 (native_string) "Uncorrectable data error encountered\n");
+
     if (err & IDE_ERROR_IDNF)
-      term_write(cout, "Requested sector's ID field not found\n");
+      term_write(cout,
+                 (native_string) "Requested sector's ID field not found\n");
+
     if (err & IDE_ERROR_ABRT)
-      term_write(cout, "Command aborted (status error or invalid cmd)\n");
+      term_write(
+          cout,
+          (native_string) "Command aborted (status error or invalid cmd)\n");
+
     if (err & IDE_ERROR_TK0NF)
-      term_write(cout, "Track 0 not found during recalibrate command\n");
+      term_write(
+          cout,
+          (native_string) "Track 0 not found during recalibrate command\n");
+
     if (err & IDE_ERROR_AMNF)
-      term_write(cout, "Data address mark not found after ID field\n");
+      term_write(
+          cout, (native_string) "Data address mark not found after ID field\n");
+
     // #endif
 
     if (type == cmd_read_sectors) {
@@ -127,35 +209,45 @@ void ide_irq(ide_controller *ctrl) {
     } else if (type == cmd_write_sectors) {
       entry->_.write_sectors.err = UNKNOWN_ERROR;
     }
+
     condvar_mutexless_signal(entry->done);
     ide_cmd_queue_free(entry);
-  } else if (type == cmd_read_sectors) {
-    for (i = entry->_.read_sectors.count << (IDE_LOG2_SECTOR_SIZE - 1); i > 0;
-         i--)
-      *p++ = inw(base + IDE_DATA_REG);
 
-    if (inb(base + IDE_ALT_STATUS_REG) & IDE_STATUS_DRQ) {
+  } else if (type == cmd_read_sectors) {
+
+    for (i = entry->_.read_sectors.count << (IDE_LOG2_SECTOR_SIZE - 1); i > 0;
+         i--) {
+      *p++ = ide_read_short(ctrl, IDE_DATA_REG);
+    }
+
+    if (ide_read_byte(ctrl, IDE_ALT_STATUS_REG) & IDE_STATUS_DRQ) {
       entry->_.read_sectors.err = UNKNOWN_ERROR;
     } else {
       entry->_.read_sectors.err = NO_ERROR;
     }
+
     condvar_mutexless_signal(entry->done);
     ide_cmd_queue_free(entry);
+
   } else if (type == cmd_write_sectors) {
+
     if (entry->_.write_sectors.written < entry->_.write_sectors.count) {
+
       // Write the next sector to write
       for (uint16 i = 1 << (IDE_LOG2_SECTOR_SIZE - 1); i > 0; i--) {
-        outw(*p++, base + IDE_DATA_REG);
+        ide_write_short(ctrl, *p++, IDE_DATA_REG);
       }
+
       entry->_.write_sectors.buf = p;
       entry->_.write_sectors.written++;
     } else {
       // This is the status interrupt
-      if (inb(base + IDE_ALT_STATUS_REG) & IDE_STATUS_DRQ) {
+      if (ide_read_byte(ctrl, IDE_ALT_STATUS_REG) & IDE_STATUS_DRQ) {
         entry->_.write_sectors.err = UNKNOWN_ERROR;
       } else {
         entry->_.write_sectors.err = NO_ERROR;
       }
+
       condvar_mutexless_signal(entry->done);
       ide_cmd_queue_free(entry);
     }
@@ -177,7 +269,8 @@ extern "C" void irq14() {
     send_gambit_int(GAMBIT_IDE_INT, params, 1);
   } else {
     ACKNOWLEDGE_IRQ(14);
-    ide_irq(&ide_mod.ide[0]);
+    // TODO: lookup
+    ide_irq(&ide_controller_map[0]);
   }
 }
 
@@ -195,7 +288,8 @@ extern "C" void irq15() {
     send_gambit_int(GAMBIT_IDE_INT, params, 1);
   } else {
     ACKNOWLEDGE_IRQ(15);
-    ide_irq(&ide_mod.ide[1]);
+    // TODO: lookup
+    ide_irq(&ide_controller_map[1]);
   }
 }
 
@@ -209,26 +303,28 @@ error_code ide_read_sectors(ide_device *dev, uint32 lba, void *buf,
 
   if (count > 0) {
     ide_controller *ctrl = dev->ctrl;
-    uint16 base = ide_controller_map[ctrl->id].base;
     ide_cmd_queue_entry *entry;
 
     disable_interrupts();
     entry = ide_cmd_queue_alloc(dev);
 
-    if (count > 256)
-      count = 256;
+    if (count > 256) {
+      count = 0; // 0 count means 256
+    }
 
     entry->cmd = cmd_read_sectors;
     entry->_.read_sectors.buf = buf;
     entry->_.read_sectors.count = count;
 
-    outb(IDE_DEV_HEAD_LBA | IDE_DEV_HEAD_DEV(dev->id) | (lba >> 24),
-         base + IDE_DEV_HEAD_REG);
-    outb(count, base + IDE_SECT_COUNT_REG);
-    outb(lba, base + IDE_SECT_NUM_REG);
-    outb((lba >> 8), base + IDE_CYL_LO_REG);
-    outb((lba >> 16), base + IDE_CYL_HI_REG);
-    outb(IDE_READ_SECTORS_CMD, base + IDE_COMMAND_REG);
+    ide_write_byte(ctrl,
+                   IDE_DEV_HEAD_LBA | IDE_DEV_HEAD_DEV(dev->id) | (lba >> 24),
+                   IDE_DEV_HEAD_REG);
+
+    ide_write_byte(ctrl, count, IDE_SECT_COUNT_REG);
+    ide_write_byte(ctrl, lba, IDE_SECT_NUM_REG);
+    ide_write_byte(ctrl, (lba >> 8), IDE_CYL_LO_REG);
+    ide_write_byte(ctrl, (lba >> 16), IDE_CYL_HI_REG);
+    ide_write_byte(ctrl, IDE_READ_SECTORS_CMD, IDE_COMMAND_REG);
 
     condvar_mutexless_wait(entry->done);
 
@@ -250,15 +346,17 @@ error_code ide_write_sectors(ide_device *dev, uint32 lba, void *buf,
 
   if (count > 0) {
     ide_controller *ctrl = dev->ctrl;
-    uint16 base = ide_controller_map[ctrl->id].base;
     ide_cmd_queue_entry *entry;
 
     disable_interrupts();
 
-    if (count != 1)
+    if (count != 1) {
       panic(L"Only one sector supported...");
-    if (count > 256)
-      count = 256;
+    }
+
+    if (count > 256) {
+      count = 0; // 256 is 0
+    }
 
     entry = ide_cmd_queue_alloc(dev);
     entry->cmd = cmd_write_sectors;
@@ -266,23 +364,25 @@ error_code ide_write_sectors(ide_device *dev, uint32 lba, void *buf,
     entry->_.write_sectors.count = count;
     entry->_.write_sectors.written = 1; // We write a sector right now
 
-    outb(IDE_DEV_HEAD_LBA | IDE_DEV_HEAD_DEV(dev->id) | (lba >> 24),
-         base + IDE_DEV_HEAD_REG);
-    outb(count, base + IDE_SECT_COUNT_REG);
-    outb(lba, base + IDE_SECT_NUM_REG);
-    outb((lba >> 8), base + IDE_CYL_LO_REG);
-    outb((lba >> 16), base + IDE_CYL_HI_REG);
-    outb(IDE_WRITE_SECTORS_CMD, base + IDE_COMMAND_REG);
+    ide_write_byte(ctrl,
+                   IDE_DEV_HEAD_LBA | IDE_DEV_HEAD_DEV(dev->id) | (lba >> 24),
+                   IDE_DEV_HEAD_REG);
+    ide_write_byte(ctrl, count, IDE_SECT_COUNT_REG);
+    ide_write_byte(ctrl, lba, IDE_SECT_NUM_REG);
+    ide_write_byte(ctrl, (lba >> 8), IDE_CYL_LO_REG);
+    ide_write_byte(ctrl, (lba >> 16), IDE_CYL_HI_REG);
+    ide_write_byte(ctrl, IDE_WRITE_SECTORS_CMD, IDE_COMMAND_REG);
 
-    while ((inb(base + IDE_STATUS_REG) & IDE_STATUS_BSY) ||
-           !(inb(base + IDE_STATUS_REG) & IDE_STATUS_DRQ))
-      ide_delay(base);
+    while ((ide_read_byte(ctrl, IDE_STATUS_REG) & IDE_STATUS_BSY) ||
+           !(ide_read_byte(ctrl, IDE_STATUS_REG) & IDE_STATUS_DRQ)) {
+      ide_delay(ctrl);
+    }
 
     uint16 *p = CAST(uint16 *, entry->_.write_sectors.buf);
 
     // Write the first sector immediately
     for (uint16 i = (1 << (IDE_LOG2_SECTOR_SIZE - 1)); i > 0; i--) {
-      outw(*p++, base + IDE_DATA_REG);
+      ide_write_short(ctrl, *p++, IDE_DATA_REG);
     }
 
     entry->_.write_sectors.buf = p; // So we can write from there
@@ -295,7 +395,7 @@ error_code ide_write_sectors(ide_device *dev, uint32 lba, void *buf,
     entry = ide_cmd_queue_alloc(dev);
     entry->cmd = cmd_flush_cache;
 
-    outb(IDE_FLUSH_CACHE_CMD, base + IDE_COMMAND_REG);
+    ide_write_byte(ctrl, IDE_FLUSH_CACHE_CMD, IDE_COMMAND_REG);
     condvar_mutexless_wait(entry->done);
 
     ide_cmd_queue_free(entry);
@@ -322,7 +422,6 @@ static void setup_ide_device(ide_controller *ctrl, ide_device *dev, uint8 id) {
   uint32 i;
   uint32 j;
   uint16 ident[1 << (IDE_LOG2_SECTOR_SIZE - 1)];
-  uint16 base;
 
   dev->id = id;
   dev->ctrl = ctrl;
@@ -330,25 +429,24 @@ static void setup_ide_device(ide_controller *ctrl, ide_device *dev, uint8 id) {
   if (dev->kind == IDE_DEVICE_ABSENT)
     return;
 
-  base = ide_controller_map[ctrl->id].base;
-
   // perform an IDENTIFY DEVICE or IDENTIFY PACKET DEVICE command
-
-  outb(IDE_DEV_HEAD_IBM | IDE_DEV_HEAD_DEV(dev->id), base + IDE_DEV_HEAD_REG);
+  ide_write_byte(ctrl, IDE_DEV_HEAD_IBM | IDE_DEV_HEAD_DEV(dev->id),
+                 IDE_DEV_HEAD_REG);
 
   if (dev->kind == IDE_DEVICE_ATA) {
-    outb(IDE_IDENTIFY_DEVICE_CMD, base + IDE_COMMAND_REG);
+    ide_write_byte(ctrl, IDE_IDENTIFY_DEVICE_CMD, IDE_COMMAND_REG);
   } else {
-    outb(IDE_IDENTIFY_PACKET_DEVICE_CMD, base + IDE_COMMAND_REG);
+    ide_write_byte(ctrl, IDE_IDENTIFY_PACKET_DEVICE_CMD, IDE_COMMAND_REG);
   }
 
   for (j = 1000000; j > 0; j--) // wait up to 1 second for a response
   {
-    uint8 stat = inb(base + IDE_STATUS_REG);
+    uint8 stat = ide_read_byte(ctrl, IDE_STATUS_REG);
 
     if (!(stat & IDE_STATUS_BSY)) {
-      if (stat & IDE_STATUS_ERR)
+      if (stat & IDE_STATUS_ERR) {
         j = 0;
+      }
       break;
     }
 
@@ -361,7 +459,7 @@ static void setup_ide_device(ide_controller *ctrl, ide_device *dev, uint8 id) {
   }
 
   for (i = 0; i < (1 << (IDE_LOG2_SECTOR_SIZE - 1)); i++) {
-    ident[i] = inw(base + IDE_DATA_REG);
+    ident[i] = ide_read_short(ctrl, IDE_DATA_REG);
   }
 
   swap_and_trim(dev->serial_num, ident + 10, 20);
@@ -408,26 +506,31 @@ static void setup_ide_device(ide_controller *ctrl, ide_device *dev, uint8 id) {
   debug_write(dev->total_sectors);
 #endif
 
-  term_write(cout, "  word 47 hi (should be 128) = ");
+  term_write(cout, (native_string) "  word 47 hi (should be 128) = ");
   term_write(cout, (ident[47] >> 8));
   term_writeline(cout);
-  term_write(cout, "  Maximum number of sectors that shall be transferred per "
-                   "interrupt on READ/WRITE MULTIPLE commands = ");
+  term_write(cout,
+             (native_string) "  Maximum number of sectors that shall be "
+                             "transferred per "
+                             "interrupt on READ/WRITE MULTIPLE commands = ");
   term_write(cout, (ident[47] & 0xff));
   term_writeline(cout);
 
 #ifdef SHOW_IDE_INFO
 
   if (dev->kind == IDE_DEVICE_ATA) {
-    if ((ident[0] & (1 << 15)) == 0)
-      term_write(cout, "  ATA device\n");
+    if ((ident[0] & (1 << 15)) == 0) {
+      term_write(cout, (native_string) "  ATA device\n");
+    }
   } else {
-    if ((ident[0] & (3 << 14)) == (2 << 14))
-      term_write(cout, "  ATAPI device\n");
+    if ((ident[0] & (3 << 14)) == (2 << 14)) {
+      term_write(cout, (native_string) "  ATAPI device\n");
+    }
   }
 
-  if ((ident[0] & (1 << 7)) == 1)
-    term_write(cout, "  removable media device\n");
+  if ((ident[0] & (1 << 7)) == 1) {
+    term_write(cout, (native_string) "  removable media device\n");
+  }
 
 #if 0
 
@@ -436,8 +539,9 @@ static void setup_ide_device(ide_controller *ctrl, ide_device *dev, uint8 id) {
 
 #endif
 
-  if ((ident[0] & (1 << 2)) == 1)
-    term_write(cout, "  response incomplete\n");
+  if ((ident[0] & (1 << 2)) == 1) {
+    term_write(cout, (native_string) "  response incomplete\n");
+  }
 
   if (dev->kind == IDE_DEVICE_ATA) {
     term_write(cout, "  Number of logical cylinders = ");
@@ -702,18 +806,15 @@ static void setup_ide_device(ide_controller *ctrl, ide_device *dev, uint8 id) {
 #endif
 }
 
-static void setup_ide_controller(ide_controller *ctrl, uint8 id) {
-  term_write(cout, "Setting up IDE controller no: ");
-  term_write(cout, id);
+static void setup_ide_controller(ide_controller *ctrl) {
+  term_write(cout, (native_string) "Setting up IDE controller no: ");
+  term_write(cout, ctrl->id);
   term_writeline(cout);
 
   uint32 i;
   uint32 j;
   uint8 stat[IDE_DEVICES_PER_CONTROLLER];
   uint8 candidates;
-  uint16 base = ide_controller_map[id].base;
-
-  ctrl->id = id;
 
   // check each device to see if it is present
 
@@ -726,21 +827,23 @@ static void setup_ide_controller(ide_controller *ctrl, uint8 id) {
     term_writeline(cout);
 #endif
 
-    outb(IDE_DEV_HEAD_IBM | IDE_DEV_HEAD_DEV(i), base + IDE_DEV_HEAD_REG);
+    ide_write_short(ctrl, IDE_DEV_HEAD_IBM | IDE_DEV_HEAD_DEV(i),
+                    IDE_DEV_HEAD_REG);
+
 #ifdef SHOW_IDE_INFO
     term_write(cout, "[START] Sleeping 400 nsecs\n");
 #endif
-    ide_delay(base); // 400 nsecs
+    ide_delay(ctrl); // 400 nsecs
 #ifdef SHOW_IDE_INFO
     term_write(cout, "[STOP ] Sleeping 400 nsecs\n");
 #endif
 
-    stat[i] = inb(base + IDE_STATUS_REG);
+    stat[i] = ide_read_byte(ctrl, IDE_STATUS_REG);
 
-    if ((stat[i] & (IDE_STATUS_BSY | IDE_STATUS_RDY | IDE_STATUS_DF |
-                    IDE_STATUS_DSC | IDE_STATUS_DRQ)) !=
-        (IDE_STATUS_BSY | IDE_STATUS_RDY | IDE_STATUS_DF | IDE_STATUS_DSC |
-         IDE_STATUS_DRQ)) {
+    uint8 mask = (IDE_STATUS_BSY | IDE_STATUS_RDY | IDE_STATUS_DF |
+                  IDE_STATUS_DSC | IDE_STATUS_DRQ);
+
+    if ((stat[i] & mask) != mask) {
       ctrl->device[i].kind = IDE_DEVICE_ATAPI; // for now means the device
       candidates++;                            // is possibly present
     } else {
@@ -760,25 +863,27 @@ static void setup_ide_controller(ide_controller *ctrl, uint8 id) {
     term_write(cout, "SELECT DISK 0\n");
 #endif
 
-    outb(IDE_DEV_HEAD_IBM | IDE_DEV_HEAD_DEV(0), base + IDE_DEV_HEAD_REG);
-    ide_delay(base); // 400 nsecs
-    inb(base + IDE_STATUS_REG);
+    ide_write_byte(ctrl, IDE_DEV_HEAD_IBM | IDE_DEV_HEAD_DEV(0),
+                   IDE_DEV_HEAD_REG);
+    ide_delay(ctrl); // 400 nsecs
+    ide_read_byte(ctrl, IDE_STATUS_REG);
 
 #ifdef SHOW_IDE_INFO
     term_write(cout, "READ STT\n");
 #endif
     thread_sleep(5000); // 5 usecs
-    outb(IDE_DEV_CTRL_nIEN, base + IDE_DEV_CTRL_REG);
+    ide_write_byte(ctrl, IDE_DEV_CTRL_nIEN, IDE_DEV_CTRL_REG);
 #ifdef SHOW_IDE_INFO
     term_write(cout, "A\n");
 #endif
     thread_sleep(5000); // 5 usecs
-    outb(IDE_DEV_CTRL_nIEN | IDE_DEV_CTRL_SRST, base + IDE_DEV_CTRL_REG);
+    ide_write_byte(ctrl, IDE_DEV_CTRL_nIEN | IDE_DEV_CTRL_SRST,
+                   IDE_DEV_CTRL_REG);
 #ifdef SHOW_IDE_INFO
     term_write(cout, "B\n");
 #endif
     thread_sleep(5000); // 5 usecs
-    outb(IDE_DEV_CTRL_nIEN, base + IDE_DEV_CTRL_REG);
+    ide_write_byte(ctrl, IDE_DEV_CTRL_nIEN, IDE_DEV_CTRL_REG);
 #ifdef SHOW_IDE_INFO
     term_write(cout, "C\n");
 #endif
@@ -804,17 +909,19 @@ static void setup_ide_controller(ide_controller *ctrl, uint8 id) {
         term_write(cout, i);
         term_writeline(cout);
 
-        outb(IDE_DEV_HEAD_IBM | IDE_DEV_HEAD_DEV(i), base + IDE_DEV_HEAD_REG);
-        ide_delay(base); // 400 nsecs
-        if (((inb(base + IDE_STATUS_REG) & IDE_STATUS_BSY) == 0) &&
+        ide_write_byte(ctrl, IDE_DEV_HEAD_IBM | IDE_DEV_HEAD_DEV(i),
+                       IDE_DEV_HEAD_REG);
+        ide_delay(ctrl); // 400 nsecs
+        if (((ide_read_byte(ctrl, IDE_STATUS_REG) & IDE_STATUS_BSY) == 0) &&
             ctrl->device[i].kind == IDE_DEVICE_ATAPI) {
           ctrl->device[i].kind = IDE_DEVICE_ATA;
           candidates--;
         }
       }
 
-      if (candidates == 0)
+      if (0 == candidates) {
         break;
+      }
 
       thread_sleep(1000000); // 1 msec
     }
@@ -822,21 +929,24 @@ static void setup_ide_controller(ide_controller *ctrl, uint8 id) {
     candidates = 0;
 
     for (i = 0; i < IDE_DEVICES_PER_CONTROLLER; i++) {
-      if (ctrl->device[i].kind == IDE_DEVICE_ATA)
+      if (ctrl->device[i].kind == IDE_DEVICE_ATA) {
         candidates++;
-      else
+      } else {
         ctrl->device[i].kind = IDE_DEVICE_ABSENT;
+      }
     }
 
     if (candidates > 0) {
       for (i = 0; i < IDE_DEVICES_PER_CONTROLLER; i++) {
-        outb(IDE_DEV_HEAD_IBM | IDE_DEV_HEAD_DEV(i), base + IDE_DEV_HEAD_REG);
-        ide_delay(base); // 400 nsecs
+        ide_write_byte(ctrl, IDE_DEV_HEAD_IBM | IDE_DEV_HEAD_DEV(i),
+                       IDE_DEV_HEAD_REG);
+        ide_delay(ctrl); // 400 nsecs
 
-        if (inb(base + IDE_CYL_LO_REG) == 0x14 &&
-            inb(base + IDE_CYL_HI_REG) == 0xeb &&
-            ctrl->device[i].kind == IDE_DEVICE_ATA)
+        if (ide_read_byte(ctrl, IDE_CYL_LO_REG) == 0x14 &&
+            ide_read_byte(ctrl, IDE_CYL_HI_REG) == 0xeb &&
+            ctrl->device[i].kind == IDE_DEVICE_ATA) {
           ctrl->device[i].kind = IDE_DEVICE_ATAPI;
+        }
       }
 
       for (i = 0; i < IDE_DEVICES_PER_CONTROLLER; i++) {
@@ -844,15 +954,17 @@ static void setup_ide_controller(ide_controller *ctrl, uint8 id) {
           if (stat[i] == 0)
             ctrl->device[i].kind = IDE_DEVICE_ABSENT;
           else {
-            outb(IDE_DEV_HEAD_IBM | IDE_DEV_HEAD_DEV(i),
-                 base + IDE_DEV_HEAD_REG);
-            ide_delay(base); // 400 nsecs
-
-            outb(0x58, base + IDE_ERROR_REG);
-            outb(0xa5, base + IDE_CYL_LO_REG);
-            if (inb(base + IDE_ERROR_REG) == 0x58 ||
-                inb(base + IDE_CYL_LO_REG) != 0xa5)
-              ctrl->device[i].kind = IDE_DEVICE_ABSENT;
+            ide_write_byte(ctrl, IDE_DEV_HEAD_IBM | IDE_DEV_HEAD_DEV(i),
+                           IDE_DEV_HEAD_REG);
+            ide_delay(ctrl); // 400 nsecs
+            // This code does not make much sense, the err reg
+            // is RO
+            /* outb(0x58, base + IDE_ERROR_REG); */
+            /* outb(0xa5, base + IDE_CYL_LO_REG); */
+            /* if (inb(base + IDE_ERROR_REG) == 0x58 || */
+            /*     inb(base + IDE_CYL_LO_REG) != 0xa5) { */
+            /*   ctrl->device[i].kind = IDE_DEVICE_ABSENT; */
+            /* } */
           }
         }
       }
@@ -867,15 +979,15 @@ static void setup_ide_controller(ide_controller *ctrl, uint8 id) {
 #ifdef SHOW_IDE_INFO
 
     if (ctrl->device[i].kind != IDE_DEVICE_ABSENT) {
-      term_write(cout, "ide");
+      term_write(cout, (native_string) "ide");
       term_write(cout, ctrl->id);
-      term_write(cout, ".");
+      term_write(cout, (native_string) ".");
       term_write(cout, i);
 
       if (ctrl->device[i].kind == IDE_DEVICE_ATA)
-        term_write(cout, " is ATA\n");
+        term_write(cout, (native_string) " is ATA\n");
       else
-        term_write(cout, " is ATAPI\n");
+        term_write(cout, (native_string) " is ATAPI\n");
     }
 
 #endif
@@ -887,7 +999,6 @@ static void setup_ide_controller(ide_controller *ctrl, uint8 id) {
   }
 
   // setup command queue
-
   for (i = 0; i < MAX_NB_IDE_CMD_QUEUE_ENTRIES; i++) {
     ide_cmd_queue_entry *entry = &ctrl->cmd_queue[i];
     entry->id = i;
@@ -903,11 +1014,9 @@ static void setup_ide_controller(ide_controller *ctrl, uint8 id) {
 
   if (candidates > 0) {
     // enable interrupts
-
-    outb(0, base + IDE_DEV_CTRL_REG);
+    ide_write_byte(ctrl, 0, IDE_DEV_CTRL_REG);
     thread_sleep(2000000); // 2 msecs
-
-    ENABLE_IRQ(ide_controller_map[id].irq);
+    ENABLE_IRQ(ctrl->irq);
   }
 }
 
@@ -919,7 +1028,6 @@ static void setup_ide_controller(ide_controller *ctrl, uint8 id) {
  */
 void ide_found_controller(uint16 bus, uint8 device, uint8 function,
                           uint32 info) {
-
 #ifdef SHOW_IDE_INFO
   term_write(cout, (native_string) "Found an IDE controller at ");
   term_write(cout, bus);
@@ -1066,31 +1174,27 @@ void setup_ide() {
 
   ide_detect_controllers();
 
-  while (1) {
-    NOP();
+  for (i = 0; i < controller_count; i++) {
+    setup_ide_controller(&ide_controller_map[i]);
   }
 
-  for (i = 0; i < IDE_CONTROLLERS; i++) {
-    if (ide_controller_map[i].enabled) {
-      setup_ide_controller(&ide_mod.ide[i], i);
+  for (i = 0; i < controller_count; i++) {
+    ide_controller *ctrl = &ide_controller_map[i];
+    for (j = 0; j < IDE_DEVICES_PER_CONTROLLER; j++) {
+      if (ctrl->device[j].kind != IDE_DEVICE_ABSENT) {
+        disk *d = disk_alloc();
+        if (d != NULL) {
+          d->kind = DISK_IDE;
+          d->log2_sector_size = IDE_LOG2_SECTOR_SIZE;
+          d->partition_type = 0;
+          d->partition_path = 0;
+          d->partition_start = 0;
+          d->partition_length = ctrl->device[j].total_sectors;
+          d->_.ide.dev = &(ctrl->device[j]);
+        }
+      }
     }
   }
-
-  /* Disk setup */
-  /* for (i = 0; i < IDE_CONTROLLERS; i++) */
-  /*   for (j = 0; j < IDE_DEVICES_PER_CONTROLLER; j++) */
-  /*     if (ide_mod.ide[i].device[j].kind != IDE_DEVICE_ABSENT) { */
-  /*       disk *d = disk_alloc(); */
-  /*       if (d != NULL) { */
-  /*         d->kind = DISK_IDE; */
-  /*         d->log2_sector_size = IDE_LOG2_SECTOR_SIZE; */
-  /*         d->partition_type = 0; */
-  /*         d->partition_path = 0; */
-  /*         d->partition_start = 0; */
-  /*         d->partition_length = ide_mod.ide[i].device[j].total_sectors; */
-  /*         d->_.ide.dev = &ide_mod.ide[i].device[j]; */
-  /*       } */
-  /*     } */
 }
 
 //-----------------------------------------------------------------------------

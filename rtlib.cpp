@@ -96,12 +96,10 @@ void panic(unicode_string msg) {
   }
 #endif
 
-  // Wait a bit...
-  for (uint32 i = 0; i < CAST(uint32, (-1)); ++i) {
+  while (1) {
     NOP();
   }
 
-  reboot();
   // ** NEVER REACHED ** (this function never returns)
 }
 

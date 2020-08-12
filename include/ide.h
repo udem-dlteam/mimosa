@@ -35,12 +35,11 @@
 #define IDE_CYL_LO_REG 4     // 8 bit, LSB of cylinder
 #define IDE_CYL_HI_REG 5     // 2 bit, MSB of cylinder
 #define IDE_DEV_HEAD_REG 6   // 8 bit, 1 LBA 1 DRV HD3 HD2 HD1 HD0
-
 #define IDE_STATUS_REG 7
-#define IDE_ALT_STATUS_REG 0x206
+#define IDE_ALT_STATUS_REG 0x0C
 #define IDE_COMMAND_REG 7
-#define IDE_DEV_CTRL_REG 0x206
-#define IDE_DRIVE_ADDR_REG 0x207
+#define IDE_DEV_CTRL_REG 0x0C
+#define IDE_DRIVE_ADDR_REG 0xD
 
 #define IDE_STATUS_BSY (1 << 7)   // Device busy bit
 #define IDE_STATUS_RDY (1 << 6)   // Device ready bit
@@ -147,7 +146,6 @@ struct ide_controller_struct {
   uint8 id;
   uint8 enabled;
   uint8 serial;
-  uint16 base; // TODO: remove
   uint16 base_port;
   uint16 controller_port;
   uint16 bus_master_port;
