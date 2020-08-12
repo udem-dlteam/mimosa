@@ -36,10 +36,10 @@
 #define IDE_CYL_HI_REG 5     // 2 bit, MSB of cylinder
 #define IDE_DEV_HEAD_REG 6   // 8 bit, 1 LBA 1 DRV HD3 HD2 HD1 HD0
 #define IDE_STATUS_REG 7
-#define IDE_ALT_STATUS_REG 0x0C
 #define IDE_COMMAND_REG 7
-#define IDE_DEV_CTRL_REG 0x0C
-#define IDE_DRIVE_ADDR_REG 0xD
+#define IDE_ALT_STATUS_REG 0x02 + 7
+#define IDE_DEV_CTRL_REG 0x02 + 7
+#define IDE_DRIVE_ADDR_REG 0x03 + 7
 
 #define IDE_STATUS_BSY (1 << 7)   // Device busy bit
 #define IDE_STATUS_RDY (1 << 6)   // Device ready bit

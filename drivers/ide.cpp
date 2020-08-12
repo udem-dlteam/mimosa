@@ -66,14 +66,15 @@ uint16 ide_read_register(ide_controller *ctrl, uint16 reg, bool wide) {
   if (reg <= IDE_COMMAND_REG) {
     base = ctrl->base_port;
     offset = reg;
-  } else if (reg < IDE_DEV_CTRL_REG) {
-    base = ctrl->base_port;
-    offset = reg - 0x06;
-  } else if (reg < IDE_DRIVE_ADDR_REG) {
-    base = ctrl->controller_port;
-    offset = reg - 0x0A;
+    /* } else if (reg < IDE_DEV_CTRL_REG) { */
+    /*   base = ctrl->base_port; */
+    /*   offset = reg - 0x06; */
+    /* } else if (reg < IDE_DRIVE_ADDR_REG) { */
+    /*   base = ctrl->controller_port; */
+    /*   offset = reg - 0x0A; */
   } else {
-    term_write(cout, (native_string) "Unknown REG READ...");
+    base = ctrl->controller_port;
+    offset = reg - IDE_COMMAND_REG;
   }
 
   if (wide) {
@@ -101,15 +102,29 @@ void ide_write_register(ide_controller *ctrl, uint16 value, uint16 reg,
   if (reg <= IDE_COMMAND_REG) {
     base = ctrl->base_port;
     offset = reg;
-  } else if (reg < IDE_DEV_CTRL_REG) {
-    base = ctrl->base_port;
-    offset = reg - 0x06;
-  } else if (reg < IDE_DRIVE_ADDR_REG) {
-    base = ctrl->controller_port;
-    offset = reg - 0x0A;
+    /* } else if (reg < IDE_DEV_CTRL_REG) { */
+    /*   base = ctrl->base_port; */
+    /*   offset = reg - 0x06; */
+    /* } else if (reg < IDE_DRIVE_ADDR_REG) { */
+    /*   base = ctrl->controller_port; */
+    /*   offset = reg - 0x0A; */
   } else {
-    debug_write("Unknown REG WRITE...");
+    base = ctrl->controller_port;
+    offset = reg - IDE_COMMAND_REG;
   }
+
+  /* if (reg <= IDE_COMMAND_REG) { */
+  /*   base = ctrl->base_port; */
+  /*   offset = reg; */
+  /* } else if (reg < IDE_DEV_CTRL_REG) { */
+  /*   base = ctrl->base_port; */
+  /*   offset = reg - 0x06; */
+  /* } else if (reg < IDE_DRIVE_ADDR_REG) { */
+  /*   base = ctrl->controller_port; */
+  /*   offset = reg - 0x0A; */
+  /* } else { */
+  /*   debug_write("Unknown REG WRITE..."); */
+  /* } */
 
   if (wide) {
     outw(value, base + offset);
@@ -257,21 +272,33 @@ void ide_irq(ide_controller *ctrl) {
   }
 }
 
+/**
+ * Generic IDE irq handler
+ */
+void ide_irq_handle(uint8 irq_no) {
+  if (has_cut_ide_support()) {
+    uint8 params[1] = {0};
+    send_gambit_int(GAMBIT_IDE_INT, params, 1);
+  } else {
+    ACKNOWLEDGE_IRQ(irq_no);
+
+    for (uint8 cidx = 0; cidx < controller_count; ++cidx) {
+      ide_controller *controller = &ide_controller_map[cidx];
+      if (controller->irq == irq_no) {
+        ide_irq(controller);
+        break;
+      }
+    }
+  }
+}
+
 #ifdef USE_IRQ14_FOR_IDE0
 
 extern "C" void irq14() {
 #ifdef SHOW_INTERRUPTS
   term_write(cout, "\033[41m irq14 \033[0m");
 #endif
-
-  if (has_cut_ide_support()) {
-    uint8 params[1] = {0};
-    send_gambit_int(GAMBIT_IDE_INT, params, 1);
-  } else {
-    ACKNOWLEDGE_IRQ(14);
-    // TODO: lookup
-    ide_irq(&ide_controller_map[0]);
-  }
+  ide_irq_handle(14);
 }
 
 #endif
@@ -282,6 +309,7 @@ extern "C" void irq15() {
 #ifdef SHOW_INTERRUPTS
   term_write(cout, "\033[41m irq15 \033[0m");
 #endif
+  ide_irq_handle(15);
 
   if (has_cut_ide_support()) {
     uint8 params[1] = {1};
@@ -800,8 +828,9 @@ static void setup_ide_device(ide_controller *ctrl, ide_device *dev, uint8 id) {
       term_write(cout, "  Ultra DMA mode 0 is supported\n");
   }
 
-  if (ident[88] & (1 << 0))
+  if (ident[88] & (1 << 0)) {
     term_write(cout, "  Ultra DMA mode 0 is supported\n");
+  }
 
 #endif
 }
@@ -993,9 +1022,11 @@ static void setup_ide_controller(ide_controller *ctrl) {
 #endif
 
     setup_ide_device(ctrl, &ctrl->device[i], i);
+    term_write(cout, (native_string) "Done setting up IDE devices");
 
-    if (ctrl->device[i].kind != IDE_DEVICE_ABSENT)
+    if (ctrl->device[i].kind != IDE_DEVICE_ABSENT) {
       candidates++;
+    }
   }
 
   // setup command queue
@@ -1015,7 +1046,12 @@ static void setup_ide_controller(ide_controller *ctrl) {
   if (candidates > 0) {
     // enable interrupts
     ide_write_byte(ctrl, 0, IDE_DEV_CTRL_REG);
-    thread_sleep(2000000); // 2 msecs
+    /* thread_sleep(2000000); // 2 msecs */
+
+    uint8 irq = ctrl->irq;
+    if (irq != 15 && irq != 14) {
+      irq_register_handle(irq, ide_irq_handle);
+    }
     ENABLE_IRQ(ctrl->irq);
   }
 }
@@ -1109,6 +1145,19 @@ void ide_found_controller(uint16 bus, uint8 device, uint8 function,
   bars[2] = (bars[2]) + (IDE_PATA_SECOND_CONTROLLER_BASE * (!bars[2]));
   bars[3] = (bars[3]) + (IDE_PATA_SECOND_CONTROLLER * (!bars[3]));
 
+  bool already_there = FALSE;
+  for (uint8 i = 0; !already_there && i < controller_count; ++i) {
+    ide_controller *old = &ide_controller_map[i];
+    already_there = (old->base_port == bars[0]);
+  }
+
+  if (already_there) {
+#ifdef SHOW_IDE_INFO
+    term_write(cout, (native_string) "Discarding, duplicated\n");
+    return;
+#endif
+  }
+
 #ifdef SHOW_IDE_INFO
   term_write(cout, (native_string) "BARS: \n");
   for (uint8 bar = 0; bar < 6; ++bar) {
@@ -1144,19 +1193,30 @@ void ide_found_controller(uint16 bus, uint8 device, uint8 function,
   controller_count += 2;
 }
 
+void ide_detect_at(uint16 bus, uint8 device, uint8 function) {
+  if (pci_device_at(bus, device, function)) {
+    uint32 info = pci_read_conf(bus, device, function, PCI_HEADER_INFO_OFFSET);
+    uint8 class_code = (info >> 24) && 0xFF;
+    uint8 subclass = (info >> 16) && 0xFF;
+    if (class_code == PCI_CLASS_MASS_STORAGE && subclass == PCI_SUBCLASS_IDE) {
+      ide_found_controller(bus, device, function, info);
+    }
+  }
+}
+
 void ide_detect_controllers() {
   // Scan PCI devices
   for (uint16 bus = 0; bus < PCI_BUS_COUNT; ++bus) {
     for (uint8 device = 0; device < PCI_DEV_PER_BUS; ++device) {
-      for (uint8 function = 0; function < PCI_FUNC_PER_DEVICE; ++function) {
-        if (pci_device_at(bus, device, function)) {
-          uint32 info =
-              pci_read_conf(bus, device, function, PCI_HEADER_INFO_OFFSET);
-          uint8 class_code = (info >> 24) && 0xFF;
-          uint8 subclass = (info >> 16) && 0xFF;
-          if (class_code == PCI_CLASS_MASS_STORAGE &&
-              subclass == PCI_SUBCLASS_IDE) {
-            ide_found_controller(bus, device, function, info);
+      if (pci_device_at(bus, device, 0x00)) {
+        ide_detect_at(bus, device, 0x00);
+
+        uint32 header_line =
+            pci_read_conf(bus, device, 0, PCI_HEADER_INFO_OFFSET);
+
+        if (header_line & PCI_HEADER_LINE_MULTI_FUNCTION) {
+          for (uint8 function = 1; function < PCI_FUNC_PER_DEVICE; ++function) {
+            ide_detect_at(bus, device, function);
           }
         }
       }
@@ -1165,8 +1225,7 @@ void ide_detect_controllers() {
 }
 
 void setup_ide() {
-  uint32 i;
-  uint32 j;
+  uint32 i, j;
 
   for (i = 0; i < IDE_CONTROLLERS; i++) {
     ide_controller_map[i].enabled = FALSE;
@@ -1177,6 +1236,12 @@ void setup_ide() {
   for (i = 0; i < controller_count; i++) {
     setup_ide_controller(&ide_controller_map[i]);
   }
+
+  term_write(cout, (native_string) "IDE CONTROLLER SETUP DONE");
+
+  /* while (1) { */
+  /*   NOP(); */
+  /* } */
 
   for (i = 0; i < controller_count; i++) {
     ide_controller *ctrl = &ide_controller_map[i];
@@ -1201,4 +1266,4 @@ void setup_ide() {
 
 // Local Variables: //
 // mode: C++ //
-// End: //
+// End: r//

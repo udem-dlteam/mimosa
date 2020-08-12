@@ -17,9 +17,16 @@
 
 //-----------------------------------------------------------------------------
 
-//
-// Interrupt handlers.
-//
+irq_handler irq_handlers[16] = {NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+                                NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL};
+
+#define __IRQ_REGISTERED(irq) ((NULL != (irq_handlers[(irq)])))
+
+bool irq_registered(uint8 irq) { return __IRQ_REGISTERED(irq); };
+
+void irq_register_handle(uint8 irq, irq_handler handle) {
+  irq_handlers[irq] = handle;
+}
 
 void setup_intr() {
 #ifdef USE_APIC_FOR_TIMER
@@ -169,7 +176,12 @@ void irq0() {
   term_write(cout, "\033[41m irq0 \033[0m");
 #endif
 
-  ACKNOWLEDGE_IRQ(0);
+  uint8 irq = 0;
+  if (__IRQ_REGISTERED(irq)) {
+    irq_handlers[irq](irq);
+  } else {
+    ACKNOWLEDGE_IRQ(irq);
+  }
 }
 
 #endif
@@ -181,7 +193,12 @@ void irq1() {
   term_write(cout, "\033[41m irq1 \033[0m");
 #endif
 
-  ACKNOWLEDGE_IRQ(1);
+  uint8 irq = 1;
+  if (__IRQ_REGISTERED(irq)) {
+    irq_handlers[irq](irq);
+  } else {
+    ACKNOWLEDGE_IRQ(irq);
+  }
 }
 
 #endif
@@ -191,7 +208,12 @@ void irq2() {
   term_write(cout, "\033[41m irq2 \033[0m");
 #endif
 
-  ACKNOWLEDGE_IRQ(2);
+  uint8 irq = 2;
+  if (__IRQ_REGISTERED(irq)) {
+    irq_handlers[irq](irq);
+  } else {
+    ACKNOWLEDGE_IRQ(irq);
+  }
 }
 
 #ifndef USE_IRQ3_FOR_UART
@@ -200,7 +222,12 @@ void irq3() {
   term_write(cout, "\033[41m irq3 \033[0m");
 #endif
 
-  ACKNOWLEDGE_IRQ(3);
+  uint8 irq = 3;
+  if (__IRQ_REGISTERED(irq)) {
+    irq_handlers[irq](irq);
+  } else {
+    ACKNOWLEDGE_IRQ(irq);
+  }
 }
 #endif
 
@@ -211,7 +238,12 @@ void irq4() {
   term_write(cout, "\033[41m irq4 \033[0m");
 #endif
 
-  ACKNOWLEDGE_IRQ(4);
+  uint8 irq = 4;
+  if (__IRQ_REGISTERED(irq)) {
+    irq_handlers[irq](irq);
+  } else {
+    ACKNOWLEDGE_IRQ(irq);
+  }
 }
 
 #endif
@@ -221,7 +253,12 @@ void irq5() {
   term_write(cout, "\033[41m irq5 \033[0m");
 #endif
 
-  ACKNOWLEDGE_IRQ(5);
+  uint8 irq = 5;
+  if (__IRQ_REGISTERED(irq)) {
+    irq_handlers[irq](irq);
+  } else {
+    ACKNOWLEDGE_IRQ(irq);
+  }
 }
 
 void irq6() {
@@ -229,7 +266,12 @@ void irq6() {
   term_write(cout, "\033[41m irq6 \033[0m");
 #endif
 
-  ACKNOWLEDGE_IRQ(6);
+  uint8 irq = 6;
+  if (__IRQ_REGISTERED(irq)) {
+    irq_handlers[irq](irq);
+  } else {
+    ACKNOWLEDGE_IRQ(irq);
+  }
 }
 
 void irq7() {
@@ -237,7 +279,12 @@ void irq7() {
   term_write(cout, "\033[41m irq7 \033[0m");
 #endif
 
-  ACKNOWLEDGE_IRQ(7);
+  uint8 irq = 7;
+  if (__IRQ_REGISTERED(irq)) {
+    irq_handlers[irq](irq);
+  } else {
+    ACKNOWLEDGE_IRQ(irq);
+  }
 }
 
 #ifndef USE_IRQ8_FOR_TIME
@@ -247,7 +294,12 @@ void irq8() {
   term_write(cout, "\033[41m irq8 \033[0m");
 #endif
 
-  ACKNOWLEDGE_IRQ(8);
+  uint8 irq = 8;
+  if (__IRQ_REGISTERED(irq)) {
+    irq_handlers[irq](irq);
+  } else {
+    ACKNOWLEDGE_IRQ(irq);
+  }
 }
 
 #endif
@@ -257,7 +309,12 @@ void irq9() {
   term_write(cout, "\033[41m irq9 \033[0m");
 #endif
 
-  ACKNOWLEDGE_IRQ(9);
+  uint8 irq = 9;
+  if (__IRQ_REGISTERED(irq)) {
+    irq_handlers[irq](irq);
+  } else {
+    ACKNOWLEDGE_IRQ(irq);
+  }
 }
 
 void irq10() {
@@ -265,7 +322,12 @@ void irq10() {
   term_write(cout, "\033[41m irq10 \033[0m");
 #endif
 
-  ACKNOWLEDGE_IRQ(10);
+  uint8 irq = 10;
+  if (__IRQ_REGISTERED(irq)) {
+    irq_handlers[irq](irq);
+  } else {
+    ACKNOWLEDGE_IRQ(irq);
+  }
 }
 
 void irq11() {
@@ -273,7 +335,12 @@ void irq11() {
 #endif
   term_write(cout, "\033[41m irq11 \033[0m");
 
-  ACKNOWLEDGE_IRQ(11);
+  uint8 irq = 11;
+  if (__IRQ_REGISTERED(irq)) {
+    irq_handlers[irq](irq);
+  } else {
+    ACKNOWLEDGE_IRQ(irq);
+  }
 }
 
 #ifndef USE_IRQ12_FOR_MOUSE
@@ -283,7 +350,12 @@ void irq12() {
   term_write(cout, "\033[41m irq12 \033[0m");
 #endif
 
-  ACKNOWLEDGE_IRQ(12);
+  uint8 irq = 12;
+  if (__IRQ_REGISTERED(irq)) {
+    irq_handlers[irq](irq);
+  } else {
+    ACKNOWLEDGE_IRQ(irq);
+  }
 }
 
 #endif
@@ -293,7 +365,13 @@ void irq13() {
   term_write(cout, "\033[41m irq13 \033[0m");
 #endif
 
-  ACKNOWLEDGE_IRQ(13);
+  uint8 irq = 13;
+
+  if (__IRQ_REGISTERED(irq)) {
+    irq_handlers[irq](irq);
+  } else {
+    ACKNOWLEDGE_IRQ(irq);
+  }
 }
 
 #ifndef USE_IRQ14_FOR_IDE0
@@ -303,7 +381,12 @@ void irq14() {
   term_write(cout, "\033[41m irq14 \033[0m");
 #endif
 
-  ACKNOWLEDGE_IRQ(14);
+  uint8 irq = 14;
+  if (__IRQ_REGISTERED(irq)) {
+    irq_handlers[irq](irq);
+  } else {
+    ACKNOWLEDGE_IRQ(irq);
+  }
 }
 
 #endif

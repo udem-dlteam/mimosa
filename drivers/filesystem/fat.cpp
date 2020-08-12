@@ -2599,7 +2599,18 @@ error_code mount_fat(vfnode *parent) {
   _fat_file_vtable._file_len = fat_file_len;
   _fat_file_vtable._readdir = fat_readdir;
 
+  term_write(cout, (native_string) "B4 AA P");
+  term_writeline(cout);
+  term_writeline(cout);
+  term_writeline(cout);
+  term_writeline(cout);
   disk_add_all_partitions();
+
+  term_write(cout, (native_string) "B4 MA P");
+  term_writeline(cout);
+  term_writeline(cout);
+  term_writeline(cout);
+  term_writeline(cout);
   mount_all_partitions(parent);
 
   return NO_ERROR;

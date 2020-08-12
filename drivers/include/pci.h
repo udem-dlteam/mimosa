@@ -37,6 +37,7 @@
 #define PCI_HEADER_0_BAR4 0x20
 #define PCI_HEADER_0_BAR5 0x24
 #define PCI_HEADER_0_INT_OFFSET 0x3C
+#define PCI_HEADER_LINE_MULTI_FUNCTION (1 << 7)
 
 bool pci_device_at(uint8 bus, uint8 device, uint8 function);
 

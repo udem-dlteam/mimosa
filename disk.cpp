@@ -522,8 +522,9 @@ void setup_disk() {
     cache_block_deq *hash_bucket_deq;
     cache_block *cb = CAST(cache_block *, kmalloc(sizeof(cache_block)));
 
-    if (cb == NULL)
+    if (cb == NULL) {
       panic(L"can't allocate disk cache");
+    }
 
     LRU_deq = &cb->LRU_deq;
     hash_bucket_deq = &cb->hash_bucket_deq;
