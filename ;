@@ -284,8 +284,7 @@ void ide_irq_handle(uint8 irq_no) {
 
     for (uint8 cidx = 0; cidx < controller_count; ++cidx) {
       ide_controller *controller = &ide_controller_map[cidx];
-      if (controller->irq == irq_no && (controller->pending > 0)) {
-        controller->pending--;
+      if (controller->irq == irq_no) {
         ide_irq(controller);
         break;
       }
@@ -353,7 +352,6 @@ error_code ide_read_sectors(ide_device *dev, uint32 lba, void *buf,
     ide_write_byte(ctrl, lba, IDE_SECT_NUM_REG);
     ide_write_byte(ctrl, (lba >> 8), IDE_CYL_LO_REG);
     ide_write_byte(ctrl, (lba >> 16), IDE_CYL_HI_REG);
-    ctrl->pending++;
     ide_write_byte(ctrl, IDE_READ_SECTORS_CMD, IDE_COMMAND_REG);
 
     condvar_mutexless_wait(entry->done);
@@ -401,7 +399,6 @@ error_code ide_write_sectors(ide_device *dev, uint32 lba, void *buf,
     ide_write_byte(ctrl, lba, IDE_SECT_NUM_REG);
     ide_write_byte(ctrl, (lba >> 8), IDE_CYL_LO_REG);
     ide_write_byte(ctrl, (lba >> 16), IDE_CYL_HI_REG);
-    ctrl->pending++;
     ide_write_byte(ctrl, IDE_WRITE_SECTORS_CMD, IDE_COMMAND_REG);
 
     while ((ide_read_byte(ctrl, IDE_STATUS_REG) & IDE_STATUS_BSY) ||
@@ -1135,7 +1132,6 @@ void ide_found_controller(uint16 bus, uint8 device, uint8 function,
   bool pata = (!prog_interface) || (prog_interface & IDE_PCI_PATA_PROG_IF_A) ||
               (prog_interface & IDE_PCI_PATA_PROG_IF_B);
 
-  // PATA devices don't have a variable / configurable IRQ
   pata = pata && (irq_no == 0x00);
 
 #ifdef SHOW_IDE_INFO
@@ -1179,9 +1175,19 @@ void ide_found_controller(uint16 bus, uint8 device, uint8 function,
     term_writeline(cout);
   }
 
+  /* term_write(cout, "-----------------------------------\n"); */
+  /* term_write(cout, "-----------------------------------\n"); */
+  /* term_write(cout, "-----------------------------------\n"); */
+  /* term_write(cout, "---------ADDING A CTRL PAIR--------\n"); */
+  /* term_write(cout, device); */
+  /* term_writeline(cout); */
+  /* term_write(cout, "-----------------------------------\n"); */
+  /* term_write(cout, "-----------------------------------\n"); */
+  /* term_write(cout, "-----------------------------------\n"); */
+
   // Primary
   ide_controller_map[controller_count].enabled = TRUE;
-  ide_controller_map[controller_count].id = controller_count;
+  ide_controller_map[controller_count].id = 0;
   ide_controller_map[controller_count].base_port = bars[0];
   ide_controller_map[controller_count].controller_port = bars[1];
   ide_controller_map[controller_count].bus_master_port = bars[4];
@@ -1191,7 +1197,7 @@ void ide_found_controller(uint16 bus, uint8 device, uint8 function,
 
   // Secondary
   ide_controller_map[controller_count + 1].enabled = TRUE;
-  ide_controller_map[controller_count + 1].id = controller_count + 1;
+  ide_controller_map[controller_count + 1].id = 1;
   ide_controller_map[controller_count + 1].base_port = bars[2];
   ide_controller_map[controller_count + 1].controller_port = bars[3];
   ide_controller_map[controller_count + 1].bus_master_port = bars[4];
@@ -1209,6 +1215,10 @@ void ide_detect_at(uint16 bus, uint8 device, uint8 function) {
     uint8 subclass = (info >> 16) & 0xFF;
     if (class_code == PCI_CLASS_MASS_STORAGE && subclass == PCI_SUBCLASS_IDE) {
       ide_found_controller(bus, device, function, info);
+    } else if (class_code == PCI_CLASS_MASS_STORAGE) {
+      term_write(cout, "Found mass storage");
+      term_write(cout, subclass);
+      term_writeline(cout);
     }
   }
 }
@@ -1217,9 +1227,16 @@ void ide_detect_controllers() {
   // Scan PCI devices
   for (uint16 bus = 0; bus < PCI_BUS_COUNT; ++bus) {
     for (uint8 device = 0; device < PCI_DEV_PER_BUS; ++device) {
-      for (uint8 function = 0; function < PCI_FUNC_PER_DEVICE; ++function) {
-        if (pci_device_at(bus, device, function)) {
-          ide_detect_at(bus, device, function);
+      if (pci_device_at(bus, device, 0x00)) {
+        ide_detect_at(bus, device, 0x00);
+
+        uint32 header_line =
+            pci_read_conf(bus, device, 0, PCI_HEADER_INFO_OFFSET);
+
+        if (header_line & PCI_HEADER_LINE_MULTI_FUNCTION) {
+          for (uint8 function = 1; function < PCI_FUNC_PER_DEVICE; ++function) {
+            ide_detect_at(bus, device, function);
+          }
         }
       }
     }
@@ -1264,13 +1281,9 @@ void setup_ide() {
 
           term_write(
               cout, (native_string) "Trying to read sector 0 from device...\n");
-
-          ide_device *dev = &ctrl->device[j];
-          term_write(cout, dev->serial_num);
-          term_writeline(cout);
-
           uint8 buff[256];
 
+          ide_device *dev = &ctrl->device[j];
           if (ERROR(ide_read_sectors(dev, 0, buff, 1))) {
             term_write(cout, (native_string) "Failed to read from device ");
             term_write(cout, dev->serial_num);

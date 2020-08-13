@@ -101,6 +101,8 @@
 
 typedef enum { cmd_read_sectors, cmd_write_sectors, cmd_flush_cache } cmd_type;
 
+typedef struct ide_controller_struct ide_controller;
+
 typedef struct ide_cmd_queue_entry_struct {
   uint8 id; // index of entry in cmd_queue
   uint8 refcount;
@@ -123,18 +125,14 @@ typedef struct ide_cmd_queue_entry_struct {
   } _;
 } ide_cmd_queue_entry;
 
-typedef struct ide_controller_struct ide_controller;
-
 typedef struct ide_device_struct {
-  uint8 id;   // 0 to IDE_DEVICES_PER_CONTROLLER-1
+  uint8 id;   // 0: Master, 1: Slave
   uint8 kind; // IDE_DEVICE_ATA, IDE_DEVICE_ATAPI, or IDE_DEVICE_ABSENT
   struct ide_controller_struct *ctrl; // the controller of this device
   native_char serial_num[20 + 1];
   native_char firmware_rev[8 + 1];
   native_char model_num[40 + 1];
-
-  // for ATA devices:
-
+  // for ATA devices: (not ATAPI)
   uint16 cylinders_per_disk;
   uint16 heads_per_cylinder;
   uint16 sectors_per_track;
@@ -146,6 +144,7 @@ struct ide_controller_struct {
   uint8 id;
   uint8 enabled;
   uint8 serial;
+  uint32 pending; // the number of pending commands
   uint16 base_port;
   uint16 controller_port;
   uint16 bus_master_port;

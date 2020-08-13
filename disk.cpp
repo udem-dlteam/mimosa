@@ -400,12 +400,15 @@ void disk_add_all_partitions() {
     if (d->partition_type == 0     // whole disk
         || d->partition_type == 5) // extended partition
     {
+      term_write(cout, (native_string) "Found a disk...\n");
       Master_Boot_Record mbr;
       uint32 i;
       uint32 max_LBA_when_using_BIOS_CHS = disk_max_BIOS_CHS_to_LBA(d);
       disk *part;
 
+      term_write(cout, (native_string) "B4 reading sector\n");
       if (!ERROR(disk_read_sectors(d, 0, &mbr, 1))) {
+        term_write(cout, (native_string) "Read sector\n");
         for (i = 0; i < 4; i++) {
           partition_table_entry *p = &mbr.partition_table[i];
           uint8 type;
@@ -482,7 +485,6 @@ void disk_add_all_partitions() {
             continue;
 
           /////something like this would be better but bombs: *part = *d;
-
           part->kind = d->kind;
           part->log2_sector_size = d->log2_sector_size;
           part->partition_type = type;
@@ -491,6 +493,8 @@ void disk_add_all_partitions() {
           part->partition_length = nb_sectors;
           part->_.ide.dev = d->_.ide.dev;
         }
+      } else {
+        term_write(cout, (native_string) "Failed to read sector");
       }
     }
     index++;

@@ -25,6 +25,9 @@ irq_handler irq_handlers[16] = {NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
 bool irq_registered(uint8 irq) { return __IRQ_REGISTERED(irq); };
 
 void irq_register_handle(uint8 irq, irq_handler handle) {
+  term_write(cout, (native_string) "Registering interrupt: ");
+  term_write(cout, irq);
+  term_writeline(cout);
   irq_handlers[irq] = handle;
 }
 
