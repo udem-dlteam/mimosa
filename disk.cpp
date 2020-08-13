@@ -506,8 +506,9 @@ void setup_disk() {
 
   disk_mod.nb_disks = 0;
 
-  for (i = 0; i < MAX_NB_DISKS; i++)
+  for (i = 0; i < MAX_NB_DISKS; i++) {
     disk_mod.disk_table[i].id = i;
+  }
 
   disk_mod.cache_mut = new_mutex(CAST(mutex *, kmalloc(sizeof(mutex))));
   disk_mod.cache_cv = new_condvar(CAST(condvar *, kmalloc(sizeof(condvar))));

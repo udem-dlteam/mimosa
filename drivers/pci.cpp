@@ -36,7 +36,7 @@ bool pci_device_at(uint8 bus, uint8 device, uint8 function) {
    * DEVICE ID (top 16) | VENDOR ID (bot 16)
    */
   uint32 vendor = pci_read_conf(bus, device, function, 0);
-  return vendor != 0xFFFFFFFF; // no device have such vendor
+  return vendor != 0xFFFFFFFF; // no device have such vendor / device id combo
 }
 
 void setup_pci() {
