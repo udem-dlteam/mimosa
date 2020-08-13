@@ -93,7 +93,8 @@
 #define IDE_EXEC_DEVICE_DIAG_CMD 0x90
 #define IDE_FLUSH_CACHE_CMD 0xe7
 #define IDE_IDENTIFY_DEVICE_CMD 0xec
-#define IDE_IDENTIFY_PACKET_DEVICE_CMD 0xa1
+#define IDE_ATAPI_SEND_PACKET_CMD 0xA0
+#define IDE_IDENTIFY_PACKET_DEVICE_CMD 0xA1
 #define IDE_IDLE_CMD 0xe3
 #define IDE_IDLE_IMMEDIATE_CMD 0xe1
 #define IDE_MEDIA_EJECT_CMD 0xed
@@ -125,7 +126,14 @@
 #define IDE_PATA_PRIMARY_IRQ 14
 #define IDE_PATA_SECONDARY_IRQ 15
 
-typedef enum { cmd_read_sectors, cmd_write_sectors, cmd_flush_cache } cmd_type;
+#define IDE_ATAPI_PACKET_LENGTH 12
+
+typedef enum {
+  cmd_read_sectors,
+  cmd_write_sectors,
+  cmd_flush_cache,
+  cmd_send_packet
+} cmd_type;
 
 typedef struct ide_controller_struct ide_controller;
 
@@ -149,6 +157,12 @@ typedef struct ide_cmd_queue_entry_struct {
       uint8 written;
       error_code err;
     } write_sectors;
+    struct {
+      void *buff;
+      uint32 buffsz;
+      bool send;
+      bool more;
+    } send_packet;
   } _;
 } ide_cmd_queue_entry;
 

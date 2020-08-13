@@ -121,7 +121,7 @@ void ide_write_short(ide_controller *ctrl, uint16 byte, uint16 reg) {
 }
 
 void ide_delay(ide_controller *ctrl) {
-  for (int i = 0; i < 4; i++) {
+  for (uint8 i = 0; i < 4; i++) {
     ide_read_byte(ctrl, IDE_ALT_STATUS_REG);
   }
 }
@@ -165,6 +165,8 @@ void ide_irq(ide_controller *ctrl) {
     p = CAST(uint16 *, entry->_.write_sectors.buf);
   } else if (type == cmd_flush_cache) {
     p = NULL;
+  } else if (type == cmd_send_packet) {
+    p = CAST(uint16 *, entry->_.send_packet.buff);
   } else {
     panic(L"[IDE.CPP] Unknown command type...");
   }
@@ -260,6 +262,11 @@ void ide_irq(ide_controller *ctrl) {
   } else if (type == cmd_flush_cache) {
     condvar_mutexless_signal(entry->done);
     ide_cmd_queue_free(entry);
+  } else if (type == cmd_send_packet) {
+    debug_write("Calling the unspported send packet irq...");
+    entry->_.send_packet.more = FALSE;
+    condvar_mutexless_signal(entry->done);
+    ide_cmd_queue_free(entry);
   }
 }
 
@@ -332,6 +339,76 @@ error_code ide_read_sectors(ide_device *dev, uint32 lba, void *buf,
 
     enable_interrupts();
   }
+
+  return err;
+}
+
+/**
+ * Send an ATAPI packet
+ * If the buffsz is 0, the packet is interpreted as a non-data packet
+ * per the ATAPI specification.
+ */
+static error_code ide_atapi_send_packet(ide_device *dev, uint8 *packet,
+                                        uint8 *buff, uint32 buffsz, bool send) {
+  error_code err = NO_ERROR;
+  // From OSDEV:
+  /* Phase 1) Set up the standard ATA IO port registers with ATAPI specific
+   * values. Then Send the ATA PACKET command to the device exactly as you would
+   * with any other ATA command: outb (ATA Command Register, 0xA0) */
+
+  /* Phase 2) Prepare to do a PIO data transfer, the normal way, to the device.
+   * When the device is ready (BSY clear, DRQ set) you send the ATAPI command
+   * string (like the one above) as a 6 word PIO transfer to the device. */
+
+  /* Phase 3) Wait for an IRQ. When it arrives, you must read the LBA Mid and
+   * LBA High IO port registers. They tell you the packet byte count that the
+   * ATAPI drive will send to you, or must receive from you. In a loop, you
+   * transmit that number of bytes, then wait for the next IRQ. */
+  ASSERT_INTERRUPTS_ENABLED();
+
+  ide_controller *ctrl = dev->ctrl;
+  ide_cmd_queue_entry *entry;
+
+  disable_interrupts();
+
+  if (buffsz) {
+    entry = ide_cmd_queue_alloc(dev);
+    entry->cmd = cmd_send_packet;
+    entry->_.send_packet.buff = buff;
+    entry->_.send_packet.buffsz = buffsz;
+    entry->_.send_packet.send = send;
+    entry->_.send_packet.more = TRUE;
+  }
+
+  IDE_SELECT(ctrl, dev->id);
+  ide_delay(ctrl);
+  ide_write_byte(ctrl, IDE_ATAPI_SEND_PACKET_CMD, IDE_COMMAND_REG);
+
+  // Poll the device until it is ready
+  while ((ide_read_byte(ctrl, IDE_STATUS_REG) & IDE_STATUS_BSY) ||
+         !(ide_read_byte(ctrl, IDE_STATUS_REG) & IDE_STATUS_DRQ)) {
+    ide_delay(ctrl);
+  }
+
+  // Send out the packet.
+  for (uint8 i = 0; i < IDE_ATAPI_PACKET_LENGTH / 2; i++) {
+    ide_write_short(ctrl, (packet[2 * i]) | (packet[(2 * i) + 1] << 8),
+                    IDE_DATA_REG);
+  }
+
+  if (buffsz) {
+    // We are expecting an IRQ
+    while (entry->_.send_packet.more) {
+      condvar_mutexless_wait(entry->done);
+      err = entry->_.write_sectors.err;
+      if (ERROR(err)) {
+        break;
+      }
+    }
+    ide_cmd_queue_free(entry);
+  }
+
+  enable_interrupts();
 
   return err;
 }
@@ -1169,6 +1246,17 @@ void ide_printout_devices(ide_controller *controller) {
   }
 }
 
+/* static void ide_eject(ide_device *dev) { */
+/*   // I've had success using this code to unload / load CD drivers. */
+/*   // From my understanding, there is a specific command to do so (0x1B is */
+/*   // a more general start command) */
+/*   uint8 packet[IDE_ATAPI_PACKET_LENGTH] = {0x1B, 0x00, 0x00, 0x00, 0x02,
+ * 0x00, */
+/*                                            0x00, 0x00, 0x00, 0x00, 0x00,
+ * 0x00}; */
+/*   ide_atapi_send_packet(dev, packet, NULL, 0, FALSE); */
+/* } */
+
 void setup_ide() {
   uint32 i, j;
 
@@ -1208,10 +1296,6 @@ void setup_ide() {
 
     ide_printout_devices(ctrl);
   }
-
-  /* while (1) { */
-  /*   NOP(); */
-  /* } */
 }
 
 //-----------------------------------------------------------------------------
