@@ -420,21 +420,21 @@ static void setup_ide_device(ide_controller *ctrl, ide_device *dev, uint8 id) {
   dev->id = id;
   dev->ctrl = ctrl;
 
-  if (dev->kind == IDE_DEVICE_ABSENT) {
+  uint8 kind = dev->kind;
+  if (!kind) {
     return;
   }
 
-  // perform an IDENTIFY DEVICE or IDENTIFY PACKET DEVICE command
   ide_write_byte(ctrl, IDE_DEV_HEAD_IBM | IDE_DEV_HEAD_DEV(dev->id),
                  IDE_DEV_HEAD_REG);
 
-  uint8 cmd;
+  uint8 cmd = 0x00;
+  // perform an IDENTIFY DEVICE or IDENTIFY PACKET DEVICE command
   if (IDE_DEVICE_IS_PI(dev->kind)) {
     cmd = IDE_IDENTIFY_PACKET_DEVICE_CMD;
   } else {
     cmd = IDE_IDENTIFY_DEVICE_CMD;
   }
-
   ide_write_byte(ctrl, cmd, IDE_COMMAND_REG);
 
   for (j = 1000000; j > 0; j--) // wait up to 1 second for a response
