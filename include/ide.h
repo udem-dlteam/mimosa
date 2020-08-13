@@ -155,16 +155,20 @@ typedef struct ide_cmd_queue_entry_struct {
 typedef struct ide_device_struct {
   uint8 id;   // 0: Master, 1: Slave
   uint8 kind; // IDE_DEVICE_ATA, IDE_DEVICE_ATAPI, or IDE_DEVICE_ABSENT
-  struct ide_controller_struct *ctrl; // the controller of this device
   native_char serial_num[20 + 1];
   native_char firmware_rev[8 + 1];
   native_char model_num[40 + 1];
+  // Information acquired with the identify request
+  bool hdd;
+  bool removable;
+  bool power_down_mode;
   // for ATA devices: (not ATAPI)
   uint16 cylinders_per_disk;
   uint16 heads_per_cylinder;
   uint16 sectors_per_track;
   uint32 total_sectors_when_using_CHS;
   uint32 total_sectors;
+  struct ide_controller_struct *ctrl; // the controller of this device
 } ide_device;
 
 struct ide_controller_struct {

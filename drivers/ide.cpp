@@ -126,6 +126,12 @@ void ide_delay(ide_controller *ctrl) {
   }
 }
 
+#define IDE_SELECT(cont, dev_id)                                               \
+  do {                                                                         \
+    ide_write_byte(cont, IDE_DEV_HEAD_IBM | IDE_DEV_HEAD_DEV((dev_id)),        \
+                   IDE_DEV_HEAD_REG);                                          \
+  } while (0)
+
 void ide_cmd_queue_free(ide_cmd_queue_entry *entry) {
   ide_device *dev;
   ide_controller *ctrl;
@@ -163,10 +169,7 @@ void ide_irq(ide_controller *ctrl) {
     panic(L"[IDE.CPP] Unknown command type...");
   }
 
-  // Need to select disk?
-
-  ide_write_byte(ctrl, IDE_DEV_HEAD_IBM | IDE_DEV_HEAD_DEV(dev->id),
-                 IDE_DEV_HEAD_REG);
+  IDE_SELECT(ctrl, dev->id);
   ide_delay(ctrl);
   s = ide_read_byte(ctrl, IDE_STATUS_REG);
 
@@ -425,8 +428,7 @@ static void setup_ide_device(ide_controller *ctrl, ide_device *dev, uint8 id) {
     return;
   }
 
-  ide_write_byte(ctrl, IDE_DEV_HEAD_IBM | IDE_DEV_HEAD_DEV(dev->id),
-                 IDE_DEV_HEAD_REG);
+  IDE_SELECT(ctrl, dev->id);
 
   uint8 cmd;
   // perform an IDENTIFY DEVICE or IDENTIFY PACKET DEVICE command
@@ -438,8 +440,7 @@ static void setup_ide_device(ide_controller *ctrl, ide_device *dev, uint8 id) {
 
   ide_write_byte(ctrl, cmd, IDE_COMMAND_REG);
 
-  for (j = 1000000; j > 0; j--) // wait up to 1 second for a response
-  {
+  for (j = 1000000; j > 0; j--) { // wait up to 1 second for a response
     uint8 stat = ide_read_byte(ctrl, IDE_STATUS_REG);
 
     if (!(stat & IDE_STATUS_BSY)) {
@@ -498,28 +499,17 @@ static void setup_ide_device(ide_controller *ctrl, ide_device *dev, uint8 id) {
   term_write(cout, (ident[47] & 0xff));
   term_writeline(cout);
 
-#ifdef SHOW_IDE_INFO
+  // See the doc. for the results of
+  // the identify command
+  dev->power_down_mode = (ident[0] & (1 << 5));
+  dev->hdd = (ident[0] & (1 << 6));
+  dev->removable = (ident[0] & (1 << 7));
 
-  if (dev->kind == IDE_DEVICE_ATA) {
-    if ((ident[0] & (1 << 15)) == 0) {
-      term_write(cout, (native_string) "  ATA device\n");
-    }
-  } else {
-    if ((ident[0] & (3 << 14)) == (2 << 14)) {
-      term_write(cout, (native_string) "  ATAPI device\n");
-    }
-  }
+#ifdef SHOW_IDE_INFO
 
   if ((ident[0] & (1 << 7)) == 1) {
     term_write(cout, (native_string) "  removable media device\n");
   }
-
-#if 0
-
-  if ((ident[0] & (1<<6)) == 1)
-    term_write(cout, "  not removable controller and/or device\n");
-
-#endif
 
   if ((ident[0] & (1 << 2)) == 1) {
     term_write(cout, (native_string) "  response incomplete\n");
@@ -811,10 +801,7 @@ static void setup_ide_controller(ide_controller *ctrl) {
     term_write(cout, i);
     term_writeline(cout);
 #endif
-
-    ide_write_short(ctrl, IDE_DEV_HEAD_IBM | IDE_DEV_HEAD_DEV(i),
-                    IDE_DEV_HEAD_REG);
-
+    IDE_SELECT(ctrl, i);
 #ifdef SHOW_IDE_INFO
     term_write(cout, "[START] Sleeping 400 nsecs\n");
 #endif
@@ -840,8 +827,7 @@ static void setup_ide_controller(ide_controller *ctrl) {
       }
 
       // perform a software RESET of the IDE device
-      ide_write_byte(ctrl, IDE_DEV_HEAD_IBM | IDE_DEV_HEAD_DEV(i),
-                     IDE_DEV_HEAD_REG);
+      IDE_SELECT(ctrl, i);
       ide_delay(ctrl); // 400 nsecs
       ide_read_byte(ctrl, IDE_STATUS_REG);
 
@@ -862,8 +848,7 @@ static void setup_ide_controller(ide_controller *ctrl) {
 
       for (j = 30000; j > 0; j--) {
         // wait up to 30 seconds for a response
-        ide_write_byte(ctrl, IDE_DEV_HEAD_IBM | IDE_DEV_HEAD_DEV(i),
-                       IDE_DEV_HEAD_REG);
+        IDE_SELECT(ctrl, i);
         ide_delay(ctrl); // 400 nsecs
         uint8 status = ide_read_byte(ctrl, IDE_STATUS_REG);
         if (0x00 == (status & IDE_STATUS_BSY)) {
@@ -884,8 +869,7 @@ static void setup_ide_controller(ide_controller *ctrl) {
         // Make sure the device is still here...
         uint8 k = 0;
         for (k = 0; k < 300; ++k) {
-          ide_write_byte(ctrl, IDE_DEV_HEAD_IBM | IDE_DEV_HEAD_DEV(i),
-                         IDE_DEV_HEAD_REG);
+          IDE_SELECT(ctrl, i);
           ide_delay(ctrl);
           if (IDE_IS_ABSENT(ide_read_byte(ctrl, IDE_STATUS_REG))) {
             continue;
@@ -900,8 +884,7 @@ static void setup_ide_controller(ide_controller *ctrl) {
         }
 
         // Select the drive
-        ide_write_byte(ctrl, IDE_DEV_HEAD_IBM | IDE_DEV_HEAD_DEV(i),
-                       IDE_DEV_HEAD_REG);
+        IDE_SELECT(ctrl, i);
         ide_delay(ctrl);
         // Reset the signature
         ide_write_byte(ctrl, IDE_EXEC_DEVICE_DIAG_CMD, IDE_COMMAND_REG);
@@ -994,8 +977,7 @@ static void setup_ide_controller(ide_controller *ctrl) {
     ENABLE_IRQ(ctrl->irq);
     for (i = 0; i < IDE_DEVICES_PER_CONTROLLER; ++i) {
       if (ctrl->device[i].kind) {
-        ide_write_byte(ctrl, IDE_DEV_HEAD_IBM | IDE_DEV_HEAD_DEV(i),
-                       IDE_DEV_HEAD_REG);
+        IDE_SELECT(ctrl, i);
         ide_write_byte(ctrl, 0, IDE_DEV_CTRL_REG);
       }
     }
@@ -1203,22 +1185,23 @@ void setup_ide() {
   for (i = 0; i < controller_count; i++) {
     ide_controller *ctrl = &ide_controller_map[i];
     for (j = 0; j < IDE_DEVICES_PER_CONTROLLER; j++) {
-      uint8 kind = ctrl->device[j].kind;
+      ide_device *dev = &ctrl->device[j];
+      uint8 kind = dev->kind;
 
       if (!kind) {
         continue;
       }
 
-      if (!IDE_DEVICE_IS_PI(kind)) {
+      if (dev->hdd && !dev->removable) {
         disk *d = disk_alloc();
-        if (d != NULL) {
+        if (d) {
           d->kind = DISK_IDE;
           d->log2_sector_size = IDE_LOG2_SECTOR_SIZE;
           d->partition_type = 0;
           d->partition_path = 0;
           d->partition_start = 0;
           d->partition_length = ctrl->device[j].total_sectors;
-          d->_.ide.dev = &(ctrl->device[j]);
+          d->_.ide.dev = dev;
         }
       }
     }
