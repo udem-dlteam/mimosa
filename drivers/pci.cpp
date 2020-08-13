@@ -39,33 +39,6 @@ bool pci_device_at(uint8 bus, uint8 device, uint8 function) {
   return vendor != 0xFFFFFFFF; // no device have such vendor
 }
 
-uint8 idx = 0;
-void found_ide(uint32 bus, uint32 device, uint8 function) {
-  uint32 header_line = pci_read_conf(bus, device, function, 0xC0);
-  uint8 header_packet = (header_line >> 16) && 0xFF;
-
-  if (header_packet == 0x00) {
-    uint32 bar0 = pci_read_conf(bus, device, function, 0x10);
-    bar0 = (bar0 & 0xFFFFFFFC) + (0x1F0 * (!bar0)); // default
-    uint32 bar2 = pci_read_conf(bus, device, function, 0x18);
-    bar2 = (bar2 & 0xFFFFFFFC) + (0x170 * (!bar2)); // default
-    uint32 interrupt_line = pci_read_conf(bus, device, function, 0x3C);
-    uint8 interrupt = interrupt_line & 0xFF;
-
-    term_write(cout, (native_string) "IDE SETUP, reading BAR0:\n ");
-    term_write(cout, (void *)bar0);
-    term_writeline(cout);
-    term_write(cout, (native_string) "IDE SETUP, reading BAR2:\n ");
-    term_write(cout, (void *)bar2);
-    term_writeline(cout);
-    term_write(cout, (native_string) "On interrupt: ");
-    term_write(cout, interrupt);
-    term_writeline(cout);
-  } else {
-    panic(L"Unknown header packet for IDE device\n");
-  }
-}
-
 void setup_pci() {
   term_write(cout, (native_string) "PCI Setup V");
   term_write(cout, (native_string) "1.0.2\n");
@@ -92,7 +65,6 @@ void setup_pci() {
             term_write(cout, (native_string) " : ");
             if (subclass == PCI_SUBCLASS_IDE) {
               term_write(cout, (native_string) "Found IDE\n");
-              found_ide(bus, device, function);
             } else if (subclass == PCI_SUBCLASS_PATA) {
               term_write(cout, (native_string) "Found PATA\n");
             } else if (subclass == PCI_SUBCLASS_SATA) {
