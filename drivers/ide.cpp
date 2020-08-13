@@ -427,12 +427,14 @@ static void setup_ide_device(ide_controller *ctrl, ide_device *dev, uint8 id) {
   // perform an IDENTIFY DEVICE or IDENTIFY PACKET DEVICE command
   ide_write_byte(ctrl, IDE_DEV_HEAD_IBM | IDE_DEV_HEAD_DEV(dev->id),
                  IDE_DEV_HEAD_REG);
-
-  if (dev->kind == IDE_DEVICE_ATA) {
-    ide_write_byte(ctrl, IDE_IDENTIFY_DEVICE_CMD, IDE_COMMAND_REG);
+  uint8 cmd;
+  if (IDE_DEVICE_IS_PI(dev->kind)) {
+    cmd = IDE_IDENTIFY_PACKET_DEVICE_CMD;
   } else {
-    ide_write_byte(ctrl, IDE_IDENTIFY_PACKET_DEVICE_CMD, IDE_COMMAND_REG);
+    cmd = IDE_IDENTIFY_DEVICE_CMD;
   }
+
+  ide_write_byte(ctrl, cmd, IDE_COMMAND_REG);
 
   for (j = 1000000; j > 0; j--) // wait up to 1 second for a response
   {
@@ -813,13 +815,7 @@ static void setup_ide_device(ide_controller *ctrl, ide_device *dev, uint8 id) {
 }
 
 static void setup_ide_controller(ide_controller *ctrl) {
-  term_write(cout, (native_string) "Setting up IDE controller no: ");
-  term_write(cout, ctrl->id);
-  term_writeline(cout);
-
-  uint32 i;
-  uint32 j;
-  uint8 stat[IDE_DEVICES_PER_CONTROLLER];
+  uint32 i, j;
   uint8 candidates;
 
   // check each device to see if it is present
@@ -844,131 +840,109 @@ static void setup_ide_controller(ide_controller *ctrl) {
     term_write(cout, "[STOP ] Sleeping 400 nsecs\n");
 #endif
 
-    stat[i] = ide_read_byte(ctrl, IDE_STATUS_REG);
-
-    uint8 mask = (IDE_STATUS_BSY | IDE_STATUS_RDY | IDE_STATUS_DF |
-                  IDE_STATUS_DSC | IDE_STATUS_DRQ);
-
-    if ((stat[i] & mask) != mask) {
-      ctrl->device[i].kind = IDE_DEVICE_ATAPI; // for now means the device
-      candidates++;                            // is possibly present
-    } else {
+    if (IDE_IS_ABSENT(ide_read_byte(ctrl, IDE_STATUS_REG))) {
       ctrl->device[i].kind = IDE_DEVICE_ABSENT;
+    } else {
+      ctrl->device[i].kind = IDE_DEVICE_ATA; // for now means the device
+      candidates++;                          // is possibly present
     }
   }
 
   if (candidates > 0) {
-    // perform a software RESET of the IDE controller
-#ifdef SHOW_IDE_INFO
-    term_write(cout, "Resetting the IDE: ");
-    term_write(cout, candidates);
-    term_writeline(cout);
-#endif
 
-#ifdef SHOW_IDE_INFO
-    term_write(cout, "SELECT DISK 0\n");
-#endif
+    candidates = 0;
+    for (i = 0; i < IDE_DEVICES_PER_CONTROLLER; i++) {
+      if (IDE_DEVICE_ABSENT == ctrl->device[i].kind) {
+        continue;
+      }
 
-    ide_write_byte(ctrl, IDE_DEV_HEAD_IBM | IDE_DEV_HEAD_DEV(0),
-                   IDE_DEV_HEAD_REG);
-    ide_delay(ctrl); // 400 nsecs
-    ide_read_byte(ctrl, IDE_STATUS_REG);
+      // perform a software RESET of the IDE device
+      ide_write_byte(ctrl, IDE_DEV_HEAD_IBM | IDE_DEV_HEAD_DEV(i),
+                     IDE_DEV_HEAD_REG);
+      ide_delay(ctrl); // 400 nsecs
+      ide_read_byte(ctrl, IDE_STATUS_REG);
 
-#ifdef SHOW_IDE_INFO
-    term_write(cout, "READ STT\n");
-#endif
-    thread_sleep(5000); // 5 usecs
-    ide_write_byte(ctrl, IDE_DEV_CTRL_nIEN, IDE_DEV_CTRL_REG);
-#ifdef SHOW_IDE_INFO
-    term_write(cout, "A\n");
-#endif
-    thread_sleep(5000); // 5 usecs
-    ide_write_byte(ctrl, IDE_DEV_CTRL_nIEN | IDE_DEV_CTRL_SRST,
-                   IDE_DEV_CTRL_REG);
-#ifdef SHOW_IDE_INFO
-    term_write(cout, "B\n");
-#endif
-    thread_sleep(5000); // 5 usecs
-    ide_write_byte(ctrl, IDE_DEV_CTRL_nIEN, IDE_DEV_CTRL_REG);
-#ifdef SHOW_IDE_INFO
-    term_write(cout, "C\n");
-#endif
-    /* thread_sleep(2000000); // 2 msecs */
-    ide_read_byte(ctrl, IDE_ERROR_REG);
-#ifdef SHOW_IDE_INFO
-    term_write(cout, "D\n");
-    term_writeline(cout);
-    term_writeline(cout);
-    term_writeline(cout);
-    term_writeline(cout);
-#endif
-    /* thread_sleep(5000); // 5 usecs */
+      thread_sleep(5000); // 5 usecs
+      ide_write_byte(ctrl, IDE_DEV_CTRL_nIEN, IDE_DEV_CTRL_REG);
 
-#ifdef SHOW_IDE_INFO
-    term_write(cout, "Before LOOP\n");
-#endif
+      thread_sleep(5000); // 5 usecs
+      ide_write_byte(ctrl, IDE_DEV_CTRL_nIEN | IDE_DEV_CTRL_SRST,
+                     IDE_DEV_CTRL_REG);
 
-    for (j = 30000; j > 0; j--) // wait up to 30 seconds for a response
-    {
-      for (i = 0; i < IDE_DEVICES_PER_CONTROLLER; i++) {
-        term_write(cout, "Reset of device ");
-        term_write(cout, i);
-        term_writeline(cout);
+      thread_sleep(5000); // 5 usecs
+      ide_write_byte(ctrl, IDE_DEV_CTRL_nIEN, IDE_DEV_CTRL_REG);
+      thread_sleep(5000); // 5 usecs
+      ide_read_byte(ctrl, IDE_ERROR_REG);
+      thread_sleep(5000); // 5 usecs
 
+      ctrl->device[i].kind = IDE_DEVICE_ABSENT;
+
+      for (j = 30000; j > 0; j--) {
+        // wait up to 30 seconds for a response
         ide_write_byte(ctrl, IDE_DEV_HEAD_IBM | IDE_DEV_HEAD_DEV(i),
                        IDE_DEV_HEAD_REG);
         ide_delay(ctrl); // 400 nsecs
-        if (((ide_read_byte(ctrl, IDE_STATUS_REG) & IDE_STATUS_BSY) == 0) &&
-            ctrl->device[i].kind == IDE_DEVICE_ATAPI) {
+        uint8 status = ide_read_byte(ctrl, IDE_STATUS_REG);
+        if (0x00 == (status & IDE_STATUS_BSY)) {
           ctrl->device[i].kind = IDE_DEVICE_ATA;
-          candidates--;
+          candidates++;
+          break;
         }
-      }
-
-      if (0 == candidates) {
-        break;
-      }
-
-      thread_sleep(1000);
-    }
-
-    candidates = 0;
-
-    for (i = 0; i < IDE_DEVICES_PER_CONTROLLER; i++) {
-      if (ctrl->device[i].kind == IDE_DEVICE_ATA) {
-        candidates++;
-      } else {
-        ctrl->device[i].kind = IDE_DEVICE_ABSENT;
+        thread_sleep(1000);
       }
     }
 
     if (candidates > 0) {
       for (i = 0; i < IDE_DEVICES_PER_CONTROLLER; i++) {
-        if (ctrl->device[i].kind == IDE_DEVICE_ATA) {
-          if (stat[i] == 0) {
-            ctrl->device[i].kind = IDE_DEVICE_ABSENT;
+        if (IDE_DEVICE_ABSENT == ctrl->device[i].kind) {
+          continue; // Absent
+        }
+
+        // Make sure the device is still here...
+        uint8 k = 0;
+        for (k = 0; k < 300; ++k) {
+          ide_write_byte(ctrl, IDE_DEV_HEAD_IBM | IDE_DEV_HEAD_DEV(i),
+                         IDE_DEV_HEAD_REG);
+          ide_delay(ctrl);
+          if (IDE_IS_ABSENT(ide_read_byte(ctrl, IDE_STATUS_REG))) {
             continue;
+          } else {
+            break;
           }
         }
+
+        if (k == 300) {
+          ctrl->device[i].kind = IDE_DEVICE_ABSENT;
+          continue;
+        }
+
+        // Select the drive
         ide_write_byte(ctrl, IDE_DEV_HEAD_IBM | IDE_DEV_HEAD_DEV(i),
                        IDE_DEV_HEAD_REG);
-        ide_delay(ctrl); // 400 nsecs
-
-        bool abort = ide_read_byte(ctrl, IDE_ERROR_REG) &
-                     IDE_ERROR_ABRT; // Abort bit is set on ATAPI?
+        ide_delay(ctrl);
+        // Reset the signature
+        ide_write_byte(ctrl, IDE_EXEC_DEVICE_DIAG_CMD, IDE_COMMAND_REG);
 
         uint8 lo = ide_read_byte(ctrl, IDE_CYL_LO_REG);
         uint8 hi = ide_read_byte(ctrl, IDE_CYL_HI_REG);
 
-        uint16 signature = (hi << 16) | lo;
+        uint16 signature = (hi << 8) | lo;
 
-        if (ctrl->device[i].kind == IDE_DEVICE_ATA) {
-          if (signature == IDE_DEVICE_SIGNATURE_ATAPI) {
-            ctrl->device[i].kind = IDE_DEVICE_ATAPI;
-          } else if (signature == IDE_DEVICE_SIGNATURE_SATAPI) {
-            ctrl->device[i].kind = IDE_DEVICE_SATAPI;
-          } else if (signature == IDE_DEVICE_SIGNATURE_SATA) {
-            ctrl->device[i].kind = IDE_DEVICE_SATA;
+        term_write(cout, (void *)signature);
+        term_writeline(cout);
+        if (signature == IDE_DEVICE_SIGNATURE_ATAPI) {
+          ctrl->device[i].kind = IDE_DEVICE_ATAPI;
+        } else if (signature == IDE_DEVICE_SIGNATURE_SATAPI) {
+          ctrl->device[i].kind = IDE_DEVICE_SATAPI;
+        } else if (signature == IDE_DEVICE_SIGNATURE_SATA) {
+          ctrl->device[i].kind = IDE_DEVICE_SATA;
+        } else {
+          ide_delay(ctrl); // 400 nsecs
+          uint8 status = ide_read_byte(ctrl, IDE_STATUS_REG);
+          if (0x0000 != status) {
+            ctrl->device[i].kind = IDE_DEVICE_ATA;
+          } else {
+            ctrl->device[i].kind = IDE_DEVICE_ABSENT;
           }
         }
       }
@@ -1009,35 +983,41 @@ static void setup_ide_controller(ide_controller *ctrl) {
 #endif
 
     setup_ide_device(ctrl, &ctrl->device[i], i);
-    term_write(cout, (native_string) "Done setting up IDE devices");
 
     if (ctrl->device[i].kind != IDE_DEVICE_ABSENT) {
       candidates++;
     }
   }
 
-  // setup command queue
-  for (i = 0; i < MAX_NB_IDE_CMD_QUEUE_ENTRIES; i++) {
-    ide_cmd_queue_entry *entry = &ctrl->cmd_queue[i];
-    entry->id = i;
-    entry->next = i + 1;
-    entry->active = FALSE;
-    entry->done = new_condvar(CAST(condvar *, kmalloc(sizeof(condvar))));
-  }
-
-  ctrl->cmd_queue[MAX_NB_IDE_CMD_QUEUE_ENTRIES - 1].next = -1;
-
-  ctrl->cmd_queue_freelist = 0;
-  ctrl->cmd_queue_condvar =
-      new_condvar(CAST(condvar *, kmalloc(sizeof(condvar))));
-
   if (candidates > 0) {
+    // setup command queue for the controller
+    for (i = 0; i < MAX_NB_IDE_CMD_QUEUE_ENTRIES; i++) {
+      ide_cmd_queue_entry *entry = &ctrl->cmd_queue[i];
+      entry->id = i;
+      entry->next = i + 1;
+      entry->active = FALSE;
+      entry->done = new_condvar(CAST(condvar *, kmalloc(sizeof(condvar))));
+    }
+
+    ctrl->cmd_queue[MAX_NB_IDE_CMD_QUEUE_ENTRIES - 1].next = -1;
+    ctrl->cmd_queue_freelist = 0;
+    ctrl->cmd_queue_condvar =
+        new_condvar(CAST(condvar *, kmalloc(sizeof(condvar))));
+
     // enable interrupts
     uint8 irq = ctrl->irq;
     irq_register_handle(irq, ide_irq_handle);
 
     ENABLE_IRQ(ctrl->irq);
-    ide_write_byte(ctrl, 0, IDE_DEV_CTRL_REG);
+    for (i = 0; i < IDE_DEVICES_PER_CONTROLLER; ++i) {
+      if (ctrl->device[i].kind) {
+        ide_write_byte(ctrl, IDE_DEV_HEAD_IBM | IDE_DEV_HEAD_DEV(i),
+                       IDE_DEV_HEAD_REG);
+        ide_write_byte(ctrl, 0, IDE_DEV_CTRL_REG);
+        ide_delay(ctrl);
+      }
+    }
+    // TODO: enable for BOTH devices
   }
 }
 
@@ -1195,6 +1175,35 @@ void ide_detect_controllers() {
   }
 }
 
+//
+void ide_printout_devices(ide_controller *controller) {
+  term_write(cout, "Controller ");
+  term_write(cout, controller->id);
+  term_write(cout, " IRQ ");
+  term_write(cout, controller->irq);
+  term_write(cout, " PORT ");
+  term_write(cout, controller->base_port);
+  term_writeline(cout);
+
+  for (uint8 i = 0; i < 2; ++i) {
+    ide_device *dev = &controller->device[i];
+    term_write(cout, "Device ");
+    term_write(cout, i);
+    term_write(cout, " ");
+    bool there = dev->kind > 0;
+    term_write(cout, there);
+    if (there) {
+      term_writeline(cout);
+      term_write(cout, "Kind: ");
+      term_write(cout, dev->kind);
+      term_writeline(cout);
+      term_write(cout, dev->serial_num);
+    }
+
+    term_writeline(cout);
+  }
+}
+
 void setup_ide() {
   uint32 i, j;
 
@@ -1224,6 +1233,12 @@ void setup_ide() {
         }
       }
     }
+
+    ide_printout_devices(ctrl);
+  }
+
+  while (1) {
+    NOP();
   }
 }
 

@@ -19,13 +19,20 @@
 //
 // Definitions for Intelligent Drive Electronics (IDE) disks.
 //
+//
+#define IDE_ABSENT_MASK                                                        \
+  (IDE_STATUS_BSY | IDE_STATUS_RDY | IDE_STATUS_DF | IDE_STATUS_DSC |          \
+   IDE_STATUS_DRQ)
+
+#define IDE_IS_ABSENT(stt) (((stt)&IDE_ABSENT_MASK) == IDE_ABSENT_MASK)
 
 #define IDE_DEVICE_ABSENT 0
-
 #define IDE_DEVICE_ATA 1
 #define IDE_DEVICE_ATAPI 2
 #define IDE_DEVICE_SATA 3
 #define IDE_DEVICE_SATAPI 4
+
+#define IDE_DEVICE_IS_PI(k) (((k) % 2) == 0)
 
 #define IDE_DEVICE_SIGNATURE_ATAPI 0xEB14
 #define IDE_DEVICE_SIGNATURE_SATAPI 0x9669
