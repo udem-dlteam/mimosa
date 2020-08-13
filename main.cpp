@@ -34,29 +34,27 @@ int main() {
   term_run(cout);
 #endif
 
-{ // log IDE debug files
-  native_string path = "/dsk1/home/sam/CPU.txt";
+  { // log IDE debug files
+    native_string path = "/dsk1/home/sam/CPU.txt";
 
-  error_code err = NO_ERROR;
-  file *f;
-  if (!ERROR(err = file_open(path, "a+", &f)))
-  {
-    void *b = (void*)"\n";
-    file_write(f, &c.processor, 4);
-    file_write(f, b, 1);
-    file_write(f, &c.dummy, 4);
-    file_write(f, b, 1);
-    file_write(f, &c.features, 4);
-    file_write(f, b, 1);
-    file_close(f);
-  } 
-}
-
+    error_code err = NO_ERROR;
+    file *f;
+    if (!ERROR(err = file_open(path, "a+", &f))) {
+      void *b = (void *)"\n";
+      file_write(f, &c.processor, 4);
+      file_write(f, b, 1);
+      file_write(f, &c.dummy, 4);
+      file_write(f, b, 1);
+      file_write(f, &c.features, 4);
+      file_write(f, b, 1);
+      file_close(f);
+    }
+  }
 
 #ifdef GAMBIT_REPL
   {
 
-    term_write(cout, "Enabling UART IRQ(s)");
+    term_write(cout, "Enabling UART IRQ(s)\n");
     // Just in case?
     ENABLE_IRQ(3);
     ENABLE_IRQ(4);

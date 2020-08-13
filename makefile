@@ -3,7 +3,7 @@
 OS_NAME = "\"MIMOSA version 2.0\""
 KERNEL_START = 0x20000
 
-KERNEL_OBJECTS = kernel.o libc/libc_os.o drivers/filesystem/vfs.o drivers/filesystem/stdstream.o main.o drivers/filesystem/fat.o drivers/ide.o disk.o thread.o chrono.o ps2.o term.o video.o intr.o rtlib.o uart.o heap.o bios.o $(NETWORK_OBJECTS)
+KERNEL_OBJECTS = kernel.o libc/libc_os.o drivers/filesystem/vfs.o drivers/filesystem/stdstream.o main.o drivers/filesystem/fat.o drivers/ide.o disk.o thread.o chrono.o ps2.o term.o video.o intr.o rtlib.o uart.o heap.o drivers/pci.o bios.o $(NETWORK_OBJECTS)
 #NETWORK_OBJECTS =
 #NETWORK_OBJECTS = eepro100.o tulip.o timer2.o misc.o pci.o config.o net.o
 DEFS = -DINCLUDE_EEPRO100
@@ -157,6 +157,7 @@ uart.o: uart.cpp include/asm.h include/general.h include/intr.h include/rtlib.h 
 intr.o: intr.cpp include/apic.h include/asm.h include/intr.h include/pic.h include/rtlib.h include/term.h
 bios.o: bios.cpp include/bios.h include/term.h
 drivers/ide.o: drivers/ide.cpp include/ide.h include/asm.h include/disk.h include/intr.h include/rtlib.h include/term.h include/thread.h
+drivers/pci.o: drivers/pci.cpp drivers/include/pci.h include/asm.h include/disk.h include/intr.h include/rtlib.h include/term.h include/thread.h include/general.h
 drivers/filesystem/vfs.o: drivers/filesystem/vfs.cpp drivers/filesystem/include/vfs.h include/general.h drivers/filesystem/include/fat.h drivers/filesystem/include/stdstream.h include/rtlib.h include/term.h include/uart.h
 drivers/filesystem/fat.o: drivers/filesystem/fat.cpp include/chrono.h include/disk.h include/general.h include/ide.h drivers/filesystem/include/fat.h drivers/filesystem/include/vfs.h include/rtlib.h include/thread.h
 drivers/filesystem/stdstream.o: drivers/filesystem/stdstream.cpp drivers/filesystem/include/stdstream.h include/general.h drivers/filesystem/include/vfs.h include/rtlib.h include/thread.h

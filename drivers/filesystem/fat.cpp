@@ -13,8 +13,8 @@
 
 #define MAX_NB_MOUNTED_FAT_FS 8
 
-static native_string DOT_NAME = ".";
-static native_string DOT_DOT_NAME = "..";
+static native_string DOT_NAME = (native_string) ".";
+static native_string DOT_DOT_NAME = (native_string) "..";
 
 typedef struct fs_module_struct {
   fat_file_system *mounted_fs[MAX_NB_MOUNTED_FAT_FS];

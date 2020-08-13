@@ -21,12 +21,24 @@
 //
 
 #define IDE_DEVICE_ABSENT 0
+
 #define IDE_DEVICE_ATA 1
 #define IDE_DEVICE_ATAPI 2
+#define IDE_DEVICE_SATA 3
+#define IDE_DEVICE_SATAPI 4
+
+#define IDE_DEVICE_SIGNATURE_ATAPI 0xEB14
+#define IDE_DEVICE_SIGNATURE_SATAPI 0x9669
+#define IDE_DEVICE_SIGNATURE_SATA 0xC33C
 
 #define IDE_CONTROLLERS 4
 #define IDE_DEVICES_PER_CONTROLLER 2
 
+// WARNING
+// The IDE registers are all "prepended" by an offset,
+// so the read/write register functions can operate correctly
+//
+// Prepended by 0
 #define IDE_DATA_REG 0       // 16 bit, data I/O
 #define IDE_ERROR_REG 1      // 8 bit, error
 #define IDE_FEATURES_REG 1   // 8 bit, features
@@ -35,12 +47,18 @@
 #define IDE_CYL_LO_REG 4     // 8 bit, LSB of cylinder
 #define IDE_CYL_HI_REG 5     // 2 bit, MSB of cylinder
 #define IDE_DEV_HEAD_REG 6   // 8 bit, 1 LBA 1 DRV HD3 HD2 HD1 HD0
-
 #define IDE_STATUS_REG 7
-#define IDE_ALT_STATUS_REG 0x206
 #define IDE_COMMAND_REG 7
-#define IDE_DEV_CTRL_REG 0x206
-#define IDE_DRIVE_ADDR_REG 0x207
+
+// Prepended by 0x10
+#define IDE_ALT_STATUS_REG 0x12
+#define IDE_DEV_CTRL_REG 0x12
+#define IDE_DRIVE_ADDR_REG 0x13
+
+// Prepended by 0x20
+#define IDE_BUSMASTER_STATUS_REG 0x22
+
+#define IDE_BUSMASTER_STATUS_IRQ (1 << 2)
 
 #define IDE_STATUS_BSY (1 << 7)   // Device busy bit
 #define IDE_STATUS_RDY (1 << 6)   // Device ready bit
@@ -86,13 +104,26 @@
 #define IDE_WRITE_MULTIPLE_CMD 0xc5
 #define IDE_WRITE_SECTORS_CMD 0x30
 
-#define IDE_LOG2_SECTOR_SIZE 9
+#define IDE_BAR_MASK 0xFFFFFFFC
+#define IDE_PATA_FIRST_CONTROLLER_BASE 0x1F0
+#define IDE_PATA_FIRST_CONTROLLER 0x3F6
+#define IDE_PATA_SECOND_CONTROLLER_BASE 0x170
+#define IDE_PATA_SECOND_CONTROLLER 0x376
+#define IDE_PCI_PATA_PROG_IF_A (0x80)
+#define IDE_PCI_PATA_PROG_IF_B (0x8A)
 
+#define IDE_LOG2_SECTOR_SIZE 9
 #define MAX_NB_IDE_CMD_QUEUE_ENTRIES 1
+
+#define IDE_PATA_PRIMARY_IRQ 14
+#define IDE_PATA_SECONDARY_IRQ 15
 
 typedef enum { cmd_read_sectors, cmd_write_sectors, cmd_flush_cache } cmd_type;
 
+typedef struct ide_controller_struct ide_controller;
+
 typedef struct ide_cmd_queue_entry_struct {
+  bool active;
   uint8 id; // index of entry in cmd_queue
   uint8 refcount;
   struct ide_device_struct *dev; // the device of this command
@@ -115,15 +146,13 @@ typedef struct ide_cmd_queue_entry_struct {
 } ide_cmd_queue_entry;
 
 typedef struct ide_device_struct {
-  uint8 id;   // 0 to IDE_DEVICES_PER_CONTROLLER-1
+  uint8 id;   // 0: Master, 1: Slave
   uint8 kind; // IDE_DEVICE_ATA, IDE_DEVICE_ATAPI, or IDE_DEVICE_ABSENT
   struct ide_controller_struct *ctrl; // the controller of this device
   native_char serial_num[20 + 1];
   native_char firmware_rev[8 + 1];
   native_char model_num[40 + 1];
-
-  // for ATA devices:
-
+  // for ATA devices: (not ATAPI)
   uint16 cylinders_per_disk;
   uint16 heads_per_cylinder;
   uint16 sectors_per_track;
@@ -131,13 +160,21 @@ typedef struct ide_device_struct {
   uint32 total_sectors;
 } ide_device;
 
-typedef struct ide_controller_struct {
-  uint8 id; // 0 to IDE_CONTROLLERS-1
+struct ide_controller_struct {
+  uint8 id;
+  uint8 enabled;
+  uint8 serial;
+  uint16 base_port;
+  uint16 controller_port;
+  uint16 bus_master_port;
+  uint16 irq;
   ide_device device[IDE_DEVICES_PER_CONTROLLER];
   ide_cmd_queue_entry cmd_queue[MAX_NB_IDE_CMD_QUEUE_ENTRIES];
   volatile int cmd_queue_freelist;
   condvar *cmd_queue_condvar;
-} ide_controller;
+};
+
+extern ide_controller ide_controller_map[IDE_CONTROLLERS];
 
 error_code ide_read_sectors(ide_device *dev, uint32 sector_pos, void *buf,
                             uint32 count);
