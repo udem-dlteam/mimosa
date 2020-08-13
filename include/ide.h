@@ -27,10 +27,10 @@
 #define IDE_IS_ABSENT(stt) (((stt)&IDE_ABSENT_MASK) == IDE_ABSENT_MASK)
 
 #define IDE_DEVICE_ABSENT 0
-#define IDE_DEVICE_ATA 1
-#define IDE_DEVICE_ATAPI 2
-#define IDE_DEVICE_SATA 3
-#define IDE_DEVICE_SATAPI 4
+#define IDE_DEVICE_ATA 0x01
+#define IDE_DEVICE_ATAPI 0x02
+#define IDE_DEVICE_SATA 0x03
+#define IDE_DEVICE_SATAPI 0x04
 
 #define IDE_DEVICE_IS_PI(k) (((k) % 2) == 0)
 

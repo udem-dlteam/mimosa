@@ -414,19 +414,20 @@ static void swap_and_trim(native_string dst, uint16 *src, uint32 len) {
 }
 
 static void setup_ide_device(ide_controller *ctrl, ide_device *dev, uint8 id) {
-  uint32 i;
-  uint32 j;
+  uint32 i, j;
+  // 256 words
   uint16 ident[1 << (IDE_LOG2_SECTOR_SIZE - 1)];
-
   dev->id = id;
   dev->ctrl = ctrl;
 
-  if (dev->kind == IDE_DEVICE_ABSENT)
+  if (dev->kind == IDE_DEVICE_ABSENT) {
     return;
+  }
 
   // perform an IDENTIFY DEVICE or IDENTIFY PACKET DEVICE command
   ide_write_byte(ctrl, IDE_DEV_HEAD_IBM | IDE_DEV_HEAD_DEV(dev->id),
                  IDE_DEV_HEAD_REG);
+
   uint8 cmd;
   if (IDE_DEVICE_IS_PI(dev->kind)) {
     cmd = IDE_IDENTIFY_PACKET_DEVICE_CMD;
@@ -485,25 +486,6 @@ static void setup_ide_device(ide_controller *ctrl, ide_device *dev, uint8 id) {
           (CAST(uint32, ident[58]) << 16) + ident[57];
     }
   }
-
-#if 0
-  debug_write("dev->serial_num");
-  debug_write(dev->serial_num);
-  debug_write("dev->firmware_rev");
-  debug_write(dev->firmware_rev);
-  debug_write("dev->model_num");
-  debug_write(dev->model_num);
-  debug_write("dev->cylinders_per_disk");
-  debug_write(dev->cylinders_per_disk);
-  debug_write("dev->heads_per_cylinder");
-  debug_write(dev->heads_per_cylinder);
-  debug_write("dev->sectors_per_track");
-  debug_write(dev->sectors_per_track);
-  debug_write("dev->total_sectors_when_using_CHS");
-  debug_write(dev->total_sectors_when_using_CHS);
-  debug_write("dev->total_sectors");
-  debug_write(dev->total_sectors);
-#endif
 
   term_write(cout, (native_string) "  word 47 hi (should be 128) = ");
   term_write(cout, (ident[47] >> 8));
@@ -1198,6 +1180,8 @@ void ide_printout_devices(ide_controller *controller) {
       term_write(cout, dev->kind);
       term_writeline(cout);
       term_write(cout, dev->serial_num);
+      term_writeline(cout);
+      term_write(cout, dev->model_num);
     }
 
     term_writeline(cout);
@@ -1220,7 +1204,13 @@ void setup_ide() {
   for (i = 0; i < controller_count; i++) {
     ide_controller *ctrl = &ide_controller_map[i];
     for (j = 0; j < IDE_DEVICES_PER_CONTROLLER; j++) {
-      if (ctrl->device[j].kind != IDE_DEVICE_ABSENT) {
+      uint8 kind = ctrl->device[j].kind;
+
+      if (!kind) {
+        continue;
+      }
+
+      if (!IDE_DEVICE_IS_PI(kind)) {
         disk *d = disk_alloc();
         if (d != NULL) {
           d->kind = DISK_IDE;
@@ -1237,9 +1227,9 @@ void setup_ide() {
     ide_printout_devices(ctrl);
   }
 
-  while (1) {
-    NOP();
-  }
+  /* while (1) { */
+  /*   NOP(); */
+  /* } */
 }
 
 //-----------------------------------------------------------------------------
