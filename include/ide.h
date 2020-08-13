@@ -21,8 +21,15 @@
 //
 
 #define IDE_DEVICE_ABSENT 0
+
 #define IDE_DEVICE_ATA 1
 #define IDE_DEVICE_ATAPI 2
+#define IDE_DEVICE_SATA 3
+#define IDE_DEVICE_SATAPI 4
+
+#define IDE_DEVICE_SIGNATURE_ATAPI 0xEB14
+#define IDE_DEVICE_SIGNATURE_SATAPI 0x9669
+#define IDE_DEVICE_SIGNATURE_SATA 0xC33C
 
 #define IDE_CONTROLLERS 4
 #define IDE_DEVICES_PER_CONTROLLER 2
@@ -43,12 +50,12 @@
 #define IDE_STATUS_REG 7
 #define IDE_COMMAND_REG 7
 
-// Prepended by 1
+// Prepended by 0x10
 #define IDE_ALT_STATUS_REG 0x12
 #define IDE_DEV_CTRL_REG 0x12
 #define IDE_DRIVE_ADDR_REG 0x13
 
-// Prepended by 2
+// Prepended by 0x20
 #define IDE_BUSMASTER_STATUS_REG 0x22
 
 #define IDE_BUSMASTER_STATUS_IRQ (1 << 2)

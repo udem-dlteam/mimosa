@@ -354,9 +354,9 @@ error_code ide_read_sectors(ide_device *dev, uint32 lba, void *buf,
                    IDE_DEV_HEAD_REG);
 
     ide_write_byte(ctrl, count, IDE_SECT_COUNT_REG);
-    ide_write_byte(ctrl, lba, IDE_SECT_NUM_REG);
-    ide_write_byte(ctrl, (lba >> 8), IDE_CYL_LO_REG);
-    ide_write_byte(ctrl, (lba >> 16), IDE_CYL_HI_REG);
+    ide_write_byte(ctrl, lba & 0xFF, IDE_SECT_NUM_REG);
+    ide_write_byte(ctrl, (lba >> 8) & 0xFF, IDE_CYL_LO_REG);
+    ide_write_byte(ctrl, (lba >> 16) & 0xFF, IDE_CYL_HI_REG);
     ide_write_byte(ctrl, IDE_READ_SECTORS_CMD, IDE_COMMAND_REG);
 
     condvar_mutexless_wait(entry->done);
@@ -627,14 +627,17 @@ static void setup_ide_device(ide_controller *ctrl, ide_device *dev, uint8 id) {
     term_write(cout, "\n");
   }
 
-  if (ident[63] & (1 << 10))
+  if (ident[63] & (1 << 10)) {
     term_write(cout, "  Multiword DMA mode 2 is selected\n");
+  }
 
-  if (ident[63] & (1 << 9))
+  if (ident[63] & (1 << 9)) {
     term_write(cout, "  Multiword DMA mode 1 is selected\n");
+  }
 
-  if (ident[63] & (1 << 8))
+  if (ident[63] & (1 << 8)) {
     term_write(cout, "  Multiword DMA mode 0 is selected\n");
+  }
 
   if (ident[63] & (1 << 2))
     term_write(cout, "  Multiword DMA mode 2 and below are supported\n");
@@ -802,20 +805,25 @@ static void setup_ide_device(ide_controller *ctrl, ide_device *dev, uint8 id) {
   term_write(cout, "\n");
 
   if (ident[53] & (1 << 2)) {
-    if (ident[88] & (1 << 12))
+    if (ident[88] & (1 << 12)) {
       term_write(cout, "  Ultra DMA mode 4 is selected\n");
+    }
 
-    if (ident[88] & (1 << 11))
+    if (ident[88] & (1 << 11)) {
       term_write(cout, "  Ultra DMA mode 3 is selected\n");
+    }
 
-    if (ident[88] & (1 << 10))
+    if (ident[88] & (1 << 10)) {
       term_write(cout, "  Ultra DMA mode 2 is selected\n");
+    }
 
-    if (ident[88] & (1 << 9))
+    if (ident[88] & (1 << 9)) {
       term_write(cout, "  Ultra DMA mode 1 is selected\n");
+    }
 
-    if (ident[88] & (1 << 8))
+    if (ident[88] & (1 << 8)) {
       term_write(cout, "  Ultra DMA mode 0 is selected\n");
+    }
 
     if (ident[88] & (1 << 4))
       term_write(cout, "  Ultra DMA mode 4 and below are supported\n");
@@ -972,33 +980,28 @@ static void setup_ide_controller(ide_controller *ctrl) {
 
     if (candidates > 0) {
       for (i = 0; i < IDE_DEVICES_PER_CONTROLLER; i++) {
+        if (ctrl->device[i].kind == IDE_DEVICE_ATA) {
+          if (stat[i] == 0) {
+            ctrl->device[i].kind = IDE_DEVICE_ABSENT;
+            continue;
+          }
+        }
         ide_write_byte(ctrl, IDE_DEV_HEAD_IBM | IDE_DEV_HEAD_DEV(i),
                        IDE_DEV_HEAD_REG);
         ide_delay(ctrl); // 400 nsecs
 
-        if (ide_read_byte(ctrl, IDE_CYL_LO_REG) == 0x14 &&
-            ide_read_byte(ctrl, IDE_CYL_HI_REG) == 0xeb &&
-            ctrl->device[i].kind == IDE_DEVICE_ATA) {
-          ctrl->device[i].kind = IDE_DEVICE_ATAPI;
-        }
-      }
+        uint8 lo = ide_read_byte(ctrl, IDE_CYL_LO_REG);
+        uint8 hi = ide_read_byte(ctrl, IDE_CYL_HI_REG);
 
-      for (i = 0; i < IDE_DEVICES_PER_CONTROLLER; i++) {
+        uint16 signature = (hi << 16) | lo;
+
         if (ctrl->device[i].kind == IDE_DEVICE_ATA) {
-          if (stat[i] == 0)
-            ctrl->device[i].kind = IDE_DEVICE_ABSENT;
-          else {
-            ide_write_byte(ctrl, IDE_DEV_HEAD_IBM | IDE_DEV_HEAD_DEV(i),
-                           IDE_DEV_HEAD_REG);
-            ide_delay(ctrl); // 400 nsecs
-            // This code does not make much sense, the err reg
-            // is RO
-            /* outb(0x58, base + IDE_ERROR_REG); */
-            /* outb(0xa5, base + IDE_CYL_LO_REG); */
-            /* if (inb(base + IDE_ERROR_REG) == 0x58 || */
-            /*     inb(base + IDE_CYL_LO_REG) != 0xa5) { */
-            /*   ctrl->device[i].kind = IDE_DEVICE_ABSENT; */
-            /* } */
+          if (signature == IDE_DEVICE_SIGNATURE_ATAPI) {
+            ctrl->device[i].kind = IDE_DEVICE_ATAPI;
+          } else if (signature == IDE_DEVICE_SIGNATURE_SATAPI) {
+            ctrl->device[i].kind = IDE_DEVICE_SATAPI;
+          } else if (signature == IDE_DEVICE_SIGNATURE_SATA) {
+            ctrl->device[i].kind = IDE_DEVICE_SATA;
           }
         }
       }
@@ -1013,16 +1016,28 @@ static void setup_ide_controller(ide_controller *ctrl) {
 #ifdef SHOW_IDE_INFO
 
     if (ctrl->device[i].kind != IDE_DEVICE_ABSENT) {
-      term_write(cout, (native_string) "ide");
+      term_write(cout, (native_string) "IDE");
       term_write(cout, ctrl->id);
       term_write(cout, (native_string) ".");
       term_write(cout, i);
 
-      if (ctrl->device[i].kind == IDE_DEVICE_ATA)
+      uint8 kind = ctrl->device[i].kind;
+      switch (kind) {
+      case IDE_DEVICE_ATA:
         term_write(cout, (native_string) " is ATA\n");
-      else
+        break;
+      case IDE_DEVICE_SATA:
+        term_write(cout, (native_string) " is SATA\n");
+        break;
+      case IDE_DEVICE_SATAPI:
+        term_write(cout, (native_string) " is SATAPI\n");
+        break;
+      case IDE_DEVICE_ATAPI:
         term_write(cout, (native_string) " is ATAPI\n");
+        break;
+      }
     }
+    term_writeline(cout);
 
 #endif
 
@@ -1196,7 +1211,7 @@ void ide_found_controller(uint16 bus, uint8 device, uint8 function,
   ide_controller_map[controller_count + 1].id = controller_count + 1;
   ide_controller_map[controller_count + 1].base_port = bars[2];
   ide_controller_map[controller_count + 1].controller_port = bars[3];
-  ide_controller_map[controller_count + 1].bus_master_port = bars[4];
+  ide_controller_map[controller_count + 1].bus_master_port = bars[4] + 8;
   ide_controller_map[controller_count + 1].serial = !pata;
   ide_controller_map[controller_count + 1].irq =
       (pata ? IDE_PATA_SECONDARY_IRQ : irq_no);
@@ -1244,10 +1259,6 @@ void setup_ide() {
 #ifdef SHOW_IDE_INFO
   term_write(cout, (native_string) "IDE CONTROLLER SETUP DONE\n");
 #endif
-
-  /* while (1) { */
-  /*   NOP(); */
-  /* } */
 
   for (i = 0; i < controller_count; i++) {
     ide_controller *ctrl = &ide_controller_map[i];
@@ -1304,6 +1315,53 @@ void setup_ide() {
   term_writeline(cout);
   term_writeline(cout);
   term_writeline(cout);
+
+  term_write(cout, (native_string) "Listing devices...\n");
+
+  for (i = 0; i < controller_count; ++i) {
+    ide_controller *ctrl = &ide_controller_map[i];
+
+    term_write(cout, (native_string) "Controller ");
+    term_write(cout, ctrl->id);
+    term_write(cout, " ");
+    term_write(cout, ctrl->irq);
+    term_write(cout, " ");
+    term_write(cout, (void *)ctrl->base_port);
+    term_writeline(cout);
+    ide_device *master = &ctrl->device[0];
+    term_write(cout, (native_string) "MASTER: ");
+    term_write(cout, master->kind > 0);
+    term_write(cout, (native_string) " ");
+    if (master->kind > 0) {
+      term_write(cout, master->serial_num);
+      term_writeline(cout);
+      // Execute commands...
+      term_write(cout, "Device think it's master? ");
+      term_write(cout, master->id == 0);
+      term_writeline(cout);
+
+      term_write(cout, "Total sectors: ");
+      term_write(cout, master->total_sectors);
+    }
+    term_writeline(cout);
+
+    ide_device *slave = &ctrl->device[1];
+    term_write(cout, (native_string) "SLAVE: ");
+    term_write(cout, slave->kind > 0);
+    term_write(cout, (native_string) " ");
+    if (slave->kind > 0) {
+      term_write(cout, slave->serial_num);
+    }
+    term_writeline(cout);
+
+    if (master->ctrl != ctrl) {
+      panic(L"WTF");
+    }
+
+    if (slave->ctrl != ctrl) {
+      panic(L"WTF");
+    }
+  }
 
   while (1) {
     NOP();
