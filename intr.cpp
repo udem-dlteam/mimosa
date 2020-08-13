@@ -377,8 +377,6 @@ void irq13() {
   }
 }
 
-#ifndef USE_IRQ14_FOR_IDE0
-
 void irq14() {
 #ifdef SHOW_INTERRUPTS
   term_write(cout, "\033[41m irq14 \033[0m");
@@ -392,20 +390,19 @@ void irq14() {
   }
 }
 
-#endif
-
-#ifndef USE_IRQ15_FOR_IDE1
-
 void irq15() {
 #ifdef SHOW_INTERRUPTS
   term_write(cout, "\033[41m irq15 \033[0m");
 #endif
   term_write(cout, "\033[41m irq15 \033[0m");
 
-  ACKNOWLEDGE_IRQ(15);
+  uint8 irq = 15;
+  if (__IRQ_REGISTERED(irq)) {
+    irq_handlers[irq](irq);
+  } else {
+    ACKNOWLEDGE_IRQ(irq);
+  }
 }
-
-#endif
 
 #ifndef USE_APIC_FOR_TIMER
 

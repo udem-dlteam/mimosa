@@ -114,11 +114,6 @@ typedef int32 error_code;
 #define USE_IRQ1_FOR_KEYBOARD
 #define USE_IRQ12_FOR_MOUSE
 
-// For the IDE controllers 0 and 1, IRQ14 and IRQ15 are used respectively.
-
-#define USE_IRQ14_FOR_IDE0
-#define USE_IRQ15_FOR_IDE1
-
 // UART requires IRQ4 and IRQ3
 #define USE_IRQ3_FOR_UART
 #define USE_IRQ4_FOR_UART

@@ -55,8 +55,6 @@ ide_cmd_queue_entry *ide_cmd_queue_alloc(ide_device *dev) {
 /**
  * Read an IDE register
  *
- * This is taken from OSdev, there does not seem to be a clear explanation
- * that the code is correct, but it makes sense and maps back to the PATA spec.
  */
 uint16 ide_read_register(ide_controller *ctrl, uint16 reg, bool wide) {
   uint16 base = 0;
@@ -106,19 +104,6 @@ void ide_write_register(ide_controller *ctrl, uint16 value, uint16 reg,
     base = ctrl->bus_master_port;
     offset = reg - 0x020;
   }
-
-  /* if (reg <= IDE_COMMAND_REG) { */
-  /*   base = ctrl->base_port; */
-  /*   offset = reg; */
-  /* } else if (reg < IDE_DEV_CTRL_REG) { */
-  /*   base = ctrl->base_port; */
-  /*   offset = reg - 0x06; */
-  /* } else if (reg < IDE_DRIVE_ADDR_REG) { */
-  /*   base = ctrl->controller_port; */
-  /*   offset = reg - 0x0A; */
-  /* } else { */
-  /*   debug_write("Unknown REG WRITE..."); */
-  /* } */
 
   if (wide) {
     outw(value, base + offset);
@@ -186,7 +171,6 @@ void ide_irq(ide_controller *ctrl) {
   s = ide_read_byte(ctrl, IDE_STATUS_REG);
 
   if (s & IDE_STATUS_ERR) {
-    // #ifdef SHOW_DISK_INFO
     uint8 err = ide_read_byte(ctrl, IDE_ERROR_REG);
     term_write(cout, (native_string) "***IDE ERROR***\n");
 
@@ -222,8 +206,6 @@ void ide_irq(ide_controller *ctrl) {
       term_write(
           cout, (native_string) "Data address mark not found after ID field\n");
     }
-
-    // #endif
 
     if (type == cmd_read_sectors) {
       entry->_.read_sectors.err = UNKNOWN_ERROR;
@@ -307,28 +289,6 @@ void ide_irq_handle(uint8 irq_no) {
     }
   }
 }
-
-#ifdef USE_IRQ14_FOR_IDE0
-
-extern "C" void irq14() {
-#ifdef SHOW_INTERRUPTS
-  term_write(cout, "\033[41m irq14 \033[0m");
-#endif
-  ide_irq_handle(14);
-}
-
-#endif
-
-#ifdef USE_IRQ15_FOR_IDE1
-
-extern "C" void irq15() {
-#ifdef SHOW_INTERRUPTS
-  term_write(cout, "\033[41m irq15 \033[0m");
-#endif
-  ide_irq_handle(15);
-}
-
-#endif
 
 error_code ide_read_sectors(ide_device *dev, uint32 lba, void *buf,
                             uint32 count) {
