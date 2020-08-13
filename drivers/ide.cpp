@@ -38,7 +38,7 @@ ide_cmd_queue_entry *ide_cmd_queue_alloc(ide_device *dev) {
     condvar_mutexless_wait(ctrl->cmd_queue_condvar);
 
   entry = &ctrl->cmd_queue[i];
-
+  entry->active = TRUE;
   entry->dev = dev;
   entry->refcount = 2; // the interrupt handler and the client have to free me
 
@@ -63,18 +63,15 @@ uint16 ide_read_register(ide_controller *ctrl, uint16 reg, bool wide) {
   int16 offset = 0;
   uint16 value = 0;
 
-  if (reg <= IDE_COMMAND_REG) {
+  if (reg < 0x10) {
     base = ctrl->base_port;
     offset = reg;
-    /* } else if (reg < IDE_DEV_CTRL_REG) { */
-    /*   base = ctrl->base_port; */
-    /*   offset = reg - 0x06; */
-    /* } else if (reg < IDE_DRIVE_ADDR_REG) { */
-    /*   base = ctrl->controller_port; */
-    /*   offset = reg - 0x0A; */
-  } else {
+  } else if (reg < 0x20) {
     base = ctrl->controller_port;
-    offset = reg - IDE_COMMAND_REG;
+    offset = reg - 0x10;
+  } else {
+    base = ctrl->bus_master_port;
+    offset = reg - 0x020;
   }
 
   if (wide) {
@@ -99,18 +96,15 @@ void ide_write_register(ide_controller *ctrl, uint16 value, uint16 reg,
   uint16 base = 0;
   int16 offset = 0;
 
-  if (reg <= IDE_COMMAND_REG) {
+  if (reg < 0x10) {
     base = ctrl->base_port;
     offset = reg;
-    /* } else if (reg < IDE_DEV_CTRL_REG) { */
-    /*   base = ctrl->base_port; */
-    /*   offset = reg - 0x06; */
-    /* } else if (reg < IDE_DRIVE_ADDR_REG) { */
-    /*   base = ctrl->controller_port; */
-    /*   offset = reg - 0x0A; */
-  } else {
+  } else if (reg < 0x20) {
     base = ctrl->controller_port;
-    offset = reg - IDE_COMMAND_REG;
+    offset = reg - 0x10;
+  } else {
+    base = ctrl->bus_master_port;
+    offset = reg - 0x020;
   }
 
   /* if (reg <= IDE_COMMAND_REG) { */
@@ -170,6 +164,7 @@ void ide_irq(ide_controller *ctrl) {
   uint16 *p = NULL;
 
   entry = &ctrl->cmd_queue[0]; // We only handle one operation at a time
+  entry->active = FALSE;
 
   cmd_type type = entry->cmd;
 
@@ -282,13 +277,22 @@ void ide_irq_handle(uint8 irq_no) {
   } else {
     ACKNOWLEDGE_IRQ(irq_no);
 
-    for (uint8 cidx = 0; cidx < controller_count; ++cidx) {
+    uint8 cidx;
+    for (cidx = 0; cidx < controller_count; ++cidx) {
       ide_controller *controller = &ide_controller_map[cidx];
-      if (controller->irq == irq_no && (controller->pending > 0)) {
-        controller->pending--;
-        ide_irq(controller);
-        break;
+      if (controller->irq == irq_no) {
+        uint8 bus_master_status =
+            ide_read_byte(controller, IDE_BUSMASTER_STATUS_REG);
+
+        if (bus_master_status & IDE_BUSMASTER_STATUS_IRQ) {
+          ide_irq(controller);
+          break;
+        }
       }
+    }
+
+    if (cidx == controller_count) {
+      panic(L"Unhandled IDE IRQ");
     }
   }
 }
@@ -353,7 +357,6 @@ error_code ide_read_sectors(ide_device *dev, uint32 lba, void *buf,
     ide_write_byte(ctrl, lba, IDE_SECT_NUM_REG);
     ide_write_byte(ctrl, (lba >> 8), IDE_CYL_LO_REG);
     ide_write_byte(ctrl, (lba >> 16), IDE_CYL_HI_REG);
-    ctrl->pending++;
     ide_write_byte(ctrl, IDE_READ_SECTORS_CMD, IDE_COMMAND_REG);
 
     condvar_mutexless_wait(entry->done);
@@ -401,7 +404,6 @@ error_code ide_write_sectors(ide_device *dev, uint32 lba, void *buf,
     ide_write_byte(ctrl, lba, IDE_SECT_NUM_REG);
     ide_write_byte(ctrl, (lba >> 8), IDE_CYL_LO_REG);
     ide_write_byte(ctrl, (lba >> 16), IDE_CYL_HI_REG);
-    ctrl->pending++;
     ide_write_byte(ctrl, IDE_WRITE_SECTORS_CMD, IDE_COMMAND_REG);
 
     while ((ide_read_byte(ctrl, IDE_STATUS_REG) & IDE_STATUS_BSY) ||
@@ -1037,6 +1039,7 @@ static void setup_ide_controller(ide_controller *ctrl) {
     ide_cmd_queue_entry *entry = &ctrl->cmd_queue[i];
     entry->id = i;
     entry->next = i + 1;
+    entry->active = FALSE;
     entry->done = new_condvar(CAST(condvar *, kmalloc(sizeof(condvar))));
   }
 
@@ -1048,14 +1051,13 @@ static void setup_ide_controller(ide_controller *ctrl) {
 
   if (candidates > 0) {
     // enable interrupts
-    ide_write_byte(ctrl, 0, IDE_DEV_CTRL_REG);
-    /* thread_sleep(2000000); // 2 msecs */
-
     uint8 irq = ctrl->irq;
     if (irq != 15 && irq != 14) {
       irq_register_handle(irq, ide_irq_handle);
     }
+
     ENABLE_IRQ(ctrl->irq);
+    ide_write_byte(ctrl, 0, IDE_DEV_CTRL_REG);
   }
 }
 
@@ -1270,7 +1272,6 @@ void setup_ide() {
           term_writeline(cout);
 
           uint8 buff[256];
-
           if (ERROR(ide_read_sectors(dev, 0, buff, 1))) {
             term_write(cout, (native_string) "Failed to read from device ");
             term_write(cout, dev->serial_num);
@@ -1281,6 +1282,7 @@ void setup_ide() {
             }
             term_writeline(cout);
           }
+          term_write(cout, (native_string) "DONE READING");
         }
       }
     }

@@ -27,6 +27,11 @@
 #define IDE_CONTROLLERS 4
 #define IDE_DEVICES_PER_CONTROLLER 2
 
+// WARNING
+// The IDE registers are all "prepended" by an offset,
+// so the read/write register functions can operate correctly
+//
+// Prepended by 0
 #define IDE_DATA_REG 0       // 16 bit, data I/O
 #define IDE_ERROR_REG 1      // 8 bit, error
 #define IDE_FEATURES_REG 1   // 8 bit, features
@@ -37,9 +42,16 @@
 #define IDE_DEV_HEAD_REG 6   // 8 bit, 1 LBA 1 DRV HD3 HD2 HD1 HD0
 #define IDE_STATUS_REG 7
 #define IDE_COMMAND_REG 7
-#define IDE_ALT_STATUS_REG 0x02 + 7
-#define IDE_DEV_CTRL_REG 0x02 + 7
-#define IDE_DRIVE_ADDR_REG 0x03 + 7
+
+// Prepended by 1
+#define IDE_ALT_STATUS_REG 0x12
+#define IDE_DEV_CTRL_REG 0x12
+#define IDE_DRIVE_ADDR_REG 0x13
+
+// Prepended by 2
+#define IDE_BUSMASTER_STATUS_REG 0x22
+
+#define IDE_BUSMASTER_STATUS_IRQ (1 << 2)
 
 #define IDE_STATUS_BSY (1 << 7)   // Device busy bit
 #define IDE_STATUS_RDY (1 << 6)   // Device ready bit
@@ -104,6 +116,7 @@ typedef enum { cmd_read_sectors, cmd_write_sectors, cmd_flush_cache } cmd_type;
 typedef struct ide_controller_struct ide_controller;
 
 typedef struct ide_cmd_queue_entry_struct {
+  bool active;
   uint8 id; // index of entry in cmd_queue
   uint8 refcount;
   struct ide_device_struct *dev; // the device of this command
@@ -144,7 +157,6 @@ struct ide_controller_struct {
   uint8 id;
   uint8 enabled;
   uint8 serial;
-  uint32 pending; // the number of pending commands
   uint16 base_port;
   uint16 controller_port;
   uint16 bus_master_port;
