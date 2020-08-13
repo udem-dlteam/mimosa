@@ -929,7 +929,7 @@ static void setup_ide_controller(ide_controller *ctrl) {
         break;
       }
 
-      thread_sleep(1000000); // 1 msec
+      thread_sleep(1000);
     }
 
     candidates = 0;
@@ -1171,7 +1171,7 @@ void ide_found_controller(uint16 bus, uint8 device, uint8 function,
   controller_count += 2;
 }
 
-void ide_detect_at(uint16 bus, uint8 device, uint8 function) {
+void ide_detect_at(uint8 bus, uint8 device, uint8 function) {
   if (pci_device_at(bus, device, function)) {
     uint32 info = pci_read_conf(bus, device, function, PCI_HEADER_INFO_OFFSET);
     uint8 class_code = (info >> 24) & 0xFF;
