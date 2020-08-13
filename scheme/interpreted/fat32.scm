@@ -1513,8 +1513,9 @@
     ;; disk and places it in executable context
     (define (user-load fs path)
       (let ((s (file-read! (file-open! fs path "r") -1 ID)))
-        (eval (read (open-input-string s)))
-        (string-append "eval '(" s ")")))
+       (let ((content (read (open-input-string s))))
+        (eval content)
+        (pp content))))
 
     (define (test-suite)
       (let* ((fs (car filesystem-list))
