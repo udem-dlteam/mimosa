@@ -3,6 +3,7 @@
 
 #include "general.h"
 
+#define PCI_REG_TO_OFFSET(reg) ((reg) << 2)
 #define PCI_CONFIG_ADDR (0xCF8)
 #define PCI_CONFIG_DATA (0xCFC)
 
