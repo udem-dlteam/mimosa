@@ -54,7 +54,7 @@ int main() {
 #ifdef GAMBIT_REPL
   {
 
-    term_write(cout, "Enabling UART IRQ(s)");
+    term_write(cout, "Enabling UART IRQ(s)\n");
     // Just in case?
     ENABLE_IRQ(3);
     ENABLE_IRQ(4);

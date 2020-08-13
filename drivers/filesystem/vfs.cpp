@@ -546,12 +546,10 @@ error_code init_vfs() {
 
   vfnode_add_child(&sys_root, &dev_mnt_pt);
 
-  term_write(cout, (native_string) "MNT STREAMS\n");
   if (ERROR(err = mount_streams(&sys_root))) {
     return err;
   }
 
-  term_write(cout, (native_string) "MNT FAT\n");
   if (ERROR(err = mount_fat(&sys_root))) {
     return err;
   }

@@ -994,16 +994,8 @@ static void setup_ide_controller(ide_controller *ctrl) {
                        IDE_DEV_HEAD_REG);
         ide_delay(ctrl); // 400 nsecs
 
-        bool abort = ide_read_byte(ctrl, IDE_ERROR_REG) & IDE_ERROR_ABRT;
-
-        if (abort) {
-          term_write(cout, (native_string) "HA!");
-          term_write(cout, (native_string) "HA!");
-          term_write(cout, (native_string) "HA!");
-          term_write(cout, (native_string) "HA!");
-          term_write(cout, (native_string) "HA!");
-          term_write(cout, (native_string) "HA!");
-        }
+        bool abort = ide_read_byte(ctrl, IDE_ERROR_REG) &
+                     IDE_ERROR_ABRT; // Abort bit is set on ATAPI?
 
         uint8 lo = ide_read_byte(ctrl, IDE_CYL_LO_REG);
         uint8 hi = ide_read_byte(ctrl, IDE_CYL_HI_REG);
@@ -1196,16 +1188,6 @@ void ide_found_controller(uint16 bus, uint8 device, uint8 function,
 #endif
   }
 
-  term_write(cout, (native_string) "BARS: \n");
-  for (uint8 bar = 0; bar < 6; ++bar) {
-    term_write(cout, (native_string) "BAR");
-    term_write(cout, bar);
-    term_write(cout, (native_string) " : ");
-    term_writeline(cout);
-    term_write(cout, (void *)bars[bar]);
-    term_writeline(cout);
-  }
-
   // Primary
   ide_controller_map[controller_count].enabled = TRUE;
   ide_controller_map[controller_count].id = controller_count;
@@ -1266,17 +1248,12 @@ void setup_ide() {
     setup_ide_controller(&ide_controller_map[i]);
   }
 
-#ifdef SHOW_IDE_INFO
-  term_write(cout, (native_string) "IDE CONTROLLER SETUP DONE\n");
-#endif
-
   for (i = 0; i < controller_count; i++) {
     ide_controller *ctrl = &ide_controller_map[i];
     for (j = 0; j < IDE_DEVICES_PER_CONTROLLER; j++) {
       if (ctrl->device[j].kind != IDE_DEVICE_ABSENT) {
         disk *d = disk_alloc();
         if (d != NULL) {
-          term_write(cout, (native_string) "A disk has been setup");
           d->kind = DISK_IDE;
           d->log2_sector_size = IDE_LOG2_SECTOR_SIZE;
           d->partition_type = 0;
