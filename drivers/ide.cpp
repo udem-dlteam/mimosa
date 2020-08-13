@@ -428,13 +428,14 @@ static void setup_ide_device(ide_controller *ctrl, ide_device *dev, uint8 id) {
   ide_write_byte(ctrl, IDE_DEV_HEAD_IBM | IDE_DEV_HEAD_DEV(dev->id),
                  IDE_DEV_HEAD_REG);
 
-  uint8 cmd = 0x00;
+  uint8 cmd;
   // perform an IDENTIFY DEVICE or IDENTIFY PACKET DEVICE command
   if (IDE_DEVICE_IS_PI(dev->kind)) {
     cmd = IDE_IDENTIFY_PACKET_DEVICE_CMD;
   } else {
     cmd = IDE_IDENTIFY_DEVICE_CMD;
   }
+
   ide_write_byte(ctrl, cmd, IDE_COMMAND_REG);
 
   for (j = 1000000; j > 0; j--) // wait up to 1 second for a response
@@ -996,10 +997,8 @@ static void setup_ide_controller(ide_controller *ctrl) {
         ide_write_byte(ctrl, IDE_DEV_HEAD_IBM | IDE_DEV_HEAD_DEV(i),
                        IDE_DEV_HEAD_REG);
         ide_write_byte(ctrl, 0, IDE_DEV_CTRL_REG);
-        ide_delay(ctrl);
       }
     }
-    // TODO: enable for BOTH devices
   }
 }
 
