@@ -394,7 +394,6 @@ void irq15() {
 #ifdef SHOW_INTERRUPTS
   term_write(cout, "\033[41m irq15 \033[0m");
 #endif
-  term_write(cout, "\033[41m irq15 \033[0m");
 
   uint8 irq = 15;
   if (__IRQ_REGISTERED(irq)) {
