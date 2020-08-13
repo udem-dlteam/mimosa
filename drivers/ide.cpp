@@ -165,7 +165,7 @@ void ide_irq(ide_controller *ctrl) {
 
   entry = &ctrl->cmd_queue[0]; // We only handle one operation at a time
   entry->active = FALSE;
-
+  ide_device *dev = entry->dev;
   cmd_type type = entry->cmd;
 
   if (type == cmd_read_sectors) {
@@ -178,6 +178,11 @@ void ide_irq(ide_controller *ctrl) {
     panic(L"[IDE.CPP] Unknown command type...");
   }
 
+  // Need to select disk?
+
+  ide_write_byte(ctrl, IDE_DEV_HEAD_IBM | IDE_DEV_HEAD_DEV(dev->id),
+                 IDE_DEV_HEAD_REG);
+  ide_delay(ctrl);
   s = ide_read_byte(ctrl, IDE_STATUS_REG);
 
   if (s & IDE_STATUS_ERR) {
@@ -185,32 +190,38 @@ void ide_irq(ide_controller *ctrl) {
     uint8 err = ide_read_byte(ctrl, IDE_ERROR_REG);
     term_write(cout, (native_string) "***IDE ERROR***\n");
 
-    if (err & IDE_ERROR_BBK)
+    if (err & IDE_ERROR_BBK) {
       term_write(
           cout,
           (native_string) "Bad block mark detected in sector's ID field\n");
+    }
 
-    if (err & IDE_ERROR_UNC)
+    if (err & IDE_ERROR_UNC) {
       term_write(cout,
                  (native_string) "Uncorrectable data error encountered\n");
+    }
 
-    if (err & IDE_ERROR_IDNF)
+    if (err & IDE_ERROR_IDNF) {
       term_write(cout,
                  (native_string) "Requested sector's ID field not found\n");
+    }
 
-    if (err & IDE_ERROR_ABRT)
+    if (err & IDE_ERROR_ABRT) {
       term_write(
           cout,
           (native_string) "Command aborted (status error or invalid cmd)\n");
+    }
 
-    if (err & IDE_ERROR_TK0NF)
+    if (err & IDE_ERROR_TK0NF) {
       term_write(
           cout,
           (native_string) "Track 0 not found during recalibrate command\n");
+    }
 
-    if (err & IDE_ERROR_AMNF)
+    if (err & IDE_ERROR_AMNF) {
       term_write(
           cout, (native_string) "Data address mark not found after ID field\n");
+    }
 
     // #endif
 
@@ -315,15 +326,6 @@ extern "C" void irq15() {
   term_write(cout, "\033[41m irq15 \033[0m");
 #endif
   ide_irq_handle(15);
-
-  if (has_cut_ide_support()) {
-    uint8 params[1] = {1};
-    send_gambit_int(GAMBIT_IDE_INT, params, 1);
-  } else {
-    ACKNOWLEDGE_IRQ(15);
-    // TODO: lookup
-    ide_irq(&ide_controller_map[1]);
-  }
 }
 
 #endif
@@ -494,6 +496,8 @@ static void setup_ide_device(ide_controller *ctrl, ide_device *dev, uint8 id) {
   for (i = 0; i < (1 << (IDE_LOG2_SECTOR_SIZE - 1)); i++) {
     ident[i] = ide_read_short(ctrl, IDE_DATA_REG);
   }
+
+  ide_read_byte(ctrl, IDE_ERROR_REG);
 
   swap_and_trim(dev->serial_num, ident + 10, 20);
   swap_and_trim(dev->firmware_rev, ident + 23, 8);
@@ -930,7 +934,7 @@ static void setup_ide_controller(ide_controller *ctrl) {
     term_write(cout, "C\n");
 #endif
     /* thread_sleep(2000000); // 2 msecs */
-    /* inb(base + IDE_ERROR_REG); */
+    ide_read_byte(ctrl, IDE_ERROR_REG);
 #ifdef SHOW_IDE_INFO
     term_write(cout, "D\n");
     term_writeline(cout);
@@ -989,6 +993,17 @@ static void setup_ide_controller(ide_controller *ctrl) {
         ide_write_byte(ctrl, IDE_DEV_HEAD_IBM | IDE_DEV_HEAD_DEV(i),
                        IDE_DEV_HEAD_REG);
         ide_delay(ctrl); // 400 nsecs
+
+        bool abort = ide_read_byte(ctrl, IDE_ERROR_REG) & IDE_ERROR_ABRT;
+
+        if (abort) {
+          term_write(cout, (native_string) "HA!");
+          term_write(cout, (native_string) "HA!");
+          term_write(cout, (native_string) "HA!");
+          term_write(cout, (native_string) "HA!");
+          term_write(cout, (native_string) "HA!");
+          term_write(cout, (native_string) "HA!");
+        }
 
         uint8 lo = ide_read_byte(ctrl, IDE_CYL_LO_REG);
         uint8 hi = ide_read_byte(ctrl, IDE_CYL_HI_REG);
@@ -1067,9 +1082,7 @@ static void setup_ide_controller(ide_controller *ctrl) {
   if (candidates > 0) {
     // enable interrupts
     uint8 irq = ctrl->irq;
-    if (irq != 15 && irq != 14) {
-      irq_register_handle(irq, ide_irq_handle);
-    }
+    irq_register_handle(irq, ide_irq_handle);
 
     ENABLE_IRQ(ctrl->irq);
     ide_write_byte(ctrl, 0, IDE_DEV_CTRL_REG);
@@ -1129,9 +1142,6 @@ void ide_found_controller(uint16 bus, uint8 device, uint8 function,
   term_write(cout, prog_interface);
   term_writeline(cout);
 #endif
-
-  uint32 manuf_info =
-      pci_read_conf(bus, device, function, PCI_HEADER_MANUFACTURER_OFFSET);
 
   uint32 bars[6] = {
       PCI_HEADER_0_BAR0, PCI_HEADER_0_BAR1, PCI_HEADER_0_BAR2,
@@ -1274,97 +1284,9 @@ void setup_ide() {
           d->partition_start = 0;
           d->partition_length = ctrl->device[j].total_sectors;
           d->_.ide.dev = &(ctrl->device[j]);
-
-          term_write(
-              cout, (native_string) "Trying to read sector 0 from device...\n");
-
-          ide_device *dev = &ctrl->device[j];
-          term_write(cout, dev->serial_num);
-          term_writeline(cout);
-
-          uint8 buff[256];
-          if (ERROR(ide_read_sectors(dev, 0, buff, 1))) {
-            term_write(cout, (native_string) "Failed to read from device ");
-            term_write(cout, dev->serial_num);
-            term_writeline(cout);
-          } else {
-            for (uint8 i = 3; i < 3 + 8; ++i) {
-              term_write(cout, (char)buff[i]);
-            }
-            term_writeline(cout);
-          }
-          term_write(cout, (native_string) "DONE READING");
         }
       }
     }
-  }
-
-  term_write(cout, (native_string) "Expecting: ");
-  term_write(cout, controller_count);
-  term_writeline(cout);
-  term_write(cout, (native_string) "Listing IRQs\n");
-
-  for (i = 0; i < controller_count; i++) {
-    ide_controller *ctrl = &ide_controller_map[i];
-    term_write(cout, ctrl->irq);
-    term_writeline(cout);
-  }
-
-  term_writeline(cout);
-  term_writeline(cout);
-  term_writeline(cout);
-  term_writeline(cout);
-  term_writeline(cout);
-
-  term_write(cout, (native_string) "Listing devices...\n");
-
-  for (i = 0; i < controller_count; ++i) {
-    ide_controller *ctrl = &ide_controller_map[i];
-
-    term_write(cout, (native_string) "Controller ");
-    term_write(cout, ctrl->id);
-    term_write(cout, " ");
-    term_write(cout, ctrl->irq);
-    term_write(cout, " ");
-    term_write(cout, (void *)ctrl->base_port);
-    term_writeline(cout);
-    ide_device *master = &ctrl->device[0];
-    term_write(cout, (native_string) "MASTER: ");
-    term_write(cout, master->kind > 0);
-    term_write(cout, (native_string) " ");
-    if (master->kind > 0) {
-      term_write(cout, master->serial_num);
-      term_writeline(cout);
-      // Execute commands...
-      term_write(cout, "Device think it's master? ");
-      term_write(cout, master->id == 0);
-      term_writeline(cout);
-
-      term_write(cout, "Total sectors: ");
-      term_write(cout, master->total_sectors);
-    }
-    term_writeline(cout);
-
-    ide_device *slave = &ctrl->device[1];
-    term_write(cout, (native_string) "SLAVE: ");
-    term_write(cout, slave->kind > 0);
-    term_write(cout, (native_string) " ");
-    if (slave->kind > 0) {
-      term_write(cout, slave->serial_num);
-    }
-    term_writeline(cout);
-
-    if (master->ctrl != ctrl) {
-      panic(L"WTF");
-    }
-
-    if (slave->ctrl != ctrl) {
-      panic(L"WTF");
-    }
-  }
-
-  while (1) {
-    NOP();
   }
 }
 
