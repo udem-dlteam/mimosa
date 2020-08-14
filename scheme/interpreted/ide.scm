@@ -87,12 +87,8 @@
   (define IDE-CTRL-3 #x168)
   (define IDE-IRQ-3 10)
 
-  (define LOG-FILE 'NO-FILE)
-
   (define (log message)
-    (if (eq? LOG-FILE 'NO-FILE)
-        (debug-write "LOG Failure : No log file")
-        (write-string (string-append (debug-write message) "\n") LOG-FILE)))
+    (debug-write message))
 
   (define IDE-CONTROLLER-PORTS
     (list
@@ -619,11 +615,7 @@
     (open-input-file "/cut"))
 
   (define (ide-setup)
-    (set! LOG-FILE (open-file (list path: "ide.txt" append: #t)))
-    (log "IDE")
-    (log "Testing the new setup...")
     (for-each setup-controller (vector->list IDE-CTRL-VECT))
-    (log "IDE Setup done")
-    ; (switch-over-driver)
+    (switch-over-driver)
     (cons IDE-INT handle-ide-int)) ;; return value expected by the setup routine
   ))
