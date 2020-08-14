@@ -59,8 +59,14 @@
     wint32
     wint8
     zip
+    tautology
+    contradiction
     )
   (begin
+    (define tautology (lambda _ #t)) ;; always true pred
+
+    (define contradiction (lambda _ #f)) ;; always false pred
+
     (define (lazy val) (lambda _ val))
 
     (define (// a b)

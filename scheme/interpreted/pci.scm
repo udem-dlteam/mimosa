@@ -14,11 +14,12 @@
     device-at?
     list-devices)
   (begin
-    (define PCI_CONFIG_ADDR #xCF8)
-    (define PCI_CONFIG_DATA #xCFC)
+    (define PCI-CONFIG-ADDR #xCF8)
+    (define PCI-CONFIG-DATA #xCFC)
     (define PCI-BUS-COUNT 256)
     (define PCI-DEV-PER-BUS 32)
     (define PCI-FUNC-PER-DEV 8)
+    (define PCI-HEADER-INFO-OFFSET 8)
 
     ;; Convert an offset to a register number
     (define (offset->register offset)
@@ -30,12 +31,12 @@
 
     ;; Make a value to place in the config address register
     (define (make-configuration-address rewrite-data? bus device function offset)
-      (fxior
-        (<< (if rewrite-data? 1 0) 31)
-        (<< (fxand #xFF bus) 16)
-        (<< (fxand #xFF device) 11)
-        (<< (fxand #xFF function) 8)
-        (fxand #xFF offset)
+      (bitwise-ior
+        (arithmetic-shift (if rewrite-data? 1 0) 31)
+        (arithmetic-shift (bitwise-and #xFF bus) 16)
+        (arithmetic-shift (bitwise-and #xFF device) 11)
+        (arithmetic-shift (bitwise-and #xFF function) 8)
+        (bitwise-and #xFF offset)
         ))
 
     ;; Read the pci config of a device at
@@ -45,41 +46,53 @@
     (define (read-conf bus device function offset)
       (let ((address (make-configuration-address #t bus device function offset)))
         (outl address PCI-CONFIG-ADDR)
-        (inl PCI_CONFIG_DATA)))
+        (inl PCI-CONFIG-DATA)))
 
 
     ;; Verifies if a device is present at the given bus, device
     ;; and function
     (define (device-at? bus device function)
       (let ((vendor (read-conf bus device function #x00)))
-        (not (fx= #xFFFFFFFF vendor))))
+        (not (= #xFFFFFFFF vendor))))
 
+    ;; Make a list the devices that satisfy the predicate.
+    ;; The predicate takes in argument the class code and subclass code
+    ;; of the device.
+    ;; The result is given as a list of list, where each sublist
+    ;; is of the form '(bus device function)
+    ;; It starts at the given bus device and function, and takes
+    ;; a currently found list
     (define (list-device-at bus device function pred found)
+      ; (debug-write "---")
+      ; (debug-write bus)
+      ; (debug-write device)
+      ; (debug-write function)
       (let* ((current ;; at the current address
                (if (device-at? bus device function)
-                   (let* ((info-line (read-conf bus device function HEADER-INFO-OFFSET))
+                   (let* ((info-line (read-conf bus device function PCI-HEADER-INFO-OFFSET))
                           (class (fxand #xFF (>> info-line 24)))
                           (subclass (fxand #xFF (>> info-line 16))))
                      (if (pred class subclass)
                          (list bus device function)
                          'NOTHING))
                    'NOTHING))
-             ((found (if (not (eq? 'NOTHING current))
-                         (cons current found)
-                         found))))
+             (found (if (not (eq? 'NOTHING current))
+                        (cons current found)
+                        found)))
         (cond ((fx< function (-- PCI-FUNC-PER-DEV))
-               (list-device-at bus device (++ function) found))
-              (fx< device (-- PCI-DEV-PER-BUS)
-                   (list-device-at bus (++ device) 0 found))
+               (list-device-at bus device (++ function) pred found))
+              ((fx< device (-- PCI-DEV-PER-BUS))
+               (list-device-at bus (++ device) 0 pred found))
               ((fx< bus (-- PCI-BUS-COUNT))
-               (list-device-at (++ bus) 0 0 found))
+               (list-device-at (++ bus) 0 0 pred found))
               (else found))))
 
-    ;; Make a list the devices that satisfy the predicate
+    ;; Make a list the devices that satisfy the predicate.
     ;; The predicate takes in argument the class code and subclass code
-    ;; of the device
-    (define (list-device pred)
+    ;; of the device.
+    ;; The result is given as a list of list, where each sublist
+    ;; is of the form '(bus device function)
+    (define (list-devices pred)
      (list-device-at #x0000 #x0000 #x0000 pred '()))
-
 
     ))

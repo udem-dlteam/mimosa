@@ -76,6 +76,16 @@
           (x86-shl   cgc (x86-eax) (x86-imm-int 2))
           (x86-ret   cgc))))
 
+    (define inl
+      (asm
+        (lambda (cgc)
+          (x86-mov   cgc (x86-edx) (x86-mem 4 (x86-esp))) ; Fetch an int32 in mem
+          (x86-sar   cgc (x86-edx) (x86-imm-int 2))       ;
+          (x86-mov   cgc (x86-eax) (x86-imm-int 0))
+          (x86-in-dx cgc (x86-eax)) ; inl takes eax in arg
+          (x86-shl   cgc (x86-eax) (x86-imm-int 2))
+          (x86-ret   cgc))))
+
     (define outb ;; parameters: value and port number
       (asm
         (lambda (cgc)
@@ -106,16 +116,6 @@
           (x86-mov   cgc (x86-eax) (x86-mem 4 (x86-esp)))
           (x86-sar   cgc (x86-eax) (x86-imm-int 2)) ;; unpack
           (x86-out-dx cgc (x86-eax))
-          (x86-shl   cgc (x86-eax) (x86-imm-int 2))
-          (x86-ret   cgc))))
-
-    (define inl
-      (asm
-        (lambda (cgc)
-          (x86-mov   cgc (x86-edx) (x86-mem 4 (x86-esp))) ; Fetch an int32 in mem
-          (x86-sar   cgc (x86-edx) (x86-imm-int 2))       ;
-          (x86-mov   cgc (x86-eax) (x86-imm-int 0))
-          (x86-in-dx cgc (x86-eax)) ; inl takes eax in arg
           (x86-shl   cgc (x86-eax) (x86-imm-int 2))
           (x86-ret   cgc))))
 

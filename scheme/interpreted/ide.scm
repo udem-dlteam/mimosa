@@ -394,9 +394,6 @@
                    15))
       (call-if cont)))
 
-  ; Switch the IDE management from the C kernel to the scheme kernel
-  (define (switch-over-driver)
-    (open-input-file "/cut"))
 
   ; Create a list of ide devices
   (define (list-devices)
@@ -616,12 +613,17 @@
             (outb #x00 ctrl-reg) ;; reenable everything
             ))))
 
+
+  ; Switch the IDE management from the C kernel to the scheme kernel
+  (define (switch-over-driver)
+    (open-input-file "/cut"))
+
   (define (ide-setup)
     (set! LOG-FILE (open-file (list path: "ide.txt" append: #t)))
     (log "IDE")
     (log "Testing the new setup...")
     (for-each setup-controller (vector->list IDE-CTRL-VECT))
     (log "IDE Setup done")
-    (switch-over-driver)
+    ; (switch-over-driver)
     (cons IDE-INT handle-ide-int)) ;; return value expected by the setup routine
   ))

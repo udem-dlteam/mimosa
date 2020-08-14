@@ -16,6 +16,7 @@
         (rtc)
         (fat32)
         (disk)
+        (pci)
         (ide)
         )
 
@@ -205,7 +206,7 @@
 
 (setup-drivers
  keyboard
- ; ide
+ ide
  ; disk
  ; fat32
  uart
