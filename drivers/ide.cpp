@@ -1069,7 +1069,7 @@ static void setup_ide_controller(ide_controller *ctrl) {
  */
 void ide_found_controller(uint16 bus, uint8 device, uint8 function,
                           uint32 info) {
-#ifdef SHOW_IDE_INFO
+  /* #ifdef SHOW_IDE_INFO */
   term_write(cout, (native_string) "Found an IDE controller at ");
   term_write(cout, bus);
   term_write(cout, (native_string) " ");
@@ -1082,7 +1082,7 @@ void ide_found_controller(uint16 bus, uint8 device, uint8 function,
   term_writeline(cout);
   term_write(cout, (info >> 16) & 0xFF);
   term_writeline(cout);
-#endif
+  /* #endif */
 
   if (controller_count + 2 > IDE_CONTROLLERS) {
 #ifdef SHOW_IDE_INFO

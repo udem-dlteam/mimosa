@@ -70,8 +70,12 @@
       (let* ((current ;; at the current address
                (if (device-at? bus device function)
                    (let* ((info-line (read-conf bus device function PCI-HEADER-INFO-OFFSET))
-                          (class (fxand #xFF (>> info-line 24)))
-                          (subclass (fxand #xFF (>> info-line 16))))
+                          (class (bitwise-and
+                                   #xFF
+                                   (arithmetic-shift info-line (- 24))))
+                          (subclass (bitwise-and
+                                      #xFF
+                                      (arithmetic-shift info-line (- 16)))))
                      (if (pred class subclass)
                          (list bus device function)
                          'NOTHING))

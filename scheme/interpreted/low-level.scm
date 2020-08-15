@@ -76,15 +76,36 @@
           (x86-shl   cgc (x86-eax) (x86-imm-int 2))
           (x86-ret   cgc))))
 
-    (define inl
+    (define inl-hi
       (asm
         (lambda (cgc)
           (x86-mov   cgc (x86-edx) (x86-mem 4 (x86-esp))) ; Fetch an int32 in mem
           (x86-sar   cgc (x86-edx) (x86-imm-int 2))       ;
           (x86-mov   cgc (x86-eax) (x86-imm-int 0))
           (x86-in-dx cgc (x86-eax)) ; inl takes eax in arg
-          (x86-shl   cgc (x86-eax) (x86-imm-int 2))
+          (x86-shr   cgc (x86-edx) (x86-imm-int 16));; take the upper part
+          (x86-and  cgc  (x86-eax) (x86-imm-int #xFFFF));; take the lower part
+          (x86-shl   cgc (x86-eax) (x86-imm-int 2)) ;; retag
           (x86-ret   cgc))))
+
+    (define inl-lo
+      (asm
+        (lambda (cgc)
+          (x86-mov   cgc (x86-edx) (x86-mem 4 (x86-esp))) ; Fetch an int32 in mem
+          (x86-sar   cgc (x86-edx) (x86-imm-int 2))       ;
+          (x86-mov   cgc (x86-eax) (x86-imm-int 0))
+          (x86-in-dx cgc (x86-eax)) ; inl takes eax in arg
+          (x86-and   cgc (x86-eax) (x86-imm-int #xFFFF));; take the lower part
+          (x86-shl   cgc (x86-eax) (x86-imm-int 2)) ;; retag
+          (x86-ret   cgc))))
+
+    (define (inl port)
+      ;; This is incredibly stupid, but it works
+      ;; this is a temporary hack to get the rest working
+      (bitwise-ior
+        (arithmetic-shift (inl-lo port) 0)
+        (arithmetic-shift (inl-hi port) 16)
+        ))
 
     (define outb ;; parameters: value and port number
       (asm
@@ -108,16 +129,30 @@
           (x86-shl   cgc (x86-eax) (x86-imm-int 2))
           (x86-ret   cgc))))
 
-    (define outl ;; parameters: value and port number
+    (define lo-hi-outl ;; parameters: value hi, value lo and port number
       (asm
         (lambda (cgc)
-          (x86-mov   cgc (x86-edx) (x86-mem 8 (x86-esp)))
+          ;; Port in EDX
+          (x86-mov   cgc (x86-edx) (x86-mem 12 (x86-esp)))
           (x86-sar   cgc (x86-edx) (x86-imm-int 2))
-          (x86-mov   cgc (x86-eax) (x86-mem 4 (x86-esp)))
-          (x86-sar   cgc (x86-eax) (x86-imm-int 2)) ;; unpack
+          ;; value HI
+          (x86-mov   cgc (x86-eax) (x86-mem 8 (x86-esp))) ;; value high in ebx
+          (x86-shr   cgc (x86-eax) (x86-imm-int 2)) ;; untag
+          (x86-shl  cgc (x86-eax) (x86-imm-int 16)) ;; move to upper part
+          ;; value LOW
+          (x86-mov   cgc (x86-ebx) (x86-mem 4 (x86-esp))) ;; value low in ebx
+          (x86-shr   cgc (x86-ebx) (x86-imm-int 2)) ;; untag
+          (x86-or    cgc (x86-eax) (x86-bx)) ;; move the lower part into eax
           (x86-out-dx cgc (x86-eax))
+          ;; return
           (x86-shl   cgc (x86-eax) (x86-imm-int 2))
           (x86-ret   cgc))))
+
+    (define (outl value port)
+      (lo-hi-outl
+        (bitwise-and #xFFFF value) ;; low part
+        (bitwise-and #xFFFF (arithmetic-shift value (- 16))) ;; high value
+        port))
 
     (define enable-interrupts
       (asm (lambda (cgc) (x86-sti cgc) (x86-ret cgc))))
