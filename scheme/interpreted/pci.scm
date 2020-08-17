@@ -14,12 +14,14 @@
     device-at?
     list-devices)
   (begin
-    (define PCI-CONFIG-ADDR #xCF8)
-    (define PCI-CONFIG-DATA #xCFC)
-    (define PCI-BUS-COUNT 256)
-    (define PCI-DEV-PER-BUS 32)
-    (define PCI-FUNC-PER-DEV 8)
-    (define PCI-HEADER-INFO-OFFSET 8)
+    (define CLASS-MASS-STORAGE #x01)
+    (define SUBCLASS-IDE-CONTROLLER #x01)
+    (define CONFIG-ADDR #xCF8)
+    (define CONFIG-DATA #xCFC)
+    (define BUS-COUNT 256)
+    (define DEV-PER-BUS 32)
+    (define FUNC-PER-DEV 8)
+    (define HEADER-INFO-OFFSET 8)
 
     ;; Convert an offset to a register number
     (define (offset->register offset)
@@ -45,8 +47,8 @@
     ;; to read from.
     (define (read-conf bus device function offset)
       (let ((address (make-configuration-address #t bus device function offset)))
-        (outl address PCI-CONFIG-ADDR)
-        (inl PCI-CONFIG-DATA)))
+        (outl address CONFIG-ADDR)
+        (inl CONFIG-DATA)))
 
 
     ;; Verifies if a device is present at the given bus, device
@@ -69,7 +71,7 @@
       ; (debug-write function)
       (let* ((current ;; at the current address
                (if (device-at? bus device function)
-                   (let* ((info-line (read-conf bus device function PCI-HEADER-INFO-OFFSET))
+                   (let* ((info-line (read-conf bus device function HEADER-INFO-OFFSET))
                           (class (bitwise-and
                                    #xFF
                                    (arithmetic-shift info-line (- 24))))
@@ -83,11 +85,11 @@
              (found (if (not (eq? 'NOTHING current))
                         (cons current found)
                         found)))
-        (cond ((fx< function (-- PCI-FUNC-PER-DEV))
+        (cond ((fx< function (-- FUNC-PER-DEV))
                (list-device-at bus device (++ function) pred found))
-              ((fx< device (-- PCI-DEV-PER-BUS))
+              ((fx< device (-- DEV-PER-BUS))
                (list-device-at bus (++ device) 0 pred found))
-              ((fx< bus (-- PCI-BUS-COUNT))
+              ((fx< bus (-- BUS-COUNT))
                (list-device-at (++ bus) 0 0 pred found))
               (else found))))
 

@@ -69,7 +69,7 @@ uint16 ide_read_register(ide_controller *ctrl, uint16 reg, bool wide) {
     offset = reg - 0x10;
   } else {
     base = ctrl->bus_master_port;
-    offset = reg - 0x020;
+    offset = reg - 0x20;
   }
 
   if (wide) {
