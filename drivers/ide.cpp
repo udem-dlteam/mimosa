@@ -982,7 +982,7 @@ static void setup_ide_controller(ide_controller *ctrl) {
         } else {
           ide_delay(ctrl); // 400 nsecs
           uint8 status = ide_read_byte(ctrl, IDE_STATUS_REG);
-          if (0x0000 != status) {
+          if (0x00 != status) {
             ctrl->device[i].kind = IDE_DEVICE_ATA;
           } else {
             ctrl->device[i].kind = IDE_DEVICE_ABSENT;

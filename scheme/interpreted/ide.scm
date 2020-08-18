@@ -1,4 +1,4 @@
-e Mimosa
+; Mimosa
 ; Université de Montréal Marc Feeley, Samuel Yvon
 (define-library
   (ide)
@@ -22,9 +22,6 @@ e Mimosa
     (define IDE-BAR-MASK #xFFFFFFFC)
     (define IDE-INT #x3)
     (define IDE-MAX-SECTOR-READ 255)
-    (define IDE-DEVICE-ABSENT 'IDE-DEVICE-ABSENT)
-    (define IDE-DEVICE-ATA    'IDE-DEVICE-ATA)
-    (define IDE-DEVICE-ATAPI  'IDE-DEVICE-ATAPI)
     (define IDE-CONTROLLERS 4)
     (define IDE-DEVICES-PER-CONTROLLER 2)
     ;; Correct register value
@@ -63,6 +60,7 @@ e Mimosa
     (define IDE-DEV-HEAD-IBM #xa0)
     (define IDE-DEV-HEAD-LBA (fxior (expt 2 6) IDE-DEV-HEAD-IBM)) ; LBA address
     (define (IDE-DEV-HEAD-DEV x) (* x (expt 2 4))) ; Device index (0 or 1)
+    ;; Commands
     (define IDE-EXEC-DEVICE-DIAG-CMD       #x90)
     (define IDE-FLUSH-CACHE-CMD            #xe7)
     (define IDE-IDENTIFY-DEVICE-CMD        #xec)
@@ -85,21 +83,25 @@ e Mimosa
     (define IDE-WRITE-SECTORS-CMD          #x30)
     (define IDE-LOG2-SECTOR-SIZE 9)
     (define MAX-NB-IDE-CMD-QUEUE-ENTRIES 1)
-
+    ;; Default values
     (define IDE-PATA-PRIMARY-IRQ 14)
     (define IDE-PATA-SECONDARY-IRQ 15)
-
     (define IDE-PATA-FIRST-CONTROLLER-BASE #x1F0)
     (define IDE-PATA-FIRST-CONTROLLER #x3F6)
     (define IDE-PATA-SECOND-CONTROLLER-BASE #x170)
     (define IDE-PATA-SECOND-CONTROLLER #x376)
+    (define ATAPI-SIG #xEB14)
+    (define SATAPI-SIG #x9669)
+    (define SATA-SIG #xC33C)
+    ;; Device types
+    (define ATAPI-TYPE 'TYPE-ATAPI)
+    (define SATAPI-TYPE 'TYPE-SATAPI)
+    (define ATA-TYPE 'TYPE-ATA)
+    (define SATA-TYPE 'TYPE-SATA)
 
     (define (pci-ide-controller? class subclass)
       (and (= class pci#CLASS-MASS-STORAGE)
            (= subclass pci#SUBCLASS-IDE-CONTROLLER)))
-
-    (define (log message)
-      (debug-write message))
 
     ; Verify that the status indicates that the disk
     ; absent
@@ -112,24 +114,22 @@ e Mimosa
                     IDE-STATUS-DRQ)))
         (not (fx= (fxand status mask) mask))))
 
-   (define ATAPI-SIG #xEB14)
-   (define SATAPI-SIG #x9669)
-   (define SATA-SIG #xC33C)
 
-   (define ATAPI-TYPE 'TYPE-ATAPI)
-   (define SATAPI-TYPE 'TYPE-SATAPI)
-   (define ATA-TYPE 'TYPE-ATA)
-   (define SATA-TYPE 'TYPE-SATA)
+    (define (signature->type signature)
+      (debug-write "signature->type")
+      (debug-write (number->string signature 16))
+      (cond ((fx= signature ATAPI-SIG)
+             ATAPI-TYPE)
+            ((fx= signature SATAPI-SIG)
+             SATAPI-TYPE)
+            ((fx= signature SATA-SIG)
+             SATA-TYPE)
+            (else
+              ATA-TYPE)))
 
-   (define (signature->type signature)
-    (cond ((fx= signature ATAPI-SIG)
-           ATAPI-TYPE)
-          ((fx= signature SATAPI-SIG)
-           SATAPI-TYPE)
-          ((fx= signature SATA-SIG)
-           SATA-TYPE)
-          (else
-           ATA-TYPE)))
+    (define (packet-device? type)
+      (or (eq? ATAPI-TYPE type)
+          (eq? SATAPI-TYPE type)))
 
     (define-type ide-device
                  id ; the ID of the device
@@ -144,7 +144,6 @@ e Mimosa
                  total-sectors-chs ; total sector in C/H/S notation
                  total-sectors ; the total number of sectors
                  purpose ; either the symbol HARD-DISK or REMOVABLE
-
                  )
 
     (define-type ide-controller
@@ -157,13 +156,14 @@ e Mimosa
                  base-port
                  controller-port
                  bus-master-port
+                 devices
                  )
 
     ; Handle an IDE read error with the CPU port of the controller as a way
     ; to identify the port
-    (define (ide-handle-read-err cpu-port)
-      (let* ((err-reg (fx+ cpu-port IDE-ERROR-REG))
-             (error (inb err-reg)))
+    (define (ide-handle-read-err cont)
+      (let ((error (ide-read-byte cont IDE-ERROR-REG)))
+
         (if (mask error IDE-ERROR-BBK)
             (debug-write "Bad block mark detected in sector's ID field"))
 
@@ -297,10 +297,6 @@ e Mimosa
                 (c (expand-wvect word-vector))))
           (e ERR-ARGS)))
 
-    ; Check if the device is absent
-    (define (device-absent? dev)
-      (eq? dev IDE-DEVICE-ABSENT))
-
     (define (ide-write-sectors device lba buffer count c e)
       (let* ((count (min count 256))
              (compressed-vector (compress-bvect buffer))
@@ -398,12 +394,13 @@ e Mimosa
                      15))
         (call-if cont)))
 
-
-    ; Create a list of ide devices
     (define (list-devices)
-      (filter (flatten
-                (vector->list (vector-map ide-controller-devices IDE-CTRL-VECT)))
-              (o not device-absent?)))
+      (flatten (vector-map
+                 (lambda (controller-or-sym)
+                   (if (symbol? controller-or-sym)
+                       '()
+                       (ide-device-controller controller-or-sym)))
+                 IDE-CTRL-VECT)))
 
     (define (make-head-command lba? master? head)
       (fxior
@@ -417,19 +414,8 @@ e Mimosa
         (<< (if (mask head 1) 1 0) 0) ;; HEAD NO LSb
         ))
 
-    (define (master?-to-str master?) (if master?  "MASTER" "SLAVE"))
-
-    (define device-vector (vector 0 0 0 0 0 0 0 0))
-
-    (define (device-vector-get cont-num master?)
-      (let ((offset (if master? 0 1)))
-        (vector-ref device-vector (+ (* 2 cont-num) offset))
-        ))
-
-    (define (device-vector-set! cont-num master? v)
-      (let ((offset (if master? 0 1)))
-        (vector-set! device-vector (+ (* 2 cont-num) offset) v)
-        ))
+    (define (master?-to-str master?)
+      (if master? "MASTER" "SLAVE"))
 
     ;; Allow a boolean function to be
     ;; retried nth time before being
@@ -448,43 +434,41 @@ e Mimosa
     ;; It will read the device information
     ;; and setup the cache
     (define (setup-device cont master?)
+      (debug-write "In DEV SETUP")
       (let* ((id (ide-controller-controller-id cont)))
-        (log (string-append
-               "Setting up device "
-               (master?-to-str master?)
-               " of controller "
-               (number->string id)))
         (if (with-retry 300 (partial detect-device cont master?))
             (begin
               ;; Device is here...
               ;; We read the magic signature to see if the drives
               ;; are ATA or ATAPI. This OSDEV articles describes it well:
               ;; https://wiki.osdev.org/ATAPI
-              ;; Controller just reset the drives, so they should have their
-              ;; signature.
               (ide-select-device cont master?)
+              ;; Reset the sginature
+              (ide-write-byte cont IDE-EXEC-DEVICE-DIAG-CMD IDE-COMMAND-REG)
+              (ide-delay cont)
               (let* ((lo (ide-read-byte cont IDE-CYL-LO-REG))
                      (hi (ide-read-byte cont IDE-CYL-HI-REG))
                      (signature (bitwise-ior lo (<< hi 8)))
-                     (type (signature->type signature))
-                     ;; Last presence check... Status should not be 0 unless ATA-PI
-                     (present (or (eq? type IDE-DEVICE-ATAPI)
-                                  (not (fx= (ide-read-byte cont IDE-STATUS-REG) 0))
-                                  )))
-                (if present
+                     (type (signature->type signature)))
+                (debug-write type)
+                (if (or (packet-device? type)
+                        (mask (ide-read-byte cont IDE-STATUS-REG) #xFF))
+                    ;; Last presence check... Status should not be 0 unless it's a packet device
                     (begin
-                      (ide-select-device cont mater?)
                       (ide-write-byte
                         cont
-                        (if (eq? type IDE-DEVICE-ATA)
-                            IDE-IDENTIFY-DEVICE-CMD
-                            IDE-IDENTIFY-PACKET-DEVICE-CMD)
+                        (if (packet-device? type)
+                            IDE-IDENTIFY-PACKET-DEVICE-CMD
+                            IDE-IDENTIFY-DEVICE-CMD)
                         IDE-COMMAND-REG)
                       ;; Interrupts are disabled, we have to poll
                       ;; We can also read the status reg without fear
-                      (if (with-retry 500 (lambda _
-                                            (let ((status (ide-read-byte cont IDE-STATUS-REG)))
-                                              (not (mask status IDE-STATUS-BSY)))))
+                      (if (with-retry
+                            1000000
+                            (lambda _
+                              (let ((status
+                                      (ide-read-byte cont IDE-STATUS-REG)))
+                                (not (mask status IDE-STATUS-BSY)))))
                           ;; The device is here. The ID packet is one sector long, but made
                           ;; out of words (of 16 bytes), so we read 256 of them
                           (begin
@@ -509,9 +493,8 @@ e Mimosa
                                      (fx+ (<< (vector-ref id-vect 61) 16) (vector-ref id-vect 60)))
                                    (total-sectors-chs
                                      (if has-extended
-                                         (fx+
-                                           (<< (vector-ref id-vect 58) 16)
-                                           (vector-ref id-vect 57)) 0))
+                                         (fx+ (<< (vector-ref id-vect 58) 16)
+                                              (vector-ref id-vect 57)) 0))
                                    (device (make-ide-device
                                              master?
                                              type
@@ -529,14 +512,19 @@ e Mimosa
                                                (cond ((and hard-disk-bit removable-bit) 'BOTH)
                                                      (hard-disk-bit 'HARD-DISK)
                                                      (removable-bit 'REMOVABLE)
-                                                     (else 'UNKNOWN)))
-                                             )))
+                                                     (else 'UNKNOWN))))))
+
+                              (debug-write serial-num)
+                              (debug-write model-num)
                               (if (not (eq? (ide-device-purpose device) 'UNKNOWN))
+                                  ;; Append to the controller's devices
+                                  (ide-controller-devices-set!
+                                    cont
+                                    (cons device (ide-controller-devices cont)))
                                   (begin
-                                    (device-vector-set! id master? device)
-                                    ;; Open IRQ redirection
-                                    ))
-                              ))))))))))
+                                    (debug-write "UNK:")
+                                    (debug-write serial-num))
+                                  )))))))))))
 
     ;; Detect an IDE device on a controller
     ;; It reads the status register
@@ -552,41 +540,35 @@ e Mimosa
     ;; but if the device is busy, we assume it is not a real device
     ;; This needs to be tried in a loop
     (define (advanced-detect-device cont master?)
-      (let* ((id (ide-controller-controller-id cont))
-             (cpu-port (ide-controller-cpu-port cont))
-             (head-reg (fx+ cpu-port IDE-DEV-HEAD-REG))
-             (status-reg (fx+ cpu-port IDE-STATUS-REG))
-             (err-reg (fx+ cpu-port IDE-ERROR-REG))
-             (cmd-reg (fx+ cpu-port IDE-COMMAND-REG)))
-        (with-retry
-          30000
-          (lambda ()
-            ;; Set the disk
-            (outb (make-head-command #f master? 0) head-reg)
-            (ide-delay cont)
-            (let* ((status (ide-read-byte cont IDE-STATUS-REG))) ;; check the status
-              ;; Device should NOT be busy
-              (fx= 0 (fxand status IDE-STATUS-BSY)))))
-        ))
+      (with-retry
+        30000
+        (lambda _
+          ;; Set the disk
+          (ide-select-device cont master?)
+          (ide-delay cont)
+          (let* ((status (ide-read-byte cont IDE-STATUS-REG))) ;; check the status
+            ;; Device should NOT be busy
+            (fx= 0 (fxand status IDE-STATUS-BSY))))))
 
     (define (setup-controller cont)
-      (log
-       (string-append
-        "Setting up controller "
-        (number->string (ide-controller-controller-id cont))))
+      (debug-write "Setting up controller")
+      (debug-write (number->string (ide-controller-base-port cont) 16))
       (let ((devices (list #t #f))
             (short-sleep (lambda _ (until-has-elapsed 5 TIME-UNIT-MICROSECS))))
-        (if (or (detect-device cont #t)
-                (detect-device cont #f))
+        (if (any? (map (partial detect-device cont) devices))
             (for-each
               (lambda (master?)
                 (if (advanced-detect-device cont master?)
-                 (begin
-                  (reset-drive cont master?)
-                  (setup-device cont master?))))
+                    (begin
+                      (reset-drive cont master?)
+                      (setup-device cont master?)
+                      ;; Done setting up, select + enable ints
+                      (ide-select-device cont master?)
+                      (ide-delay cont)
+                      (ide-write-byte cont #x00 IDE-DEV-CTRL-REG))))
               devices))))
 
-    (define (ide-reg->base-offset cont cmd)
+    (define (ide-reg->base-offset cont reg)
       (cond
         ((< reg #x10)
          (values
@@ -628,33 +610,38 @@ e Mimosa
       (ide-write cont value reg #t))
 
     (define (ide-select-device cont master?)
-      (let* ((head-reg (fx+ cpu-port IDE-DEV-HEAD-REG)))
-        ;; Send the selection packet
-        (outb (make-head-command #f master? 0) head-reg)))
+      ;; Send the selection packet
+      (ide-write-byte
+        cont
+        (make-head-command #f master? 0)
+        IDE-DEV-HEAD-REG))
 
     ;; Reset the IDE drive. It leaves interrupts
     ;; disabled on the drive, as it is the default state.
     (define (reset-drive cont master?)
-     (let ((short-sleep (lambda _ (until-has-elapsed 5 TIME-UNIT-MICROSECS))))
-       (ide-select-device cont master?)
-       (ide-delay cont)
-       (ide-read-byte cont IDE-STATUS-REG)
-       (thread-sleep (short-sleep))
-       ;; Disable interrupts for the device
-       (ide-write-byte cont IDE-DEV-CTRL-nIEN IDE-CTRL-REG)
-       (thread-sleep (short-sleep))
-       (ide-write-byte
-         cont
-         ;; Actual reset
-         (bitwise-ior IDE-DEV-CTRL-nIEN IDE-DEV-CTRL-SRST)
-         IDE-CTRL-REG)
-       (thread-sleep (short-sleep))
-       ;; Reenable, keep ints. disabled
-       (ide-write-byte cont IDE-DEV-CTRL-nIEN IDE-CTRL-REG)
-       (thread-sleep (short-sleep))
-       (ide-read-byte cont IDE-ERROR-REG)
-       (thread-sleep (short-sleep))
-       ))
+      (debug-write "RESET")
+      (debug-write (number->string (ide-controller-base-port cont) 16))
+      (debug-write (master?-to-str master?))
+      (let ((short-sleep (lambda _ (until-has-elapsed 5 TIME-UNIT-MICROSECS))))
+        (ide-select-device cont master?)
+        (ide-delay cont)
+        (ide-read-byte cont IDE-STATUS-REG)
+        (thread-sleep! (short-sleep))
+        ;; Disable interrupts for the device
+        (ide-write-byte cont IDE-DEV-CTRL-nIEN IDE-DEV-CTRL-REG)
+        (thread-sleep! (short-sleep))
+        (ide-write-byte
+          cont
+          ;; Actual reset
+          (bitwise-ior IDE-DEV-CTRL-nIEN IDE-DEV-CTRL-SRST)
+          IDE-DEV-CTRL-REG)
+        (thread-sleep! (short-sleep))
+        ;; Reenable, keep ints. disabled
+        (ide-write-byte cont IDE-DEV-CTRL-nIEN IDE-DEV-CTRL-REG)
+        (thread-sleep! (short-sleep))
+        (ide-read-byte cont IDE-ERROR-REG)
+        (thread-sleep! (short-sleep))
+        ))
 
     ; Switch the IDE management from the C kernel to the scheme kernel
     (define (switch-over-driver)
@@ -675,8 +662,7 @@ e Mimosa
               function
               index
               offset)
-      (let ((raw-data
-              (bitwise-and IDE-BAR-MASK (pci#read-conf bus device function offset))))
+      (let ((raw-data (bitwise-and IDE-BAR-MASK (pci#read-conf bus device function offset))))
         (if (and
               (<= index 3)
               (fx= #x00))
@@ -698,7 +684,8 @@ e Mimosa
                  (not pata?)
                  (list-ref bar-data 0)
                  (list-ref bar-data 1)
-                 (list-ref bar-data 4)))
+                 (list-ref bar-data 4)
+                 '()))
              (secondary
                (make-ide-controller
                  second-id
@@ -709,7 +696,8 @@ e Mimosa
                  (not pata?)
                  (list-ref bar-data 2)
                  (list-ref bar-data 3)
-                 (list-ref bar-data 4))))
+                 (list-ref bar-data 4)
+                 '())))
         (succ primary secondary)))
 
     ;; Identifiy the two channels of an IDE controller.

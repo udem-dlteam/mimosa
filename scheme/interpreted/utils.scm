@@ -55,6 +55,7 @@
     string-trim
     tautology
     u8vector->string
+    infinite-loop
     uint16
     uint32
     uint8
@@ -368,5 +369,7 @@
     (define (any? l)
       ;; or is a macro :(
       (fold (lambda (e r) (or e r)) #f l))
+
+    (define (infinite-loop) (infinite-loop))
 
     ))
