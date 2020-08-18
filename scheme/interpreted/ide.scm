@@ -7,6 +7,7 @@
     (gambit)
     (utils)
     (intr)
+    (pci)
     (low-level)
     (debug))
   (export
@@ -18,6 +19,7 @@
     ide-setup
     )
   (begin
+    (define IDE-BAR-MASK #xFFFFFFFC)
     (define IDE-INT #x3)
     (define IDE-MAX-SECTOR-READ 255)
     (define IDE-DEVICE-ABSENT 'IDE-DEVICE-ABSENT)
@@ -83,36 +85,21 @@
     (define IDE-WRITE-SECTORS-CMD          #x30)
     (define IDE-LOG2-SECTOR-SIZE 9)
     (define MAX-NB-IDE-CMD-QUEUE-ENTRIES 1)
-    (define IDE-CTRL-0 #x1f0)
-    (define IDE-IRQ-0 14)
-    (define IDE-CTRL-1 #x170)
-    (define IDE-IRQ-1 15)
-    (define IDE-CTRL-2 #x1e8)
-    (define IDE-IRQ-2 12)
-    (define IDE-CTRL-3 #x168)
-    (define IDE-IRQ-3 10)
+
+    (define IDE-PATA-PRIMARY-IRQ 14)
+    (define IDE-PATA-SECONDARY-IRQ 15)
+
+    (define IDE-PATA-FIRST-CONTROLLER-BASE #x1F0)
+    (define IDE-PATA-FIRST-CONTROLLER #x3F6)
+    (define IDE-PATA-SECOND-CONTROLLER-BASE #x170)
+    (define IDE-PATA-SECOND-CONTROLLER #x376)
 
     (define (pci-ide-controller? class subclass)
-      (and
-        (fx= class pci#CLASS-MASS-STORAGE)
-        (fx= subclass pci#SUBCLASS-IDE-CONTROLLER)))
+      (and (= class pci#CLASS-MASS-STORAGE)
+           (= subclass pci#SUBCLASS-IDE-CONTROLLER)))
 
     (define (log message)
       (debug-write message))
-
-    (define IDE-CONTROLLER-PORTS
-      (list
-        IDE-CTRL-0
-        IDE-CTRL-1
-        IDE-CTRL-2
-        IDE-CTRL-3))
-
-    (define IDE-CONTROLLER-IRQS
-      (list
-        IDE-IRQ-0
-        IDE-IRQ-1
-        IDE-IRQ-2
-        IDE-IRQ-3))
 
     ; Verify that the status indicates that the disk
     ; absent
@@ -143,11 +130,11 @@
 
     (define-type ide-controller
                  controller-id ; the id of the controller
-                 cpu-port ; the cpu port of the IDE controller
                  irq ; IRQ associated with the controller
                  continuations-queue ; queue of continuations that needs to be executed
                  mut; condvar mutex
                  cv ; condvar itself
+                 serial?
                  base-port
                  controller-port
                  bus-master-port
@@ -356,27 +343,9 @@
             ; flush to confirm no more writes are going to occur
             (ide-flush-cache device c e))))
 
-    ; Init the devices struct
-    (define (ide-init-controllers)
-      (list->vector
-        (map
-          (lambda (i)
-            (make-ide-controller
-              i ; the id
-              (list-ref IDE-CONTROLLER-PORTS i) ; the cpu-port
-              (list-ref IDE-CONTROLLER-IRQS i) ; the irq
-              (open-vector) ; make a 10 item queue
-              (make-mutex)
-              (make-condition-variable)
-              0 ;; TODO
-              0 ;; TODO
-              0 ;; TODO
-              ))
-          (iota IDE-CONTROLLERS))))
-
     ; Vectors of IDE controllers, it contains the controller present on the
     ; system.
-    (define IDE-CTRL-VECT (ide-init-controllers))
+    (define IDE-CTRL-VECT (make-vector 4 'NOT-PRESENT))
 
     (define (ide-delay cpu-port)
       ; We read the alternative status reg.
@@ -427,10 +396,6 @@
         ))
 
     (define (master?-to-str master?) (if master?  "MASTER" "SLAVE"))
-
-    ; Vectors of IDE controllers, it contains the controller present on the
-    ; system.
-    (define IDE-CTRL-VECT (ide-init-controllers))
 
     (define device-vector (vector 0 0 0 0 0 0 0 0))
 
@@ -515,7 +480,7 @@
                             (let* ((size (<< 1 (- IDE-LOG2-SECTOR-SIZE 1)))
                                    ;; The result of the identify device command is detailed
                                    ;; in The Indispensible PC Hardware book.
-                                   (id-vect (build-vector size (lambda _ (inw data-reg))))
+                                   (id-vect (build-vector size (lambda - (inw data-reg))))
                                    (configuration (vector-ref id-vect 0))
                                    (serial-num (swap-and-trim id-vect 10 20))
                                    (firmware-rev (swap-and-trim id-vect 23 8))
@@ -678,30 +643,112 @@
 
     (define ide-controller-count 0)
 
-    (define (identify-controller bus device function)
-      #t
+    (define ide-bar-default-values
+      (list
+        IDE-PATA-FIRST-CONTROLLER-BASE
+        IDE-PATA-FIRST-CONTROLLER
+        IDE-PATA-SECOND-CONTROLLER-BASE
+        IDE-PATA-SECOND-CONTROLLER))
 
+    (define (read-ide-bar
+              bus
+              device
+              function
+              index
+              offset)
+      (let ((raw-data
+              (bitwise-and IDE-BAR-MASK (pci#read-conf bus device function offset))))
+        (if (and
+              (<= index 3)
+              (fx= #x00))
+            (list-ref ide-bar-default-values index)
+            raw-data)))
 
-      )
+    ;; Make the two ide controllers (channels) from the information
+    ;; obtained form the PCI bus
+    (define (make-controllers pata? irq bar-data succ)
+      (let* ((main-id ide-controller-count)
+             (second-id (++ main-id))
+             (primary
+               (make-ide-controller
+                 main-id
+                 (if pata? IDE-PATA-PRIMARY-IRQ irq)
+                 (open-vector) ; make a 10 item queue
+                 (make-mutex)
+                 (make-condition-variable)
+                 (not pata?)
+                 (list-ref bar-data 0)
+                 (list-ref bar-data 1)
+                 (list-ref bar-data 4)))
+             (secondary
+               (make-ide-controller
+                 second-id
+                 (if pata? IDE-PATA-SECONDARY-IRQ irq)
+                 (open-vector) ; make a 10 item queue
+                 (make-mutex)
+                 (make-condition-variable)
+                 (not pata?)
+                 (list-ref bar-data 2)
+                 (list-ref bar-data 3)
+                 (list-ref bar-data 4))))
+        (succ primary secondary)))
 
-    (define (setup-controller bus-device-function)
+    ;; Identifiy the two channels of an IDE controller.
+    ;; The bus device function parameters are used to identify
+    ;; it's location on the PCI bus where as the succ continuation
+    ;; takes in two parameters, the first and second channels
+    ;; respectively. The function returns an error otherwise
+    (define (identify-controller-channels bus device function succ)
+      (let* ((device-info-line
+               (pci#read-conf bus device function pci#HEADER-INFO-OFFSET))
+             (pci-info-line
+               (pci#read-conf bus device function pci#HEADER-PCI-INFO-OFFSET))
+             (header-type (bitwise-and #xFF (arithmetic-shift pci-info-line -16)))
+             (prog-interface (bitwise-and #xFF (arithmetic-shift device-info-line -8))))
+        (if (not (fx= #x00 header-type))
+            'INCORRECT-HEADER
+            (let* ((irq-line
+                     (pci#read-conf bus device function pci#HEADER-0-INT-OFFSET))
+                   (irq (bitwise-and #xFF irq-line))
+                   (extract (partial read-ide-bar bus device function))
+                   (bar-data (map-with-index extract pci#BAR-LIST))
+                   (pata? (= irq #x00))) ;; WIP
+              (if (any? (vector->list
+                          (vector-map
+                            (lambda (controller-or-sym)
+                              (if (symbol? controller-or-sym)
+                                  #f
+                                  (fx=
+                                    (list-ref bar-data 0)
+                                    (ide-controller-base-port controller-or-sym))))
+                            IDE-CTRL-VECT)))
+                  'DUPLICATED-CONTROLLER
+                  (make-controllers pata? irq bar-data succ)
+                  )))))
+
+    (define (install-controller bus-device-function)
       (if (<= (+ 2 ide-controller-count) IDE-CONTROLLERS)
           (let ((bus (car bus-device-function))
                 (device (cadr bus-device-function))
                 (function (caddr bus-device-function)))
-            #t
-            ;;TODO
-            )
-          (debug-write "ALL CTRLS FOUND")
-          ))
+            (identify-controller-channels
+              bus
+              device
+              function
+              (lambda (p s) ;; primary and seconday controllers
+                (vector-set! IDE-CTRL-VECT ide-controller-count p)
+                (vector-set! IDE-CTRL-VECT (+ 1 ide-controller-count) s)
+                (set! ide-controller-count (+ 2 ide-controller-count))))
+            )))
 
     (define (detect-ide-controllers)
       (let ((controllers (pci#list-devices pci-ide-controller?)))
-        (for-each setup-controller controllers)))
+        (for-each install-controller controllers)))
 
     (define (ide-setup)
       (detect-ide-controllers)
       ; (for-each setup-controller (vector->list IDE-CTRL-VECT))
-      (switch-over-driver)
-      (cons IDE-INT handle-ide-int)) ;; return value expected by the setup routine
+      ; (switch-over-driver)
+      ; (cons IDE-INT handle-ide-int)
+      ) ;; return value expected by the setup routine
     ))

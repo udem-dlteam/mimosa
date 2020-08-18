@@ -22,6 +22,23 @@
     (define DEV-PER-BUS 32)
     (define FUNC-PER-DEV 8)
     (define HEADER-INFO-OFFSET 8)
+    (define HEADER-PCI-INFO-OFFSET #x0C)
+    (define HEADER-0-INT-OFFSET #x3C)
+    (define HEADER-0-BAR0 #x10)
+    (define HEADER-0-BAR1 #x14)
+    (define HEADER-0-BAR2 #x18)
+    (define HEADER-0-BAR3 #x1C)
+    (define HEADER-0-BAR4 #x20)
+    (define HEADER-0-BAR5 #x24)
+    (define BAR-LIST
+      (list
+        HEADER-0-BAR0
+        HEADER-0-BAR1
+        HEADER-0-BAR2
+        HEADER-0-BAR3
+        HEADER-0-BAR4
+        HEADER-0-BAR5))
+
 
     ;; Convert an offset to a register number
     (define (offset->register offset)
@@ -65,19 +82,18 @@
     ;; It starts at the given bus device and function, and takes
     ;; a currently found list
     (define (list-device-at bus device function pred found)
-      ; (debug-write "---")
-      ; (debug-write bus)
-      ; (debug-write device)
-      ; (debug-write function)
       (let* ((current ;; at the current address
                (if (device-at? bus device function)
-                   (let* ((info-line (read-conf bus device function HEADER-INFO-OFFSET))
-                          (class (bitwise-and
-                                   #xFF
-                                   (arithmetic-shift info-line (- 24))))
-                          (subclass (bitwise-and
-                                      #xFF
-                                      (arithmetic-shift info-line (- 16)))))
+                   (let* ((info-line
+                            (read-conf bus device function HEADER-INFO-OFFSET))
+                          (class
+                            (bitwise-and
+                              #xFF
+                              (arithmetic-shift info-line -24)))
+                          (subclass
+                            (bitwise-and
+                              #xFF
+                              (arithmetic-shift info-line -16))))
                      (if (pred class subclass)
                          (list bus device function)
                          'NOTHING))
@@ -89,7 +105,7 @@
                (list-device-at bus device (++ function) pred found))
               ((fx< device (-- DEV-PER-BUS))
                (list-device-at bus (++ device) 0 pred found))
-              ((fx< bus (-- BUS-COUNT))
+              ((fx< bus 0) ;; TODO: otherlines might be uninit, stay on 0 for now
                (list-device-at (++ bus) 0 0 pred found))
               (else found))))
 
@@ -99,6 +115,6 @@
     ;; The result is given as a list of list, where each sublist
     ;; is of the form '(bus device function)
     (define (list-devices pred)
-     (list-device-at #x0000 #x0000 #x0000 pred '()))
+      (list-device-at #x0000 #x0000 #x0000 pred '()))
 
     ))

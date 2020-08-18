@@ -26,6 +26,8 @@
     both
     build-vector
     call-if
+    any?
+    contradiction
     day-month-year->days-since-epoch
     day-month-year->epoch-seconds
     displayn
@@ -40,6 +42,7 @@
     ilog2
     lazy
     lwrap
+    map-with-index
     mask
     o
     partial
@@ -50,6 +53,7 @@
     split-string
     string->u8vector
     string-trim
+    tautology
     u8vector->string
     uint16
     uint32
@@ -59,8 +63,6 @@
     wint32
     wint8
     zip
-    tautology
-    contradiction
     )
   (begin
     (define tautology (lambda _ #t)) ;; always true pred
@@ -353,5 +355,18 @@
         (if (>= start l)
             ""
             (substring s start (min l end)))))
+
+    (define (map-with-index f l)
+      (let ((len (length l)))
+        (map
+          (lambda (index)
+            (let ((element (list-ref l index)))
+              (f index element)))
+          (iota len))))
+
+
+    (define (any? l)
+      ;; or is a macro :(
+      (fold (lambda (e r) (or e r)) #f l))
 
     ))

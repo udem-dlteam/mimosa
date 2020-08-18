@@ -83,8 +83,8 @@
           (x86-sar   cgc (x86-edx) (x86-imm-int 2))       ;
           (x86-mov   cgc (x86-eax) (x86-imm-int 0))
           (x86-in-dx cgc (x86-eax)) ; inl takes eax in arg
-          (x86-shr   cgc (x86-edx) (x86-imm-int 16));; take the upper part
-          (x86-and  cgc  (x86-eax) (x86-imm-int #xFFFF));; take the lower part
+          (x86-shr   cgc (x86-eax) (x86-imm-int 16));; take the upper part
+          (x86-and   cgc (x86-eax) (x86-imm-int #xFFFF));; take the lower part
           (x86-shl   cgc (x86-eax) (x86-imm-int 2)) ;; retag
           (x86-ret   cgc))))
 
