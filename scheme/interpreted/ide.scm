@@ -41,25 +41,25 @@
     (define IDE-DRIVE-ADDR-REG #x13)
     ;; Prepended by #x20
     (define IDE-BUSMASTER-STATUS-REG #x22)
-    (define IDE-STATUS-BSY (expt 2 7))  ; Device busy bit
-    (define IDE-STATUS-RDY (expt 2 6))  ; Device ready bit
-    (define IDE-STATUS-DF (expt 2 5))   ; Device fault bit
-    (define IDE-STATUS-DSC (expt 2 4))  ; Drive seek complete bit
-    (define IDE-STATUS-DRQ (expt 2 3))  ; Data request bit
-    (define IDE-STATUS-CORR (expt 2 2))  ; Corrected data bit
-    (define IDE-STATUS-INDEX (expt 2 1))  ; Index bit
+    (define IDE-STATUS-BSY (arithmetic-shift 1 7))  ; Device busy bit
+    (define IDE-STATUS-RDY (arithmetic-shift 1 6))  ; Device ready bit
+    (define IDE-STATUS-DF (arithmetic-shift 1 5))   ; Device fault bit
+    (define IDE-STATUS-DSC (arithmetic-shift 1 4))  ; Drive seek complete bit
+    (define IDE-STATUS-DRQ (arithmetic-shift 1 3))  ; Data request bit
+    (define IDE-STATUS-CORR (arithmetic-shift 1 2))  ; Corrected data bit
+    (define IDE-STATUS-INDEX (arithmetic-shift 1 1))  ; Index bit
     (define IDE-STATUS-ERR 1)    ; Error bit
-    (define IDE-ERROR-BBK   (expt 2 7)) ; Bad block mark detected in sector's ID field
-    (define IDE-ERROR-UNC   (expt 2 6)) ; Uncorrectable data error encountered
-    (define IDE-ERROR-IDNF  (expt 2 4)) ; Requested sector's ID field not found
-    (define IDE-ERROR-ABRT  (expt 2 2)) ; Command aborted (status error or invalid cmd)
-    (define IDE-ERROR-TK0NF (expt 2 1)) ; Track 0 not found during recalibrate command
-    (define IDE-ERROR-AMNF  (expt 2 0)) ; Data address mark not found after ID field
-    (define IDE-DEV-CTRL-SRST (expt 2 2)) ; Software reset bit
-    (define IDE-DEV-CTRL-nIEN (expt 2 1)) ; Interrupt enable bit (0=enabled)
+    (define IDE-ERROR-BBK   (arithmetic-shift 1 7)) ; Bad block mark detected in sector's ID field
+    (define IDE-ERROR-UNC   (arithmetic-shift 1 6)) ; Uncorrectable data error encountered
+    (define IDE-ERROR-IDNF  (arithmetic-shift 1 4)) ; Requested sector's ID field not found
+    (define IDE-ERROR-ABRT  (arithmetic-shift 1 2)) ; Command aborted (status error or invalid cmd)
+    (define IDE-ERROR-TK0NF (arithmetic-shift 1 1)) ; Track 0 not found during recalibrate command
+    (define IDE-ERROR-AMNF  (arithmetic-shift 1 0)) ; Data address mark not found after ID field
+    (define IDE-DEV-CTRL-SRST (arithmetic-shift 1 2)) ; Software reset bit
+    (define IDE-DEV-CTRL-nIEN (arithmetic-shift 1 1)) ; Interrupt enable bit (0=enabled)
     (define IDE-DEV-HEAD-IBM #xa0)
-    (define IDE-DEV-HEAD-LBA (fxior (expt 2 6) IDE-DEV-HEAD-IBM)) ; LBA address
-    (define (IDE-DEV-HEAD-DEV x) (* x (expt 2 4))) ; Device index (0 or 1)
+    (define IDE-DEV-HEAD-LBA (fxior (arithmetic-shift 1 6) IDE-DEV-HEAD-IBM)) ; LBA address
+    (define (IDE-DEV-HEAD-DEV x) (* x (arithmetic-shift 1 4))) ; Device index (0 or 1)
     ;; Commands
     (define IDE-EXEC-DEVICE-DIAG-CMD       #x90)
     (define IDE-FLUSH-CACHE-CMD            #xe7)
@@ -455,8 +455,7 @@
                         (mask (ide-read-byte cont IDE-STATUS-REG) #xFF))
                     ;; Last presence check... Status should not be 0 unless it's a packet device
                     (begin
-                      (ide-write-byte
-                        cont
+                      (ide-write-byte cont
                         (if (packet-device? type)
                             IDE-IDENTIFY-PACKET-DEVICE-CMD
                             IDE-IDENTIFY-DEVICE-CMD)
@@ -466,8 +465,7 @@
                       (if (with-retry
                             1000000
                             (lambda _
-                              (let ((status
-                                      (ide-read-byte cont IDE-STATUS-REG)))
+                              (let ((status (ide-read-byte cont IDE-STATUS-REG)))
                                 (not (mask status IDE-STATUS-BSY)))))
                           ;; The device is here. The ID packet is one sector long, but made
                           ;; out of words (of 16 bytes), so we read 256 of them
@@ -534,38 +532,20 @@
       (ide-delay cont) ;; wait...
       (not-absent? (ide-read-byte cont IDE-STATUS-REG)))
 
-    ;; More sophisticated method to detect the hardware,
-    ;; This does not seem to be documented anywhere but
-    ;; the current code base. We basically perform the same check
-    ;; but if the device is busy, we assume it is not a real device
-    ;; This needs to be tried in a loop
-    (define (advanced-detect-device cont master?)
-      (with-retry
-        30000
-        (lambda _
-          ;; Set the disk
-          (ide-select-device cont master?)
-          (ide-delay cont)
-          (let* ((status (ide-read-byte cont IDE-STATUS-REG))) ;; check the status
-            ;; Device should NOT be busy
-            (fx= 0 (fxand status IDE-STATUS-BSY))))))
-
     (define (setup-controller cont)
       (debug-write "Setting up controller")
       (debug-write (number->string (ide-controller-base-port cont) 16))
-      (let ((devices (list #t #f))
-            (short-sleep (lambda _ (until-has-elapsed 5 TIME-UNIT-MICROSECS))))
+      (debug-write (number->string (ide-controller-controller-port cont) 16))
+      (let ((devices (list #t #f)))
         (if (any? (map (partial detect-device cont) devices))
             (for-each
               (lambda (master?)
-                (if (advanced-detect-device cont master?)
-                    (begin
-                      (reset-drive cont master?)
-                      (setup-device cont master?)
-                      ;; Done setting up, select + enable ints
-                      (ide-select-device cont master?)
-                      (ide-delay cont)
-                      (ide-write-byte cont #x00 IDE-DEV-CTRL-REG))))
+                (reset-drive cont master?)
+                (setup-device cont master?)
+                ;; Done setting up, select + enable ints
+                (ide-select-device cont master?)
+                (ide-delay cont)
+                (ide-write-byte cont #x00 IDE-DEV-CTRL-REG))
               devices))))
 
     (define (ide-reg->base-offset cont reg)
@@ -586,6 +566,12 @@
     (define (ide-read cont reg wide?)
       (let-values (((base port)
                     (ide-reg->base-offset cont reg)))
+        ; (if wide?
+        ;     (begin
+        ;       (debug-write "READ")
+        ;       (debug-write (number->string base 16))
+        ;       (debug-write (number->string port 16))
+        ;       ))
         (if wide?
             (inw (+ base port))
             (inb (+ base port)))))
@@ -633,7 +619,7 @@
         (ide-write-byte
           cont
           ;; Actual reset
-          (bitwise-ior IDE-DEV-CTRL-nIEN IDE-DEV-CTRL-SRST)
+          (fxior IDE-DEV-CTRL-nIEN IDE-DEV-CTRL-SRST)
           IDE-DEV-CTRL-REG)
         (thread-sleep! (short-sleep))
         ;; Reenable, keep ints. disabled
@@ -656,16 +642,13 @@
         IDE-PATA-SECOND-CONTROLLER-BASE
         IDE-PATA-SECOND-CONTROLLER))
 
-    (define (read-ide-bar
-              bus
-              device
-              function
-              index
-              offset)
-      (let ((raw-data (bitwise-and IDE-BAR-MASK (pci#read-conf bus device function offset))))
-        (if (and
-              (<= index 3)
-              (fx= #x00))
+    (define (read-ide-bar bus device function index offset)
+      (let ((raw-data
+              (bitwise-and
+                IDE-BAR-MASK
+                (pci#read-conf bus device function offset))))
+        (if (and (<= index 3)
+                 (fx= raw-data #x00))
             (list-ref ide-bar-default-values index)
             raw-data)))
 
@@ -710,8 +693,10 @@
                (pci#read-conf bus device function pci#HEADER-INFO-OFFSET))
              (pci-info-line
                (pci#read-conf bus device function pci#HEADER-PCI-INFO-OFFSET))
-             (header-type (bitwise-and #xFF (arithmetic-shift pci-info-line -16)))
-             (prog-interface (bitwise-and #xFF (arithmetic-shift device-info-line -8))))
+             (header-type (bitwise-and #xFF
+                                       (arithmetic-shift pci-info-line -16)))
+             (prog-interface (bitwise-and #xFF
+                                          (arithmetic-shift device-info-line -8))))
         (if (not (fx= #x00 header-type))
             'INCORRECT-HEADER
             (let* ((irq-line
