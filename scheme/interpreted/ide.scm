@@ -381,9 +381,7 @@
           (flatten
             (map
               (lambda (ctrl-or-sym)
-                (if (symbol? ctrl-or-sym)
-                    '()
-                    (ide-controller-devices ctrl-or-sym)))
+                (if (symbol? ctrl-or-sym) '() (ide-controller-devices ctrl-or-sym)))
               IDE-CTRL-LIST))
           (o not null?))
         f))
