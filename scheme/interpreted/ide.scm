@@ -16,8 +16,7 @@
     ide-read-sectors
     ide-write-sectors
     list-devices
-    ide-setup
-    )
+    ide-setup)
   (begin
     (define IDE-BAR-MASK #xFFFFFFFC)
     (define IDE-INT #x3)
@@ -116,8 +115,6 @@
 
 
     (define (signature->type signature)
-      (debug-write "signature->type")
-      (debug-write (number->string signature 16))
       (cond ((fx= signature ATAPI-SIG)
              ATAPI-TYPE)
             ((fx= signature SATAPI-SIG)
@@ -321,9 +318,7 @@
           (lambda ()
             (mutex-lock! mut)
             (if (mask (inb stt-reg) IDE-STATUS-ERR)
-                (begin
-                  (debug-write "Failed to write to disk...")
-                  (set! err ERR-HWD)))
+                (set! err ERR-HWD))
             (condition-variable-signal! cv)
             (mutex-unlock! mut))
           q) ; nothing really to do, maybe add a signal later?
@@ -434,7 +429,6 @@
     ;; It will read the device information
     ;; and setup the cache
     (define (setup-device cont master?)
-      (debug-write "In DEV SETUP")
       (let* ((id (ide-controller-controller-id cont)))
         (if (with-retry 300 (partial detect-device cont master?))
             (begin
@@ -450,7 +444,6 @@
                      (hi (ide-read-byte cont IDE-CYL-HI-REG))
                      (signature (bitwise-ior lo (<< hi 8)))
                      (type (signature->type signature)))
-                (debug-write type)
                 (if (or (packet-device? type)
                         (mask (ide-read-byte cont IDE-STATUS-REG) #xFF))
                     ;; Last presence check... Status should not be 0 unless it's a packet device
@@ -512,16 +505,11 @@
                                                      (removable-bit 'REMOVABLE)
                                                      (else 'UNKNOWN))))))
 
-                              (debug-write serial-num)
-                              (debug-write model-num)
                               (if (not (eq? (ide-device-purpose device) 'UNKNOWN))
                                   ;; Append to the controller's devices
                                   (ide-controller-devices-set!
                                     cont
                                     (cons device (ide-controller-devices cont)))
-                                  (begin
-                                    (debug-write "UNK:")
-                                    (debug-write serial-num))
                                   )))))))))))
 
     ;; Detect an IDE device on a controller
@@ -533,9 +521,6 @@
       (not-absent? (ide-read-byte cont IDE-STATUS-REG)))
 
     (define (setup-controller cont)
-      (debug-write "Setting up controller")
-      (debug-write (number->string (ide-controller-base-port cont) 16))
-      (debug-write (number->string (ide-controller-controller-port cont) 16))
       (let ((devices (list #t #f)))
         (if (any? (map (partial detect-device cont) devices))
             (for-each
@@ -566,12 +551,6 @@
     (define (ide-read cont reg wide?)
       (let-values (((base port)
                     (ide-reg->base-offset cont reg)))
-        ; (if wide?
-        ;     (begin
-        ;       (debug-write "READ")
-        ;       (debug-write (number->string base 16))
-        ;       (debug-write (number->string port 16))
-        ;       ))
         (if wide?
             (inw (+ base port))
             (inb (+ base port)))))
@@ -605,9 +584,6 @@
     ;; Reset the IDE drive. It leaves interrupts
     ;; disabled on the drive, as it is the default state.
     (define (reset-drive cont master?)
-      (debug-write "RESET")
-      (debug-write (number->string (ide-controller-base-port cont) 16))
-      (debug-write (master?-to-str master?))
       (let ((short-sleep (lambda _ (until-has-elapsed 5 TIME-UNIT-MICROSECS))))
         (ide-select-device cont master?)
         (ide-delay cont)
@@ -643,14 +619,13 @@
         IDE-PATA-SECOND-CONTROLLER))
 
     (define (read-ide-bar bus device function index offset)
-      (let ((raw-data
-              (bitwise-and
-                IDE-BAR-MASK
-                (pci#read-conf bus device function offset))))
-        (if (and (<= index 3)
-                 (fx= raw-data #x00))
-            (list-ref ide-bar-default-values index)
-            raw-data)))
+      (let ((raw-data (pci#read-conf bus device function offset)))
+        (bitwise-and
+         IDE-BAR-MASK
+         (if (and (<= index 3)
+                  (fx= raw-data #x00))
+             (list-ref ide-bar-default-values index)
+             raw-data))))
 
     ;; Make the two ide controllers (channels) from the information
     ;; obtained form the PCI bus

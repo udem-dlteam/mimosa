@@ -1155,6 +1155,10 @@ void ide_found_controller(uint16 bus, uint8 device, uint8 function,
   bars[2] = (bars[2]) + (IDE_PATA_SECOND_CONTROLLER_BASE * (!bars[2]));
   bars[3] = (bars[3]) + (IDE_PATA_SECOND_CONTROLLER * (!bars[3]));
 
+  for (uint8 i = 0; i < 4; ++i) {
+    bars[i] = bars[i] & IDE_BAR_MASK;
+  }
+
   bool already_there = FALSE;
   for (uint8 i = 0; !already_there && i < controller_count; ++i) {
     ide_controller *old = &ide_controller_map[i];
