@@ -321,7 +321,7 @@
                 (ide-delay ctrl)
                 (spin-loop))))
         (for-each
-          (lambda (i) (ide-write-short ctrl (vector-ref compressed-vector i) IDE-DATA-REG))
+          (lambda (i) (ide-write-word ctrl (vector-ref compressed-vector i) IDE-DATA-REG))
           (iota (<< 1 (- IDE-LOG2-SECTOR-SIZE 1))))
         (mutex-unlock! mut cv) ; wait until the IRQ was received
         (if err
