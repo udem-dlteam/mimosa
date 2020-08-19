@@ -15,8 +15,9 @@
     handle-ide-int
     ide-read-sectors
     ide-write-sectors
-    list-devices
-    ide-setup)
+    ide-setup
+    devices
+    )
   (begin
     (define IDE-BAR-MASK #xFFFFFFFC)
     (define IDE-INT #x3)
@@ -58,7 +59,7 @@
     (define IDE-DEV-CTRL-nIEN (arithmetic-shift 1 1)) ; Interrupt enable bit (0=enabled)
     (define IDE-DEV-HEAD-IBM #xa0)
     (define IDE-DEV-HEAD-LBA (fxior (arithmetic-shift 1 6) IDE-DEV-HEAD-IBM)) ; LBA address
-    (define (IDE-DEV-HEAD-DEV x) (* x (arithmetic-shift 1 4))) ; Device index (0 or 1)
+    (define (IDE-DEV-HEAD-DEV master?) (* (if master? 0 1) (arithmetic-shift 1 4))) ; Device index (0 or 1)
     ;; Commands
     (define IDE-EXEC-DEVICE-DIAG-CMD       #x90)
     (define IDE-FLUSH-CACHE-CMD            #xe7)
@@ -98,6 +99,9 @@
     (define ATA-TYPE 'TYPE-ATA)
     (define SATA-TYPE 'TYPE-SATA)
 
+    (define (hard-drive? device)
+     (eq? (ide-device-purpose device) 'HARD-DISK))
+
     (define (pci-ide-controller? class subclass)
       (and (= class pci#CLASS-MASS-STORAGE)
            (= subclass pci#SUBCLASS-IDE-CONTROLLER)))
@@ -112,7 +116,6 @@
                     IDE-STATUS-DSC
                     IDE-STATUS-DRQ)))
         (not (fx= (fxand status mask) mask))))
-
 
     (define (signature->type signature)
       (cond ((fx= signature ATAPI-SIG)
@@ -211,24 +214,21 @@
     (define (ide-flush-cache device c e)
       (let* ((dev-id (ide-device-id device))
              (ctrl ((ide-device-controller device)))
-             (cpu-port (ide-controller-cpu-port ctrl))
              (q (ide-controller-continuations-queue ctrl))
              (mut (ide-controller-mut ctrl))
              (cv (ide-controller-cv ctrl))
-             (stt-reg (fx+ cpu-port IDE-STATUS-REG))
-             (err #f)
-             (cmd-reg (fx+ cpu-port IDE-COMMAND-REG)))
+             (err #f))
         (mutex-lock! mut)
         (write
           (lambda ()
-            (if (mask (inb stt-reg) IDE-STATUS-ERR)
+            (if (mask (ide-read-byte ctrl IDE-STATUS-REG) IDE-STATUS-ERR)
                 (set! err ERR-HWD))
             (mutex-lock! mut)
             (condition-variable-signal! cv)
             (mutex-unlock! mut))
           q)
         (force-output q)
-        (outb IDE-FLUSH-CACHE-CMD cmd-reg)
+        (ide-write-byte ctrl IDE-FLUSH-CACHE-CMD IDE-COMMAND-REG)
         (mutex-unlock! mut cv)
         (if err (e err) (c))))
 
@@ -243,16 +243,6 @@
                  (ctrl ((ide-device-controller device)))
                  (mut (ide-controller-mut ctrl))
                  (cv (ide-controller-cv ctrl))
-                 (cpu-port (ide-controller-cpu-port ctrl))
-                 (head-reg (fx+ cpu-port IDE-DEV-HEAD-REG))
-                 (sect-count-reg (fx+ cpu-port IDE-SECT-COUNT-REG))
-                 (sect-num-reg (fx+ cpu-port IDE-SECT-NUM-REG))
-                 (cyl-lo-reg (fx+ cpu-port IDE-CYL-LO-REG))
-                 (cyl-hi-reg (fx+ cpu-port IDE-CYL-HI-REG))
-                 (data-reg (fx+ cpu-port IDE-DATA-REG))
-                 (alt-reg (fx+ cpu-port IDE-ALT-STATUS-REG))
-                 (cmd-reg (fx+ cpu-port IDE-COMMAND-REG))
-                 (stt-reg (fx+ cpu-port IDE-STATUS-REG))
                  (q (ide-controller-continuations-queue ctrl))
                  (count (min 256 count))
                  (err #f)
@@ -262,32 +252,30 @@
             (write
               (lambda ()
                 (mutex-lock! mut)
-                (let* ((status (inb stt-reg)))
+                (let* ((status (ide-read-byte ctrl IDE-STATUS-REG)))
                   (if (mask status IDE-STATUS-ERR)
                       (set! err (ide-handle-read-err cpu-port))
                       (begin
                         (for-each
-                          (lambda (i) (vector-set! word-vector i (inw data-reg)))
+                          (lambda (i) (vector-set! word-vector i (ide-read-word ctrl IDE-DATA-REG)))
                           (iota sz))
                         ; TODO: figure out why one more sector avail
-                        (if (mask IDE-STATUS-DRQ (inb alt-reg))
+                        (if (mask IDE-STATUS-DRQ (ide-read-byte ctrl IDE-ALT-STATUS-REG))
                             (set! err ERR-HWD))))
                   ; Signal we are ready
                   (condition-variable-signal! cv)
                   (mutex-unlock! mut)))
               q)
             (force-output q)
-            (outb
-              (b-chop (fxior
-                        IDE-DEV-HEAD-LBA
-                        (IDE-DEV-HEAD-DEV dev-id)
-                        (>> lba 24)))
-              head-reg)
-            (outb (b-chop count) sect-count-reg)
-            (outb (b-chop lba) sect-num-reg)
-            (outb (b-chop (>> lba 8)) cyl-lo-reg)
-            (outb (b-chop (>> lba 16)) cyl-hi-reg)
-            (outb (b-chop IDE-READ-SECTORS-CMD) cmd-reg)
+            (ide-write-byte
+              ctrl
+              (b-chop (fxior IDE-DEV-HEAD-LBA (IDE-DEV-HEAD-DEV dev-id) (>> lba 24)))
+              IDE-DEV-HEAD-REG)
+            (ide-write-byte ctrl (b-chop count) IDE-SECT-COUNT-REG)
+            (ide-write-byte ctrl (b-chop lba) IDE-SECT-NUM-REG)
+            (ide-write-byte ctrl (b-chop (>> lba 8)) IDE-CYL-LO-REG)
+            (ide-write-byte ctrl (b-chop (>> lba 16)) IDE-CYL-HI-REG)
+            (ide-write-byte ctrl (b-chop IDE-READ-SECTORS-CMD) IDE-COMMAND-REG)
             (mutex-unlock! mut cv)
             (if err
                 (e err)
@@ -299,53 +287,40 @@
              (compressed-vector (compress-bvect buffer))
              (dev-id (ide-device-id device))
              (ctrl ((ide-device-controller device)))
-             (cpu-port (ide-controller-cpu-port ctrl))
-             (data-reg (fx+ cpu-port IDE-DATA-REG))
-             (head-reg (fx+ cpu-port IDE-DEV-HEAD-REG))
-             (sect-count-reg (fx+ cpu-port IDE-SECT-COUNT-REG))
-             (sect-num-reg (fx+ cpu-port IDE-SECT-NUM-REG))
-             (cyl-lo-reg (fx+ cpu-port IDE-CYL-LO-REG))
-             (cyl-hi-reg (fx+ cpu-port IDE-CYL-HI-REG))
-             (cmd-reg (fx+ cpu-port IDE-COMMAND-REG))
-             (stt-reg (fx+ cpu-port IDE-STATUS-REG))
              (mut (ide-controller-mut ctrl))
              (cv (ide-controller-cv ctrl))
              (err #f)
-             (q (ide-controller-continuations-queue ctrl))
-             (count (min 256 count)))
+             (q (ide-controller-continuations-queue ctrl)))
         (mutex-lock! mut)
         (write
           (lambda ()
             (mutex-lock! mut)
-            (if (mask (inb stt-reg) IDE-STATUS-ERR)
+            (if (mask (ide-read-byte ctrl IDE-STATUS-REG) IDE-STATUS-ERR)
                 (set! err ERR-HWD))
             (condition-variable-signal! cv)
             (mutex-unlock! mut))
           q) ; nothing really to do, maybe add a signal later?
         (force-output q)
-        (outb
-          (b-chop
-            (fxior
-              IDE-DEV-HEAD-LBA
-              (IDE-DEV-HEAD-DEV dev-id)
-              (>> lba 24)))
-          head-reg)
-        (outb (b-chop count) sect-count-reg)
-        (outb (b-chop lba) sect-num-reg)
-        (outb (b-chop (>> lba 8)) cyl-lo-reg)
-        (outb (b-chop (>> lba 16)) cyl-hi-reg)
-        (outb (b-chop IDE-WRITE-SECTORS-CMD) cmd-reg)
+        (ide-write-byte
+          ctrl
+          (b-chop (fxior IDE-DEV-HEAD-LBA (IDE-DEV-HEAD-DEV dev-id) (>> lba 24)))
+          IDE-DEV-HEAD-REG)
+        (ide-write-byte ctrl (b-chop count) IDE-SECT-COUNT-REG)
+        (ide-write-byte ctrl (b-chop lba) IDE-SECT-NUM-REG)
+        (ide-write-byte ctrl (b-chop (>> lba 8)) IDE-CYL-LO-REG)
+        (ide-write-byte ctrl (b-chop (>> lba 16)) IDE-CYL-HI-REG)
+        (ide-write-byte ctrl (b-chop IDE-WRITE-SECTORS-CMD) IDE-COMMAND-REG)
         ; Wait until the disk is ready
         ; There should be an interrupt sent but somehow
         ; it never comes for the first sector
         (let spin-loop ()
-          (if (or (mask (inb stt-reg) IDE-STATUS-BSY)
-                  (not (mask (inb stt-reg) IDE-STATUS-DRQ)))
+          (if (or (mask (ide-read-byte ctrl IDE-STATUS-REG) IDE-STATUS-BSY)
+                  (not (mask (ide-read-byte ctrl IDE-STATUS-REG) IDE-STATUS-DRQ)))
               (begin
-                (ide-delay cpu-port)
+                (ide-delay ctrl)
                 (spin-loop))))
         (for-each
-          (lambda (i) (outw (vector-ref compressed-vector i) data-reg))
+          (lambda (i) (ide-write-short ctrl (vector-ref compressed-vector i) IDE-DATA-REG))
           (iota (<< 1 (- IDE-LOG2-SECTOR-SIZE 1))))
         (mutex-unlock! mut cv) ; wait until the IRQ was received
         (if err
@@ -389,13 +364,19 @@
                      15))
         (call-if cont)))
 
-    (define (list-devices)
-      (flatten (vector-map
-                 (lambda (controller-or-sym)
-                   (if (symbol? controller-or-sym)
-                       '()
-                       (ide-device-controller controller-or-sym)))
-                 IDE-CTRL-VECT)))
+    (define (devices f)
+      (filter
+        (filter
+          (flatten
+            (vector->list
+              (vector-map
+                (lambda (ctrl-or-sym)
+                  (if (symbol? ctrl-or-sym)
+                      '()
+                      (ide-controller-devices ctrl-or-sym)))
+                IDE-CTRL-VECT)))
+          (o not null?))
+        f))
 
     (define (make-head-command lba? master? head)
       (fxior
@@ -715,7 +696,7 @@
     (define (ide-setup)
       (detect-ide-controllers)
       (for-each setup-controller (filter (vector->list IDE-CTRL-VECT) (o not symbol?)))
-      ; (switch-over-driver)
-      ; (cons IDE-INT handle-ide-int)
-      ) ;; return value expected by the setup routine
+      (switch-over-driver)
+      ;; return value expected by the setup routine
+      (cons IDE-INT handle-ide-int))
     ))

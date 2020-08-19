@@ -207,8 +207,8 @@
 (setup-drivers
  keyboard
  ide
- ; disk
- ; fat32
+ disk
+ fat32
  uart
  )
 

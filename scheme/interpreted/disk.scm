@@ -321,12 +321,15 @@
     ; Init the disk caching system.
     ; This must be called before the disks are used.
     (define (disk-setup)
-      (let* ((ide-devices (ide#list-devices))
+      (let* ((ide-devices (ide#devices ide#hard-drive?))
              (zipped (zip disk-list ide-devices)))
-        (set! disk-list (map (lambda (e)
-                               (if (pair? e)
-                                   (create-disk (cadr e) DISK-TYPE-IDE)
-                                   e)) zipped))
+        (set!
+          disk-list
+          (map (lambda (e)
+                 (if (pair? e)
+                     (create-disk (cadr e) DISK-TYPE-IDE)
+                     e))
+               zipped))
         #t))
 
     ; For a disk, a block address, apply function

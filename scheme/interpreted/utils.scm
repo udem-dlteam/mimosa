@@ -124,7 +124,7 @@
         (g (apply f params))))
 
     ; Combine many functions (\circ with many parameters)
-    (define (O fns)
+    (define (O . fns)
       (lambda (n)
         (if (= (length fns) 0)
             n
@@ -218,14 +218,25 @@
                 (cons (list ea eb) (zip ra rb))
                 ))))
 
-    (define flatten
-      (lambda (ipt)
-        (if (null? ipt)
-            '()
-            (let ((c (car ipt)))
-              (if (pair? c)
-                  (flatten c)
-                  (cons c (flatten (cdr ipt))))))))
+    ; (define flatten
+    ;   (lambda (ipt)
+    ;     (if (null? ipt)
+    ;         '()
+    ;         (let ((c (car ipt)))
+    ;           (if (pair? c)
+    ;               (flatten c)
+    ;               (cons c (flatten (cdr ipt))))))))
+    (define (flatten l)
+     (if (null? l)
+      '()
+      (let ((a (car l))
+            (r (flatten (cdr l))))
+       (if (pair? a)
+        (append (flatten a) r)
+        (cons a r)
+        ))))
+
+
 
     (define (ilog2aux n tot)
       (if (= n 1) tot (ilog2aux (floor (/ n 2)) (++ tot))))
