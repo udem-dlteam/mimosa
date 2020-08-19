@@ -275,7 +275,7 @@ void ide_irq(ide_controller *ctrl) {
  */
 void ide_irq_handle(uint8 irq_no) {
   if (has_cut_ide_support()) {
-    uint8 params[1] = {0};
+    uint8 params[1] = {irq_no};
     send_gambit_int(GAMBIT_IDE_INT, params, 1);
   } else {
     ACKNOWLEDGE_IRQ(irq_no);

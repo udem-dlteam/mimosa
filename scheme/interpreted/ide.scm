@@ -41,6 +41,7 @@
     (define IDE-DRIVE-ADDR-REG #x13)
     ;; Prepended by #x20
     (define IDE-BUSMASTER-STATUS-REG #x22)
+    (define IDE-BUSMASTER-STATUS-IRQ (arithmetic-shift 1 2))
     (define IDE-STATUS-BSY (arithmetic-shift 1 7))  ; Device busy bit
     (define IDE-STATUS-RDY (arithmetic-shift 1 6))  ; Device ready bit
     (define IDE-STATUS-DF (arithmetic-shift 1 5))   ; Device fault bit
@@ -330,7 +331,7 @@
 
     ; Vectors of IDE controllers, it contains the controller present on the
     ; system.
-    (define IDE-CTRL-VECT (make-vector 4 'NOT-PRESENT))
+    (define IDE-CTRL-LIST (make-list 4 'NOT-PRESENT))
 
     (define (ide-delay cont)
       ;; We read the alternative status reg about 4 times.
@@ -355,26 +356,35 @@
 
     ; Dispatches IDE interrupts. It takes the continuation queue for a controller
     ; and simply calls the first one
-    (define (handle-ide-int controller-no)
-      (let* ((ctrl (vector-ref IDE-CTRL-VECT controller-no))
-             (q (ide-controller-continuations-queue ctrl))
-             (cont (read q)))
-        (ack-irq (if (= controller-no 0)
-                     14
-                     15))
-        (call-if cont)))
+    (define (handle-ide-int irq-no)
+      (let ((candidates
+              (filter
+                IDE-CTRL-LIST
+                (lambda (cnt-or-sym)
+                  (if (symbol? cnt-or-sym)
+                      #f
+                      (and
+                        (mask IDE-BUSMASTER-STATUS-IRQ (ide-read-byte cnt-or-sym IDE-BUSMASTER-STATUS-REG))
+                        (= irq-no (ide-controller-irq cnt-or-sym))))))))
+        ;; Supposed to be at least one, but for now we'll feed all
+        (for-each
+          (lambda (ctrl)
+            (let* ((q (ide-controller-continuations-queue ctrl))
+                   (cont (read q)))
+              (ack-irq irq-no)
+              (call-if cont)))
+          candidates)))
 
     (define (devices f)
       (filter
         (filter
           (flatten
-            (vector->list
-              (vector-map
-                (lambda (ctrl-or-sym)
-                  (if (symbol? ctrl-or-sym)
-                      '()
-                      (ide-controller-devices ctrl-or-sym)))
-                IDE-CTRL-VECT)))
+            (map
+              (lambda (ctrl-or-sym)
+                (if (symbol? ctrl-or-sym)
+                    '()
+                    (ide-controller-devices ctrl-or-sym)))
+              IDE-CTRL-LIST))
           (o not null?))
         f))
 
@@ -661,15 +671,15 @@
                    (extract (partial read-ide-bar bus device function))
                    (bar-data (map-with-index extract pci#BAR-LIST))
                    (pata? (= irq #x00))) ;; WIP
-              (if (any? (vector->list
-                          (vector-map
-                            (lambda (controller-or-sym)
-                              (if (symbol? controller-or-sym)
-                                  #f
-                                  (fx=
-                                    (list-ref bar-data 0)
-                                    (ide-controller-base-port controller-or-sym))))
-                            IDE-CTRL-VECT)))
+              (if (any?
+                    (map
+                      (lambda (controller-or-sym)
+                        (if (symbol? controller-or-sym)
+                            #f
+                            (fx=
+                              (list-ref bar-data 0)
+                              (ide-controller-base-port controller-or-sym))))
+                      IDE-CTRL-LIST))
                   'DUPLICATED-CONTROLLER
                   (make-controllers pata? irq bar-data succ)
                   )))))
@@ -684,8 +694,8 @@
               device
               function
               (lambda (p s) ;; primary and seconday controllers
-                (vector-set! IDE-CTRL-VECT ide-controller-count p)
-                (vector-set! IDE-CTRL-VECT (+ 1 ide-controller-count) s)
+                (list-set! IDE-CTRL-LIST ide-controller-count p)
+                (list-set! IDE-CTRL-LIST (+ 1 ide-controller-count) s)
                 (set! ide-controller-count (+ 2 ide-controller-count))))
             )))
 
@@ -695,7 +705,7 @@
 
     (define (ide-setup)
       (detect-ide-controllers)
-      (for-each setup-controller (filter (vector->list IDE-CTRL-VECT) (o not symbol?)))
+      (for-each setup-controller (filter IDE-CTRL-LIST (o not symbol?)))
       (switch-over-driver)
       ;; return value expected by the setup routine
       (cons IDE-INT handle-ide-int))
