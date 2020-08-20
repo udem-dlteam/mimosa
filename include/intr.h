@@ -82,6 +82,10 @@ void setup_intr();
 //-----------------------------------------------------------------------------
 
 // Interrupt handlers must use C linkage.
+//
+typedef void (*irq_handler)(uint8);
+
+extern irq_handler irq_handlers[16];
 
 extern "C" void irq0();
 extern "C" void irq1();
@@ -104,6 +108,10 @@ extern "C" void APIC_spurious_irq();
 extern "C" void unhandled_interrupt(int num);
 extern "C" void interrupt_handle(interrupt_data data);
 extern "C" void sys_irq(void *esp);
+
+bool irq_registered(uint8 irq);
+
+void irq_register_handle(uint8 irq, irq_handler handler);
 
 //-----------------------------------------------------------------------------
 

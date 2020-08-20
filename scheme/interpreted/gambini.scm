@@ -16,6 +16,7 @@
         (rtc)
         (fat32)
         (disk)
+        (pci)
         (ide)
         )
 

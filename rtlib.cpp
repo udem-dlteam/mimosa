@@ -12,6 +12,7 @@
 #include "disk.h"
 #include "drivers/filesystem/include/stdstream.h"
 #include "drivers/filesystem/include/vfs.h"
+#include "drivers/include/pci.h"
 #include "heap.h"
 #include "ide.h"
 #include "intr.h"
@@ -95,12 +96,10 @@ void panic(unicode_string msg) {
   }
 #endif
 
-  // Wait a bit...
-  for (uint32 i = 0; i < CAST(uint32, (-1)); ++i) {
+  while (1) {
     NOP();
   }
 
-  reboot();
   // ** NEVER REACHED ** (this function never returns)
 }
 
@@ -328,14 +327,14 @@ void init(memory_zone *z) {
 extern "C" void __rtlib_entry() {
   setup_bss();
 
-  uint16 no_of_entries = *CAST(uint16 *, MEMORY_ZONES_COUNT_START);
+  uint16 zones_count = *CAST(uint16 *, MEMORY_ZONES_COUNT_START);
   memory_zone *zones = CAST(memory_zone *, MEMORY_ZONES_START);
 
 #ifdef PRINT_MEMORY_LAYOUT
   debug_write("Memory layout:");
 #endif
   uint16 index = 0;
-  for (uint16 i = 0; i < no_of_entries; ++i) {
+  for (uint16 i = 0; i < zones_count; ++i) {
     memory_zone z = zones[i];
 #ifdef PRINT_MEMORY_LAYOUT
     __debug_write(z.base);
@@ -382,6 +381,8 @@ extern "C" void __rtlib_entry() {
 
 //-----------------------------------------------------------------------------
 
+cpu c;
+
 static void identify_cpu() {
   uint32 max_fn;
   native_char vendor[13];
@@ -391,6 +392,10 @@ static void identify_cpu() {
         CAST(uint32 *, vendor)[1]);
   vendor[12] = '\0';
   cpuid(1, processor, dummy, dummy, features);
+
+  c.processor = processor;
+  c.dummy = dummy;
+  c.features = features;
 
 #ifdef SHOW_CPU_INFO
 
@@ -406,7 +411,6 @@ static void identify_cpu() {
 
   // For meaning of these values check:
   //   http://grafi.ii.pw.edu.pl/gbm/x86/cpuid.html
-
   if (features & HAS_FPU)
     term_write(cout, "  Floating Point Unit\n");
   if (features & HAS_VME)
@@ -649,6 +653,9 @@ void __rtlib_setup() {
     mem[i] = 0;
   }
 
+  uint16 zones_count = *CAST(uint16 *, MEMORY_ZONES_COUNT_START);
+  memory_zone *zones = CAST(memory_zone *, MEMORY_ZONES_START);
+
   ASSERT_INTERRUPTS_ENABLED();
 
   term_write(cout, "Initializing ");
@@ -667,6 +674,9 @@ void __rtlib_setup() {
 
   term_write(cout, "Loading up disks...\n");
   setup_disk();
+
+  term_write(cout, "Initializing PCI...\n");
+  setup_pci();
 
   term_write(cout, "Loading up IDE controllers...\n");
   setup_ide();
@@ -704,6 +714,24 @@ void __rtlib_setup() {
   thread_start(new_thread(cache_block_maid_thread, cache_block_maid_run,
                           "Cache block maid"));
 
+#endif
+
+#ifdef PRINT_MEMORY_LAYOUT
+  term_write(cout, (native_string) "Memory zones");
+  for (int i = 0; i < zones_count; ++i) {
+    memory_zone *z = zones + i;
+
+    term_write(cout, (void *)z->base);
+    term_write(cout, (native_string) "+");
+    term_write(cout, z->length);
+    term_write(cout, (native_string) " : ");
+    if (z->type == MEMORY_ZONE_USABLE) {
+      term_write(cout, (native_string) "USABLE");
+    } else {
+      term_write(cout, (native_string) "RESERVED");
+    }
+    term_writeline(cout);
+  }
 #endif
 
   main();

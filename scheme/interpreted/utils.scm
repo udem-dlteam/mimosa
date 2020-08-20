@@ -26,6 +26,8 @@
     both
     build-vector
     call-if
+    any?
+    contradiction
     day-month-year->days-since-epoch
     day-month-year->epoch-seconds
     displayn
@@ -40,6 +42,7 @@
     ilog2
     lazy
     lwrap
+    map-with-index
     mask
     o
     partial
@@ -50,7 +53,9 @@
     split-string
     string->u8vector
     string-trim
+    tautology
     u8vector->string
+    infinite-loop
     uint16
     uint32
     uint8
@@ -61,6 +66,10 @@
     zip
     )
   (begin
+    (define tautology (lambda _ #t)) ;; always true pred
+
+    (define contradiction (lambda _ #f)) ;; always false pred
+
     (define (lazy val) (lambda _ val))
 
     (define (// a b)
@@ -115,7 +124,7 @@
         (g (apply f params))))
 
     ; Combine many functions (\circ with many parameters)
-    (define (O fns)
+    (define (O . fns)
       (lambda (n)
         (if (= (length fns) 0)
             n
@@ -209,14 +218,25 @@
                 (cons (list ea eb) (zip ra rb))
                 ))))
 
-    (define flatten
-      (lambda (ipt)
-        (if (null? ipt)
-            '()
-            (let ((c (car ipt)))
-              (if (pair? c)
-                  (flatten c)
-                  (cons c (flatten (cdr ipt))))))))
+    ; (define flatten
+    ;   (lambda (ipt)
+    ;     (if (null? ipt)
+    ;         '()
+    ;         (let ((c (car ipt)))
+    ;           (if (pair? c)
+    ;               (flatten c)
+    ;               (cons c (flatten (cdr ipt))))))))
+    (define (flatten l)
+     (if (null? l)
+      '()
+      (let ((a (car l))
+            (r (flatten (cdr l))))
+       (if (pair? a)
+        (append (flatten a) r)
+        (cons a r)
+        ))))
+
+
 
     (define (ilog2aux n tot)
       (if (= n 1) tot (ilog2aux (floor (/ n 2)) (++ tot))))
@@ -347,5 +367,20 @@
         (if (>= start l)
             ""
             (substring s start (min l end)))))
+
+    (define (map-with-index f l)
+      (let ((len (length l)))
+        (map
+          (lambda (index)
+            (let ((element (list-ref l index)))
+              (f index element)))
+          (iota len))))
+
+
+    (define (any? l)
+      ;; or is a macro :(
+      (fold (lambda (e r) (or e r)) #f l))
+
+    (define (infinite-loop) (infinite-loop))
 
     ))
