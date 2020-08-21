@@ -3,8 +3,8 @@
 
 #ifdef USE_MIMOSA
 
-#include "general.h"
 #include "chrono.h"
+#include "general.h"
 
 #endif
 
@@ -16,7 +16,7 @@ int REDIRECT_NAME(getrusage)(int __who, struct rusage *__usage) {
 
 #else
 
-  libc_trace("getrusage");
+  // libc_trace("getrusage");
 
 #ifdef USE_HOST_LIBC
 
@@ -39,7 +39,6 @@ int REDIRECT_NAME(getrusage)(int __who, struct rusage *__usage) {
 
 #ifndef USE_LIBC_LINK
 
-void libc_init_sys_resource(void) {
-}
+void libc_init_sys_resource(void) {}
 
 #endif

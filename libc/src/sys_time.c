@@ -9,7 +9,7 @@ int REDIRECT_NAME(gettimeofday)(struct timeval *__restrict __tv,
 
 #else
 
-  libc_trace("gettimeofday");
+  // libc_trace("gettimeofday");
 
 #ifdef USE_HOST_LIBC
 
@@ -23,7 +23,8 @@ int REDIRECT_NAME(gettimeofday)(struct timeval *__restrict __tv,
 #endif
 }
 
-int REDIRECT_NAME(settimeofday)(const struct timeval *__tv, const struct timezone *__tz) {
+int REDIRECT_NAME(settimeofday)(const struct timeval *__tv,
+                                const struct timezone *__tz) {
 
 #ifdef USE_LIBC_LINK
 
@@ -31,7 +32,7 @@ int REDIRECT_NAME(settimeofday)(const struct timeval *__tv, const struct timezon
 
 #else
 
-  libc_trace("settimeofday");
+  // libc_trace("settimeofday");
 
 #ifdef USE_HOST_LIBC
 
@@ -69,7 +70,8 @@ int REDIRECT_NAME(getitimer)(int __which, struct itimerval *__value) {
 #endif
 }
 
-int REDIRECT_NAME(setitimer)(int __which, const struct itimerval *__restrict __new,
+int REDIRECT_NAME(setitimer)(int __which,
+                             const struct itimerval *__restrict __new,
                              struct itimerval *__restrict __old) {
 
 #ifdef USE_LIBC_LINK

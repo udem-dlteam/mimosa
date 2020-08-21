@@ -1,8 +1,8 @@
+#include "include/fat.h"
 #include "chrono.h"
 #include "disk.h"
 #include "general.h"
 #include "ide.h"
-#include "include/fat.h"
 #include "include/vfs.h"
 #include "rtlib.h"
 #include "thread.h"
@@ -2469,8 +2469,9 @@ static void name_to_short_file_name(native_string n, short_file_name *result) {
     }
   }
 
-  while (i < 3)
+  while (i < 3) {
     result->name[8 + i++] = ' ';
+  }
 
   if (full_length > FAT_NAME_LENGTH) {
     // TODO: check the folder for collisions

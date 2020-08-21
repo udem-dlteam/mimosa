@@ -84,10 +84,11 @@ error_code disk_read_sectors(disk *d, uint32 lba, void *buf, uint32 count) {
   error_code err = NO_ERROR;
   if (lba < d->partition_length && lba + count <= d->partition_length) {
     switch (d->kind) {
-    case DISK_IDE:
+    case DISK_IDE: {
       err =
           ide_read_sectors(d->_.ide.dev, d->partition_start + lba, buf, count);
       break;
+    }
     default:
       err = UNIMPL_ERROR;
       break;
