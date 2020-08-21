@@ -41,13 +41,13 @@ img:
 	rm flop.tar.gz
 
 run:
-	qemu-system-i386 -s -m 1G -hda ./floppy.img -debugcon stdio
+	qemu-system-i386 -s -m 2G -hda ./floppy.img -debugcon stdio
 
 run-with-serial:
-	qemu-system-i386 -s -m 1G -hda ./floppy.img -serial tcp:localhost:44555,server,nowait -serial pty -serial pty -debugcon stdio
+	qemu-system-i386 -s -m 2G -hda ./floppy.img -serial tcp:localhost:44555,server,nowait -serial pty -serial pty -debugcon stdio
 
 debug:
-	qemu-system-i386 -s -S -m 1G -hda ./floppy.img -debugcon stdio
+	qemu-system-i386 -s -S -m 2G -hda ./floppy.img -debugcon stdio
 
 mf:
 	$(MAKE) clean

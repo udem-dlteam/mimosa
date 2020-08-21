@@ -12,10 +12,8 @@
 //-----------------------------------------------------------------------------
 
 #define NULL 0
-
 #define TRUE 1
 #define FALSE 0
-
 #define CAST(type, value) ((type)(value))
 
 typedef signed char int8;       // 8 bit signed integers
@@ -190,7 +188,7 @@ typedef int32 error_code;
 // help to debug some timer problems
 // #define BUSY_WAIT_INSTEAD_OF_SLEEP
 
-#define ENABLE_LIBC_TRACE
+/* #define ENABLE_LIBC_TRACE */
 //-----------------------------------------------------------------------------
 
 #ifndef USE_CACHE_BLOCK_MAID

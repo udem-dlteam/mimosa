@@ -8,11 +8,11 @@
 
 //-----------------------------------------------------------------------------
 
+#include "term.h"
 #include "drivers/filesystem/include/stdstream.h"
 #include "drivers/filesystem/include/vfs.h"
 #include "ps2.h"
 #include "rtlib.h"
-#include "term.h"
 #include "thread.h"
 
 //-----------------------------------------------------------------------------
@@ -610,23 +610,8 @@ term *term_write(term *self, uint64 x) {
 }
 
 term *term_write(term *self, void *x) {
-  const int nb_digits = 8; // 32 bit pointer contains 8 hexadecimal digits
-  unicode_char buf[2 + nb_digits + 1];
-  unicode_string str = buf + 2 + nb_digits;
-  uint32 n = CAST(uint32, x);
-  int i;
-
-  *str = '\0';
-
-  for (i = 0; i < nb_digits; i++) {
-    *--str = "0123456789abcdef"[n & 0xf];
-    n = n >> 4;
-  }
-
-  *--str = 'x';
-  *--str = '0';
-
-  return term_write(self, str);
+  unicode_char strbuff[2 + (sizeof(void *) * 2) + 1];
+  return term_write(self, ptr_to_str(x, strbuff));
 }
 
 term *term_writeline(term *self) { return term_write(self, "\n\r"); }

@@ -8,6 +8,7 @@
 
 //-----------------------------------------------------------------------------
 
+#include "rtlib.h"
 #include "chrono.h"
 #include "disk.h"
 #include "drivers/filesystem/include/stdstream.h"
@@ -18,7 +19,6 @@
 #include "intr.h"
 #include "libc/include/libc_header.h"
 #include "ps2.h"
-#include "rtlib.h"
 #include "term.h"
 #include "thread.h"
 #include "video.h"
@@ -75,7 +75,9 @@ void reboot() {
   term_write(cout, "Rebooting failed...\n");
 }
 
-void panic(unicode_string msg) {
+void panic(unicode_string msg) { panic(msg, NULL); }
+
+void panic(unicode_string msg, interrupt_data *fault) {
   if (ARE_INTERRUPTS_ENABLED())
     disable_interrupts();
 
@@ -86,6 +88,20 @@ void panic(unicode_string msg) {
 
   font_draw_string(&font_mono_6x13, &screen.super, 0, 0, msg, &pattern_white,
                    &pattern_black);
+
+  if (NULL != fault) {
+    // Print EIP
+    unicode_char strbuff[2 + (sizeof(void *) * 2) + 1];
+    unicode_string eip_str = ptr_to_str((void *)fault->eip, strbuff);
+
+    font_draw_string(&font_mono_6x13, &screen.super, 0, 16, eip_str,
+                     &pattern_white, &pattern_black);
+
+    unicode_string data_str = ptr_to_str((void *)fault->error_code, strbuff);
+
+    font_draw_string(&font_mono_6x13, &screen.super, 0, 32, data_str,
+                     &pattern_white, &pattern_black);
+  }
 #else
   debug_write("PANIC!");
   unicode_char *p = msg;
@@ -231,6 +247,30 @@ native_string kstrconcat(native_string a, native_string b) {
   out[alen + blen] = '\0';
 
   return out;
+}
+
+/**
+ *  Write a pointer as an hex string into
+ *  the buffer. The buffer needs to be at least of the size
+ *  of a pointer (in bytes) times 2 (the number of digits
+ *  + 3
+ */
+unicode_string ptr_to_str(void *x, unicode_char *buffer) {
+  uint8 nb_digits = (sizeof(void *)) << 1;
+  unicode_string str = buffer + 2 + nb_digits;
+  uint32 n = CAST(uint32, x);
+  int i;
+
+  *str = '\0';
+
+  for (i = 0; i < nb_digits; i++) {
+    *--str = "0123456789abcdef"[n & 0xf];
+    n = n >> 4;
+  }
+
+  *--str = 'x';
+  *--str = '0';
+  return str;
 }
 
 //-----------------------------------------------------------------------------

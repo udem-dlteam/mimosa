@@ -12,6 +12,7 @@
 //-----------------------------------------------------------------------------
 
 #include "general.h"
+#include "intr.h"
 
 #define MEMORY_ZONES_COUNT_START 0x21000
 #define MEMORY_ZONES_START (0x21000 + (8 * sizeof(uint32)))
@@ -23,7 +24,6 @@
 #define MEMORY_ZONE_BAD 5
 #define MEMORY_ZONE_CONTAINS(mz_t, addr)                                       \
   (((mz_t.base) <= (addr)) && ((mz_t.base) + (mz_t.length) >= (addr)))
-
 
 typedef struct {
   uint64 base;     // Base address of the memory zone
@@ -52,6 +52,8 @@ void reboot();
 
 void panic(unicode_string msg);
 
+void panic(unicode_string msg, interrupt_data *data);
+
 //-----------------------------------------------------------------------------
 
 // Math routines.
@@ -78,6 +80,8 @@ int16 kstrcmp(native_string a, native_string b);
 native_string kstrconcat(native_string a, native_string b);
 
 uint32 kstrlen(native_string a);
+
+unicode_string ptr_to_str(void *x, unicode_char *buffer);
 //-----------------------------------------------------------------------------
 
 // Execution of global constructors and destructors.

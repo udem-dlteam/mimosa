@@ -1,12 +1,11 @@
-#include "include/libc_common.h"
 #include "include/setjmp.h"
+#include "include/libc_common.h"
 
 int REDIRECT_NAME(setjmp)(jmp_buf __env) {
 
 #ifdef USE_LIBC_LINK
 
   return LIBC_LINK._setjmp(__env);
-
 
   // generates the code:
   //
@@ -40,6 +39,7 @@ int REDIRECT_NAME(setjmp)(jmp_buf __env) {
 
 #else
 
+  term_write(cout, (native_string) "SETJMP\n");
   libc_trace("setjmp");
 
 #ifdef USE_HOST_LIBC
@@ -48,7 +48,7 @@ int REDIRECT_NAME(setjmp)(jmp_buf __env) {
 
 #else
 
-  __asm__ __volatile__ ("\
+  __asm__ __volatile__("\
                                                         \n\
 #    movl %ebp,%esp    # undo saving of ebp              \n\
 #    popl %ebp                                           \n\
@@ -83,7 +83,8 @@ void REDIRECT_NAME(longjmp)(jmp_buf __env, int __val) {
 
 #else
 
-  libc_trace("longjmp");
+  term_write(cout, (native_string) "LONGJMP\n");
+  // libc_trace("longjmp");
 
 #ifdef USE_HOST_LIBC
 
@@ -92,7 +93,7 @@ void REDIRECT_NAME(longjmp)(jmp_buf __env, int __val) {
 
 #else
 
-  __asm__ __volatile__ ("\
+  __asm__ __volatile__("\
                                                              \n\
 #    movl %ebp,%esp    # undo saving of ebp                   \n\
 #    popl %ebp                                                \n\
@@ -118,7 +119,6 @@ void REDIRECT_NAME(longjmp)(jmp_buf __env, int __val) {
 
 #ifndef USE_LIBC_LINK
 
-void libc_init_setjmp(void) {
-}
+void libc_init_setjmp(void) {}
 
 #endif
