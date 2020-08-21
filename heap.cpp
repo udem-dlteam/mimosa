@@ -25,9 +25,6 @@ static void *heap_sbrk(heap *h, int32 size) {
 
   size_t a = h->alloc;
 
-  if (size < 0) {
-  }
-
   // Maintain word alignment
   size = (size + sizeof(void *) - 1) & ~(sizeof(void *) - 1);
 
@@ -106,7 +103,7 @@ static block *split(heap *h, block *bk, size_t min_size) {
     debug_write(CAST(uint8 *, right_bound));
     debug_write((CAST(uint8 *, other_half) + block_size + other_half->head.sz -
                  2 * sizeof(void *)));
-    panic(L"!");
+    panic(L"Fatal: Programming error in heap management.");
   }
 
   return other_half;
@@ -117,7 +114,8 @@ static block *split(heap *h, block *bk, size_t min_size) {
  */
 static block *extend_heap(heap *h, size_t sz) {
   // There is no cost in extending exactly the size we need.
-  size_t total_sz = sz + block_size - (sizeof(void *) * 2);
+  size_t total_sz =
+      sz + block_size - (sizeof(void *) * 2); // guarantees that total sz > 0
 
   block *blk = CAST(block *, heap_sbrk(h, total_sz));
 
@@ -198,6 +196,9 @@ static void mark_as_free(heap *h, block *bk) {
 }
 
 static block *get_block(heap *h, size_t sz) {
+  if (!sz) {
+    return NULL;
+  }
   block *blk = find_block(h, sz);
   if (NULL == blk) {
     // need to allocate
