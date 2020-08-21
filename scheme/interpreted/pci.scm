@@ -15,12 +15,15 @@
     list-devices)
   (begin
     (define CLASS-MASS-STORAGE #x01)
+    (define CLASS-NETWORK #x02)
     (define SUBCLASS-IDE-CONTROLLER #x01)
+    (define SUBCLASS-ETHERNET #x00)
     (define CONFIG-ADDR #xCF8)
     (define CONFIG-DATA #xCFC)
     (define BUS-COUNT 256)
     (define DEV-PER-BUS 32)
     (define FUNC-PER-DEV 8)
+    (define HEADER-HW-INFO-OFFSET 0)
     (define HEADER-INFO-OFFSET 8)
     (define HEADER-PCI-INFO-OFFSET #x0C)
     (define HEADER-0-INT-OFFSET #x3C)
@@ -39,6 +42,14 @@
         HEADER-0-BAR4
         HEADER-0-BAR5))
 
+
+    (define-type pci-device
+     bus
+     device
+     function
+     class
+     subclass
+     )
 
     ;; Convert an offset to a register number
     (define (offset->register offset)
@@ -74,14 +85,12 @@
       (let ((vendor (read-conf bus device function #x00)))
         (not (= #xFFFFFFFF vendor))))
 
-    ;; Make a list the devices that satisfy the predicate.
-    ;; The predicate takes in argument the class code and subclass code
-    ;; of the device.
+    ;; Make a list the devices detected on the PCI buses
     ;; The result is given as a list of list, where each sublist
     ;; is of the form '(bus device function)
     ;; It starts at the given bus device and function, and takes
     ;; a currently found list
-    (define (list-device-at bus device function pred found)
+    (define (list-device-at bus device function found)
       (let* ((current ;; at the current address
                (if (device-at? bus device function)
                    (let* ((info-line
@@ -94,20 +103,25 @@
                             (bitwise-and
                               #xFF
                               (arithmetic-shift info-line -16))))
-                     (if (pred class subclass)
-                         (list bus device function)
-                         'NOTHING))
+                     (make-pci-device
+                       bus
+                       device
+                       function
+                       class
+                       subclass))
                    'NOTHING))
              (found (if (not (eq? 'NOTHING current))
                         (cons current found)
                         found)))
         (cond ((fx< function (-- FUNC-PER-DEV))
-               (list-device-at bus device (++ function) pred found))
+               (list-device-at bus device (++ function) found))
               ((fx< device (-- DEV-PER-BUS))
-               (list-device-at bus (++ device) 0 pred found))
+               (list-device-at bus (++ device) 0 found))
               ((fx< bus 0) ;; TODO: otherlines might be uninit, stay on 0 for now
-               (list-device-at (++ bus) 0 0 pred found))
+               (list-device-at (++ bus) 0 0 found))
               (else found))))
+
+    (define devices (list))
 
     ;; Make a list the devices that satisfy the predicate.
     ;; The predicate takes in argument the class code and subclass code
@@ -115,6 +129,10 @@
     ;; The result is given as a list of list, where each sublist
     ;; is of the form '(bus device function)
     (define (list-devices pred)
-      (list-device-at #x0000 #x0000 #x0000 pred '()))
+      (if (null? devices)
+       (set! devices (list-device-at #x00 #x00 #x00 '())))
+
+      (filter devices (lambda (dev)
+                       (pred (pci-device-class dev) (pci-device-subclass dev)))))
 
     ))

@@ -18,6 +18,8 @@
         (disk)
         (pci)
         (ide)
+        (net)
+        (intel100e)
         )
 
 (define (reboot)
@@ -210,6 +212,8 @@
  disk
  fat32
  uart
+ intel100e
+ net
  )
 
 (define fs

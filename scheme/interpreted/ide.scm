@@ -682,11 +682,11 @@
                   (make-controllers pata? irq bar-data succ)
                   )))))
 
-    (define (install-controller bus-device-function)
+    (define (install-controller device)
       (if (<= (+ 2 ide-controller-count) IDE-CONTROLLERS)
-          (let ((bus (car bus-device-function))
-                (device (cadr bus-device-function))
-                (function (caddr bus-device-function)))
+          (let ((bus (pci#pci-device-bus device))
+                (device (pci#pci-device-device device))
+                (function (pci#pci-device-function device)))
             (identify-controller-channels
               bus
               device
