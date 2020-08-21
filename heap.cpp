@@ -1,5 +1,5 @@
-#include "general.h"
 #include "heap.h"
+#include "general.h"
 #include "rtlib.h"
 #include "term.h"
 
@@ -32,6 +32,7 @@ static void *heap_sbrk(heap *h, int32 size) {
   size = (size + sizeof(void *) - 1) & ~(sizeof(void *) - 1);
 
   if (a + size > h->size) {
+    panic(L"OOM: Allocating more than available.");
     return NULL;
   } else if (a + size < 0) {
     panic(L"Incorrect call on heap_sbrk");
