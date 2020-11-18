@@ -78,3 +78,10 @@ This header file is issued from the `include/gambit.h.in` from the custom Gambit
 # Developement
 
 The project has seen many codestyles and so some parts of the code are not formatted the same. The C++ code tries to use the "llvm" format (mainly in driver and kernel files), using the `clang-format` utility. The Scheme code does not follow a style that has a name that I know of. 
+
+# Papers & Presentation.
+
+- In 2019, Mimosa was presented at the "Gambit at 30" event. You will find related presentations [here](https://github.com/gambit/gambit-at-30)
+- In 2020, we presented the Mimosa system in the context of running Scheme on bare-metal at the 2020 Scheme workshop. You will find
+  the associated article [here](https://icfp20.sigplan.org/details/scheme-2020-papers/3/Running-Scheme-On-Bare-Metal-Experience-Report-)
+
